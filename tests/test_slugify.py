@@ -18,7 +18,15 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from mdq.hypothesis import slugs as st_slugs
-from mdq.slugify import SLUGIFIERS, loose, simple, slugify, validate_slug
+from mdq.slugify import (
+    DIGIT_NAMES,
+    SLUGIFIERS,
+    SYMBOL_NAMES,
+    loose,
+    simple,
+    slugify,
+    validate_slug,
+)
 
 
 #
@@ -246,10 +254,17 @@ def test_loose_singleton_never_raises(items: frozenset[str]) -> None:
     _assert_valid_unique_slugs(items, frozenset(), result)
 
 
+#: A single digit or symbol is also a valid one-character slug, but
+#: `loose` names it from a fixed table instead (dev/specs/to-do/derived-ids.md)
+#: -- excluded from the no-op check below, which is about there being
+#: nothing *more descriptive* to slugify a short text into.
+_NAMED_GLYPHS = frozenset(DIGIT_NAMES) | frozenset(SYMBOL_NAMES)
+
+
 @given(
-    items=st.sets(st_slugs.short_slug_like_strings(), min_size=1, max_size=8).map(
-        frozenset
-    )
+    items=st.sets(st_slugs.short_slug_like_strings(), min_size=1, max_size=8)
+    .map(frozenset)
+    .filter(lambda items: items.isdisjoint(_NAMED_GLYPHS))
 )
 @settings(max_examples=150)
 def test_loose_is_a_no_op_on_short_text_that_is_already_a_unique_slug(

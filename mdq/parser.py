@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import math
 import re
-import unicodedata
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, NamedTuple, Required, TypedDict, cast
@@ -90,42 +89,6 @@ md.block.ruler.disable("reference")
 SLUG_BODY_RE = r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
 SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]\s*")
 CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]\s*")
-
-# Single-glyph choices (a lone symbol or digit) slugify to nothing useful
-# once punctuation is stripped, so they get a small name table instead --
-# this is the "typical case" workaround docs/question-types/multiple-choice.md
-# gestures at (`! -> bang`, `? -> question`).
-DIGIT_NAMES = {
-    "0": "zero",
-    "1": "one",
-    "2": "two",
-    "3": "three",
-    "4": "four",
-    "5": "five",
-    "6": "six",
-    "7": "seven",
-    "8": "eight",
-    "9": "nine",
-}
-SYMBOL_NAMES = {
-    "-": "hyphen",
-    "*": "asterisk",
-    "+": "plus",
-    "!": "bang",
-    "?": "question",
-    "/": "slash",
-    ".": "dot",
-    ",": "comma",
-    ":": "colon",
-    ";": "semicolon",
-    "@": "at",
-    "#": "hash",
-    "$": "dollar",
-    "%": "percent",
-    "&": "ampersand",
-    "=": "equals",
-    "_": "underscore",
-}
 
 # Body-start detection.
 ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
@@ -367,11 +330,9 @@ def parse_exam(
         doc["instructions"] = instructions
 
     questions: list[ExamEntryDict] = []
-    for position, block in enumerate(blocks, start=1):
+    for index, block in enumerate(blocks):
         questions.append(
-            _parse_exam_block(
-                block, position, doc, loader, warnings=warnings, index=position - 1
-            )
+            _parse_exam_block(block, doc, loader, warnings=warnings, index=index)
         )
     doc["questions"] = questions
 
@@ -819,7 +780,9 @@ class MDQParser:
         ids = _assign_choice_ids(raw_choices)
         choices = []
         for choice, choice_id in zip(raw_choices, ids):
-            entry: dict[str, Any] = {"id": choice_id, "text": choice.text}
+            entry: dict[str, Any] = {"text": choice.text}
+            if choice_id is not None:
+                entry["id"] = choice_id
             if question_type == "multiple-choice":
                 # Always explicit (see multiple-choice/simple.yaml): score
                 # is emitted even when 0, not just for correct/partial
@@ -1190,7 +1153,9 @@ class MDQParser:
                 ids = _assign_choice_ids(raw_choices)
                 choices: list[ScoredChoiceDict] = []
                 for choice, choice_id in zip(raw_choices, ids):
-                    entry: ScoredChoiceDict = {"id": choice_id, "text": choice.text}
+                    entry: ScoredChoiceDict = {"text": choice.text}
+                    if choice_id is not None:
+                        entry["id"] = choice_id
                     score = _score_from_value(choice.value)
                     if score:
                         entry["score"] = score
@@ -1426,36 +1391,6 @@ class MDQParser:
         self.apply_type_specific_frontmatter(question_type)
 
         return cast(QuestionDict, self.state)
-
-
-#
-# Slugs and choice ids
-#
-def _fold_ascii(text: str) -> str:
-    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-
-
-def _slugify(text: str) -> str:
-    folded = _fold_ascii(text).lower()
-    slug = re.sub(r"[^a-z0-9]+", "-", folded).strip("-")
-    return slug
-
-
-def _slugify_choice_text(text: str) -> str:
-    """
-    Derive a url-safe choice id from its text, per
-    docs/question-types/multiple-choice.md#choices.
-    """
-
-    core = text.strip()
-    if len(core) >= 2 and core[0] == "`" and core[-1] == "`" and core.count("`") == 2:
-        core = core[1:-1]
-    if len(core) == 1:
-        if core in SYMBOL_NAMES:
-            return SYMBOL_NAMES[core]
-        if core in DIGIT_NAMES:
-            return DIGIT_NAMES[core]
-    return _slugify(text) or "choice"
 
 
 #
@@ -1807,11 +1742,17 @@ def _split_list_items(item_lines: list[str]) -> list[list[str]]:
     return items
 
 
-def _assign_choice_ids(choices: list[RawChoice]) -> list[str]:
-    ids = []
-    for choice in choices:
-        ids.append(choice.explicit_id or _slugify_choice_text(choice.text))
-    return ids
+def _assign_choice_ids(choices: list[RawChoice]) -> list[str | None]:
+    """
+    Return each choice's id, exactly as the author wrote it -- `None` for
+    a choice with no explicit id.
+
+    A choice without an id used to get one derived from its text here;
+    that derivation now lives in `mdq.models.BaseQuestion.with_ids`,
+    called by whoever needs an addressable document
+    (dev/specs/to-do/derived-ids.md).
+    """
+    return [choice.explicit_id for choice in choices]
 
 
 def _infer_choice_type(values: list[str]) -> str | None:
@@ -2095,7 +2036,6 @@ def _clean_block(text: str) -> str | None:
 
 def _parse_exam_block(
     lines: list[str],
-    position: int,
     exam: dict[str, Any],
     loader: QuestionLoader | None,
     *,
@@ -2107,6 +2047,11 @@ def _parse_exam_block(
 
     `index` is the block's 0-based position, used only to path-prefix any
     `unknown-frontmatter-key` warning as `("questions", index, key)`.
+
+    A block with no explicit `id` gets none here -- the implicit,
+    position-based id (`q<position>`, exam.md "Question ids") is
+    `Exam.with_ids()`'s job, not the parser's
+    (dev/specs/to-do/derived-ids.md).
     """
 
     # Drop a leading `===`; what follows is ordinary question source.
@@ -2145,7 +2090,6 @@ def _parse_exam_block(
         warnings.extend(
             replace(w, path=("questions", index) + w.path) for w in block_warnings
         )
-    parsed_question.setdefault("id", f"q{position}")
     _inherit_from_exam(parsed_question, exam)
     return cast(QuestionDict, parsed_question)
 

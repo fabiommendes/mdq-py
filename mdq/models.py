@@ -53,7 +53,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from . import parser, render, schedule
+from . import parser, render, schedule, slugify
 from . import types as t
 from .errors import NotAutoGradable, ResponseError
 from .regex import RegexPattern
@@ -386,6 +386,47 @@ class Statement(MdqModel):
 
 
 #
+# `with_ids()`: deriving ids (dev/specs/to-do/derived-ids.md)
+#
+
+
+def _with_choice_ids[C: (ScoredChoice, BooleanChoice, Statement)](
+    choices: Sequence[C],
+) -> list[C]:
+    """
+    Return `choices` with a derived id filled in wherever one is missing.
+
+    A choice that already has an id keeps it. Every derived id avoids
+    every id already in use, explicit or derived, so the result never
+    collides (`mdq.slugify.loose`). Returns a new list; a choice that
+    already has an id is returned as-is.
+    """
+    missing = [choice for choice in choices if choice.id is None]
+    if not missing:
+        return list(choices)
+
+    forbid = {choice.id for choice in choices if choice.id is not None}
+    derived = slugify.loose(
+        frozenset(choice.text for choice in missing), forbid=frozenset(forbid)
+    )
+    return [
+        choice
+        if choice.id is not None
+        else choice.model_copy(update={"id": derived[choice.text]})
+        for choice in choices
+    ]
+
+
+def _implicit_question_id(index: int) -> str:
+    """
+    The implicit id a question at 0-based `index` would get: `q1` for the
+    first block, `q2` for the second, and so on -- counting every block
+    in the exam, includes included (exam.md, "Question ids").
+    """
+    return f"q{index + 1}"
+
+
+#
 # Questions
 #
 class BaseQuestion[R](MdqModel):
@@ -523,6 +564,18 @@ class BaseQuestion[R](MdqModel):
         """
         raise NotImplementedError("Subclasses must implement score_response()")
 
+    def with_ids(self) -> Self:
+        """
+        Return a copy of this question with a derived id filled in for
+        every choice that has none of its own (dev/specs/to-do/derived-ids.md).
+
+        A question type with no choices (essay, numeric, short answer,
+        ordering) has nothing to derive, so this returns a plain copy.
+        Never changes `self`, never touches an id already written, and
+        running it twice gives the same result as running it once.
+        """
+        return self.model_copy()
+
 
 class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     choices: Annotated[list[ScoredChoice], Field(min_length=2)]
@@ -538,6 +591,10 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         """
         _check_unique_choices(type(self).__name__, self.choices)
         return self
+
+    def with_ids(self) -> Self:
+        """See `BaseQuestion.with_ids`."""
+        return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -610,6 +667,10 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
+    def with_ids(self) -> Self:
+        """See `BaseQuestion.with_ids`."""
+        return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.shuffle is not None:
@@ -669,6 +730,10 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         """
         _check_unique_choices(type(self).__name__, self.choices)
         return self
+
+    def with_ids(self) -> Self:
+        """See `BaseQuestion.with_ids`."""
+        return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -1030,6 +1095,22 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             seen[blank.id] = index
         return self
 
+    def with_ids(self) -> Self:
+        """
+        See `BaseQuestion.with_ids`.
+
+        Only a `ChoiceBlank`'s own choices get a derived id -- a blank's
+        `id` is required already (it names the `[^id]` marker in the
+        stem), and short-answer/numeric blanks have no choices at all.
+        """
+        new_blanks = [
+            blank.model_copy(update={"choices": _with_choice_ids(blank.choices)})
+            if isinstance(blank, ChoiceBlank)
+            else blank
+            for blank in self.blanks
+        ]
+        return self.model_copy(update={"blanks": new_blanks})
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.shuffle is not None:
@@ -1241,9 +1322,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             self.effective_normalizations()
         )
 
-    def comparison_key(
-        self, lines: Iterable[OrderingLine]
-    ) -> tuple[OrderingLine, ...]:
+    def comparison_key(self, lines: Iterable[OrderingLine]) -> tuple[OrderingLine, ...]:
         """
         The form `lines` takes when compared: this question's
         normalizations applied, and every level flattened to 0 unless
@@ -1336,11 +1415,15 @@ class Exam(MdqModel):
     @model_validator(mode="after")
     def check_questions_have_unique_ids(self) -> Self:
         """
-        exam.md, "Question ids": ids MUST be unique within the exam, once
-        includes are resolved and implicit ids (`q1`, `q2`, ...) are
-        assigned -- both already true of `self.questions` by the time
-        this runs. A question with no id (neither declared nor implicit)
-        does not participate: there is nothing to collide.
+        exam.md, "Question ids": declared ids MUST be unique within the
+        exam, once includes are resolved -- and none of them may equal
+        the implicit, position-based id (`q1`, `q2`, ...) another
+        question would get. Neither the parser nor this model fills
+        implicit ids in; `with_ids()` does that once the exam already
+        validated (dev/specs/to-do/derived-ids.md). This validator only
+        computes them, to catch the collision early. A question with
+        neither a declared id nor a colliding implicit one does not
+        participate: there is nothing to collide.
         """
         seen: dict[str, int] = {}
         for index, question in enumerate(self.questions):
@@ -1360,7 +1443,48 @@ class Exam(MdqModel):
                     question_id,
                 )
             seen[question_id] = index
+
+        for index, question in enumerate(self.questions):
+            if question.id is not None:
+                continue
+            implicit_id = _implicit_question_id(index)
+            colliding_index = seen.get(implicit_id)
+            if colliding_index is not None:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "duplicate-question-id",
+                    (
+                        f"question id {implicit_id!r}, the implicit id "
+                        f"questions[{index}] would get, is already used by "
+                        f"questions[{colliding_index}]"
+                    ),
+                    ("questions", index),
+                    implicit_id,
+                )
         return self
+
+    def with_ids(self) -> Self:
+        """
+        Return a copy of this exam in which every question -- and every
+        one of its choices -- has an id, so a response can name what it
+        refers to (GLOSSARY.md, "Addressable").
+
+        A question with no explicit id gets the implicit one for its
+        position, `q<position>`, counting every block in the exam,
+        includes included (exam.md, "Question ids"); an explicit id is
+        never touched. Every question then runs its own `with_ids()`, so
+        its choices get theirs too. Never changes `self`, and running it
+        twice gives the same result as running it once.
+        """
+        new_questions = [
+            question.with_ids()
+            if question.id is not None
+            else question.with_ids().model_copy(
+                update={"id": _implicit_question_id(index)}
+            )
+            for index, question in enumerate(self.questions)
+        ]
+        return self.model_copy(update={"questions": new_questions})
 
     def model_post_init(self, __ctx):
         for i, question in enumerate(self.questions):

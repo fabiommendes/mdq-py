@@ -7,9 +7,9 @@ to pydantic model validators: `load` must report them as `error`
 diagnostics, with `document=None`, using the same codes and paths the
 linter used to report as warnings.
 
-The parser side of the spec requires derived choice ids to disambiguate
-(`mdq.slugify.loose`) instead of colliding silently, and to never step on
-an explicit id in the same question.
+Derived-id disambiguation (`mdq.slugify.loose` never colliding, and never
+stepping on an explicit id) moved to `with_ids()` and is covered by
+`tests/test_derived_ids.py`, per dev/specs/to-do/derived-ids.md.
 
 Fixtures use Brazil-themed questions and exams, per AGENTS.md. Written
 against the public `mdq.load` API only -- no parser/linter internals.
@@ -17,11 +17,8 @@ against the public `mdq.load` API only -- no parser/linter internals.
 
 from __future__ import annotations
 
-import pytest
-
 from mdq import Diagnostic, load
 from mdq.loaders import DictLoader
-from mdq.models import MultipleChoiceQuestion
 
 #: The four rules this spec promotes from lint warnings to model errors.
 _UNIQUE_ID_CODES = frozenset(
@@ -371,78 +368,6 @@ def test_unique_question_ids_do_not_error() -> None:
     loaded = load(text, kind="exam")
     assert loaded.document is not None
     assert "duplicate-question-id" not in _codes(loaded.diagnostics)
-
-
-# ---------------------------------------------------------------------
-# Parser disambiguation: derived choice ids never collide
-# ---------------------------------------------------------------------
-
-
-@pytest.mark.xfail(reason="parser does not disambiguate derived ids; see dev spec derived-ids.md", strict=True)
-def test_brasilia_and_brasilia_ascii_get_different_derived_ids() -> None:
-    """
-    `Brasília` and `Brasilia` both fold to the same ASCII slug; the
-    parser must disambiguate the two derived ids instead of colliding,
-    and the document must load with no diagnostics at all.
-    """
-    text = (
-        "Qual grafia consta no censo demográfico?\n"
-        "\n"
-        "* [ ] Brasília\n"
-        "* [*] Brasilia\n"
-        "* [ ] Nenhuma das anteriores\n"
-    )
-    loaded = load(text)
-    assert loaded.document is not None
-    assert loaded.diagnostics == []
-    assert isinstance(loaded.document, MultipleChoiceQuestion)
-    ids = [choice.id for choice in loaded.document.choices]
-    assert len(ids) == len(set(ids)), f"derived ids collided: {ids}"
-
-
-@pytest.mark.xfail(reason="parser does not disambiguate derived ids; see dev spec derived-ids.md", strict=True)
-def test_sao_paulo_bang_and_question_mark_get_different_derived_ids() -> None:
-    """
-    `São Paulo!` and `São Paulo?` both slugify to `sao-paulo` once
-    punctuation is stripped; the parser must disambiguate.
-    """
-    text = (
-        "Qual pontuação está correta?\n"
-        "\n"
-        "* [ ] São Paulo!\n"
-        "* [*] São Paulo?\n"
-        "* [ ] Rio de Janeiro\n"
-    )
-    loaded = load(text)
-    assert loaded.document is not None
-    assert loaded.diagnostics == []
-    assert isinstance(loaded.document, MultipleChoiceQuestion)
-    ids = [choice.id for choice in loaded.document.choices]
-    assert len(ids) == len(set(ids)), f"derived ids collided: {ids}"
-
-
-@pytest.mark.xfail(reason="parser does not disambiguate derived ids; see dev spec derived-ids.md", strict=True)
-def test_derived_id_never_takes_an_explicit_id_of_the_same_question() -> None:
-    """
-    Choice 2 declares the explicit id `brasilia`; choice 1 has no
-    explicit id but its text (`Brasília`) would naturally derive to
-    `brasilia` too. The derived id must avoid the explicit one.
-    """
-    text = (
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "* [ ] Brasília\n"
-        "* [*] [brasilia] Distrito Federal, sede do governo\n"
-        "* [ ] São Paulo\n"
-    )
-    loaded = load(text)
-    assert loaded.document is not None
-    assert loaded.diagnostics == []
-    assert isinstance(loaded.document, MultipleChoiceQuestion)
-    derived_id, explicit_id = (choice.id for choice in loaded.document.choices[:2])
-    assert explicit_id == "brasilia"
-    assert derived_id != "brasilia"
-    assert derived_id is not None
 
 
 # ---------------------------------------------------------------------

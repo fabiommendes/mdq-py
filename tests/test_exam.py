@@ -128,16 +128,26 @@ def test_exam_with_no_questions_parses_and_warns() -> None:
 
 
 def test_questions_without_an_id_are_numbered_by_position() -> None:
+    """
+    The parser itself no longer numbers anything -- a question with no
+    declared `id` keeps none (dev/specs/to-do/derived-ids.md).
+    `Exam.with_ids()` is what gives it `q1`; see
+    tests/test_derived_ids.py.
+    """
     doc = parse_any(MINIMAL)
-    assert doc["questions"][0]["id"] == "q1"
+    assert doc["questions"][0].get("id") is None
 
 
 def test_an_include_occupies_a_position() -> None:
-    """exam.md: the implicit id matches the position the student sees, so
-    an include in slot 1 makes the next question q2."""
+    """
+    exam.md: a question's derived id matches the position the student
+    sees, so an include in slot 1 makes the next question's derived id
+    q2 -- but the parser only leaves the id absent; `Exam.with_ids()`
+    does the counting (tests/test_derived_ids.py).
+    """
     doc = parse_file(MIDTERM)
-    ids = [q.get("include") or q["id"] for q in doc["questions"]]
-    assert ids == ["recursion-01", "factorial", "q3"]
+    ids = [q.get("include") or q.get("id") for q in doc["questions"]]
+    assert ids == ["recursion-01", "factorial", None]
 
 
 def test_a_declared_id_is_kept() -> None:

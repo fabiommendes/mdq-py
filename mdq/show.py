@@ -71,7 +71,7 @@ def show_source(
     Raises:
         InvalidDocument: `src` is not a valid MDQ document.
     """
-    document = parse(src, loader=loader)
+    document = parse(src, loader=loader, ids="fill")
     if isinstance(document, models.Exam):
         render_exam(document, console, show_answer_key=show_answer_key)
     else:

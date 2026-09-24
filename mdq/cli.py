@@ -201,7 +201,7 @@ def export(
 
     source = file.read_text(encoding="utf-8")
     try:
-        question = parse(source, kind="question")
+        question = parse(source, kind="question", ids="fill")
     except InvalidDocument as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1)

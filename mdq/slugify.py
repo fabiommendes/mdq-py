@@ -121,20 +121,74 @@ def loose(items: SetLike[str], *, forbid: SetLike[str] = frozenset()) -> dict[st
 _SHORT_SLUG_MAX_LENGTH = 24
 _EMPTY_SLUG_PLACEHOLDER = "item"
 
+# Single-glyph text (a lone symbol or digit) slugifies to nothing useful
+# once punctuation is stripped, so it gets a small name table instead --
+# the "typical case" workaround docs/question-types/multiple-choice.md
+# gestures at (`! -> bang`, `? -> question`). Formerly `mdq.parser`'s
+# `DIGIT_NAMES`/`SYMBOL_NAMES`, moved here so a derived id stays the same
+# regardless of who computes it (dev/specs/to-do/derived-ids.md).
+DIGIT_NAMES = {
+    "0": "zero",
+    "1": "one",
+    "2": "two",
+    "3": "three",
+    "4": "four",
+    "5": "five",
+    "6": "six",
+    "7": "seven",
+    "8": "eight",
+    "9": "nine",
+}
+SYMBOL_NAMES = {
+    "-": "hyphen",
+    "*": "asterisk",
+    "+": "plus",
+    "!": "bang",
+    "?": "question",
+    "/": "slash",
+    ".": "dot",
+    ",": "comma",
+    ":": "colon",
+    ";": "semicolon",
+    "@": "at",
+    "#": "hash",
+    "$": "dollar",
+    "%": "percent",
+    "&": "ampersand",
+    "=": "equals",
+    "_": "underscore",
+}
+
+
+def _named_glyph(item: str) -> str | None:
+    """
+    Return the fixed name for `item` if it is a single glyph, wrapped in a
+    Markdown code span (`` `-` ``) or not -- `None` otherwise.
+    """
+    core = item.strip()
+    if len(core) >= 2 and core[0] == "`" and core[-1] == "`" and core.count("`") == 2:
+        core = core[1:-1]
+    if len(core) != 1:
+        return None
+    return SYMBOL_NAMES.get(core) or DIGIT_NAMES.get(core)
+
 
 def _slug_candidates(item: str) -> list[str]:
     """
     Return `item`'s slug candidates, from the shortest/easiest to the most
     complete, with duplicates removed and never empty.
 
-    A "short" candidate (the item's first few words, cut at a word boundary)
-    comes first since it usually reads better and is often already unique on
-    its own. The "full" candidate (the item's entire text) comes next, since
-    two items that share their first words can still differ later on. Items
-    with no sluggable content at all (empty, whitespace, or symbols only)
-    fall back to a fixed placeholder so a numeric suffix always has
-    something to attach to.
+    A single-glyph text's fixed name (see `SYMBOL_NAMES`/`DIGIT_NAMES`)
+    comes first, since there is nothing more descriptive to slugify it
+    into. A "short" candidate (the item's first few words, cut at a word
+    boundary) comes next since it usually reads better and is often
+    already unique on its own. The "full" candidate (the item's entire
+    text) comes after, since two items that share their first words can
+    still differ later on. Items with no sluggable content at all (empty,
+    whitespace, or symbols only) fall back to a fixed placeholder so a
+    numeric suffix always has something to attach to.
     """
+    named = _named_glyph(item)
     short = single_slugify(
         item,
         max_length=_SHORT_SLUG_MAX_LENGTH,
@@ -143,7 +197,7 @@ def _slug_candidates(item: str) -> list[str]:
     )
     full = single_slugify(item)
 
-    candidates = [c for c in (short, full) if c]
+    candidates = [c for c in (named, short, full) if c]
     unique_candidates = list(dict.fromkeys(candidates))
     return unique_candidates or [_EMPTY_SLUG_PLACEHOLDER]
 

@@ -314,7 +314,9 @@ def test_exam_separator_immediately_followed_by_frontmatter_is_one_question() ->
     )
     exam = parse_exam(source)
     assert exam["instructions"] == "Leia com atenção."
-    assert [q.get("id") for q in exam["questions"]] == ["q1", "q2"]
+    # The first block declares no `id`; the parser no longer derives one
+    # (dev/specs/to-do/derived-ids.md) -- `with_ids()` would give it `q1`.
+    assert [q.get("id") for q in exam["questions"]] == [None, "q2"]
     assert [q["type"] for q in exam["questions"]] == ["essay", "essay"]
     assert exam["questions"][0]["preamble"] == (
         "Considere o processo abaixo.\n\n---\n\nAtenção: a resposta deve ser justificada."

@@ -46,6 +46,13 @@ Format = Literal["mdq", "yaml", "json"]
 
 Kind = Literal["question", "exam"]
 
+#: `"keep"` returns `Loaded.document` exactly as written; `"fill"` returns
+#: `document.with_ids()` instead, so every question and every choice has
+#: an id (see `mdq.models.BaseQuestion.with_ids`/`mdq.models.Exam.with_ids`,
+#: GLOSSARY.md "Addressable"). Lint always inspects the document as
+#: written, regardless of `ids` -- it never changes what gets linted.
+Ids = Literal["fill", "keep"]
+
 #: `Path` suffixes that select each format, checked against the whole
 #: filename (not `Path.suffix`) since `.mdq.md` is a compound suffix.
 _MDQ_SUFFIXES = (".mdq.md", ".mdq")
@@ -114,6 +121,7 @@ def load(
     kind: Literal["question"],
     format: Format | None = None,
     loader: QuestionLoader | None = None,
+    ids: Ids = "keep",
 ) -> Loaded[models.Question]: ...
 @overload
 def load(
@@ -122,6 +130,7 @@ def load(
     kind: Literal["exam"],
     format: Format | None = None,
     loader: QuestionLoader | None = None,
+    ids: Ids = "keep",
 ) -> Loaded[models.Exam]: ...
 @overload
 def load(
@@ -130,6 +139,7 @@ def load(
     kind: None = None,
     format: Format | None = None,
     loader: QuestionLoader | None = None,
+    ids: Ids = "keep",
 ) -> Loaded[models.Question | models.Exam]: ...
 def load(
     source: Source,
@@ -137,6 +147,7 @@ def load(
     kind: Kind | None = None,
     format: Format | None = None,
     loader: QuestionLoader | None = None,
+    ids: Ids = "keep",
 ) -> Loaded[Any]:
     """
     Load a question or exam document, and lint it.
@@ -157,13 +168,17 @@ def load(
             `wrong-kind`, detected before any model validation runs.
         format: Overrides the format `source` would otherwise imply.
         loader: Resolves an exam's `include:` references.
+        ids: `"keep"` (the default) returns `Loaded.document` exactly as
+            written. `"fill"` returns `document.with_ids()` instead, so
+            every question and choice has an id. Lint always inspects
+            the document as written, in both modes.
 
     Raises:
         OSError: `source` is a `Path` that cannot be read.
         ValueError: `format` cannot be determined, or is not recognized.
     """
     if isinstance(source, Mapping):
-        return _load_data(dict(source), kind=kind, loader=loader)
+        return _load_data(dict(source), kind=kind, loader=loader, ids=ids)
 
     if isinstance(source, Path):
         fmt = format or _format_from_path(source)
@@ -179,7 +194,7 @@ def load(
     else:
         raise TypeError(f"unsupported source type: {type(source)!r}")
 
-    return _load_text(text, fmt, kind=kind, loader=loader)
+    return _load_text(text, fmt, kind=kind, loader=loader, ids=ids)
 
 
 @overload
@@ -190,6 +205,7 @@ def parse(
     format: Format | None = None,
     loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
+    ids: Ids = "keep",
 ) -> models.Question: ...
 @overload
 def parse(
@@ -199,6 +215,7 @@ def parse(
     format: Format | None = None,
     loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
+    ids: Ids = "keep",
 ) -> models.Exam: ...
 @overload
 def parse(
@@ -208,6 +225,7 @@ def parse(
     format: Format | None = None,
     loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
+    ids: Ids = "keep",
 ) -> models.Question | models.Exam: ...
 def parse(
     source: Source,
@@ -216,6 +234,7 @@ def parse(
     format: Format | None = None,
     loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
+    ids: Ids = "keep",
 ) -> Any:
     """
     Shortcut for ``load(...).validate(raise_on)``.
@@ -227,7 +246,9 @@ def parse(
             a `ParseError` nor a pydantic `ValidationError` ever escapes
             -- both are folded into this.
     """
-    return load(source, kind=kind, format=format, loader=loader).validate(raise_on)
+    return load(source, kind=kind, format=format, loader=loader, ids=ids).validate(
+        raise_on
+    )
 
 
 # ---------------------------------------------------------------------
@@ -255,21 +276,26 @@ def _load_text(
     *,
     kind: Kind | None,
     loader: QuestionLoader | None,
+    ids: Ids,
 ) -> Loaded[Any]:
     if fmt == "mdq":
-        return _load_mdq_text(text, kind=kind, loader=loader)
+        return _load_mdq_text(text, kind=kind, loader=loader, ids=ids)
     if fmt in ("yaml", "yml"):
         try:
             data = yaml.safe_load(text)
         except yaml.YAMLError as exc:
             return Loaded(None, [_syntax_error("yaml-syntax-error", exc)])
-        return _load_data(data if isinstance(data, dict) else {}, kind=kind, loader=loader)
+        return _load_data(
+            data if isinstance(data, dict) else {}, kind=kind, loader=loader, ids=ids
+        )
     if fmt == "json":
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
-        return _load_data(data if isinstance(data, dict) else {}, kind=kind, loader=loader)
+        return _load_data(
+            data if isinstance(data, dict) else {}, kind=kind, loader=loader, ids=ids
+        )
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
 
 
@@ -282,6 +308,7 @@ def _load_mdq_text(
     *,
     kind: Kind | None,
     loader: QuestionLoader | None,
+    ids: Ids,
 ) -> Loaded[Any]:
     is_exam_doc = parser.is_exam(text)
     mismatch = _kind_mismatch(kind, is_exam_doc)
@@ -300,8 +327,8 @@ def _load_mdq_text(
         return Loaded(None, [_parse_error(exc)])
 
     if is_exam_doc:
-        return _load_exam(data, collected, loader)
-    return _load_question(data, collected)
+        return _load_exam(data, collected, loader, ids=ids)
+    return _load_question(data, collected, ids=ids)
 
 
 def _load_data(
@@ -309,6 +336,7 @@ def _load_data(
     *,
     kind: Kind | None,
     loader: QuestionLoader | None = None,
+    ids: Ids = "keep",
 ) -> Loaded[Any]:
     if not isinstance(data, Mapping):
         return Loaded(
@@ -328,8 +356,8 @@ def _load_data(
         return Loaded(None, [mismatch])
 
     if is_exam_doc:
-        return _load_exam(dict(data), [], loader)
-    return _load_question(dict(data), [])
+        return _load_exam(dict(data), [], loader, ids=ids)
+    return _load_question(dict(data), [], ids=ids)
 
 
 def _is_exam_data(data: Mapping[str, Any]) -> bool:
@@ -379,7 +407,9 @@ def _pydantic_diagnostics(exc: PydanticValidationError) -> list[Diagnostic]:
     ]
 
 
-def _load_question(data: dict[str, Any], diagnostics: list[Diagnostic]) -> Loaded[Any]:
+def _load_question(
+    data: dict[str, Any], diagnostics: list[Diagnostic], *, ids: Ids = "keep"
+) -> Loaded[Any]:
     diagnostics = list(diagnostics)
     try:
         question = models.QuestionRoot.model_validate(data).root
@@ -388,6 +418,8 @@ def _load_question(data: dict[str, Any], diagnostics: list[Diagnostic]) -> Loade
         return Loaded(None, diagnostics)
 
     diagnostics.extend(linter.lint_document(data, data.get("type", "")))
+    if ids == "fill":
+        question = question.with_ids()
     return Loaded(question, diagnostics)
 
 
@@ -395,6 +427,8 @@ def _load_exam(
     data: dict[str, Any],
     diagnostics: list[Diagnostic],
     loader: QuestionLoader | None,
+    *,
+    ids: Ids = "keep",
 ) -> Loaded[Any]:
     diagnostics = list(diagnostics)
     entries = list(data.get("questions") or [])
@@ -403,7 +437,9 @@ def _load_exam(
 
     for index, entry in enumerate(entries):
         if _is_unresolved_include(entry):
-            question_dict, entry_diagnostics = _resolve_include(loader, entry["include"], data)
+            question_dict, entry_diagnostics = _resolve_include(
+                loader, entry["include"], data
+            )
         else:
             question_dict, entry_diagnostics = dict(entry), []
 
@@ -431,6 +467,8 @@ def _load_exam(
         return Loaded(None, diagnostics)
 
     diagnostics.extend(linter.lint_document(data, "exam"))
+    if ids == "fill":
+        exam = exam.with_ids()
     return Loaded(exam, diagnostics)
 
 
@@ -461,7 +499,9 @@ def _resolve_include(
     try:
         source = loader.load(target)
     except IncludeNotFound as exc:
-        return None, [Diagnostic(severity="error", code="include-not-found", message=str(exc))]
+        return None, [
+            Diagnostic(severity="error", code="include-not-found", message=str(exc))
+        ]
 
     diagnostics: list[Diagnostic] = []
     if isinstance(source, str):
