@@ -37,9 +37,10 @@ import unicodedata
 import weakref
 from datetime import date, datetime, timedelta
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Literal, Mapping, Self
+from typing import Annotated, Any, Iterable, Literal, Mapping, Self, Sequence
 
 import opt
+import pydantic_core
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -50,6 +51,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic.alias_generators import to_camel
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from . import parser, render, schedule
 from . import types as t
@@ -166,6 +168,97 @@ class MdqModel(BaseModel):
         The `**kwargs` are passed to `mdq.render.render()`.
         """
         return "\n".join(self._render_lines())
+
+
+#
+# Unique ids: shared machinery for the four "duplicate" rules
+# (dev/specs/to-do/unique-ids.md). These used to be `warning`-level lint
+# checks in `mdq.linter`; they are model validators now, so a violation
+# is an `error` that stops `load` from returning a document at all.
+#
+
+#: Runs of whitespace outside a code span. Splitting on backticks first
+#: keeps `foo bar` and `foo  bar` distinct while still collapsing plain
+#: prose -- the same normalization `mdq.linter` used to apply under the
+#: name `_visual_key`, moved here so the models can use it too.
+_CODE_SPAN_RE = re.compile(r"(`+[^`]*`+)")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _visual_key(text: str) -> str:
+    """
+    Normalize `text` the way a Markdown renderer would, for comparing
+    choice texts as a reader would see them once rendered: whitespace
+    runs collapse to a single space in prose, but not inside code spans.
+    """
+    parts = _CODE_SPAN_RE.split(text)
+    # Odd indices are the captured code spans; leave those untouched.
+    normalized = [
+        part if index % 2 else _WHITESPACE_RE.sub(" ", part)
+        for index, part in enumerate(parts)
+    ]
+    return unicodedata.normalize("NFC", "".join(normalized)).strip()
+
+
+def _raise_unique_id_error(
+    model_name: str,
+    code: str,
+    message: str,
+    loc: tuple[str | int, ...],
+    input_value: Any,
+) -> None:
+    """
+    Raise a pydantic `ValidationError` whose one error carries `code` as
+    its `type` (so `mdq.loading` recovers it as the diagnostic `code`)
+    and `loc` as its location, regardless of where in the model tree
+    this runs -- `loc` is relative to whatever model raises, and
+    pydantic prepends the path down to it (occasionally with a
+    discriminated union's tag in between).
+    """
+    error = InitErrorDetails(
+        type=PydanticCustomError(code, message), loc=loc, input=input_value
+    )
+    raise pydantic_core.ValidationError.from_exception_data(model_name, [error])
+
+
+def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
+    """
+    Enforce `duplicate-choice-id` and `duplicate-choice-text` over one
+    list of choices -- a question's own `choices`, or one fill-in choice
+    blank's.
+
+    Ids are compared as-is; texts are compared with `_visual_key`, so
+    two texts that only differ in incidental whitespace collide too
+    (multiple-choice.md, "Choices").
+    """
+    seen_ids: dict[str, int] = {}
+    seen_visuals: dict[str, int] = {}
+
+    for index, choice in enumerate(choices):
+        choice_id = choice.id
+        if choice_id is not None:
+            first_index = seen_ids.get(choice_id)
+            if first_index is not None:
+                _raise_unique_id_error(
+                    model_name,
+                    "duplicate-choice-id",
+                    f"choice id {choice_id!r} is already used by choices[{first_index}]",
+                    ("choices", index, "id"),
+                    choice_id,
+                )
+            seen_ids[choice_id] = index
+
+        visual = _visual_key(choice.text)
+        first_index = seen_visuals.get(visual)
+        if first_index is not None:
+            _raise_unique_id_error(
+                model_name,
+                "duplicate-choice-text",
+                f"choice text {choice.text!r} is already used by choices[{first_index}]",
+                ("choices", index, "text"),
+                choice.text,
+            )
+        seen_visuals[visual] = index
 
 
 #
@@ -437,6 +530,15 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     shuffle: bool | None = None
     grading: GradingStrategy | None = None
 
+    @model_validator(mode="after")
+    def check_choices_are_unique(self) -> Self:
+        """
+        multiple-choice.md, "Choices": ids and texts must each be
+        unique (`duplicate-choice-id`, `duplicate-choice-text`).
+        """
+        _check_unique_choices(type(self).__name__, self.choices)
+        return self
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.shuffle is not None:
@@ -498,6 +600,16 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     shuffle: bool | None = None
     grading: GradingStrategy | None = None
 
+    @model_validator(mode="after")
+    def check_choices_are_unique(self) -> Self:
+        """
+        multiple-choice.md, "Choices" (shared by multiple-selection): ids
+        and texts must each be unique (`duplicate-choice-id`,
+        `duplicate-choice-text`).
+        """
+        _check_unique_choices(type(self).__name__, self.choices)
+        return self
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.shuffle is not None:
@@ -547,6 +659,16 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     type: Literal["true-false"] = "true-false"
     shuffle: bool | None = None
     grading: GradingStrategy | None = None
+
+    @model_validator(mode="after")
+    def check_choices_are_unique(self) -> Self:
+        """
+        multiple-choice.md, "Choices" (shared by true-false): ids and
+        texts must each be unique (`duplicate-choice-id`,
+        `duplicate-choice-text`).
+        """
+        _check_unique_choices(type(self).__name__, self.choices)
+        return self
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -837,6 +959,16 @@ class ChoiceBlank(MdqModel):
     type: Literal["multiple-choice"] = "multiple-choice"
     choices: list[ScoredChoice]
 
+    @model_validator(mode="after")
+    def check_choices_are_unique(self) -> Self:
+        """
+        multiple-choice.md, "Choices" (shared by a fill-in choice
+        blank): ids and texts must each be unique (`duplicate-choice-id`,
+        `duplicate-choice-text`).
+        """
+        _check_unique_choices(type(self).__name__, self.choices)
+        return self
+
 
 class ShortAnswerBlank(MdqModel):
     id: str
@@ -873,6 +1005,30 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
     #: How inexact literals treat diacritics, in every short answer blank.
     diacritics: Diacritics = "fold"
+
+    @model_validator(mode="after")
+    def check_blanks_have_unique_ids(self) -> Self:
+        """
+        fill-in.md: two blanks sharing an id make the stem's `[^id]`
+        marker ambiguous (`duplicate-blank-id`).
+        """
+        seen: dict[str, int] = {}
+        for index, blank in enumerate(self.blanks):
+            first_index = seen.get(blank.id)
+            if first_index is not None:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "duplicate-blank-id",
+                    (
+                        f"blank id {blank.id!r} is already used by "
+                        f"blanks[{first_index}]; the stem's [^{blank.id}] "
+                        f"marker is ambiguous"
+                    ),
+                    ("blanks", index, "id"),
+                    blank.id,
+                )
+            seen[blank.id] = index
+        return self
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -1176,6 +1332,35 @@ class Exam(MdqModel):
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[Question]
+
+    @model_validator(mode="after")
+    def check_questions_have_unique_ids(self) -> Self:
+        """
+        exam.md, "Question ids": ids MUST be unique within the exam, once
+        includes are resolved and implicit ids (`q1`, `q2`, ...) are
+        assigned -- both already true of `self.questions` by the time
+        this runs. A question with no id (neither declared nor implicit)
+        does not participate: there is nothing to collide.
+        """
+        seen: dict[str, int] = {}
+        for index, question in enumerate(self.questions):
+            question_id = question.id
+            if question_id is None:
+                continue
+            first_index = seen.get(question_id)
+            if first_index is not None:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "duplicate-question-id",
+                    (
+                        f"question id {question_id!r} is already used by "
+                        f"questions[{first_index}]"
+                    ),
+                    ("questions", index),
+                    question_id,
+                )
+            seen[question_id] = index
+        return self
 
     def model_post_init(self, __ctx):
         for i, question in enumerate(self.questions):

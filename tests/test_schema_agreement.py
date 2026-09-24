@@ -10,7 +10,10 @@ schema (`mdq.scripts.schema_bundle`), and `mdq.load` for the model side.
 Every document under `examples/valid/` -- every `.yaml`/`.json` file,
 which already includes the `.yaml` sibling of each `.mdq.md` source, since
 both live in the same directory -- must satisfy both sides. Every
-document under `examples/invalid/` must fail both.
+document under `examples/invalid/` must fail both, except
+`examples/invalid/model-only/`: a rule like "unique by field" cannot be
+expressed in JSON Schema, so those documents satisfy the schema and are
+only rejected by `load` (dev/specs/to-do/unique-ids.md).
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from jsonschema import Draft202012Validator
 
 from mdq import load
 from mdq.scripts.schema_bundle import TYPE_SCHEMAS, bundle_schemas
-from mdq.testing import INVALID_PARSED, VALID_PARSED, relative_id
+from mdq.testing import INVALID_MODEL_ONLY_PARSED, INVALID_PARSED, VALID_PARSED, relative_id
 
 BUNDLE = bundle_schemas()
 
@@ -56,6 +59,7 @@ def _schema_errors(document: dict) -> list[str]:
 def test_examples_dir_has_documents() -> None:
     assert VALID_PARSED
     assert INVALID_PARSED
+    assert INVALID_MODEL_ONLY_PARSED
 
 
 @pytest.mark.parametrize(
@@ -115,4 +119,30 @@ def test_invalid_example_fails_schema_and_load(path: Path) -> None:
     assert load_errors, (
         f"{relative_id(path)} lives under examples/invalid/ but `load` reports "
         f"no error diagnostic"
+    )
+
+
+@pytest.mark.parametrize(
+    "path", INVALID_MODEL_ONLY_PARSED, ids=[relative_id(p) for p in INVALID_MODEL_ONLY_PARSED]
+)
+def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(path: Path) -> None:
+    """
+    A rule like "unique by field" (`duplicate-choice-id`,
+    `duplicate-choice-text`, `duplicate-blank-id`, `duplicate-question-id`
+    -- dev/specs/to-do/unique-ids.md) cannot be expressed in JSON Schema.
+    These documents satisfy the schema, and are rejected by `load` alone.
+    """
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    schema_errors = _schema_errors(document)
+    loaded = load(path)
+    load_errors = [d for d in loaded.diagnostics if d.severity == "error"]
+
+    assert not schema_errors, (
+        f"{relative_id(path)} lives under examples/invalid/model-only/ but "
+        f"fails the bundled JSON Schema:\n" + "\n".join(f"  - {e}" for e in schema_errors)
+    )
+    assert load_errors, (
+        f"{relative_id(path)} lives under examples/invalid/model-only/ but "
+        f"`load` reports no error diagnostic"
     )

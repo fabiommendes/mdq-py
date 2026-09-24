@@ -117,12 +117,9 @@ def test_exam_with_no_questions_parses_and_warns() -> None:
     assert "exam-without-questions" in _rules(loaded.diagnostics)
 
 
-def test_duplicate_question_ids_warn() -> None:
-    doc = parse_any(
-        "# Exam\n\n---\nid: dup\n---\n\nFirst.\n\n[essay]\n\n"
-        "---\nid: dup\n---\n\nSecond.\n\n[essay]\n"
-    )
-    assert "duplicate-question-id" in _rules(load(doc).diagnostics)
+#: `duplicate-question-id` is a model error now, not a lint warning --
+#: see test_two_inline_questions_with_the_same_id_is_a_model_error and
+#: friends in tests/test_unique_ids.py (dev/specs/to-do/unique-ids.md).
 
 
 # ---------------------------------------------------------------------

@@ -39,13 +39,21 @@ reject:
       - [0, "return a"]
 """
 
-# A well-formed multiple-selection question whose two choices share the
-# same text -- a default-level lint warning, not an error.
-DUPLICATE_CHOICE_TEXT_MD = (
-    "Qual das opções é a capital do Brasil?\n"
+# A well-formed question with a malformed `locale` -- a default-level
+# lint warning, not an error.
+#
+# (Previously two choices sharing the same text; `duplicate-choice-text`
+# is an `error` diagnostic raised by the models now --
+# dev/specs/to-do/unique-ids.md -- so it no longer fits "a warning, not
+# an error".)
+WARNING_ONLY_MD = (
+    "---\n"
+    "locale: xx-99\n"
+    "---\n"
     "\n"
-    "* [x] Brasília\n"
-    "* [ ] Brasília\n"
+    "Explique o efeito Coriolis.\n"
+    "\n"
+    "[essay]\n"
 )
 
 # A bare-ellipsis stem trips a strict-only rule (reported at "info").
@@ -96,7 +104,7 @@ def test_validate_exits_1_on_a_pydantic_only_rule_violation(tmp_path: Path) -> N
 
 def test_validate_exits_0_with_only_warnings(tmp_path: Path) -> None:
     path = tmp_path / "capital.mdq.md"
-    path.write_text(DUPLICATE_CHOICE_TEXT_MD, encoding="utf-8")
+    path.write_text(WARNING_ONLY_MD, encoding="utf-8")
     result = runner.invoke(app, ["validate", str(path)])
     assert result.exit_code == 0, result.output
 

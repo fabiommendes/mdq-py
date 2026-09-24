@@ -531,19 +531,21 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 
 
 def test_default_level_lint_rules_are_warnings() -> None:
-    # Two identical choice texts trip "duplicate-choice-text".
+    # No choice scores >= 1, so the question has no correct answer.
     data = {
-        "type": "multiple-selection",
+        "type": "multiple-choice",
         "stem": "Qual das opções é a capital do Brasil?",
         "choices": [
-            {"id": "a", "text": "Brasília", "correct": True},
-            {"id": "b", "text": "Brasília"},
+            {"id": "a", "text": "Rio de Janeiro", "score": 0},
+            {"id": "b", "text": "Brasília", "score": 0},
         ],
     }
     loaded = load(data)
     assert loaded
-    assert "duplicate-choice-text" in _codes(loaded.diagnostics)
-    matching = [d for d in loaded.diagnostics if d.code == "duplicate-choice-text"]
+    assert "multiple-choice-no-correct-choice" in _codes(loaded.diagnostics)
+    matching = [
+        d for d in loaded.diagnostics if d.code == "multiple-choice-no-correct-choice"
+    ]
     assert matching[0].severity == "warning"
 
 
@@ -562,22 +564,13 @@ def test_lint_runs_only_when_the_model_was_built() -> None:
 
 
 def test_unknown_frontmatter_warnings_come_before_lint_diagnostics() -> None:
-    text = (
-        "---\n"
-        "auther: Machado de Assis\n"
-        "---\n"
-        "\n"
-        "Qual das opções é a capital do Brasil?\n"
-        "\n"
-        "* [x] Brasília\n"
-        "* [ ] Brasília\n"
-    )
+    text = "---\nauther: Machado de Assis\n---\n\n...\n\n[essay]\n"
     loaded = load(text)
     assert loaded
     codes = _codes(loaded.diagnostics)
     assert "unknown-frontmatter-key" in codes
-    assert "duplicate-choice-text" in codes
-    assert codes.index("unknown-frontmatter-key") < codes.index("duplicate-choice-text")
+    assert "unexpanded-stem-ellipsis" in codes
+    assert codes.index("unknown-frontmatter-key") < codes.index("unexpanded-stem-ellipsis")
 
 
 def test_unknown_frontmatter_warning_severity_is_warning() -> None:

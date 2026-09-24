@@ -51,35 +51,10 @@ def test_missing_text_fields_do_not_warn() -> None:
 
 
 # ---------------------------------------------------------------------
-# duplicate-choice-id / duplicate-choice-text
+# duplicate-choice-id / duplicate-choice-text are model errors now, not
+# lint warnings -- see tests/test_unique_ids.py
+# (dev/specs/to-do/unique-ids.md).
 # ---------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "question_type", ["true-false", "multiple-choice", "multiple-selection"]
-)
-def test_duplicate_choice_ids_and_texts_warn(question_type: str) -> None:
-    # The first choice is marked correct -- `score: 1` for multiple-choice,
-    # `correct: true` for the other two -- so multiple-choice's separate
-    # "needs a correct choice" rule doesn't also fire here, keeping this
-    # test focused on the duplicate-id/text checks alone.
-    first_choice = (
-        {"id": "same-id", "text": "same text", "score": 1}
-        if question_type == "multiple-choice"
-        else {"id": "same-id", "text": "same text", "correct": True}
-    )
-    doc = {
-        "type": question_type,
-        "stem": "x",
-        "choices": [first_choice, {"id": "same-id", "text": "same text"}],
-    }
-    warnings = load(doc).diagnostics
-    assert {"duplicate-choice-id", "duplicate-choice-text"} <= _rules(warnings)
-    assert "multiple-choice-no-correct-choice" not in _rules(warnings)
-    # The second (duplicate) occurrence is the one flagged.
-    for w in warnings:
-        if w.code in ("duplicate-choice-id", "duplicate-choice-text"):
-            assert w.path[:2] == ("choices", 1)
 
 
 def test_unique_choices_do_not_warn() -> None:
@@ -284,35 +259,11 @@ def test_whitespace_only_choice_text_warns() -> None:
     assert "blank-choice-text" in _rules(warnings)
 
 
-def test_choices_differing_only_in_whitespace_warn_at_strict() -> None:
-    """multiple-choice.md: `foo bar` and `foo  bar` render identically."""
-    doc = {
-        "type": "multiple-choice",
-        "stem": "x",
-        "choices": [
-            {"id": "a", "text": "foo bar", "score": 1},
-            {"id": "b", "text": "foo  bar"},
-        ],
-    }
-    assert "visually-identical-choice-text" in _rules(
-        load(doc).diagnostics
-    )
-
-
-def test_whitespace_inside_a_code_span_stays_significant() -> None:
-    """...but `` `foo bar` `` and `` `foo  bar` `` do not: whitespace is
-    preserved inside a code span, so the two render differently."""
-    doc = {
-        "type": "multiple-choice",
-        "stem": "x",
-        "choices": [
-            {"id": "c", "text": "`foo bar`", "score": 1},
-            {"id": "d", "text": "`foo  bar`"},
-        ],
-    }
-    assert "visually-identical-choice-text" not in _rules(
-        load(doc).diagnostics
-    )
+#: `visually-identical-choice-text` is removed: `duplicate-choice-text`
+#: (a model error now) already compares choice texts the same way it
+#: did -- see test_choice_text_that_differs_only_inside_a_code_span_does_not_error
+#: and test_duplicate_choice_text_after_whitespace_normalization_is_a_model_error
+#: in tests/test_unique_ids.py (dev/specs/to-do/unique-ids.md).
 
 
 def test_multiple_choice_with_two_correct_choices_warns() -> None:
@@ -621,15 +572,9 @@ def test_inline_blank_type_is_stripped_from_the_marker() -> None:
     assert "unreferenced-blank" not in rules
 
 
-def test_duplicate_blank_ids_warn() -> None:
-    doc = _fill_in(
-        "[^a] and [^a].",
-        [
-            {"id": "a", "type": "numeric", "answer": 1},
-            {"id": "a", "type": "numeric", "answer": 2},
-        ],
-    )
-    assert "duplicate-blank-id" in _rules(load(doc).diagnostics)
+#: `duplicate-blank-id` is a model error now, not a lint warning -- see
+#: test_duplicate_blank_id_is_a_model_error in tests/test_unique_ids.py
+#: (dev/specs/to-do/unique-ids.md).
 
 
 def test_blanks_inherit_the_checks_of_the_type_they_name() -> None:

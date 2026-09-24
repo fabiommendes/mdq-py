@@ -16,6 +16,12 @@ MDQ_ROOT = PY_PROJECT_ROOT.parent
 EXAMPLES_ROOT = MDQ_ROOT / "examples"
 INVALID_DIR = EXAMPLES_ROOT / "invalid"
 VALID_DIR = EXAMPLES_ROOT / "valid"
+
+#: Invalid examples JSON Schema cannot reject on its own -- a rule like
+#: "unique by field" -- so the schema accepts them and only `load`
+#: (the pydantic models) rejects them. Every other example under
+#: `examples/invalid/` must fail both (see dev/specs/to-do/unique-ids.md).
+INVALID_MODEL_ONLY_DIR = INVALID_DIR / "model-only"
 DOCUMENT_SUFFIXES = (".yaml", ".yml", ".json")
 VALID_EXAMS_DIR = VALID_DIR / "exam"
 
@@ -84,7 +90,12 @@ def lint_json_sibling(document: Path) -> Path:
     return document.with_name(f"{stem}.lint.json")
 
 
-INVALID_PARSED = collect_files(INVALID_DIR)
+INVALID_MODEL_ONLY_PARSED = collect_files(INVALID_MODEL_ONLY_DIR)
+INVALID_PARSED = [
+    path
+    for path in collect_files(INVALID_DIR)
+    if not path.is_relative_to(INVALID_MODEL_ONLY_DIR)
+]
 VALID_PARSED = collect_files(VALID_DIR)
 VALID_SOURCES = collect_sources(VALID_DIR)
 VALID_QUESTIONS = [

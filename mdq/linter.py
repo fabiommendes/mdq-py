@@ -34,7 +34,6 @@ the ones ``lint_document`` produces here.
 from __future__ import annotations
 
 import re
-import unicodedata
 from typing import Any, Iterator, TypeIs, Union
 
 from ._diagnostics import Diagnostic
@@ -121,12 +120,6 @@ _UUID_VARIANTS = frozenset("89abAB")
 #: `[^blank-id]` markers, as written in a fill-in stem.
 _BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
 
-#: Runs of whitespace outside of a code span. Splitting on backticks
-#: first keeps `foo bar` and `foo  bar` distinct while still collapsing
-#: plain prose (multiple-choice.md, "Choices").
-_CODE_SPAN_RE = re.compile(r"(`+[^`]*`+)")
-_WHITESPACE_RE = re.compile(r"\s+")
-
 __all__ = [
     "lint_document",
 ]
@@ -191,25 +184,6 @@ def lint_document(
 def _is_number(value: object) -> TypeIs[int | float]:
     """JSON numbers, excluding bools (which are ints in Python)."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _visual_key(text: str) -> str:
-    """
-    Normalize `text` the way a Markdown renderer would, for the
-    "visually identical when rendered to HTML" check in
-    multiple-choice.md.
-
-    Whitespace runs collapse to a single space in prose, but not inside
-    code spans -- which is exactly what makes ``foo bar``/``foo  bar``
-    equivalent while `` `foo bar` ``/`` `foo  bar` `` stay distinct.
-    """
-    parts = _CODE_SPAN_RE.split(text)
-    # Odd indices are the captured code spans; leave those untouched.
-    normalized = [
-        part if index % 2 else _WHITESPACE_RE.sub(" ", part)
-        for index, part in enumerate(parts)
-    ]
-    return unicodedata.normalize("NFC", "".join(normalized)).strip()
 
 
 def _iter_choices(container: Any) -> Iterator[tuple[int, dict[str, Any]]]:
@@ -433,9 +407,11 @@ def _check_choices(
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
-    multiple-choice.md, "Choices": ids and texts must each be unique, no
-    text may be empty, and implementations MAY reject texts that differ
-    in source but render identically.
+    multiple-choice.md, "Choices": no choice text may be empty.
+
+    Uniqueness of choice ids and texts is enforced by the model layer now
+    (`duplicate-choice-id`, `duplicate-choice-text` --
+    dev/specs/to-do/unique-ids.md), not here.
     """
     warnings: list[Diagnostic] = []
     # `document` is the question, or one blank of a fill-in question;
@@ -445,29 +421,7 @@ def _check_choices(
     if not isinstance(choices, list):
         return warnings
 
-    seen_ids: dict[str, int] = {}
-    seen_texts: dict[str, int] = {}
-    seen_visuals: dict[str, int] = {}
-
     for index, choice in _iter_choices(choices):
-        choice_id = choice.get("id")
-        if isinstance(choice_id, str):
-            first_index = seen_ids.get(choice_id)
-            if first_index is not None:
-                warnings.append(
-                    Diagnostic(
-                        severity="warning",
-                        code="duplicate-choice-id",
-                        path=path + (index, "id"),
-                        message=(
-                            f"choice id {choice_id!r} is already used by "
-                            f"choices[{first_index}]"
-                        ),
-                    )
-                )
-            else:
-                seen_ids[choice_id] = index
-
         text = choice.get("text")
         if not isinstance(text, str):
             continue
@@ -481,41 +435,6 @@ def _check_choices(
                     message="choice text has no visible characters",
                 )
             )
-            continue
-
-        first_index = seen_texts.get(text)
-        if first_index is not None:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="duplicate-choice-text",
-                    path=path + (index, "text"),
-                    message=(
-                        f"choice text {text!r} is already used by "
-                        f"choices[{first_index}]"
-                    ),
-                )
-            )
-            continue
-        seen_texts[text] = index
-
-        visual = _visual_key(text)
-        first_index = seen_visuals.get(visual)
-        if first_index is not None:
-            warnings.append(
-                Diagnostic(
-                    severity="info",
-                    code="visually-identical-choice-text",
-                    path=path + (index, "text"),
-                    message=(
-                        f"choice text {text!r} differs from choices"
-                        f"[{first_index}] only in whitespace, so the two "
-                        f"render identically"
-                    ),
-                )
-            )
-        else:
-            seen_visuals[visual] = index
 
     return warnings
 
@@ -883,7 +802,6 @@ def _check_fill_in(document: dict[str, Any]) -> list[Diagnostic]:
         return []
 
     warnings: list[Diagnostic] = []
-    seen_ids: dict[str, int] = {}
     blank_ids: list[str] = []
 
     for index, blank in enumerate(blanks):
@@ -893,22 +811,6 @@ def _check_fill_in(document: dict[str, Any]) -> list[Diagnostic]:
         blank_id = blank.get("id")
         if isinstance(blank_id, str):
             blank_ids.append(blank_id)
-            first_index = seen_ids.get(blank_id)
-            if first_index is not None:
-                warnings.append(
-                    Diagnostic(
-                        severity="warning",
-                        code="duplicate-blank-id",
-                        path=("blanks", index, "id"),
-                        message=(
-                            f"blank id {blank_id!r} is already used by "
-                            f"blanks[{first_index}]; the stem's [^{blank_id}] "
-                            f"marker is ambiguous"
-                        ),
-                    )
-                )
-            else:
-                seen_ids[blank_id] = index
 
         blank_type = blank.get("type")
         blank_path: tuple[Union[str, int], ...] = ("blanks", index)
@@ -980,9 +882,11 @@ def _check_blank_markers(
 def _check_exam(document: dict[str, Any]) -> list[Diagnostic]:
     """
     exam.md: an exam MAY contain zero questions, but SHOULD warn -- an
-    exam with nothing to answer is a draft, not an assessment. Duplicate
-    question ids are also flagged: the ids are what results and
-    cross-links refer to.
+    exam with nothing to answer is a draft, not an assessment.
+
+    Duplicate question ids are an `error` raised by `Exam` itself now
+    (`duplicate-question-id` -- dev/specs/to-do/unique-ids.md), not a
+    lint warning.
     """
     questions = document.get("questions")
     if not isinstance(questions, list):
@@ -998,29 +902,4 @@ def _check_exam(document: dict[str, Any]) -> list[Diagnostic]:
             )
         ]
 
-    warnings: list[Diagnostic] = []
-    seen: dict[str, int] = {}
-    for index, entry in enumerate(questions):
-        if not isinstance(entry, dict):
-            continue
-        # An unresolved `include` is identified by its target, a question
-        # written inline by its own id.
-        identifier = entry.get("include") or entry.get("id")
-        if not isinstance(identifier, str):
-            continue
-        first = seen.get(identifier)
-        if first is not None:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="duplicate-question-id",
-                    path=("questions", index),
-                    message=(
-                        f"question id {identifier!r} is already used by "
-                        f"questions[{first}]"
-                    ),
-                )
-            )
-        else:
-            seen[identifier] = index
-    return warnings
+    return []

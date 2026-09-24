@@ -78,50 +78,47 @@ def _assert_matches_lint_json(doc_path: Path) -> None:
 # md/yaml pair sharing one `.lint.json`.
 # ---------------------------------------------------------------------
 
-#: Two choices sharing the same text -- one default-level warning.
+#: A malformed locale -- one default-level warning.
+#:
+#: (Previously a pair of duplicate choices; `duplicate-choice-id` and
+#: `duplicate-choice-text` are `error` diagnostics raised by the models
+#: now -- dev/specs/to-do/unique-ids.md -- so a document that trips them
+#: never reaches the lint pass at all, and can no longer stand in for
+#: "a document with a lint warning" here.)
 DUPLICATE_TEXT_YAML = """\
-type: multiple-selection
-stem: Qual das opções é a capital do Brasil?
-choices:
-  - id: brasilia
-    text: Brasília
-    correct: true
-  - id: brasilia
-    text: Brasília
+type: essay
+stem: Explique o efeito Coriolis.
+locale: xx-99
 """
 
 DUPLICATE_TEXT_MD = (
-    "Qual das opções é a capital do Brasil?\n"
+    "---\n"
+    "locale: xx-99\n"
+    "---\n"
     "\n"
-    "* [x] Brasília\n"
-    "* [ ] Brasília\n"
+    "Explique o efeito Coriolis.\n"
+    "\n"
+    "[essay]\n"
 )
 
-#: The parser derives both ids from the text, so the ids collide too.
 DUPLICATE_TEXT_LINT_JSON = [
-    {"code": "duplicate-choice-id", "severity": "warning", "path": ["choices", 1, "id"]},
-    {"code": "duplicate-choice-text", "severity": "warning", "path": ["choices", 1, "text"]}
+    {"code": "malformed-locale", "severity": "warning", "path": ["locale"]},
 ]
 
 
-#: Two independent warnings on the same document: a blank comment (the
-#: common `blank-text-field` check runs before the per-type choice
-#: checks) and the two choices' duplicate text.
+#: Two independent warnings on the same document: a malformed locale and
+#: a blank tag.
 TWO_WARNINGS_YAML = """\
-type: multiple-selection
-stem: Qual das opções é a capital do Brasil?
-comment: "   "
-choices:
-  - id: a
-    text: Brasília
-    correct: true
-  - id: b
-    text: Brasília
+type: essay
+stem: Explique o efeito Coriolis.
+locale: xx-99
+tags:
+  - "   "
 """
 
 TWO_WARNINGS_LINT_JSON = [
-    {"code": "duplicate-choice-text", "severity": "warning", "path": ["choices", 1, "text"]},
-    {"code": "blank-text-field", "severity": "warning", "path": ["comment"]},
+    {"code": "malformed-locale", "severity": "warning", "path": ["locale"]},
+    {"code": "blank-tag", "severity": "warning", "path": ["tags", 0]},
 ]
 
 
