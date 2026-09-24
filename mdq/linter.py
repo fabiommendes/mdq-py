@@ -11,37 +11,34 @@ their JSON Schema, so the checks here are defensive about malformed input
 (wrong types, missing fields) -- reporting that is the schema validator's
 job, not the linter's.
 
-Rules are split across two verification levels:
+Every rule always runs, and each is tagged with the severity of what it
+found:
 
-* ``default`` -- the document is probably wrong: a dead field, an
+* ``warning`` -- the document is probably wrong: a dead field, an
   ungradable answer key, a duplicate id, a tolerance that can never
   match.
-* ``strict`` -- everything in ``default``, plus advisory/stylistic rules
-  where the specification says an implementation MAY complain: redundant
-  regex anchors, no-op fields, locale mismatches.
+* ``info`` -- advisory/stylistic rules where the specification says an
+  implementation MAY complain: redundant regex anchors, no-op fields,
+  locale mismatches.
 
-One ``default``-level rule, ``unknown-frontmatter-key``, is not implemented
-here: an already-parsed document has no way to see a frontmatter key the
-parser dropped while building it. It is instead emitted by
-``mdq.parser`` (``parse_question``/``parse_exam``/``parse_any``, via an
-optional ``warnings`` sink) for every frontmatter key it does not
-recognize -- a typo like ``auther:``, or a field that never existed --
-and merged into ``ValidationResult.warnings`` by
-``mdq.validator.validate_file`` for ``.mdq.md`` sources, alongside the
-warnings ``lint_document`` produces here.
+One ``warning``-severity rule, ``unknown-frontmatter-key``, is not
+implemented here: an already-parsed document has no way to see a
+frontmatter key the parser dropped while building it. It is instead
+emitted by ``mdq.parser`` (``parse_question``/``parse_exam``/
+``parse_any``, via an optional ``warnings`` sink) for every frontmatter
+key it does not recognize -- a typo like ``auther:``, or a field that
+never existed -- and merged into `mdq.loading`'s diagnostics ahead of
+the ones ``lint_document`` produces here.
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass, field
 from typing import Any, Iterator, TypeIs, Union
 
+from ._diagnostics import Diagnostic
 from .regex import InvalidRegexError, RegexPattern
-
-#: Verification levels, in increasing order of strictness.
-LEVELS = ("default", "strict")
 
 # question-base.yaml fields that are just `type: string` -- so an
 # empty-but-technically-non-empty string like "   " (or even "" where
@@ -131,82 +128,59 @@ _CODE_SPAN_RE = re.compile(r"(`+[^`]*`+)")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 __all__ = [
-    "LEVELS",
-    "LintWarning",
     "lint_document",
 ]
-
-
-@dataclass
-class LintWarning:
-    """A single warning produced by the linter.
-
-    `path` mirrors the shape of a jsonschema ValidationError's `.path`:
-    a tuple of keys/indices locating the offending value in the document.
-    """
-
-    rule: str
-    message: str
-    path: tuple[Union[str, int], ...] = field(default_factory=tuple)
-
-    def __str__(self) -> str:
-        location = "/".join(str(part) for part in self.path) or "<root>"
-        return f"[{self.rule}] {location}: {self.message}"
 
 
 def lint_document(
     document: dict[str, Any],
     question_type: str,
-    level: str = "default",
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
-    Run all applicable lint checks for a question document and return
-    the list of warnings (empty if none).
-    """
-    if level not in LEVELS:
-        raise ValueError(
-            f"unknown verification level {level!r}; expected one of {LEVELS}"
-        )
+    Run every lint check applicable to `question_type` and return the
+    resulting diagnostics (empty if none).
 
-    strict = level == "strict"
-    warnings: list[LintWarning] = []
+    Every rule always runs; what used to be the ``strict``-only rules
+    (see the module docstring) simply report at ``info`` instead of
+    ``warning`` rather than being skipped.
+    """
+    diagnostics: list[Diagnostic] = []
 
     # -- checks that apply to every question type ----------------------
-    warnings.extend(_check_text_fields_not_blank(document))
-    warnings.extend(_check_uuid_version_and_variant(document))
-    warnings.extend(_check_tags(document))
-    warnings.extend(_check_locale_is_well_formed(document))
-    if strict:
-        warnings.extend(_check_stem_is_a_paragraph(document))
-        warnings.extend(_check_stem_ellipsis_expanded(document))
-        warnings.extend(_check_locale_language_subtag(document))
+    diagnostics.extend(_check_text_fields_not_blank(document))
+    diagnostics.extend(_check_uuid_version_and_variant(document))
+    diagnostics.extend(_check_tags(document))
+    diagnostics.extend(_check_locale_is_well_formed(document))
+    diagnostics.extend(_check_stem_is_a_paragraph(document))
+    diagnostics.extend(_check_stem_ellipsis_expanded(document))
+    diagnostics.extend(_check_locale_language_subtag(document))
 
     # -- per-type checks -----------------------------------------------
     if question_type in _CHOICE_QUESTION_TYPES:
-        warnings.extend(_check_choices(document, ("choices",), strict=strict))
+        diagnostics.extend(_check_choices(document, ("choices",)))
 
     if question_type == "multiple-choice":
-        warnings.extend(_check_multiple_choice_answers(document, ("choices",)))
+        diagnostics.extend(_check_multiple_choice_answers(document, ("choices",)))
 
     if question_type == "true-false":
-        warnings.extend(_check_true_false_markers(document, strict=strict))
+        diagnostics.extend(_check_true_false_markers(document))
 
     if question_type == "essay":
-        warnings.extend(_check_essay_highlight(document))
+        diagnostics.extend(_check_essay_highlight(document))
 
     if question_type == "short-answer":
-        warnings.extend(_check_short_answer(document, (), strict=strict))
+        diagnostics.extend(_check_short_answer(document, ()))
 
     if question_type == "numeric":
-        warnings.extend(_check_numeric(document, (), strict=strict))
+        diagnostics.extend(_check_numeric(document, ()))
 
     if question_type == "fill-in":
-        warnings.extend(_check_fill_in(document, strict=strict))
+        diagnostics.extend(_check_fill_in(document))
 
     if question_type == "exam":
-        warnings.extend(_check_exam(document))
+        diagnostics.extend(_check_exam(document))
 
-    return warnings
+    return diagnostics
 
 
 # ----------------------------------------------------------------------
@@ -257,7 +231,7 @@ def _language_subtag(document: dict[str, Any]) -> str:
 # ----------------------------------------------------------------------
 # common rules
 # ----------------------------------------------------------------------
-def _check_text_fields_not_blank(document: dict[str, Any]) -> list[LintWarning]:
+def _check_text_fields_not_blank(document: dict[str, Any]) -> list[Diagnostic]:
     """
     Free-text fields, if defined, must have at least one visible
     (non-whitespace) character.
@@ -272,8 +246,9 @@ def _check_text_fields_not_blank(document: dict[str, Any]) -> list[LintWarning]:
             continue
         if value.strip() == "":
             warnings.append(
-                LintWarning(
-                    rule="blank-text-field",
+                Diagnostic(
+                    severity="warning",
+                    code="blank-text-field",
                     path=(field_name,),
                     message=f"'{field_name}' is defined but has no visible characters",
                 )
@@ -281,7 +256,7 @@ def _check_text_fields_not_blank(document: dict[str, Any]) -> list[LintWarning]:
     return warnings
 
 
-def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[LintWarning]:
+def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[Diagnostic]:
     """generic.md: the UUID's version and variant nibbles are meaningful."""
     value = document.get("uuid")
     if not isinstance(value, str):
@@ -296,8 +271,9 @@ def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[LintWarnin
     version = match.group("version")
     if version not in _UUID_VERSIONS:
         warnings.append(
-            LintWarning(
-                rule="uuid-unknown-version",
+            Diagnostic(
+                severity="warning",
+                code="uuid-unknown-version",
                 path=("uuid",),
                 message=(
                     f"UUID version nibble is {version!r}; expected one of "
@@ -309,8 +285,9 @@ def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[LintWarnin
     variant = match.group("variant")
     if variant not in _UUID_VARIANTS:
         warnings.append(
-            LintWarning(
-                rule="uuid-unknown-variant",
+            Diagnostic(
+                severity="warning",
+                code="uuid-unknown-variant",
                 path=("uuid",),
                 message=(
                     f"UUID variant nibble is {variant!r}; expected one of "
@@ -321,7 +298,7 @@ def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[LintWarnin
     return warnings
 
 
-def _check_tags(document: dict[str, Any]) -> list[LintWarning]:
+def _check_tags(document: dict[str, Any]) -> list[Diagnostic]:
     """
     generic.md accepts `tags` as a list or as a single comma-delimited
     string; a comma surviving inside a list entry means the string form
@@ -337,16 +314,18 @@ def _check_tags(document: dict[str, Any]) -> list[LintWarning]:
             continue
         if tag.strip() == "":
             warnings.append(
-                LintWarning(
-                    rule="blank-tag",
+                Diagnostic(
+                    severity="warning",
+                    code="blank-tag",
                     path=("tags", index),
                     message="tag is empty or whitespace only",
                 )
             )
         elif "," in tag:
             warnings.append(
-                LintWarning(
-                    rule="unsplit-tag-list",
+                Diagnostic(
+                    severity="warning",
+                    code="unsplit-tag-list",
                     path=("tags", index),
                     message=(
                         f"tag {tag!r} contains a comma; a comma-delimited "
@@ -358,7 +337,7 @@ def _check_tags(document: dict[str, Any]) -> list[LintWarning]:
     return warnings
 
 
-def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[LintWarning]:
+def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[Diagnostic]:
     """generic.md: implementations SHOULD require the stem to be a paragraph."""
     stem = document.get("stem")
     if not isinstance(stem, str) or not stem.strip():
@@ -367,8 +346,9 @@ def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[LintWarning]:
     for pattern, description in _NON_PARAGRAPH_STEM:
         if pattern.match(stem.lstrip("\n")):
             return [
-                LintWarning(
-                    rule="stem-not-a-paragraph",
+                Diagnostic(
+                    severity="info",
+                    code="stem-not-a-paragraph",
                     path=("stem",),
                     message=(
                         f"stem starts with what looks like {description}; "
@@ -379,7 +359,7 @@ def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[LintWarning]:
     return []
 
 
-def _check_stem_ellipsis_expanded(document: dict[str, Any]) -> list[LintWarning]:
+def _check_stem_ellipsis_expanded(document: dict[str, Any]) -> list[Diagnostic]:
     """
     generic.md: a stem of a single ellipsis MAY be replaced by a default
     statement for the question type -- flag the ones that never were.
@@ -389,8 +369,9 @@ def _check_stem_ellipsis_expanded(document: dict[str, Any]) -> list[LintWarning]
         return []
     if stem.strip() in ("...", "…"):
         return [
-            LintWarning(
-                rule="unexpanded-stem-ellipsis",
+            Diagnostic(
+                severity="info",
+                code="unexpanded-stem-ellipsis",
                 path=("stem",),
                 message=(
                     "stem is a bare ellipsis; it was never replaced by a "
@@ -401,14 +382,15 @@ def _check_stem_ellipsis_expanded(document: dict[str, Any]) -> list[LintWarning]
     return []
 
 
-def _check_locale_is_well_formed(document: dict[str, Any]) -> list[LintWarning]:
+def _check_locale_is_well_formed(document: dict[str, Any]) -> list[Diagnostic]:
     """generic.md [^4]: `locale` must be a valid BCP 47 language tag."""
     locale = document.get("locale")
     if not isinstance(locale, str) or _BCP47_RE.match(locale):
         return []
     return [
-        LintWarning(
-            rule="malformed-locale",
+        Diagnostic(
+            severity="warning",
+            code="malformed-locale",
             path=("locale",),
             message=(
                 f"{locale!r} is not a BCP 47 language tag; expected a form "
@@ -418,7 +400,7 @@ def _check_locale_is_well_formed(document: dict[str, Any]) -> list[LintWarning]:
     ]
 
 
-def _check_locale_language_subtag(document: dict[str, Any]) -> list[LintWarning]:
+def _check_locale_language_subtag(document: dict[str, Any]) -> list[Diagnostic]:
     """
     A well-formed tag can still name the wrong thing: this catches
     country codes written where a language belongs.
@@ -428,8 +410,9 @@ def _check_locale_language_subtag(document: dict[str, Any]) -> list[LintWarning]
     if suggestion is None:
         return []
     return [
-        LintWarning(
-            rule="locale-lookalike-language",
+        Diagnostic(
+            severity="info",
+            code="locale-lookalike-language",
             path=("locale",),
             message=(
                 f"{subtag!r} is not a valid ISO 639-1 language code; "
@@ -448,14 +431,13 @@ def _check_locale_language_subtag(document: dict[str, Any]) -> list[LintWarning]
 def _check_choices(
     document: dict[str, Any],
     path: tuple[Union[str, int], ...],
-    strict: bool,
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     multiple-choice.md, "Choices": ids and texts must each be unique, no
     text may be empty, and implementations MAY reject texts that differ
     in source but render identically.
     """
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     # `document` is the question, or one blank of a fill-in question;
     # either way the choices live under "choices". `path` only says where
     # to point the warnings.
@@ -473,8 +455,9 @@ def _check_choices(
             first_index = seen_ids.get(choice_id)
             if first_index is not None:
                 warnings.append(
-                    LintWarning(
-                        rule="duplicate-choice-id",
+                    Diagnostic(
+                        severity="warning",
+                        code="duplicate-choice-id",
                         path=path + (index, "id"),
                         message=(
                             f"choice id {choice_id!r} is already used by "
@@ -491,8 +474,9 @@ def _check_choices(
 
         if text.strip() == "":
             warnings.append(
-                LintWarning(
-                    rule="blank-choice-text",
+                Diagnostic(
+                    severity="warning",
+                    code="blank-choice-text",
                     path=path + (index, "text"),
                     message="choice text has no visible characters",
                 )
@@ -502,8 +486,9 @@ def _check_choices(
         first_index = seen_texts.get(text)
         if first_index is not None:
             warnings.append(
-                LintWarning(
-                    rule="duplicate-choice-text",
+                Diagnostic(
+                    severity="warning",
+                    code="duplicate-choice-text",
                     path=path + (index, "text"),
                     message=(
                         f"choice text {text!r} is already used by "
@@ -514,15 +499,13 @@ def _check_choices(
             continue
         seen_texts[text] = index
 
-        if not strict:
-            continue
-
         visual = _visual_key(text)
         first_index = seen_visuals.get(visual)
         if first_index is not None:
             warnings.append(
-                LintWarning(
-                    rule="visually-identical-choice-text",
+                Diagnostic(
+                    severity="info",
+                    code="visually-identical-choice-text",
                     path=path + (index, "text"),
                     message=(
                         f"choice text {text!r} differs from choices"
@@ -540,7 +523,7 @@ def _check_choices(
 def _check_multiple_choice_answers(
     document: dict[str, Any],
     path: tuple[Union[str, int], ...],
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     multiple-choice.md: exactly one choice should carry full credit --
     the student picks a single radio button.
@@ -557,8 +540,9 @@ def _check_multiple_choice_answers(
 
     if not correct:
         return [
-            LintWarning(
-                rule="multiple-choice-no-correct-choice",
+            Diagnostic(
+                severity="warning",
+                code="multiple-choice-no-correct-choice",
                 path=path,
                 message="no choice has a score >= 1; the question has no correct answer",
             )
@@ -567,8 +551,9 @@ def _check_multiple_choice_answers(
     if len(correct) > 1:
         listed = ", ".join(str(index) for index in correct)
         return [
-            LintWarning(
-                rule="multiple-choice-many-correct-choices",
+            Diagnostic(
+                severity="warning",
+                code="multiple-choice-many-correct-choices",
                 path=path,
                 message=(
                     f"choices {listed} all have a score >= 1, but only one "
@@ -581,8 +566,7 @@ def _check_multiple_choice_answers(
 
 def _check_true_false_markers(
     document: dict[str, Any],
-    strict: bool,
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     true-false.md: PROVISIONAL letters SHOULD warn, since a later
     revision may reassign them; implementations MAY warn when the letter
@@ -595,7 +579,7 @@ def _check_true_false_markers(
     if not isinstance(choices, list):
         return []
 
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     language = _language_subtag(document)
     expected = _LOCALE_MARKERS.get(language)
 
@@ -607,8 +591,9 @@ def _check_true_false_markers(
         upper = marker.upper()
         if upper in _RESERVED_MARKERS:
             warnings.append(
-                LintWarning(
-                    rule="reserved-true-false-marker",
+                Diagnostic(
+                    severity="warning",
+                    code="reserved-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
                         f"{marker!r} marks a selected multiple-selection "
@@ -620,8 +605,9 @@ def _check_true_false_markers(
 
         if language == "id" and upper == "S":
             warnings.append(
-                LintWarning(
-                    rule="false-friend-true-false-marker",
+                Diagnostic(
+                    severity="warning",
+                    code="false-friend-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
                         f"{marker!r} means true (see true-false.md), but is "
@@ -635,8 +621,9 @@ def _check_true_false_markers(
 
         if upper not in _TRUE_MARKERS and upper not in _FALSE_MARKERS:
             warnings.append(
-                LintWarning(
-                    rule="provisional-true-false-marker",
+                Diagnostic(
+                    severity="warning",
+                    code="provisional-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
                         f"{marker!r} is a PROVISIONAL letter: it reads as "
@@ -647,15 +634,16 @@ def _check_true_false_markers(
             )
             continue
 
-        if not strict or expected is None:
+        if expected is None:
             continue
 
         expected_true, expected_false = expected
         wanted = expected_true if upper in _TRUE_MARKERS else expected_false
         if upper != wanted:
             warnings.append(
-                LintWarning(
-                    rule="locale-mismatched-true-false-marker",
+                Diagnostic(
+                    severity="info",
+                    code="locale-mismatched-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
                         f"{marker!r} is unusual for locale "
@@ -671,15 +659,16 @@ def _check_true_false_markers(
 # ----------------------------------------------------------------------
 # per-type rules
 # ----------------------------------------------------------------------
-def _check_essay_highlight(document: dict[str, Any]) -> list[LintWarning]:
+def _check_essay_highlight(document: dict[str, Any]) -> list[Diagnostic]:
     """essay.md: `highlight` is ignored unless the input is `code`."""
     highlight = document.get("highlight")
     input_kind = document.get("input", "text")
 
     if highlight is not None and input_kind != "code":
         return [
-            LintWarning(
-                rule="ignored-highlight",
+            Diagnostic(
+                severity="warning",
+                code="ignored-highlight",
                 path=("highlight",),
                 message=(
                     f"'highlight' is ignored because input is "
@@ -690,8 +679,9 @@ def _check_essay_highlight(document: dict[str, Any]) -> list[LintWarning]:
 
     if input_kind == "code" and highlight is None:
         return [
-            LintWarning(
-                rule="code-input-without-highlight",
+            Diagnostic(
+                severity="warning",
+                code="code-input-without-highlight",
                 path=("input",),
                 message=(
                     "input is 'code' but no 'highlight' language is given, "
@@ -705,15 +695,14 @@ def _check_essay_highlight(document: dict[str, Any]) -> list[LintWarning]:
 def _check_short_answer(
     document: dict[str, Any],
     path: tuple[Union[str, int], ...],
-    strict: bool,
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     short-answer.md: `regex` takes precedence over the body's answers, is
     applied as a full match, and must actually compile. A question with
     none of `regex`/`oneOf` and no `openEnded` flag cannot be graded
     either way.
     """
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     regex = document.get("regex")
     accepted = document.get("oneOf")
     open_ended = document.get("openEnded", False)
@@ -726,8 +715,9 @@ def _check_short_answer(
             re.compile(regex)
         except re.error as exc:
             warnings.append(
-                LintWarning(
-                    rule="invalid-regex",
+                Diagnostic(
+                    severity="warning",
+                    code="invalid-regex",
                     path=path + ("regex",),
                     message=f"regex does not compile: {exc}",
                 )
@@ -735,8 +725,9 @@ def _check_short_answer(
 
         if isinstance(accepted, list) and accepted:
             warnings.append(
-                LintWarning(
-                    rule="shadowed-answers",
+                Diagnostic(
+                    severity="warning",
+                    code="shadowed-answers",
                     path=path + ("oneOf",),
                     message=(
                         "'regex' takes precedence, so these accepted "
@@ -745,10 +736,11 @@ def _check_short_answer(
                 )
             )
 
-        if strict and (regex.startswith("^") or regex.endswith("$")):
+        if regex.startswith("^") or regex.endswith("$"):
             warnings.append(
-                LintWarning(
-                    rule="redundant-regex-anchor",
+                Diagnostic(
+                    severity="info",
+                    code="redundant-regex-anchor",
                     path=path + ("regex",),
                     message=(
                         "matching is a full match, so a leading '^' or "
@@ -764,8 +756,9 @@ def _check_short_answer(
         and not document.get("accept")
     ):
         warnings.append(
-            LintWarning(
-                rule="short-answer-not-gradable",
+            Diagnostic(
+                severity="warning",
+                code="short-answer-not-gradable",
                 path=path,
                 message=(
                     "no 'accept' patterns, no 'oneOf' answers and no 'regex' "
@@ -780,7 +773,7 @@ def _check_short_answer(
 
 def _check_patterns(
     patterns: Any, path: tuple[Union[str, int], ...]
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     short-answer.md: every delimited pattern in an accept/reject list must
     parse as an MDQ regex.
@@ -788,7 +781,7 @@ def _check_patterns(
     if not isinstance(patterns, list):
         return []
 
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     for index, entry in enumerate(patterns):
         pattern = entry.get("pattern") if isinstance(entry, dict) else entry
         if not isinstance(pattern, str) or not pattern.strip().startswith("/"):
@@ -797,8 +790,9 @@ def _check_patterns(
             RegexPattern(pattern)
         except InvalidRegexError as exc:
             warnings.append(
-                LintWarning(
-                    rule="invalid-regex",
+                Diagnostic(
+                    severity="warning",
+                    code="invalid-regex",
                     path=path + (index,),
                     message=f"regex does not compile: {exc}",
                 )
@@ -809,15 +803,14 @@ def _check_patterns(
 def _check_numeric(
     document: dict[str, Any],
     path: tuple[str | int, ...],
-    strict: bool,
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
     numeric.md: the domain is inferred from the answer's representation
     when not declared, so a declared domain that contradicts the answer
     is a mistake; and a relative tolerance around zero can never widen
     the accepted range.
     """
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     answer = document.get("answer")
     domain = document.get("domain")
     decimal_places = document.get("decimalPlaces")
@@ -825,8 +818,9 @@ def _check_numeric(
 
     if domain == "integer" and _is_number(answer) and float(answer) != int(answer):
         warnings.append(
-            LintWarning(
-                rule="answer-outside-domain",
+            Diagnostic(
+                severity="warning",
+                code="answer-outside-domain",
                 path=path + ("answer",),
                 message=(
                     f"domain is 'integer' but the answer {answer!r} is not a "
@@ -839,8 +833,9 @@ def _check_numeric(
         relative = tolerance.get("relative")
         if _is_number(relative) and relative > 0 and answer == 0:
             warnings.append(
-                LintWarning(
-                    rule="relative-tolerance-around-zero",
+                Diagnostic(
+                    severity="warning",
+                    code="relative-tolerance-around-zero",
                     path=path + ("tolerance", "relative"),
                     message=(
                         "a relative tolerance is computed as answer x "
@@ -850,10 +845,11 @@ def _check_numeric(
                 )
             )
 
-        if strict and _is_number(relative) and relative > 1:
+        if _is_number(relative) and relative > 1:
             warnings.append(
-                LintWarning(
-                    rule="relative-tolerance-over-one",
+                Diagnostic(
+                    severity="info",
+                    code="relative-tolerance-over-one",
                     path=path + ("tolerance", "relative"),
                     message=(
                         f"a relative tolerance of {relative!r} means "
@@ -863,10 +859,11 @@ def _check_numeric(
                 )
             )
 
-    if strict and decimal_places is not None and domain in ("integer", "fraction"):
+    if decimal_places is not None and domain in ("integer", "fraction"):
         warnings.append(
-            LintWarning(
-                rule="ignored-decimal-places",
+            Diagnostic(
+                severity="info",
+                code="ignored-decimal-places",
                 path=path + ("decimalPlaces",),
                 message=f"'decimalPlaces' is ignored when domain is {domain!r}",
             )
@@ -875,7 +872,7 @@ def _check_numeric(
     return warnings
 
 
-def _check_fill_in(document: dict[str, Any], strict: bool) -> list[LintWarning]:
+def _check_fill_in(document: dict[str, Any]) -> list[Diagnostic]:
     """
     fill-in.md: every blank is referenced from the stem by its id, so the
     two sides must line up; and each blank is graded like the question
@@ -885,7 +882,7 @@ def _check_fill_in(document: dict[str, Any], strict: bool) -> list[LintWarning]:
     if not isinstance(blanks, list):
         return []
 
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     seen_ids: dict[str, int] = {}
     blank_ids: list[str] = []
 
@@ -899,8 +896,9 @@ def _check_fill_in(document: dict[str, Any], strict: bool) -> list[LintWarning]:
             first_index = seen_ids.get(blank_id)
             if first_index is not None:
                 warnings.append(
-                    LintWarning(
-                        rule="duplicate-blank-id",
+                    Diagnostic(
+                        severity="warning",
+                        code="duplicate-blank-id",
                         path=("blanks", index, "id"),
                         message=(
                             f"blank id {blank_id!r} is already used by "
@@ -916,16 +914,14 @@ def _check_fill_in(document: dict[str, Any], strict: bool) -> list[LintWarning]:
         blank_path: tuple[Union[str, int], ...] = ("blanks", index)
 
         if blank_type == "multiple-choice":
-            warnings.extend(
-                _check_choices(blank, blank_path + ("choices",), strict=strict)
-            )
+            warnings.extend(_check_choices(blank, blank_path + ("choices",)))
             warnings.extend(
                 _check_multiple_choice_answers(blank, blank_path + ("choices",))
             )
         elif blank_type == "short-answer":
-            warnings.extend(_check_short_answer(blank, blank_path, strict=strict))
+            warnings.extend(_check_short_answer(blank, blank_path))
         elif blank_type == "numeric":
-            warnings.extend(_check_numeric(blank, blank_path, strict=strict))
+            warnings.extend(_check_numeric(blank, blank_path))
 
     warnings.extend(_check_blank_markers(document, blank_ids))
     return warnings
@@ -934,7 +930,7 @@ def _check_fill_in(document: dict[str, Any], strict: bool) -> list[LintWarning]:
 def _check_blank_markers(
     document: dict[str, Any],
     blank_ids: list[str],
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """Cross-check the stem's `[^id]` markers against the declared blanks."""
     stem = document.get("stem")
     if not isinstance(stem, str):
@@ -946,14 +942,15 @@ def _check_blank_markers(
         marker.split("/", 1)[0].strip() for marker in _BLANK_MARKER_RE.findall(stem)
     ]
 
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     declared = set(blank_ids)
 
     for name in dict.fromkeys(referenced):
         if name not in declared:
             warnings.append(
-                LintWarning(
-                    rule="undefined-blank",
+                Diagnostic(
+                    severity="warning",
+                    code="undefined-blank",
                     path=("stem",),
                     message=(
                         f"the stem references [^{name}] but no blank with "
@@ -966,8 +963,9 @@ def _check_blank_markers(
     for index, blank_id in enumerate(blank_ids):
         if blank_id not in seen:
             warnings.append(
-                LintWarning(
-                    rule="unreferenced-blank",
+                Diagnostic(
+                    severity="warning",
+                    code="unreferenced-blank",
                     path=("blanks", index, "id"),
                     message=(
                         f"blank {blank_id!r} is never referenced by a "
@@ -979,7 +977,7 @@ def _check_blank_markers(
     return warnings
 
 
-def _check_exam(document: dict[str, Any]) -> list[LintWarning]:
+def _check_exam(document: dict[str, Any]) -> list[Diagnostic]:
     """
     exam.md: an exam MAY contain zero questions, but SHOULD warn -- an
     exam with nothing to answer is a draft, not an assessment. Duplicate
@@ -992,14 +990,15 @@ def _check_exam(document: dict[str, Any]) -> list[LintWarning]:
 
     if not questions:
         return [
-            LintWarning(
-                rule="exam-without-questions",
+            Diagnostic(
+                severity="warning",
+                code="exam-without-questions",
                 path=("questions",),
                 message="the exam contains no questions, so it cannot be answered",
             )
         ]
 
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     seen: dict[str, int] = {}
     for index, entry in enumerate(questions):
         if not isinstance(entry, dict):
@@ -1012,8 +1011,9 @@ def _check_exam(document: dict[str, Any]) -> list[LintWarning]:
         first = seen.get(identifier)
         if first is not None:
             warnings.append(
-                LintWarning(
-                    rule="duplicate-question-id",
+                Diagnostic(
+                    severity="warning",
+                    code="duplicate-question-id",
                     path=("questions", index),
                     message=(
                         f"question id {identifier!r} is already used by "

@@ -14,9 +14,9 @@ question type -- is always set apart from the plain choices/blanks by
 color and, where it stands alone, its own bordered panel.
 
 The interface is small on purpose: `show_source` for a whole document (a
-question or an exam -- told apart by content, exactly like
-`mdq.parse_any` does), plus `render_question` and `render_exam` for
-callers that already hold a model.
+question or an exam -- told apart by content, via `mdq.load`/`mdq.parse`),
+plus `render_question` and `render_exam` for callers that already hold a
+model.
 """
 
 from __future__ import annotations
@@ -30,9 +30,8 @@ from rich.table import Table
 from rich.text import Text
 
 from . import models, render, schedule
-from . import parse_exam, parse_question
 from .loaders import QuestionLoader
-from .parser import is_exam
+from .loading import Source, parse
 
 __all__ = ["show_source", "render_question", "render_exam"]
 
@@ -42,22 +41,23 @@ _HIDDEN_ANSWER_TEXT = Text("Answer key hidden.", style=_NOTE_STYLE)
 
 
 def show_source(
-    src: str,
+    src: Source,
     console: Console,
     *,
     show_answer_key: bool = True,
     loader: QuestionLoader | None = None,
 ) -> None:
     """
-    Parse MDQ source and print a human-readable rendering of it.
+    Load an MDQ document and print a human-readable rendering of it.
 
-    Dispatches on content the same way `mdq.parse_any` does: a document
-    with a top-level heading is an exam and is rendered by
-    `render_exam`; otherwise it's a single question, rendered by
-    `render_question`.
+    Dispatches on the document's own kind: an exam is rendered by
+    `render_exam`, a single question by `render_question`.
 
     Args:
-        src: MDQ source text, with or without YAML frontmatter.
+        src: Anything `mdq.parse` accepts -- MDQ source text, a `Path`,
+            or an open file. A `Path` resolves an exam's `include:`
+            references against its own directory unless `loader`
+            overrides it; text has no directory to resolve against.
         console: Where to print the rendering.
         show_answer_key: When false, everything that would reveal the
             correct answer (correctness marks, an essay's answer key, a
@@ -66,18 +66,16 @@ def show_source(
             and blanks themselves are still shown -- only the key is
             hidden, as when previewing a question for a student.
         loader: Resolves an exam's `include:` references, if given.
-            Ignored for a question document. Typically
-            `FileLoader(path.parent)` when `src` came from a file.
+            Ignored for a question document.
 
     Raises:
-        ParseError: If `src` is not valid MDQ.
+        InvalidDocument: `src` is not a valid MDQ document.
     """
-    if is_exam(src):
-        exam = parse_exam(src, loader=loader)
-        render_exam(exam, console, show_answer_key=show_answer_key)
+    document = parse(src, loader=loader)
+    if isinstance(document, models.Exam):
+        render_exam(document, console, show_answer_key=show_answer_key)
     else:
-        question = parse_question(src)
-        render_question(question, console, show_answer_key=show_answer_key)
+        render_question(document, console, show_answer_key=show_answer_key)
 
 
 def render_question(

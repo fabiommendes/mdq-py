@@ -21,9 +21,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 
+from mdq import load
+from mdq.loaders import FileLoader
 from mdq.parser import parse_any, parse_exam, parse_file
 from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
-from mdq.validator import load_document, validate_document
 
 #: Pairs the parser is known not to reproduce exactly, with the reason.
 #: Keyed by the same id `relative_id` gives the pair (e.g.
@@ -49,6 +50,11 @@ console = Console(force_terminal=True)
 def parse_file_from_text(source: str) -> dict:
     """Parse an inline document, for cases with no example pair."""
     return parse_any(source)
+
+
+def load_document(path: Path):
+    """The parsed sibling's own data, loaded straight off disk."""
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def test_source_files_found() -> None:
@@ -144,9 +150,11 @@ def test_parsed_document_validates(source: Path) -> None:
     key = relative_id(source)
     if key in NOT_YET_SUPPORTED:
         pytest.xfail(NOT_YET_SUPPORTED[key])
-    document = parse_file(source)
-    result = validate_document(document)
-    assert result.valid, [str(e) for e in result.errors]
+    # An exam's `include:` entries need a loader to resolve before the
+    # document can validate; harmless for a plain question source.
+    document = parse_file(source, loader=FileLoader(source.parent))
+    loaded = load(document)
+    assert loaded, loaded.diagnostics
 
 
 # ---------------------------------------------------------------------
@@ -170,7 +178,7 @@ def test_choice_instructor_comment_round_trips(question_type: str) -> None:
     assert document["choices"][0]["comment"] == (
         "Students often say the Nile; mention the 2007 survey."
     )
-    assert validate_document(document).valid
+    assert load(document)
 
 
 def test_true_false_choice_instructor_comment_round_trips() -> None:
@@ -187,7 +195,7 @@ def test_true_false_choice_instructor_comment_round_trips() -> None:
     assert document["choices"][0]["comment"] == (
         "Worth contrasting with the Nile's length."
     )
-    assert validate_document(document).valid
+    assert load(document)
 
 
 def test_numeric_blank_infers_domain_like_a_numeric_question() -> None:
@@ -250,7 +258,7 @@ def test_exam_preamble_thematic_break_does_not_fence_a_later_question() -> None:
     assert exam["questions"][0]["preamble"] == (
         "Some background text.\n\n---\n\nMore background, after a thematic break."
     )
-    assert validate_document(exam).valid
+    assert load(exam)
 
 
 def test_colon_bearing_preamble_line_is_not_mistaken_for_frontmatter() -> None:
@@ -278,7 +286,7 @@ def test_colon_bearing_preamble_line_is_not_mistaken_for_frontmatter() -> None:
         "Considere o processo abaixo.\n\n---\n\nAtenção: a resposta deve ser justificada."
     )
     assert exam["questions"][0]["stem"] == "Explique a seleção natural."
-    assert validate_document(exam).valid
+    assert load(exam)
 
 
 def test_exam_separator_immediately_followed_by_frontmatter_is_one_question() -> None:
@@ -312,4 +320,4 @@ def test_exam_separator_immediately_followed_by_frontmatter_is_one_question() ->
         "Considere o processo abaixo.\n\n---\n\nAtenção: a resposta deve ser justificada."
     )
     assert exam["questions"][1]["stem"] == "Descreva a fotossíntese."
-    assert validate_document(exam).valid
+    assert load(exam)

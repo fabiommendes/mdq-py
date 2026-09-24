@@ -19,11 +19,10 @@ import pytest
 from hypothesis import given
 from rich.console import Console
 
-from mdq import models, show as show_mod
+from mdq import load, models, show as show_mod
 from mdq.errors import ParseError
 from mdq.hypothesis import schedule as st_schedule
 from mdq.parser import parse_exam
-from mdq.validator import validate_document
 
 
 def _minimal_exam(**kwargs: object) -> models.Exam:
@@ -46,8 +45,8 @@ def test_exam_start_round_trips_through_to_dict_and_model_validate(
 ) -> None:
     exam = _minimal_exam(start=value)
     data = exam.to_dict()
-    result = validate_document(data)
-    assert result.valid, result.errors
+    loaded = load(data)
+    assert loaded, loaded.diagnostics
     round_tripped = models.Exam.model_validate(data)
     assert round_tripped.start == exam.start
     assert round_tripped.to_dict() == data
@@ -59,8 +58,8 @@ def test_exam_duration_round_trips_through_to_dict_and_model_validate(
 ) -> None:
     exam = _minimal_exam(duration=value)
     data = exam.to_dict()
-    result = validate_document(data)
-    assert result.valid, result.errors
+    loaded = load(data)
+    assert loaded, loaded.diagnostics
     round_tripped = models.Exam.model_validate(data)
     assert round_tripped.duration == exam.duration
     assert round_tripped.to_dict() == data

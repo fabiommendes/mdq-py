@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from mdq.parser import parse_any
-from mdq.validator import validate_document
+from mdq import load
 
 
 def _multiple_choice(score: float) -> dict[str, Any]:
@@ -68,24 +68,24 @@ def _exam(penalty: str | None = None) -> dict[str, Any]:
 
 @pytest.mark.parametrize("score", [-1, 0, 1, -0.5, 0.25])
 def test_score_within_range_is_accepted(score: float) -> None:
-    assert validate_document(_multiple_choice(score)).valid
+    assert load(_multiple_choice(score))
 
 
 @pytest.mark.parametrize("score", [-1.5, 1.5])
 def test_score_outside_range_is_rejected(score: float) -> None:
-    assert not validate_document(_multiple_choice(score)).valid
+    assert not load(_multiple_choice(score))
 
 
 @pytest.mark.parametrize("score", [-1, 0, 1])
 def test_fill_in_choice_blank_accepts_score_within_range(score: float) -> None:
     """Proves the $ref to multiple-choice.yaml#/$defs/Choice actually
     shares the bound, not just the shape."""
-    assert validate_document(_fill_in_with_choice_score(score)).valid
+    assert load(_fill_in_with_choice_score(score))
 
 
 @pytest.mark.parametrize("score", [-1.5, 1.5])
 def test_fill_in_choice_blank_rejects_score_outside_range(score: float) -> None:
-    assert not validate_document(_fill_in_with_choice_score(score)).valid
+    assert not load(_fill_in_with_choice_score(score))
 
 
 # ---------------------------------------------------------------------
@@ -95,17 +95,17 @@ def test_fill_in_choice_blank_rejects_score_outside_range(score: float) -> None:
 
 @pytest.mark.parametrize("penalty", ["none", "capped", "full"])
 def test_each_penalty_value_is_accepted(penalty: str) -> None:
-    assert validate_document(_exam(penalty)).valid
+    assert load(_exam(penalty))
 
 
 def test_unknown_penalty_value_is_rejected() -> None:
-    assert not validate_document(_exam("harsh")).valid
+    assert not load(_exam("harsh"))
 
 
 def test_penalty_is_optional() -> None:
     doc = _exam()
     assert "penalty" not in doc
-    assert validate_document(doc).valid
+    assert load(doc)
 
 
 def test_a_question_cannot_override_penalty() -> None:
@@ -114,7 +114,7 @@ def test_a_question_cannot_override_penalty() -> None:
     field -- caught by the type schema's `unevaluatedProperties: false`."""
     doc = _multiple_choice(1)
     doc["penalty"] = "full"
-    assert not validate_document(doc).valid
+    assert not load(doc)
 
 
 # ---------------------------------------------------------------------
@@ -130,7 +130,7 @@ def test_parser_carries_penalty_from_exam_frontmatter(penalty: str) -> None:
     )
     doc = parse_any(source)
     assert doc["penalty"] == penalty
-    assert validate_document(doc).valid
+    assert load(doc)
 
 
 def test_parser_omits_penalty_when_not_set_in_frontmatter() -> None:

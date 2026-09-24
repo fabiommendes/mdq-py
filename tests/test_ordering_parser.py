@@ -38,7 +38,7 @@ from mdq.models import (
 )
 from mdq.parser import parse_question
 from mdq.types import OrderingQuestionDict
-from mdq.validator import validate_document
+from mdq import load
 
 
 def parse_ordering(source: str) -> OrderingQuestionDict:
@@ -172,8 +172,8 @@ def test_render_parse_is_a_fixed_point(question: OrderingQuestion) -> None:
     """
     document = parse_question(question.render())
 
-    result = validate_document(document)
-    assert result.valid, [str(e) for e in result.errors]
+    loaded = load(document)
+    assert loaded, loaded.diagnostics
 
     rebuilt = QuestionRoot.model_validate(document).root
     assert rebuilt == question.normalize()

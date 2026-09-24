@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import pytest
 
-from mdq.linter import lint_document
-from mdq.validator import validate_document
+from mdq import load
 
 
-def _rules(warnings) -> set[str]:
-    return {w.rule for w in warnings}
+def _rules(diagnostics) -> set[str]:
+    return {d.code for d in diagnostics}
 
 
 # ---------------------------------------------------------------------
@@ -28,9 +27,9 @@ def test_whitespace_only_text_field_warns(field_name: str) -> None:
         "input": "text",
         field_name: "   \n\t  ",
     }
-    warnings = lint_document(doc, "essay")
+    warnings = load(doc).diagnostics
     assert "blank-text-field" in _rules(warnings)
-    matching = [w for w in warnings if w.rule == "blank-text-field"]
+    matching = [w for w in warnings if w.code == "blank-text-field"]
     assert matching[0].path == (field_name,)
 
 
@@ -43,12 +42,12 @@ def test_non_blank_text_fields_do_not_warn() -> None:
         "comment": "Internal note.",
         "input": "text",
     }
-    assert lint_document(doc, "essay") == []
+    assert load(doc).diagnostics == []
 
 
 def test_missing_text_fields_do_not_warn() -> None:
     doc = {"type": "essay", "stem": "Explain X.", "input": "text"}
-    assert lint_document(doc, "essay") == []
+    assert load(doc).diagnostics == []
 
 
 # ---------------------------------------------------------------------
@@ -60,23 +59,26 @@ def test_missing_text_fields_do_not_warn() -> None:
     "question_type", ["true-false", "multiple-choice", "multiple-selection"]
 )
 def test_duplicate_choice_ids_and_texts_warn(question_type: str) -> None:
+    # The first choice is marked correct -- `score: 1` for multiple-choice,
+    # `correct: true` for the other two -- so multiple-choice's separate
+    # "needs a correct choice" rule doesn't also fire here, keeping this
+    # test focused on the duplicate-id/text checks alone.
+    first_choice = (
+        {"id": "same-id", "text": "same text", "score": 1}
+        if question_type == "multiple-choice"
+        else {"id": "same-id", "text": "same text", "correct": True}
+    )
     doc = {
         "type": question_type,
         "stem": "x",
-        "choices": [
-            # score=1 on the first choice keeps multiple-choice's separate
-            # "needs a correct choice" rule from also firing here, so this
-            # test stays focused on the duplicate-id/text checks alone.
-            {"id": "same-id", "text": "same text", "score": 1},
-            {"id": "same-id", "text": "same text"},
-        ],
+        "choices": [first_choice, {"id": "same-id", "text": "same text"}],
     }
-    warnings = lint_document(doc, question_type)
+    warnings = load(doc).diagnostics
     assert {"duplicate-choice-id", "duplicate-choice-text"} <= _rules(warnings)
     assert "multiple-choice-no-correct-choice" not in _rules(warnings)
     # The second (duplicate) occurrence is the one flagged.
     for w in warnings:
-        if w.rule in ("duplicate-choice-id", "duplicate-choice-text"):
+        if w.code in ("duplicate-choice-id", "duplicate-choice-text"):
             assert w.path[:2] == ("choices", 1)
 
 
@@ -89,7 +91,7 @@ def test_unique_choices_do_not_warn() -> None:
             {"id": "b", "text": "B"},
         ],
     }
-    assert _rules(lint_document(doc, "multiple-choice")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_choices_without_id_are_not_flagged_as_duplicates() -> None:
@@ -103,14 +105,14 @@ def test_choices_without_id_are_not_flagged_as_duplicates() -> None:
             {"text": "B"},
         ],
     }
-    assert _rules(lint_document(doc, "multiple-choice")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_choice_checks_do_not_apply_to_essay_or_numeric() -> None:
     essay_doc = {"type": "essay", "stem": "x", "input": "text"}
     numeric_doc = {"type": "numeric", "stem": "x", "answer": 4}
-    assert lint_document(essay_doc, "essay") == []
-    assert lint_document(numeric_doc, "numeric") == []
+    assert load(essay_doc).diagnostics == []
+    assert load(numeric_doc).diagnostics == []
 
 
 # ---------------------------------------------------------------------
@@ -124,7 +126,7 @@ def test_multiple_choice_without_any_correct_choice_warns() -> None:
         "stem": "x",
         "choices": [{"id": "a", "text": "A", "score": 0}, {"id": "b", "text": "B"}],
     }
-    warnings = lint_document(doc, "multiple-choice")
+    warnings = load(doc).diagnostics
     assert "multiple-choice-no-correct-choice" in _rules(warnings)
 
 
@@ -134,7 +136,7 @@ def test_multiple_choice_with_a_correct_choice_does_not_warn() -> None:
         "stem": "x",
         "choices": [{"id": "a", "text": "A", "score": 1}, {"id": "b", "text": "B"}],
     }
-    warnings = lint_document(doc, "multiple-choice")
+    warnings = load(doc).diagnostics
     assert "multiple-choice-no-correct-choice" not in _rules(warnings)
 
 
@@ -148,50 +150,32 @@ def test_only_multiple_choice_gets_the_correct_choice_check() -> None:
         "choices": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
     }
     assert "multiple-choice-no-correct-choice" not in _rules(
-        lint_document(doc, "multiple-selection")
+        load(doc).diagnostics
     )
 
 
 # ---------------------------------------------------------------------
-# levels
+# severities: every rule always runs; a strict-only rule now reports at
+# "info" rather than being gated by a level (see
+# `dev/specs/to-do/loading-module.md`, "Severities of lint rules").
 # ---------------------------------------------------------------------
 
 
-def test_unknown_level_raises() -> None:
-    doc = {"type": "essay", "stem": "x", "input": "text"}
-    with pytest.raises(ValueError):
-        lint_document(doc, "essay", level="nonsense")
-
-
-def test_strict_includes_every_default_rule() -> None:
-    """'strict' adds rules, never drops them: anything the default level
-    reports must still be reported at strict."""
-    doc = {
-        "type": "multiple-choice",
-        "stem": "x",
-        "choices": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
-    }
-    default = _rules(lint_document(doc, "multiple-choice"))
-    strict = _rules(lint_document(doc, "multiple-choice", level="strict"))
-    assert default
-    assert default <= strict
-
-
-def test_strict_only_rules_are_silent_at_the_default_level() -> None:
+def test_strict_only_rules_still_run_at_info_severity() -> None:
     doc = {"type": "numeric", "stem": "...", "answer": 4, "locale": "cn"}
-    assert _rules(lint_document(doc, "numeric")) == set()
-    assert {"unexpanded-stem-ellipsis", "locale-lookalike-language"} <= _rules(
-        lint_document(doc, "numeric", level="strict")
-    )
+    diagnostics = load(doc).diagnostics
+    assert _rules(diagnostics) >= {"unexpanded-stem-ellipsis", "locale-lookalike-language"}
+    info_codes = {d.code for d in diagnostics if d.severity == "info"}
+    assert {"unexpanded-stem-ellipsis", "locale-lookalike-language"} <= info_codes
 
 
 # ---------------------------------------------------------------------
-# integration: warnings surface through validate_document without
-# affecting `valid`
+# integration: warnings surface through `load` without affecting the
+# document being built
 # ---------------------------------------------------------------------
 
 
-def test_validate_document_reports_warnings_without_failing() -> None:
+def test_load_reports_warnings_without_failing() -> None:
     doc = {
         "type": "multiple-choice",
         "stem": "x",
@@ -200,16 +184,10 @@ def test_validate_document_reports_warnings_without_failing() -> None:
             {"id": "b", "text": "B", "score": 0},
         ],
     }
-    result = validate_document(doc)
-    assert result.valid is True
-    assert result.errors == []
-    assert "multiple-choice-no-correct-choice" in _rules(result.warnings)
-
-
-def test_validate_document_rejects_unknown_level() -> None:
-    doc = {"type": "essay", "stem": "x", "input": "text"}
-    with pytest.raises(ValueError):
-        validate_document(doc, level="nonsense")
+    loaded = load(doc)
+    assert loaded
+    assert not any(d.severity == "error" for d in loaded.diagnostics)
+    assert "multiple-choice-no-correct-choice" in _rules(loaded.diagnostics)
 
 
 # ---------------------------------------------------------------------
@@ -225,7 +203,7 @@ def test_validate_document_rejects_unknown_level() -> None:
 )
 def test_uuid_with_bad_version_or_variant_warns(uuid: str, rule: str) -> None:
     doc = {"type": "essay", "stem": "x", "uuid": uuid}
-    assert rule in _rules(lint_document(doc, "essay"))
+    assert rule in _rules(load(doc).diagnostics)
 
 
 def test_well_formed_uuid_does_not_warn() -> None:
@@ -234,31 +212,31 @@ def test_well_formed_uuid_does_not_warn() -> None:
         "stem": "x",
         "uuid": "123e4567-e89b-12d3-a456-426614174000",
     }
-    assert _rules(lint_document(doc, "essay")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_malformed_uuid_is_left_to_the_schema() -> None:
     """A UUID of the wrong shape is a schema `pattern` failure; the
     linter must not pile a second, confusing message on top of it."""
     doc = {"type": "essay", "stem": "x", "uuid": "nope"}
-    assert _rules(lint_document(doc, "essay")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_tag_containing_a_comma_warns() -> None:
     doc = {"type": "essay", "stem": "x", "tags": ["algorithms, complexity"]}
-    assert "unsplit-tag-list" in _rules(lint_document(doc, "essay"))
+    assert "unsplit-tag-list" in _rules(load(doc).diagnostics)
 
 
 def test_blank_tag_warns() -> None:
     doc = {"type": "essay", "stem": "x", "tags": ["ok", "  "]}
-    warnings = lint_document(doc, "essay")
+    warnings = load(doc).diagnostics
     assert "blank-tag" in _rules(warnings)
-    assert [w for w in warnings if w.rule == "blank-tag"][0].path == ("tags", 1)
+    assert [w for w in warnings if w.code == "blank-tag"][0].path == ("tags", 1)
 
 
 def test_ordinary_tags_do_not_warn() -> None:
     doc = {"type": "essay", "stem": "x", "tags": ["algorithms", "complexity"]}
-    assert _rules(lint_document(doc, "essay")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 @pytest.mark.parametrize(
@@ -274,21 +252,21 @@ def test_ordinary_tags_do_not_warn() -> None:
 )
 def test_non_paragraph_stem_warns_at_strict(stem: str) -> None:
     doc = {"type": "essay", "stem": stem}
-    assert "stem-not-a-paragraph" in _rules(lint_document(doc, "essay", level="strict"))
+    assert "stem-not-a-paragraph" in _rules(load(doc).diagnostics)
 
 
 def test_ordinary_stem_is_not_flagged_as_a_block() -> None:
     doc = {"type": "essay", "stem": "Explain why 2 + 2 = 4."}
-    assert _rules(lint_document(doc, "essay", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_locale_lookalike_warns_but_real_locale_does_not() -> None:
     bad = {"type": "essay", "stem": "x", "locale": "cn"}
     good = {"type": "essay", "stem": "x", "locale": "zh-Hans-CN"}
     assert "locale-lookalike-language" in _rules(
-        lint_document(bad, "essay", level="strict")
+        load(bad).diagnostics
     )
-    assert _rules(lint_document(good, "essay", level="strict")) == set()
+    assert _rules(load(good).diagnostics) == set()
 
 
 # ---------------------------------------------------------------------
@@ -302,7 +280,7 @@ def test_whitespace_only_choice_text_warns() -> None:
         "stem": "x",
         "choices": [{"text": "A", "score": 1}, {"text": "   "}],
     }
-    warnings = lint_document(doc, "multiple-choice")
+    warnings = load(doc).diagnostics
     assert "blank-choice-text" in _rules(warnings)
 
 
@@ -317,7 +295,7 @@ def test_choices_differing_only_in_whitespace_warn_at_strict() -> None:
         ],
     }
     assert "visually-identical-choice-text" in _rules(
-        lint_document(doc, "multiple-choice", level="strict")
+        load(doc).diagnostics
     )
 
 
@@ -333,7 +311,7 @@ def test_whitespace_inside_a_code_span_stays_significant() -> None:
         ],
     }
     assert "visually-identical-choice-text" not in _rules(
-        lint_document(doc, "multiple-choice", level="strict")
+        load(doc).diagnostics
     )
 
 
@@ -347,7 +325,7 @@ def test_multiple_choice_with_two_correct_choices_warns() -> None:
         ],
     }
     assert "multiple-choice-many-correct-choices" in _rules(
-        lint_document(doc, "multiple-choice")
+        load(doc).diagnostics
     )
 
 
@@ -362,7 +340,7 @@ def test_partial_credit_choices_are_not_correct_answers() -> None:
             {"id": "b", "text": "B", "score": 0.5},
         ],
     }
-    rules = _rules(lint_document(doc, "multiple-choice"))
+    rules = _rules(load(doc).diagnostics)
     assert "multiple-choice-no-correct-choice" in rules
     assert "multiple-choice-many-correct-choices" not in rules
 
@@ -383,12 +361,12 @@ def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
             {
                 "text": "A",
                 "marker": marker,
-                "answer": marker.upper() not in ("F", "错", "偽"),
+                "correct": marker.upper() not in ("F", "错", "偽"),
             },
             {"text": "B", "marker": "F"},
         ],
     }
-    assert _rules(lint_document(doc, "true-false")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 @pytest.mark.parametrize("marker", ["N", "D", "W", "n"])
@@ -400,7 +378,7 @@ def test_provisional_marker_warns(marker: str) -> None:
         "stem": "x",
         "choices": [{"text": "A", "marker": marker}, {"text": "B", "marker": "F"}],
     }
-    assert "provisional-true-false-marker" in _rules(lint_document(doc, "true-false"))
+    assert "provisional-true-false-marker" in _rules(load(doc).diagnostics)
 
 
 def test_indonesian_s_marker_warns_as_false_friend() -> None:
@@ -412,11 +390,11 @@ def test_indonesian_s_marker_warns_as_false_friend() -> None:
         "stem": "x",
         "locale": "id",
         "choices": [
-            {"text": "A", "marker": "S", "answer": True},
+            {"text": "A", "marker": "S", "correct": True},
             {"text": "B", "marker": "F"},
         ],
     }
-    rules = _rules(lint_document(doc, "true-false"))
+    rules = _rules(load(doc).diagnostics)
     assert "false-friend-true-false-marker" in rules
     assert "provisional-true-false-marker" not in rules
 
@@ -427,7 +405,7 @@ def test_multiple_selection_marker_is_reserved() -> None:
         "stem": "x",
         "choices": [{"text": "A", "marker": "X"}, {"text": "B", "marker": "F"}],
     }
-    rules = _rules(lint_document(doc, "true-false"))
+    rules = _rules(load(doc).diagnostics)
     assert "reserved-true-false-marker" in rules
     assert "provisional-true-false-marker" not in rules
 
@@ -439,12 +417,12 @@ def test_marker_inconsistent_with_locale_warns_at_strict() -> None:
         "stem": "x",
         "locale": "pt-BR",
         "choices": [
-            {"text": "A", "marker": "T", "answer": True},
+            {"text": "A", "marker": "T", "correct": True},
             {"text": "B", "marker": "F"},
         ],
     }
     assert "locale-mismatched-true-false-marker" in _rules(
-        lint_document(doc, "true-false", level="strict")
+        load(doc).diagnostics
     )
 
 
@@ -454,11 +432,11 @@ def test_marker_consistent_with_locale_does_not_warn() -> None:
         "stem": "x",
         "locale": "pt-BR",
         "choices": [
-            {"text": "A", "marker": "V", "answer": True},
+            {"text": "A", "marker": "V", "correct": True},
             {"text": "B", "marker": "F"},
         ],
     }
-    assert _rules(lint_document(doc, "true-false", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_choices_without_markers_are_not_flagged() -> None:
@@ -467,9 +445,9 @@ def test_choices_without_markers_are_not_flagged() -> None:
     doc = {
         "type": "true-false",
         "stem": "x",
-        "choices": [{"text": "A", "answer": True}, {"text": "B"}],
+        "choices": [{"text": "A", "correct": True}, {"text": "B"}],
     }
-    assert _rules(lint_document(doc, "true-false", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 # ---------------------------------------------------------------------
@@ -479,24 +457,24 @@ def test_choices_without_markers_are_not_flagged() -> None:
 
 def test_highlight_without_code_input_warns() -> None:
     doc = {"type": "essay", "stem": "x", "input": "text", "highlight": "python"}
-    assert "ignored-highlight" in _rules(lint_document(doc, "essay"))
+    assert "ignored-highlight" in _rules(load(doc).diagnostics)
 
 
 def test_highlight_is_ignored_by_default_input_too() -> None:
     """`input` defaults to "text", so an omitted input still makes
     `highlight` a no-op."""
     doc = {"type": "essay", "stem": "x", "highlight": "python"}
-    assert "ignored-highlight" in _rules(lint_document(doc, "essay"))
+    assert "ignored-highlight" in _rules(load(doc).diagnostics)
 
 
 def test_code_input_without_highlight_warns() -> None:
     doc = {"type": "essay", "stem": "x", "input": "code"}
-    assert "code-input-without-highlight" in _rules(lint_document(doc, "essay"))
+    assert "code-input-without-highlight" in _rules(load(doc).diagnostics)
 
 
 def test_code_input_with_highlight_does_not_warn() -> None:
     doc = {"type": "essay", "stem": "x", "input": "code", "highlight": "python"}
-    assert _rules(lint_document(doc, "essay")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 # ---------------------------------------------------------------------
@@ -506,39 +484,39 @@ def test_code_input_with_highlight_does_not_warn() -> None:
 
 def test_uncompilable_regex_warns() -> None:
     doc = {"type": "short-answer", "stem": "x", "regex": "([unclosed"}
-    assert "invalid-regex" in _rules(lint_document(doc, "short-answer"))
+    assert "invalid-regex" in _rules(load(doc).diagnostics)
 
 
 def test_regex_shadows_the_accepted_answers() -> None:
     """short-answer.md: the frontmatter `regex` takes precedence, which
     leaves the body's answers unreachable."""
     doc = {"type": "short-answer", "stem": "x", "regex": "yes", "oneOf": ["yes"]}
-    warnings = lint_document(doc, "short-answer")
+    warnings = load(doc).diagnostics
     assert "shadowed-answers" in _rules(warnings)
-    assert [w for w in warnings if w.rule == "shadowed-answers"][0].path == ("oneOf",)
+    assert [w for w in warnings if w.code == "shadowed-answers"][0].path == ("oneOf",)
 
 
 @pytest.mark.parametrize("regex", ["^yes", "yes$", "^yes$"])
 def test_redundant_regex_anchors_warn_at_strict(regex: str) -> None:
     doc = {"type": "short-answer", "stem": "x", "regex": regex}
     assert "redundant-regex-anchor" in _rules(
-        lint_document(doc, "short-answer", level="strict")
+        load(doc).diagnostics
     )
 
 
 def test_short_answer_without_any_grading_strategy_warns() -> None:
     doc = {"type": "short-answer", "stem": "x"}
-    assert "short-answer-not-gradable" in _rules(lint_document(doc, "short-answer"))
+    assert "short-answer-not-gradable" in _rules(load(doc).diagnostics)
 
 
 def test_open_ended_short_answer_does_not_need_an_answer() -> None:
     doc = {"type": "short-answer", "stem": "x", "openEnded": True}
-    assert _rules(lint_document(doc, "short-answer", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_short_answer_with_accepted_answers_does_not_warn() -> None:
     doc = {"type": "short-answer", "stem": "x", "oneOf": ["Brasília"]}
-    assert _rules(lint_document(doc, "short-answer", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 # ---------------------------------------------------------------------
@@ -548,12 +526,12 @@ def test_short_answer_with_accepted_answers_does_not_warn() -> None:
 
 def test_integer_domain_with_a_fractional_answer_warns() -> None:
     doc = {"type": "numeric", "stem": "x", "answer": 3.5, "domain": "integer"}
-    assert "answer-outside-domain" in _rules(lint_document(doc, "numeric"))
+    assert "answer-outside-domain" in _rules(load(doc).diagnostics)
 
 
 def test_integer_domain_with_a_whole_answer_does_not_warn() -> None:
     doc = {"type": "numeric", "stem": "x", "answer": 4.0, "domain": "integer"}
-    assert _rules(lint_document(doc, "numeric")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_relative_tolerance_around_zero_warns() -> None:
@@ -565,7 +543,7 @@ def test_relative_tolerance_around_zero_warns() -> None:
         "answer": 0,
         "tolerance": {"relative": 0.05},
     }
-    assert "relative-tolerance-around-zero" in _rules(lint_document(doc, "numeric"))
+    assert "relative-tolerance-around-zero" in _rules(load(doc).diagnostics)
 
 
 def test_absolute_tolerance_around_zero_is_fine() -> None:
@@ -575,14 +553,14 @@ def test_absolute_tolerance_around_zero_is_fine() -> None:
         "answer": 0,
         "tolerance": {"absolute": 0.05},
     }
-    assert _rules(lint_document(doc, "numeric")) == set()
+    assert _rules(load(doc).diagnostics) == set()
 
 
 def test_relative_tolerance_written_as_a_percentage_warns_at_strict() -> None:
     """`relative` is a fraction (0.05 for 5%); a value of 5 means 500%."""
     doc = {"type": "numeric", "stem": "x", "answer": 10, "tolerance": {"relative": 5}}
     assert "relative-tolerance-over-one" in _rules(
-        lint_document(doc, "numeric", level="strict")
+        load(doc).diagnostics
     )
 
 
@@ -595,7 +573,7 @@ def test_decimal_places_ignored_for_integer_domain_warns_at_strict() -> None:
         "decimalPlaces": 2,
     }
     assert "ignored-decimal-places" in _rules(
-        lint_document(doc, "numeric", level="strict")
+        load(doc).diagnostics
     )
 
 
@@ -613,7 +591,7 @@ def test_stem_referencing_an_undefined_blank_warns() -> None:
         "The capital is [^capital] and the size is [^size].",
         [{"id": "capital", "type": "short-answer", "oneOf": ["Brasília"]}],
     )
-    warnings = lint_document(doc, "fill-in")
+    warnings = load(doc).diagnostics
     assert "undefined-blank" in _rules(warnings)
 
 
@@ -625,9 +603,9 @@ def test_blank_never_referenced_by_the_stem_warns() -> None:
             {"id": "size", "type": "numeric", "answer": 2800000},
         ],
     )
-    warnings = lint_document(doc, "fill-in")
+    warnings = load(doc).diagnostics
     assert "unreferenced-blank" in _rules(warnings)
-    matching = [w for w in warnings if w.rule == "unreferenced-blank"]
+    matching = [w for w in warnings if w.code == "unreferenced-blank"]
     assert matching[0].path == ("blanks", 1, "id")
 
 
@@ -638,7 +616,7 @@ def test_inline_blank_type_is_stripped_from_the_marker() -> None:
         "It has about [^size/numeric] habitants.",
         [{"id": "size", "type": "numeric", "answer": 2800000}],
     )
-    rules = _rules(lint_document(doc, "fill-in"))
+    rules = _rules(load(doc).diagnostics)
     assert "undefined-blank" not in rules
     assert "unreferenced-blank" not in rules
 
@@ -651,7 +629,7 @@ def test_duplicate_blank_ids_warn() -> None:
             {"id": "a", "type": "numeric", "answer": 2},
         ],
     )
-    assert "duplicate-blank-id" in _rules(lint_document(doc, "fill-in"))
+    assert "duplicate-blank-id" in _rules(load(doc).diagnostics)
 
 
 def test_blanks_inherit_the_checks_of_the_type_they_name() -> None:
@@ -674,11 +652,11 @@ def test_blanks_inherit_the_checks_of_the_type_they_name() -> None:
             },
         ],
     )
-    warnings = lint_document(doc, "fill-in")
+    warnings = load(doc).diagnostics
     rules = _rules(warnings)
     assert "multiple-choice-no-correct-choice" in rules
     assert "relative-tolerance-around-zero" in rules
-    by_rule = {w.rule: w.path for w in warnings}
+    by_rule = {w.code: w.path for w in warnings}
     assert by_rule["multiple-choice-no-correct-choice"] == ("blanks", 0, "choices")
     assert by_rule["relative-tolerance-around-zero"] == (
         "blanks",
@@ -708,4 +686,4 @@ def test_well_formed_fill_in_does_not_warn() -> None:
             },
         ],
     )
-    assert _rules(lint_document(doc, "fill-in", level="strict")) == set()
+    assert _rules(load(doc).diagnostics) == set()

@@ -20,7 +20,7 @@ from hypothesis import example, given
 from hypothesis import strategies as st
 from markdown_it.tree import SyntaxTreeNode as Node
 
-from mdq import models, parse_question
+from mdq import models, parse
 from mdq.hypothesis import documents as _st
 from mdq.parser import SLUG_BODY_RE, md, reconstruct_blocks
 
@@ -220,5 +220,5 @@ def test_generated_blocks_round_trip_through_a_full_question(
         id=id, preamble=preamble, epilogue=epilogue, stem=stem
     ).normalize()
     src = question.render()
-    round_tripped = parse_question(src)
+    round_tripped = parse(src, kind="question")
     assert round_tripped == question, src

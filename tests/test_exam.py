@@ -6,13 +6,19 @@ inheritance and numbering rules from docs/exam.md.
 from __future__ import annotations
 
 import pytest
+import yaml
 
+from mdq import load
 from mdq.loaders import DictLoader, FileLoader, IncludeNotFound, QuestionLoader
 from mdq.parser import is_exam, parse_any, parse_file
 from mdq.testing import VALID_DIR, parsed_sibling
-from mdq.validator import load_document, validate_document
 
 MIDTERM = VALID_DIR / "exam" / "midterm.mdq.md"
+
+
+def load_document(path):
+    """The parsed sibling's own data, loaded straight off disk."""
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 MINIMAL = """# [ex] Exam
 
@@ -25,8 +31,8 @@ What is the capital of Brazil?
 """
 
 
-def _rules(warnings) -> set[str]:
-    return {w.rule for w in warnings}
+def _rules(diagnostics) -> set[str]:
+    return {d.code for d in diagnostics}
 
 
 # ---------------------------------------------------------------------
@@ -63,7 +69,8 @@ def test_midterm_matches_its_fixture() -> None:
 
 
 def test_midterm_validates() -> None:
-    assert validate_document(parse_file(MIDTERM)).valid
+    resolved = parse_file(MIDTERM, loader=FileLoader(MIDTERM.parent))
+    assert load(resolved)
 
 
 def test_title_and_slug_come_from_the_h1() -> None:
@@ -105,9 +112,9 @@ def test_separator_needs_a_blank_line_before_it() -> None:
 def test_exam_with_no_questions_parses_and_warns() -> None:
     doc = parse_any("# [empty] Draft Exam\n\nStill being written.\n")
     assert doc["questions"] == []
-    result = validate_document(doc)
-    assert result.valid
-    assert "exam-without-questions" in _rules(result.warnings)
+    loaded = load(doc)
+    assert loaded
+    assert "exam-without-questions" in _rules(loaded.diagnostics)
 
 
 def test_duplicate_question_ids_warn() -> None:
@@ -115,7 +122,7 @@ def test_duplicate_question_ids_warn() -> None:
         "# Exam\n\n---\nid: dup\n---\n\nFirst.\n\n[essay]\n\n"
         "---\nid: dup\n---\n\nSecond.\n\n[essay]\n"
     )
-    assert "duplicate-question-id" in _rules(validate_document(doc).warnings)
+    assert "duplicate-question-id" in _rules(load(doc).diagnostics)
 
 
 # ---------------------------------------------------------------------
@@ -200,7 +207,6 @@ def test_includes_are_unresolved_without_a_loader() -> None:
     where a question lives is the host's business."""
     doc = parse_file(MIDTERM)
     assert doc["questions"][0] == {"include": "recursion-01"}
-    assert validate_document(doc).valid
 
 
 def test_file_loader_resolves_an_include() -> None:
@@ -208,13 +214,15 @@ def test_file_loader_resolves_an_include() -> None:
     resolved = doc["questions"][0]
     assert resolved["type"] == "essay"
     assert resolved["title"] == "Base cases"
-    assert validate_document(doc).valid
+    assert load(doc)
 
 
 def test_file_loader_searches_subdirectories() -> None:
     """recursion-01 lives in exam/bank/, not beside the exam itself."""
     loader = FileLoader(MIDTERM.parent)
-    assert loader.load("recursion-01")["id"] == "recursion-01"
+    source = loader.load("recursion-01")
+    assert isinstance(source, str)
+    assert parse_any(source)["id"] == "recursion-01"
 
 
 def test_file_loader_can_be_restricted_to_its_root() -> None:

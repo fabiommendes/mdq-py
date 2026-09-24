@@ -427,14 +427,12 @@ name = "mdq"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "jsonschema" },
     { name = "linkify-it-py" },
     { name = "markdown-it-py" },
     { name = "optionz" },
     { name = "pydantic" },
     { name = "python-slugify" },
     { name = "pyyaml" },
-    { name = "referencing" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -447,18 +445,19 @@ test = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "jsonschema" },
     { name = "lark-parser" },
     { name = "lark-run" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-coverage" },
+    { name = "referencing" },
     { name = "taskipy" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "jsonschema", specifier = ">=4.18" },
     { name = "linkify-it-py", specifier = ">=2.2.0" },
     { name = "markdown-it-py", specifier = ">=4.2.0" },
     { name = "optionz", specifier = ">=0.2.0" },
@@ -466,7 +465,6 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "python-slugify", specifier = ">=8.0.4" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "referencing", specifier = ">=0.28" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "typer", specifier = ">=0.12" },
 ]
@@ -475,12 +473,14 @@ provides-extras = ["test"]
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.167.1" },
+    { name = "jsonschema", specifier = ">=4.18" },
     { name = "lark-parser", specifier = ">=0.12.0" },
     { name = "lark-run", specifier = ">=0.1.1" },
     { name = "mypy", specifier = ">=2.3.1" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-coverage", specifier = ">=0.0" },
+    { name = "referencing", specifier = ">=0.28" },
     { name = "taskipy", specifier = ">=1.14.1" },
 ]
 

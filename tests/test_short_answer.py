@@ -17,6 +17,7 @@ import unicodedata
 from pathlib import Path
 
 import pytest
+import yaml
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -25,7 +26,6 @@ from mdq.errors import NotAutoGradable, ParseError
 from mdq.parser import parse_any, parse_file
 from mdq.regex import RegexPattern
 from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
-from mdq.validator import load_document
 
 
 def _parse(source: str) -> dict:
@@ -445,7 +445,7 @@ def test_new_fixtures_are_present() -> None:
 )
 def test_new_short_answer_fixture_round_trips(source: Path) -> None:
     got = parse_file(source)
-    expected = load_document(parsed_sibling(source))
+    expected = yaml.safe_load(parsed_sibling(source).read_text(encoding="utf-8"))
     assert got == expected
 
 

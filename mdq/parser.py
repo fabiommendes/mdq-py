@@ -37,7 +37,7 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, NamedTuple, Required, TypedDict, cast
 
@@ -47,7 +47,7 @@ from markdown_it.tree import SyntaxTreeNode as Node
 
 from . import schedule
 from .errors import IncompleteQuestion, MissingField, ParseError
-from .linter import LintWarning
+from ._diagnostics import Diagnostic
 from .loaders import QuestionLoader
 from .types import (
     BlankDict,
@@ -200,7 +200,7 @@ def parse_any(
     text: str,
     loader: QuestionLoader | None = None,
     *,
-    warnings: list[LintWarning] | None = None,
+    warnings: list[Diagnostic] | None = None,
 ) -> QuestionDict | ExamDict:
     """
     Parse MDQ source into a JSON-like document, dispatching on its kind.
@@ -213,7 +213,7 @@ def parse_any(
         loader: Resolves an exam's `include:` references, if given. Only
             consulted when `text` turns out to be an exam; see
             `parse_exam`.
-        warnings: When given, an `unknown-frontmatter-key` `LintWarning`
+        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
             is appended for every frontmatter key the parser does not
             consume. Parsing never fails because of them.
 
@@ -273,7 +273,7 @@ def parse_exam(
     text: str,
     loader: QuestionLoader | None = None,
     *,
-    warnings: list[LintWarning] | None = None,
+    warnings: list[Diagnostic] | None = None,
 ) -> ExamDict:
     """
     Parse an exam document.
@@ -287,7 +287,7 @@ def parse_exam(
         text: MDQ source text for an exam (i.e. one with an H1 title).
         loader: Resolves an `include:` reference to the question document
             it names. Includes are left unresolved when omitted.
-        warnings: When given, an `unknown-frontmatter-key` `LintWarning`
+        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
             is appended for every frontmatter key the parser does not
             consume -- at the exam's own top level (`path=(key,)`) and
             inside each question block (`path=("questions", i, key)`,
@@ -379,7 +379,7 @@ def parse_exam(
 
 
 def parse_question(
-    text: str, *, warnings: list[LintWarning] | None = None
+    text: str, *, warnings: list[Diagnostic] | None = None
 ) -> QuestionDict:
     """
     Parse MDQ Markdown source into a question document dict, matching the
@@ -388,7 +388,7 @@ def parse_question(
     Args:
         text: MDQ source text for a single question, with or without YAML
             frontmatter.
-        warnings: When given, an `unknown-frontmatter-key` `LintWarning`
+        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
             is appended for every frontmatter key the parser does not
             consume, given the question's own type. Parsing never fails
             because of them.
@@ -1562,9 +1562,9 @@ def _unknown_frontmatter_warnings(
     front: Mapping[str, Any],
     known: frozenset[str],
     path_prefix: tuple[str | int, ...] = (),
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """
-    One `unknown-frontmatter-key` `LintWarning` per key of `front` that is
+    One `unknown-frontmatter-key` `Diagnostic` per key of `front` that is
     not in `known`, in frontmatter order.
 
     The parser is the only component that knows which keys it actually
@@ -1573,8 +1573,9 @@ def _unknown_frontmatter_warnings(
     vanishes without a trace.
     """
     return [
-        LintWarning(
-            rule="unknown-frontmatter-key",
+        Diagnostic(
+            severity="warning",
+            code="unknown-frontmatter-key",
             path=path_prefix + (key,),
             message=f"{key!r} is not a recognized frontmatter field and is ignored",
         )
@@ -1626,7 +1627,7 @@ TYPE_QUESTION_KEYS: dict[str, frozenset[str]] = {
 
 def _question_frontmatter_warnings(
     front: Mapping[str, Any], question_type: str
-) -> list[LintWarning]:
+) -> list[Diagnostic]:
     """`unknown-frontmatter-key` warnings for one question's frontmatter."""
     known = COMMON_QUESTION_KEYS | TYPE_QUESTION_KEYS.get(question_type, frozenset())
     return _unknown_frontmatter_warnings(front, known)
@@ -2098,7 +2099,7 @@ def _parse_exam_block(
     exam: dict[str, Any],
     loader: QuestionLoader | None,
     *,
-    warnings: list[LintWarning] | None = None,
+    warnings: list[Diagnostic] | None = None,
     index: int = 0,
 ) -> ExamEntryDict:
     """
@@ -2126,23 +2127,23 @@ def _parse_exam_block(
             )
         if loader is None:
             return IncludeDict(include=target)
-        question: dict[str, Any] = dict(loader.load(target))
+        included = loader.load(target)
+        question: dict[str, Any] = (
+            dict(parse_question(included)) if isinstance(included, str) else dict(included)
+        )
         # An include names a question that already has an identity, so it
         # keeps its own id -- falling back to the id it was found by.
         question.setdefault("id", target)
         _inherit_from_exam(question, exam)
         return cast(QuestionDict, question)
 
-    block_warnings: list[LintWarning] = []
+    block_warnings: list[Diagnostic] = []
     parsed_question: dict[str, Any] = dict(
         parse_question(source, warnings=block_warnings if warnings is not None else None)
     )
     if warnings is not None:
         warnings.extend(
-            LintWarning(
-                rule=w.rule, message=w.message, path=("questions", index) + w.path
-            )
-            for w in block_warnings
+            replace(w, path=("questions", index) + w.path) for w in block_warnings
         )
     parsed_question.setdefault("id", f"q{position}")
     _inherit_from_exam(parsed_question, exam)

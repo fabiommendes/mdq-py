@@ -5,7 +5,7 @@ Tests for the `unknown-frontmatter-key` lint rule (see
 The parser silently dropped frontmatter keys it didn't recognize
 (questions, exams, and question blocks inside exams). This rule makes
 that visible: when a caller passes a `warnings` sink, the parser appends
-one `LintWarning` per unknown key it drops -- parsing itself never fails
+one `Diagnostic` per unknown key it drops -- parsing itself never fails
 because of them.
 
 `mdq/hypothesis/frontmatter.py` holds the documented known-key lists
@@ -25,7 +25,7 @@ from typer.testing import CliRunner
 
 from mdq.cli import app
 from mdq.hypothesis import frontmatter as st_frontmatter
-from mdq.linter import LintWarning
+from mdq._diagnostics import Diagnostic
 from mdq.loaders import FileLoader
 from mdq.parser import parse_any, parse_exam, parse_question
 from mdq.testing import VALID_SOURCES, relative_id
@@ -48,8 +48,8 @@ _VALUE_FOR_COMMON_KEY: dict[str, str] = {
 }
 
 
-def _rules(warnings: list[LintWarning]) -> list[str]:
-    return [w.rule for w in warnings]
+def _rules(warnings: list[Diagnostic]) -> list[str]:
+    return [w.code for w in warnings]
 
 
 #
@@ -65,7 +65,7 @@ def test_every_frontmatter_key_used_by_a_valid_example_is_known(path: Path) -> N
     an `unknown-frontmatter-key` warning. A drift between the parser's
     known-key set and reality would show up here first.
     """
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     text = path.read_text(encoding="utf-8")
     parse_any(text, loader=FileLoader(path.parent), warnings=warnings)
     assert _rules(warnings) == []
@@ -75,7 +75,7 @@ def test_every_frontmatter_key_used_by_a_valid_example_is_known(path: Path) -> N
 # Focused examples: one per path shape the rule must produce.
 #
 def test_unknown_key_on_a_question_warns_with_its_path() -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_question(
         "---\nauther: Ada Lovelace\n---\n\nExplain X.\n\n[essay]\n",
         warnings=warnings,
@@ -86,7 +86,7 @@ def test_unknown_key_on_a_question_warns_with_its_path() -> None:
 
 
 def test_unknown_key_on_an_exam_warns_with_its_path() -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_exam(
         "---\nfoo: bar\n---\n\n# Exam\n\n===\n\nExplain X.\n\n[essay]\n",
         warnings=warnings,
@@ -96,7 +96,7 @@ def test_unknown_key_on_an_exam_warns_with_its_path() -> None:
 
 
 def test_unknown_key_in_the_second_block_of_an_exam_has_a_questions_path() -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_exam(
         "# Exam\n\n"
         "===\n\nFirst question.\n\n[essay]\n\n"
@@ -109,7 +109,7 @@ def test_unknown_key_in_the_second_block_of_an_exam_has_a_questions_path() -> No
 
 
 def test_known_exam_block_key_include_does_not_warn() -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_exam(
         "# Exam\n\n---\ninclude: recursion-01\n---\n",
         warnings=warnings,
@@ -128,7 +128,7 @@ def test_parsing_without_a_warnings_sink_stays_silent_and_drops_the_key() -> Non
 #
 @given(key=st_frontmatter.unknown_keys(st_frontmatter.known_question_keys("essay")))
 def test_arbitrary_unknown_key_on_a_question_warns_exactly_once(key: str) -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_question(
         f"---\n{key}: some value\n---\n\nExplain X.\n\n[essay]\n",
         warnings=warnings,
@@ -141,7 +141,7 @@ def test_arbitrary_unknown_key_on_a_question_warns_exactly_once(key: str) -> Non
     key=st_frontmatter.unknown_keys(st_frontmatter.EXAM_KEYS),
 )
 def test_arbitrary_unknown_key_on_an_exam_warns_exactly_once(key: str) -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     parse_exam(
         f"---\n{key}: some value\n---\n\n# Exam\n\n===\n\nExplain X.\n\n[essay]\n",
         warnings=warnings,
@@ -152,7 +152,7 @@ def test_arbitrary_unknown_key_on_an_exam_warns_exactly_once(key: str) -> None:
 
 @given(key=st.sampled_from(st_frontmatter.COMMON_QUESTION_KEYS))
 def test_known_common_question_keys_never_warn(key: str) -> None:
-    warnings: list[LintWarning] = []
+    warnings: list[Diagnostic] = []
     value = _VALUE_FOR_COMMON_KEY[key]
     parse_question(
         f"---\n{key}: {value}\n---\n\nExplain X.\n\n[essay]\n",

@@ -12,17 +12,13 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
-from pydantic import ValidationError as PydanticValidationError
 from rich.console import Console
 from rich.text import Text
 
-from . import parse_question as _parse_question
 from . import show as _show
 from .convert import export_question, import_question
-from .errors import ParseError
-from .loaders import FileLoader
+from .loading import Diagnostic, InvalidDocument, load, parse
 from .scaffold import QUESTION_TYPES, default_output_path, render_template
-from .validator import SchemaError, ValidationResult, validate_file
 
 app = typer.Typer(
     name="mdq",
@@ -48,51 +44,31 @@ def main() -> None:
 def validate(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question document (.json, .yaml, or .yml).",
-    ),
-    question_type: str | None = typer.Option(
-        None,
-        "--type",
-        help=(
-            "Question type to validate against (multiple-choice, "
-            "multiple-selection, true-false, essay, numeric, short-answer, "
-            "fill-in). Defaults to the document's own 'type' field."
-        ),
-    ),
-    schema_dir: Path | None = typer.Option(
-        None,
-        "--schema-dir",
-        help="Directory containing the MDQ *.yaml schemas (default: the repo's schema/ directory).",
+        help="Path to a question or exam document (.mdq.md, .mdq, .yaml, .yml, or .json).",
     ),
     level: Level = typer.Option(
         "default",
         "--level",
         case_sensitive=False,
         help=(
-            "Verification level for the lint checks that go beyond JSON "
-            "Schema (duplicate choice ids/texts, blank text fields, ...). "
-            "'strict' is accepted but currently behaves like 'default' -- "
-            "no strict-only rules are implemented yet."
+            "'default' prints errors and warnings; 'strict' also prints "
+            "info-level diagnostics. Every lint rule always runs -- this "
+            "only changes what gets printed."
         ),
     ),
 ) -> None:
     """
-    Validate a question file against its MDQ JSON Schema, and lint it
-    for issues JSON Schema alone can't catch.
+    Validate a question or exam file, and lint it for issues beyond
+    what a schema can express.
     """
 
     try:
-        result = validate_file(
-            file,
-            question_type=question_type,
-            schema_dir=schema_dir,
-            level=level,
-        )
-    except SchemaError as exc:
+        loaded = load(file)
+    except (OSError, ValueError) as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2)
 
-    exit_code = _print_result(file, result)
+    exit_code = _print_result(file, loaded.diagnostics, level=level)
     if exit_code:
         raise typer.Exit(code=exit_code)
 
@@ -225,8 +201,8 @@ def export(
 
     source = file.read_text(encoding="utf-8")
     try:
-        question = _parse_question(source)
-    except (ParseError, PydanticValidationError) as exc:
+        question = parse(source, kind="question")
+    except InvalidDocument as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1)
 
@@ -285,31 +261,18 @@ def show(
     # `file` and `exc` can both carry document/filesystem content with
     # square brackets, which Rich would otherwise parse as markup (and,
     # for a stray closing tag like `[/]`, raise instead of print).
-    loader = None
-    if str(file) == "-":
-        source = sys.stdin.read()
-    else:
-        if not file.is_file():
-            error_console.print("[b red]error:[/]", Text(f"file not found: {file}"))
-            raise typer.Exit(code=2)
-        try:
-            source = file.read_text(encoding="utf-8")
-        except OSError as exc:
-            error_console.print(
-                "[b red]error:[/]", Text(f"could not read {file}: {exc}")
-            )
-            raise typer.Exit(code=2)
-        # Resolve an exam's `include:` entries against its own directory,
-        # the same convention `mdq.loaders.FileLoader` documents. Ignored
-        # entirely for a question document, and for input read from stdin
-        # (which has no directory to resolve against).
-        loader = FileLoader(file.parent)
+    #
+    # A `Path` source resolves an exam's `include:` entries against its
+    # own directory automatically (see `mdq.load`); stdin has no
+    # directory to resolve against, so it is read as plain text instead.
+    source = sys.stdin.read() if str(file) == "-" else file
 
     try:
-        _show.show_source(
-            source, console, show_answer_key=not no_answer_key, loader=loader
-        )
-    except (ParseError, PydanticValidationError) as exc:
+        _show.show_source(source, console, show_answer_key=not no_answer_key)
+    except OSError as exc:
+        error_console.print("[b red]error:[/]", Text(f"could not read {file}: {exc}"))
+        raise typer.Exit(code=2)
+    except (ValueError, InvalidDocument) as exc:
         error_console.print("[b red]error:[/]", Text(str(exc)))
         raise typer.Exit(code=1)
 
@@ -339,24 +302,25 @@ def _write_output(content: str, output: Path | None) -> None:
         typer.echo(f"wrote {output}")
 
 
-def _print_result(file: Path, result: ValidationResult) -> int:
-    if result.valid:
-        typer.echo(f"OK    {file}  [{result.question_type}]")
-    else:
-        typer.echo(
-            f"FAIL  {file}  [{result.question_type or 'unknown type'}]", err=True
-        )
-        for err in result.errors:
-            location = "/".join(str(part) for part in err.path) or "<root>"
-            typer.echo(f"  - {location}: {err.message}", err=True)
+def _print_result(file: Path, diagnostics: list[Diagnostic], *, level: Level) -> int:
+    """
+    Print one line per diagnostic and return the process exit code.
 
-    # Warnings are advisory: they're printed either way, but never turn an
-    # otherwise-OK result into a failing exit code.
-    for warning in result.warnings:
-        location = "/".join(str(part) for part in warning.path) or "<root>"
-        typer.echo(f"  ! {location}: {warning.message}", err=True)
+    `level="default"` hides `info`-severity diagnostics; `strict` prints
+    everything. Either way, only an `error` fails the exit code -- a
+    warning or an info diagnostic is advisory.
+    """
+    has_error = any(d.severity == "error" for d in diagnostics)
+    typer.echo(f"{'FAIL' if has_error else 'OK':<5} {file}", err=has_error)
 
-    return 0 if result.valid else 1
+    shown = diagnostics if level == "strict" else [d for d in diagnostics if d.severity != "info"]
+    for d in shown:
+        location = "/".join(str(part) for part in d.path) or "<root>"
+        if d.line is not None:
+            location = f"{location}:{d.line}"
+        typer.echo(f"  {d.severity:<7} [{d.code}] {location}: {d.message}", err=True)
+
+    return 1 if has_error else 0
 
 
 if __name__ == "__main__":

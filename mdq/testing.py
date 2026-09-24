@@ -16,17 +16,21 @@ MDQ_ROOT = PY_PROJECT_ROOT.parent
 EXAMPLES_ROOT = MDQ_ROOT / "examples"
 INVALID_DIR = EXAMPLES_ROOT / "invalid"
 VALID_DIR = EXAMPLES_ROOT / "valid"
-WARNINGS_DIR = EXAMPLES_ROOT / "warnings"
 DOCUMENT_SUFFIXES = (".yaml", ".yml", ".json")
 VALID_EXAMS_DIR = VALID_DIR / "exam"
 
 #: Surface-syntax questions. A question and an exam share this extension
 #: and are told apart by their content, not by their name.
 SOURCE_SUFFIX = ".mdq.md"
+
+#: Every extension a document's own surface syntax may use -- the
+#: `.lint.json` sitting next to it is named after whichever of these its
+#: filename ends with (see `lint_json_sibling`).
+_DOCUMENT_SUFFIXES_ALL = (".mdq.md", ".mdq", ".yaml", ".yml", ".json")
+
 VALID_SOURCES: list[Path]
 VALID_PARSED: list[Path]
 INVALID_PARSED: list[Path]
-WARNING_PARSED: list[Path]
 
 
 def collect_files(root: Path) -> list[Path]:
@@ -35,7 +39,9 @@ def collect_files(root: Path) -> list[Path]:
     return sorted(
         path
         for path in root.rglob("*")
-        if path.is_file() and path.suffix.lower() in DOCUMENT_SUFFIXES
+        if path.is_file()
+        and path.suffix.lower() in DOCUMENT_SUFFIXES
+        and not path.name.endswith(".lint.json")
     )
 
 
@@ -58,9 +64,28 @@ def parsed_sibling(source: Path) -> Path:
     return source.with_name(source.name[: -len(SOURCE_SUFFIX)] + ".yaml")
 
 
+def lint_json_sibling(document: Path) -> Path:
+    """
+    The `.lint.json` a document's expected lint diagnostics live in.
+
+    `foo.mdq.md` and `foo.yaml` share `foo.lint.json`: both are stripped
+    to the same stem before the `.lint.json` suffix is appended. Doesn't
+    check that the file exists -- a missing one means zero diagnostics
+    are expected, not that there's nothing to check (see
+    `dev/specs/to-do/loading-module.md`, "Expected lint files").
+    """
+    name = document.name
+    for suffix in _DOCUMENT_SUFFIXES_ALL:
+        if name.endswith(suffix):
+            stem = name[: -len(suffix)]
+            break
+    else:
+        stem = document.stem
+    return document.with_name(f"{stem}.lint.json")
+
+
 INVALID_PARSED = collect_files(INVALID_DIR)
 VALID_PARSED = collect_files(VALID_DIR)
-WARNING_PARSED = collect_files(WARNINGS_DIR)
 VALID_SOURCES = collect_sources(VALID_DIR)
 VALID_QUESTIONS = [
     source for source in VALID_SOURCES if not source.is_relative_to(VALID_EXAMS_DIR)

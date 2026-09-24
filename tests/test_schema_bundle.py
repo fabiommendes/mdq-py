@@ -16,9 +16,8 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError as JsonSchemaError
 from jsonschema.validators import validator_for
 
-from mdq.scripts.schema_bundle import bundle_schemas, main, write_bundle
+from mdq.scripts.schema_bundle import TYPE_SCHEMAS, SchemaError, bundle_schemas, main, write_bundle
 from mdq.testing import INVALID_PARSED, VALID_PARSED, relative_id
-from mdq.validator import TYPE_SCHEMAS, SchemaError
 
 BUNDLE = bundle_schemas()
 

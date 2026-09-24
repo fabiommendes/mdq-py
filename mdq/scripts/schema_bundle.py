@@ -2,13 +2,13 @@
 Bundle the individual `schema/*.yaml` files into one self-contained JSON
 Schema document.
 
-`mdq.validator` resolves the cross-file `$ref`s between `schema/*.yaml`
+The test suite resolves the cross-file `$ref`s between `schema/*.yaml`
 (e.g. `multiple-choice.yaml`'s `allOf` pulling in `question-base.yaml`)
-by building a `referencing.Registry` from every file on disk. That is
-fine for this repo's own validator, but a consumer who just wants "the
-MDQ schema" as a single artifact -- an editor, a schema store, another
-language's validator -- would otherwise need to fetch every sibling file
-too and replicate that resolution.
+by building a `referencing.Registry` from every file on disk (see
+`tests/test_schema_agreement.py`). That is fine there, but a consumer
+who just wants "the MDQ schema" as a single artifact -- an editor, a
+schema store, another language's validator -- would otherwise need to
+fetch every sibling file too and replicate that resolution.
 
 JSON Schema has a standard answer for this: nest each schema, `$id` and
 all, under the bundle's own `$defs`. A nested `$id` opens a new base URI
@@ -29,12 +29,32 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jsonschema.validators import validator_for
 
 from mdq.testing import MDQ_ROOT
-from mdq.validator import TYPE_SCHEMAS, SchemaError
 
-__all__ = ["bundle_schemas", "write_bundle", "main"]
+__all__ = ["TYPE_SCHEMAS", "SchemaError", "bundle_schemas", "write_bundle", "main"]
+
+
+class SchemaError(Exception):
+    """
+    Raised for problems locating, loading, or bundling schemas.
+    """
+
+
+#: Maps the `type` discriminator used in question documents to the
+#: schema file (relative to a schema directory) that defines that
+#: question type.
+TYPE_SCHEMAS = {
+    "multiple-choice": "multiple-choice.yaml",
+    "multiple-selection": "multiple-selection.yaml",
+    "true-false": "true-false.yaml",
+    "essay": "essay.yaml",
+    "numeric": "numeric.yaml",
+    "short-answer": "short-answer.yaml",
+    "fill-in": "fill-in.yaml",
+    "ordering": "ordering.yaml",
+    "exam": "exam.yaml",
+}
 
 
 #: Where the bundle's own `$id` points, once assembled -- the sibling
@@ -88,7 +108,7 @@ def bundle_schemas(schema_dir: Path | None = None) -> dict[str, Any]:
             raise SchemaError(f"{path.name} has no top-level $id; cannot bundle it")
         defs[path.stem] = contents
 
-    # TYPE_SCHEMAS is `mdq.validator`'s own map of question type -> schema
+    # TYPE_SCHEMAS is this module's own map of question type -> schema
     # file -- reused here so "which schemas stand on their own" has one
     # source of truth, rather than a second list drifting from it.
     entry_ids = [defs[Path(filename).stem]["$id"] for filename in TYPE_SCHEMAS.values()]
@@ -110,9 +130,8 @@ def bundle_schemas(schema_dir: Path | None = None) -> dict[str, Any]:
         "$defs": defs,
     }
 
-    validator_cls = validator_for(bundle)
-    validator_cls.check_schema(bundle)
-
+    # `tests/test_schema_bundle.py` checks the bundle is a valid schema.
+    # Not here: `jsonschema` is a dev dependency.
     return bundle
 
 

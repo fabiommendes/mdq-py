@@ -287,7 +287,7 @@ class Statement(MdqModel):
     id: str | None = None
     text: str
     correct: bool = False
-    marker: str | None = None
+    marker: Annotated[str | None, Field(default=None, min_length=1, max_length=1)] = None
     feedback: str | None = None
     comment: str | None = None
 
@@ -432,7 +432,7 @@ class BaseQuestion[R](MdqModel):
 
 
 class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
-    choices: list[ScoredChoice]
+    choices: Annotated[list[ScoredChoice], Field(min_length=2)]
     type: Literal["multiple-choice"] = "multiple-choice"
     shuffle: bool | None = None
     grading: GradingStrategy | None = None
@@ -707,6 +707,29 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
 
     #: How inexact literals treat diacritics, in every pattern list.
     diacritics: Diacritics = "fold"
+
+    @model_validator(mode="after")
+    def check_open_ended_has_no_answer_key(self) -> Self:
+        """
+        `openEnded` means there is nothing to grade against
+        (short-answer.md), so it contradicts any of the fields that
+        would otherwise supply one.
+
+        Raises:
+            ValueError: `open_ended` is set alongside `one_of`, `regex`,
+                `accept` or `reject`.
+        """
+        if self.open_ended and (
+            self.one_of is not None
+            or self.regex is not None
+            or self.accept is not None
+            or self.reject is not None
+        ):
+            raise ValueError(
+                "openEnded has no answer key: it must not be combined with "
+                "oneOf, regex, accept or reject"
+            )
+        return self
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -1141,7 +1164,7 @@ class Exam(MdqModel):
     id: str | None = None
     uuid: str | None = None
     title: str | None = None
-    description: str | None = None
+    description: Annotated[str | None, Field(default=None, min_length=1)] = None
     course: str | None = None
     author: str | None = None
     locale: str | None = None

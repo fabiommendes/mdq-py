@@ -48,11 +48,12 @@ QUESTION_TYPES = set(get_args(QuestionType))
 # These TypedDicts mirror the shapes in `schema/*.yaml` -- one per
 # question type, plus the shared pieces (`choices`, `blanks`,
 # `tolerance`) they are assembled from. They describe the dict
-# `mdq.parser` builds and `mdq.validator.validate_document` checks,
-# before it ever becomes a Pydantic model (`mdq.models` mirrors the same
-# schemas again, as typed attributes for a *validated* document). Field
-# names are the schema's own JSON names -- camelCase, not the models'
-# aliased snake_case -- since this is the JSON shape itself.
+# `mdq.parser` builds, before `mdq.loading` ever turns it into a
+# Pydantic model (`mdq.models` mirrors the same schemas again, as typed
+# attributes for a *validated* document). Internal to the parser --
+# nothing outside it re-exports these. Field names are the schema's own
+# JSON names -- camelCase, not the models' aliased snake_case -- since
+# this is the JSON shape itself.
 #
 # Per the schemas' `unevaluatedProperties: false`, a value of one of
 # these types never carries a field outside what its own TypedDict
@@ -95,7 +96,7 @@ class IncludeDict(TypedDict):
 type ExamEntryDict = IncludeDict | QuestionDict
 
 #: Any question document, discriminated by `type` -- the dict shape
-#: `mdq.parser.parse_question` returns and `mdq.validator` validates.
+#: `mdq.parser.parse_question` returns.
 type QuestionDict = (
     MultipleChoiceQuestionDict
     | MultipleSelectionQuestionDict

@@ -21,8 +21,8 @@ import pytest
 import yaml
 
 from mdq import schedule
+from mdq.scripts.schema_bundle import TYPE_SCHEMAS
 from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
-from mdq.validator import TYPE_SCHEMAS, load_document
 
 #: `* [x] text`, `- [ ] text`, `+ [50%] text` -- a body choice item. The
 #: bracket is what separates a choice from an ordinary list item.
@@ -62,6 +62,11 @@ def _collapse(text: str) -> str:
 
 def _ids(paths: list[Path]) -> list[str]:
     return [relative_id(p) for p in paths]
+
+
+def load_document(path: Path) -> Any:
+    """The parsed sibling's own data, loaded straight off disk."""
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def test_there_are_source_examples() -> None:

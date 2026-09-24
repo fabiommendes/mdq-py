@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given
 from rich.console import Console
 
-from mdq import models, parse_question
+from mdq import models, parse
 from mdq.hypothesis import documents as mst
 
 
@@ -241,7 +241,7 @@ def test_normalize_moves_leading_stem_blocks_into_preamble() -> None:
     assert normalized.preamble == "First paragraph."
     assert normalized.stem == "Second paragraph."
 
-    rt = parse_question(normalized.render())
+    rt = parse(normalized.render(), kind="question")
     assert rt == normalized
 
 
@@ -252,7 +252,7 @@ def test_normalize_appends_leading_stem_blocks_after_existing_preamble() -> None
     assert normalized.preamble == "Intro.\n\nMiddle."
     assert normalized.stem == "Last one."
 
-    rt = parse_question(normalized.render())
+    rt = parse(normalized.render(), kind="question")
     assert rt == normalized
 
 
@@ -314,7 +314,7 @@ def test_render_question_roundtrip(question: models.Question) -> None:
     # pytest.skip("Skipping this test because it is slow and flaky.")
 
     src = question.render()
-    rt = parse_question(src)
+    rt = parse(src, kind="question")
     if rt != question:
         raise AssertRTError(question, rt)
 

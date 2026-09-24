@@ -11,10 +11,9 @@ provides the obvious filesystem implementation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, cast, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 from .errors import MdqError
-from .types import QuestionDict
 
 __all__ = [
     "IncludeNotFound",
@@ -45,12 +44,15 @@ class QuestionLoader(Protocol):
     Resolves an `include:` id to the question document it names.
 
     Implementations raise `IncludeNotFound` when the id names nothing.
-    They return a parsed question document -- the same dict shape
-    `mdq.parser.parse` produces -- not Markdown source, so a loader
-    is free to serve questions that were never Markdown to begin with.
+    They return the question's source, not an already-parsed document:
+    `str` for Markdown text (run through the same `load`/`parse`
+    pipeline as any other Markdown source), or a `Mapping` for
+    already-parsed data (skipping the parse step, exactly like a
+    `Mapping` passed directly to `mdq.load`). Either way, a loader is
+    free to serve questions that were never Markdown to begin with.
     """
 
-    def load(self, question_id: str) -> QuestionDict: ...
+    def load(self, question_id: str) -> str | Mapping[str, Any]: ...
 
 
 class FileLoader:
@@ -82,18 +84,10 @@ class FileLoader:
                 unique.append(path)
         return unique
 
-    def load(self, question_id: str) -> QuestionDict:
-        # Imported here rather than at module scope: the parser imports
-        # this module to type its `loader` argument, so a top-level import
-        # back into the parser would be circular.
-        from .parser import parse_file
-
+    def load(self, question_id: str) -> str:
         for path in self.candidates(question_id):
             if path.is_file():
-                # An included file is always a question document, never
-                # an exam -- `parse_file` types the general case, but a
-                # loader only ever resolves one question by id.
-                return cast(QuestionDict, parse_file(path))
+                return path.read_text(encoding="utf-8")
 
         raise IncludeNotFound(
             question_id,
@@ -109,10 +103,10 @@ class DictLoader:
     would implement.
     """
 
-    def __init__(self, questions: dict[str, QuestionDict]) -> None:
+    def __init__(self, questions: Mapping[str, str | Mapping[str, Any]]) -> None:
         self.questions = questions
 
-    def load(self, question_id: str) -> QuestionDict:
+    def load(self, question_id: str) -> str | Mapping[str, Any]:
         try:
             return self.questions[question_id]
         except KeyError:
