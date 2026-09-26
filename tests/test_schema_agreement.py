@@ -5,7 +5,7 @@ dev/specs/to-do/loading-module.md).
 Runtime JSON Schema validation goes away with `mdq.validator`; this test
 is what replaces it as the guard against the schema and the pydantic
 models drifting apart. It uses `jsonschema` directly against the bundled
-schema (`mdq.scripts.schema_bundle`), and `mdq.load` for the model side.
+schema shipped with the package (`mdq/mdq.schema.json`), and `mdq.load` for the model side.
 
 Every document under `examples/valid/` -- every `.yaml`/`.json` file,
 which already includes the `.yaml` sibling of each `.mdq.md` source, since
@@ -25,10 +25,17 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from mdq import load
-from mdq.scripts.schema_bundle import TYPE_SCHEMAS, bundle_schemas
-from mdq.testing import INVALID_MODEL_ONLY_PARSED, INVALID_PARSED, VALID_PARSED, relative_id
+from mdq.testing import (
+    INVALID_MODEL_ONLY_PARSED,
+    INVALID_PARSED,
+    VALID_PARSED,
+    bundled_types,
+    load_schema_bundle,
+    relative_id,
+)
 
-BUNDLE = bundle_schemas()
+BUNDLE = load_schema_bundle()
+BUNDLED_TYPES = bundled_types(BUNDLE)
 
 
 def _question_type(document: object) -> str | None:
@@ -43,10 +50,10 @@ def _question_type(document: object) -> str | None:
 
 def _schema_errors(document: dict) -> list[str]:
     question_type = _question_type(document)
-    if question_type not in TYPE_SCHEMAS:
+    if question_type not in BUNDLED_TYPES:
         return [f"document has no recognizable 'type' ({question_type!r})"]
     schema = {
-        "$ref": f"#/$defs/{Path(TYPE_SCHEMAS[question_type]).stem}",
+        "$ref": f"#/$defs/{question_type}",
         "$defs": BUNDLE["$defs"],
     }
     validator = Draft202012Validator(schema)
@@ -80,7 +87,8 @@ def test_valid_example_satisfies_schema_and_loads_cleanly(path: Path) -> None:
     if load_errors and not schema_errors:
         pytest.fail(
             f"{relative_id(path)}: rejected by `load` but accepted by the JSON "
-            f"Schema:\n" + "\n".join(f"  - {d.severity} {d.code}: {d.message}" for d in load_errors)
+            f"Schema:\n"
+            + "\n".join(f"  - {d.severity} {d.code}: {d.message}" for d in load_errors)
         )
     assert not schema_errors, (
         f"{relative_id(path)} lives under examples/valid/ but fails the schema:\n"
@@ -123,9 +131,13 @@ def test_invalid_example_fails_schema_and_load(path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "path", INVALID_MODEL_ONLY_PARSED, ids=[relative_id(p) for p in INVALID_MODEL_ONLY_PARSED]
+    "path",
+    INVALID_MODEL_ONLY_PARSED,
+    ids=[relative_id(p) for p in INVALID_MODEL_ONLY_PARSED],
 )
-def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(path: Path) -> None:
+def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(
+    path: Path,
+) -> None:
     """
     A rule like "unique by field" (`duplicate-choice-id`,
     `duplicate-choice-text`, `duplicate-blank-id`, `duplicate-question-id`
@@ -140,7 +152,8 @@ def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(path: Pat
 
     assert not schema_errors, (
         f"{relative_id(path)} lives under examples/invalid/model-only/ but "
-        f"fails the bundled JSON Schema:\n" + "\n".join(f"  - {e}" for e in schema_errors)
+        f"fails the bundled JSON Schema:\n"
+        + "\n".join(f"  - {e}" for e in schema_errors)
     )
     assert load_errors, (
         f"{relative_id(path)} lives under examples/invalid/model-only/ but "

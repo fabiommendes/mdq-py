@@ -9,7 +9,9 @@ empty lists there. Import this from the test suite, never from library
 or CLI code.
 """
 
+import json
 from pathlib import Path
+from typing import Any
 
 PY_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MDQ_ROOT = PY_PROJECT_ROOT.parent
@@ -104,3 +106,24 @@ VALID_QUESTIONS = [
 VALID_EXAMS = [
     source for source in VALID_SOURCES if source.is_relative_to(VALID_EXAMS_DIR)
 ]
+
+
+#: The bundled schema shipped with the package. `scripts/schema_bundle.py`
+#: at the repository root builds it from `schema/*.yaml`.
+SCHEMA_BUNDLE_PATH = PY_PROJECT_ROOT / "mdq" / "mdq.schema.json"
+
+
+def load_schema_bundle() -> dict[str, Any]:
+    """Load the bundled schema shipped with the package."""
+    return json.loads(SCHEMA_BUNDLE_PATH.read_text(encoding="utf-8"))
+
+
+def bundled_types(bundle: dict[str, Any]) -> set[str]:
+    """
+    The document types the bundle validates on their own: `exam` and each
+    question type. Each one is a `$defs` key of the bundle.
+    """
+    return {
+        entry["$ref"].rsplit("/", 1)[-1].removesuffix(".yaml")
+        for entry in bundle["oneOf"]
+    }

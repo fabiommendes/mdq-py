@@ -21,7 +21,7 @@ import pytest
 import yaml
 
 from mdq import schedule
-from mdq.scripts.schema_bundle import TYPE_SCHEMAS
+from mdq.types import QUESTION_TYPES
 from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
 
 #: `* [x] text`, `- [ ] text`, `+ [50%] text` -- a body choice item. The
@@ -209,7 +209,7 @@ def test_parsed_stem_appears_in_the_body(source: Path) -> None:
 @pytest.mark.parametrize("source", VALID_SOURCES, ids=_ids(VALID_SOURCES))
 def test_parsed_type_is_a_known_question_type(source: Path) -> None:
     parsed = load_document(parsed_sibling(source))
-    assert parsed.get("type") in TYPE_SCHEMAS, (
+    assert parsed.get("type") in QUESTION_TYPES | {"exam"}, (
         f"{relative_id(source)}: parsed type {parsed.get('type')!r} is not a "
         f"registered question type"
     )

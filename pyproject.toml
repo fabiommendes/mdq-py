@@ -3,6 +3,9 @@ name = "mdq"
 version = "0.1.0"
 description = "Reference schemas and validation CLI for the MDQ question file format."
 readme = "README.md"
+authors = [{ name = "Fábio Macêdo Mendes" }]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "PyYAML>=6.0",
@@ -51,7 +54,6 @@ test = "pytest tests"
 cov = "pytest --cov=mdq --cov-report=term-missing"
 doc = "uv doc0 build"
 doc-watch = "uv doc0 watch"
-bundle-schema = "uv run python -m mdq.scripts.schema_bundle"
 
 
 [[tool.mypy.overrides]]

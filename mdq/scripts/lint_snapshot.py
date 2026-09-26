@@ -11,7 +11,7 @@ creates one that is missing, or reports a mismatch for a human to
 review and, if it agrees, rewrite explicitly with `--overwrite`.
 
 Reachable only by running this module directly (``python -m
-mdq.scripts.lint_snapshot``) -- like `mdq.scripts.schema_bundle`, this is
+mdq.scripts.lint_snapshot``) -- like `scripts/schema_bundle.py` at the repository root, this is
 a maintenance step for this repo, not something a user of the `mdq` CLI
 ever needs.
 """

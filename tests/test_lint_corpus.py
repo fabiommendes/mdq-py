@@ -6,7 +6,7 @@ dev/specs/to-do/loading-module.md).
 ASSUMPTION (the spec names the script but not its exact CLI shape): the
 snapshot script `mdq/scripts/lint_snapshot.py` exposes a
 `main(argv: list[str]) -> int` entry point mirroring
-`mdq.scripts.schema_bundle.main`, accepting `--root PATH` to point at a
+`main` in the root `scripts/schema_bundle.py`, accepting `--root PATH` to point at a
 corpus root (default: `examples/valid`) and `--overwrite PATH...` to
 rewrite specifically-named `.lint.json` files. If the real interface
 differs, only the snapshot-script tests below need updating -- the

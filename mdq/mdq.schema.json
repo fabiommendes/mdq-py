@@ -1,41 +1,41 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/mdq.schema.json",
+  "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/mdq.schema.json",
   "title": "MDQ document (bundled)",
   "description": "Every MDQ document type -- an exam, or any one of the seven question types -- bundled from schema/*.yaml into a single self-contained file. Validate against the whole thing to accept any MDQ document, or against `#/$defs/<type>` (e.g. `#/$defs/multiple-choice`) to check one type specifically.",
   "oneOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/multiple-choice.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/multiple-selection.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/true-false.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/true-false.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/essay.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/numeric.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/short-answer.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/fill-in.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/ordering.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/exam.yaml"
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml"
     }
   ],
   "$defs": {
     "essay": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/essay.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml",
       "title": "Essay question",
       "description": "An open-ended question where the student writes a free-form answer, rather than choosing among predefined options. Extends the common question-base schema with an `input` field describing how the answer should be edited, and an optional answer key.",
       "allOf": [
@@ -84,7 +84,7 @@
     },
     "exam": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/exam.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml",
       "title": "Exam",
       "description": "A set of questions gathered for assessment. An exam is recognized by its H1 title, which a question document can never carry. Each entry in `questions` is either a complete question document or an `include` referring to one that lives elsewhere.",
       "type": "object",
@@ -281,7 +281,7 @@
     },
     "fill-in": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/fill-in.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml",
       "title": "Fill in the blanks question",
       "description": "A question whose stem contains one or more named blanks, each answered in place by the student. Extends the common question-base schema with a `blanks` field. Every blank is itself a small graded question -- a set of choices, a short answer, or a numeric value -- referenced from the stem by its id, as in `The capital of Brazil is [^capital].`",
       "allOf": [
@@ -474,7 +474,7 @@
     },
     "multiple-choice": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/multiple-choice.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml",
       "title": "Multiple choice question",
       "description": "A question where the student must select exactly one choice out of a list of options. Extends the common question-base schema with a `choices` field.",
       "allOf": [
@@ -559,7 +559,7 @@
     },
     "multiple-selection": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/multiple-selection.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml",
       "title": "Multiple selection question",
       "description": "A question where the student must select all choices they believe are correct, out of a list of options (zero, one, or many may be correct). Extends the common question-base schema with a `choices` field.",
       "allOf": [
@@ -643,7 +643,7 @@
     },
     "numeric": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/numeric.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml",
       "title": "Numeric question",
       "description": "A question where the student must enter a numeric value, graded against an expected answer within an optional tolerance. Extends the common question-base schema with `answer` and `tolerance` fields.",
       "allOf": [
@@ -712,7 +712,7 @@
     },
     "ordering": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/ordering.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml",
       "title": "Ordering question",
       "description": "A question where the student sorts a list of lines into the correct order. Extends the common question-base schema with the `lines` that form the answer key, the distractor lines mixed in with them, and the alternative orderings the question accepts or rejects outright.",
       "allOf": [
@@ -861,7 +861,7 @@
     },
     "question-base": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/question-base.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml",
       "title": "Question (base)",
       "description": "Common properties shared by every MDQ question type. Question-type schemas (multiple-choice, multiple-selection, true-false, numeric, short-answer, fill-in, essay) extend this schema, typically via `allOf` + `$ref`, and add their own `type`-specific fields (e.g. `choices`).",
       "type": "object",
@@ -948,7 +948,7 @@
     },
     "short-answer": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/short-answer.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml",
       "title": "Short answer question",
       "description": "A question answered with a short piece of free text, graded by comparing the response against a list of accepted answers or against a regular expression. Extends the common question-base schema.",
       "allOf": [
@@ -1080,7 +1080,7 @@
     },
     "true-false": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://raw.githubusercontent.com/codehood-lms/mdq.spec/master/schema/true-false.yaml",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/true-false.yaml",
       "title": "True/False question",
       "description": "A question where the student must judge each statement in a list as true or false. Extends the common question-base schema with a `choices` field, where each choice represents one statement to be judged.",
       "allOf": [
