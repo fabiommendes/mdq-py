@@ -24,7 +24,8 @@ from rich.syntax import Syntax
 from mdq import load
 from mdq.loaders import FileLoader
 from mdq.models import Exam
-from mdq.parser import parse_any, parse_exam, parse_file
+from mdq._parser import parse_exam
+from _parse import parse_any, parse_file
 from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
 #: Pairs the parser is known not to reproduce exactly, with the reason.

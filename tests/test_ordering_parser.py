@@ -1,5 +1,5 @@
 """
-`mdq.parser`'s `[ordering]` body support: reading the tag, its content
+`mdq._parser`'s `[ordering]` body support: reading the tag, its content
 block (fenced code or `ul`), the `## [extra]`/`## [accept]`/`## [reject]`
 sections, and the indentation unit shared across all of them
 (docs/question-types/ordering.md -- Body, Extra lines, Accepted/rejected
@@ -36,7 +36,7 @@ from mdq.models import (
     OrderingQuestion,
     QuestionRoot,
 )
-from mdq.parser import parse_question
+from mdq._parser import parse_question
 from mdq.types import OrderingQuestionDict
 from mdq import load
 

@@ -13,8 +13,8 @@ explains the specific CommonMark rule it is built around.
 
 A generated block is "safe" when it survives render -> parse -> normalize
 unchanged: rendering it into a document, parsing that document back with
-`mdq.parser`, and normalizing both sides (`mdq.models.BaseQuestion.
-normalize`) yields the same value it started from. `mdq._markdown.
+`mdq._parser`, and normalizing both sides (`mdq.models.BaseQuestion.
+normalize`) yields the same value it started from. `mdq._parser.
 reconstruct_blocks` -- also used by `mdq.models.normalize_paragraphs` --
 is what makes this a precise, checkable contract instead of a hand-wavy
 one: it runs the same CommonMark parser MDQ uses and reconstructs each
@@ -242,7 +242,7 @@ def _safe_line(max_size: int = 40) -> st.SearchStrategy[str]:
     exposes a paragraph or heading's inline content as `.content`, the
     *raw source text before inline parsing* -- emphasis, code spans,
     links, autolinks, entities and raw HTML all leave it untouched (see
-    `mdq.parser.MDQParser.raw_text`) -- so no punctuation used by an
+    `mdq._parser._question.MDQParser.raw_text`) -- so no punctuation used by an
     inline construct can corrupt the round trip; only where a line
     begins matters.
     """
@@ -310,7 +310,7 @@ def md_lists(max_depth: int = 1) -> st.SearchStrategy[str]:
     never requires increasing numbers -- and is tight (no blank line
     between items). A *loose* list, or two adjacent lists that happen to
     share a marker and so parse back as a single, merged CommonMark node,
-    would still reconstruct correctly (`mdq._markdown.reconstruct_blocks`
+    would still reconstruct correctly (`mdq._parser.reconstruct_blocks`
     is verbatim for list blocks, merged or not); tight just keeps the
     generated source simple.
     """
@@ -434,7 +434,7 @@ def md_safe_multi_blocks(
     joined the way `mdq.render` joins a preamble/epilogue's blocks: two
     newlines apart.
 
-    `mdq._markdown.reconstruct_blocks` (and so `mdq.models.
+    `mdq._parser.reconstruct_blocks` (and so `mdq.models.
     normalize_paragraphs`) reconstructs the result exactly, even when two
     adjacent blocks of the same kind parse back as a single, merged
     CommonMark node -- see `md_list`.
@@ -460,7 +460,7 @@ def safe_texts(multiline: bool = False) -> st.SearchStrategy[str]:
 def slugs() -> st.SearchStrategy[str]:
     """
     Return a strategy for generating slugs: ASCII alphanumeric groups
-    joined by a single `-`, matching `mdq.parser`'s `SLUG_BODY_RE`.
+    joined by a single `-`, matching `mdq._parser`'s `SLUG_BODY_RE`.
 
     A question's `id` is only ever recovered from the inline `[id]`
     prefix (`docs/question-types/generic.md`) when it matches that

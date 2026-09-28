@@ -15,7 +15,7 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
-from . import parser
+from . import _parser
 from .errors import IncludeNotFound, MdqError
 
 __all__ = [
@@ -176,10 +176,10 @@ def _question_id(path: Path) -> str | None:
 def _tags(source: str | Mapping[str, Any]) -> list[str] | None:
     """The tags of a question's source, or `None` if it is not a question."""
     if isinstance(source, str):
-        if parser.is_exam(source):
+        if _parser.is_exam(source):
             return None
         try:
-            source = parser.parse_question(source)
+            source = _parser.parse_question(source)
         except MdqError:
             return None
     if source.get("type") == "exam":

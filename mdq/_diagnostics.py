@@ -4,7 +4,7 @@ pipeline reports through -- a parse failure, a pydantic error, a lint
 warning, an unknown frontmatter key.
 
 Split out from `mdq.loading` (which owns and re-exports it) so that
-`mdq.linter` and `mdq.parser` -- both upstream of `mdq.loading` in the
+`mdq.linter` and `mdq._parser` -- both upstream of `mdq.loading` in the
 pipeline -- can report `Diagnostic`s of their own without importing back
 into the module that orchestrates them.
 """

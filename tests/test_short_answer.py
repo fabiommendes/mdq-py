@@ -23,9 +23,9 @@ from hypothesis import strategies as st
 
 from mdq import models
 from mdq.errors import NotAutoGradable, ParseError
-from mdq.parser import parse_any, parse_file
 from mdq.regex import RegexPattern
 from _corpus import VALID_SOURCES, parsed_sibling, relative_id
+from _parse import parse_any, parse_file
 
 
 def _parse(source: str) -> dict:

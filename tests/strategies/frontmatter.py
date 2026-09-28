@@ -5,7 +5,7 @@ Hypothesis strategies for the `unknown-frontmatter-key` lint rule (see
 and `docs/exam.md` §§ Frontmatter and Question block).
 
 The known-key lists below are transcribed from the documented frontmatter
-tables, not from `mdq.parser`'s own registry -- so a test built on them
+tables, not from `mdq._parser`'s own registry -- so a test built on them
 exercises the spec, not whatever the parser happens to accept today. If
 the parser's key set ever drifts from these lists, that is exactly the
 bug this rule (and these strategies) exist to catch.

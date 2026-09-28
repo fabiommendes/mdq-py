@@ -22,7 +22,7 @@ from typing import IO, Any, Generic, Literal, Mapping, TypeVar, overload
 import yaml
 from pydantic import ValidationError as PydanticValidationError
 
-from . import models, parser
+from . import _parser, models
 from ._diagnostics import RANK, Diagnostic, Severity
 from .errors import InvalidDocument, MdqError, UnresolvedInclude
 
@@ -279,7 +279,7 @@ def _load_mdq_text(
     kind: Kind | None,
     ids: Ids,
 ) -> Loaded[Any]:
-    is_exam_doc = parser.is_exam(text)
+    is_exam_doc = _parser.is_exam(text)
     mismatch = _kind_mismatch(kind, is_exam_doc)
     if mismatch is not None:
         return Loaded(None, [mismatch])
@@ -288,10 +288,10 @@ def _load_mdq_text(
     try:
         if is_exam_doc:
             data: dict[str, Any] = dict(
-                parser.parse_exam(text, warnings=collected)
+                _parser.parse_exam(text, warnings=collected)
             )
         else:
-            data = dict(parser.parse_question(text, warnings=collected))
+            data = dict(_parser.parse_question(text, warnings=collected))
     except MdqError as exc:
         return Loaded(None, [_parse_error(exc)])
 

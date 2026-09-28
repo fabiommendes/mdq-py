@@ -10,7 +10,7 @@ from mdq import load
 from mdq.errors import UnresolvedInclude
 from mdq.loaders import DictLoader, FileLoader
 from mdq.models import Exam, IncludeAll, select_random
-from mdq.parser import parse_exam
+from mdq._parser import parse_exam
 from mdq.query import QuerySyntaxError, is_standard_query, parse_query
 from _corpus import VALID_DIR
 

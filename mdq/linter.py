@@ -28,9 +28,9 @@ here.
 One ``warning``-severity rule, ``unknown-frontmatter-key``, is not
 implemented here: an already-parsed document has no way to see a
 frontmatter key the parser dropped while building it. It is instead
-emitted by ``mdq.parser`` (``parse_question``/``parse_exam``/
-``parse_any``, via an optional ``warnings`` sink) for every frontmatter
-key it does not recognize -- a typo like ``auther:``, or a field that
+emitted by ``mdq._parser`` (``parse_question``/``parse_exam``, via an
+optional ``warnings`` sink) for every frontmatter key it does not
+recognize -- a typo like ``auther:``, or a field that
 never existed -- and merged into `mdq.loading`'s diagnostics ahead of
 the ones `lint()` produces.
 """
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 #: Renders a single line's inline markdown to compare two ordering lines,
 #: or two choices' texts, the way a student would see them
 #: (`check_ordering_visually_identical_lines`,
-#: `check_choices_visually_identical`), the same engine `mdq.parser` uses
+#: `check_choices_visually_identical`), the same engine `mdq._parser` uses
 #: to parse MDQ source.
 _RENDER_MD = MarkdownIt("gfm-like")
 

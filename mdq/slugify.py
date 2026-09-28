@@ -124,7 +124,7 @@ _EMPTY_SLUG_PLACEHOLDER = "item"
 # Single-glyph text (a lone symbol or digit) slugifies to nothing useful
 # once punctuation is stripped, so it gets a small name table instead --
 # the "typical case" workaround docs/question-types/multiple-choice.md
-# gestures at (`! -> bang`, `? -> question`). Formerly `mdq.parser`'s
+# gestures at (`! -> bang`, `? -> question`). Formerly `mdq._parser`'s
 # `DIGIT_NAMES`/`SYMBOL_NAMES`, moved here so a derived id stays the same
 # regardless of who computes it (dev/specs/to-do/derived-ids.md).
 DIGIT_NAMES = {

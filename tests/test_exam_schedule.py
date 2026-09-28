@@ -1,6 +1,6 @@
 """
 Exam-level integration of `start`/`duration`: the `Exam` model
-round-trip, `mdq.parser.parse_exam` normalization and error reporting,
+round-trip, `mdq._parser.parse_exam` normalization and error reporting,
 and the `mdq show` metadata table.
 
 `tests/test_schedule.py` covers `mdq._schedule` in isolation;
@@ -22,7 +22,7 @@ from rich.console import Console
 from mdq import load, models, show as show_mod
 from mdq.errors import ParseError
 from strategies import schedule as st_schedule
-from mdq.parser import parse_exam
+from mdq._parser import parse_exam
 
 
 def _minimal_exam(**kwargs: object) -> models.Exam:
@@ -73,7 +73,7 @@ def test_exam_without_a_schedule_has_no_start_or_duration_key() -> None:
 
 
 #
-# mdq.parser.parse_exam
+# mdq._parser.parse_exam
 #
 def test_parse_exam_normalizes_an_unquoted_date_only_start() -> None:
     doc = parse_exam("---\nstart: 2026-03-10\n---\n\n# Exam\n")

@@ -4,7 +4,7 @@ Unit tests for the Markdown-related strategies in `mdq.hypothesis`.
 These check the strategies *themselves*, independent of the question
 models: that each one produces the specific CommonMark block it claims
 to (via `markdown_it`'s own tokenizer), and that it round-trips through
-`mdq._markdown.reconstruct_blocks` -- the same reconstruction
+`mdq._parser.reconstruct_blocks` -- the same reconstruction
 `mdq.models.normalize_paragraphs`/`normalize_intro` use to canonicalize a
 `preamble`/`epilogue`/`stem` field. `tests/test_render.py`'s
 `test_render_question_roundtrip` already exercises these strategies
@@ -21,15 +21,15 @@ from hypothesis import strategies as st
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from mdq import models, parse
-from mdq._markdown import md, reconstruct_blocks
+from mdq._markdown import md
+from mdq._parser import SLUG_BODY_RE, reconstruct_blocks
 from mdq.hypothesis import documents as _st
-from mdq.parser import SLUG_BODY_RE
 
 _SLUG_RE = re.compile(rf"^{SLUG_BODY_RE}$")
 
 
 def _tokenize(src: str) -> list[Node]:
-    """Return the top-level block nodes `mdq.parser` would see for `src`."""
+    """Return the top-level block nodes `mdq._parser` would see for `src`."""
     return list(Node(md.parse(src)).children)
 
 

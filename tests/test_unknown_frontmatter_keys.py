@@ -26,8 +26,9 @@ from typer.testing import CliRunner
 from mdq.cli import app
 from strategies import frontmatter as st_frontmatter
 from mdq._diagnostics import Diagnostic
-from mdq.parser import parse_any, parse_exam, parse_question
+from mdq._parser import parse_exam, parse_question
 from _corpus import VALID_SOURCES, relative_id
+from _parse import parse_any
 
 runner = CliRunner()
 

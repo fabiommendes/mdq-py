@@ -19,14 +19,14 @@ Two rules govern this module:
 
 Nothing here is implemented yet: the fields are the design.
 
-This module imports `mdq.parser` and `mdq._markdown` -- a new direction
+This module imports `mdq._parser` and `mdq._markdown` -- a new direction
 of coupling for the model layer, which otherwise knows nothing about how
 Markdown gets parsed. It is deliberate: `normalize_paragraphs`/
 `normalize_intro` need to canonicalize `preamble`/`stem`/`epilogue` into
 the exact fixed point a render-then-parse round trip produces, and the
 only way to guarantee that without a second, drifting copy of the
 parser's reconstruction rules is to call the parser itself
-(`_markdown.reconstruct_blocks`). Neither module has a reciprocal
+(`_parser.reconstruct_blocks`). Neither module has a reciprocal
 dependency on this one (they hand back plain dicts), so this stays
 one-directional.
 """
@@ -60,7 +60,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from . import _markdown, _schedule, linter, parser, render, slugify
+from . import _markdown, _parser, _schedule, linter, render, slugify
 from . import types as t
 from .types import (
     Diacritics,
@@ -520,7 +520,7 @@ class BaseQuestion[R](MdqModel):
         starting with `[` (the syntax a body tag or a fill-in blank
         marker use), or an unordered list whose items all start with
         `[` -- any of these could be mistaken for the question's body.
-        Checked here (not only by `mdq.parser`), so a document built
+        Checked here (not only by `mdq._parser`), so a document built
         directly from a `dict`/YAML/JSON skips no less than a parsed one
         does (dev/specs/to-do/rule-conformance.md, section D).
 
@@ -536,7 +536,7 @@ class BaseQuestion[R](MdqModel):
         for field_name, text, allow_leading_bracket in fields:
             if not text:
                 continue
-            for description in _markdown.find_forbidden_elements(
+            for description in _parser.find_forbidden_elements(
                 text, allow_first_paragraph_bracket=allow_leading_bracket
             ):
                 _raise_unique_id_error(
@@ -641,7 +641,7 @@ class BaseQuestion[R](MdqModel):
         """
         Normalize *inplace*.
 
-        Runs `mdq.parser`'s Markdown parser over `preamble`/`stem`/
+        Runs `mdq._parser`'s Markdown parser over `preamble`/`stem`/
         `epilogue` (via `normalize_intro`/`normalize_paragraphs`) to
         canonicalize them, so this is no longer a handful of cheap
         string operations -- fine at this project's scale, but worth
@@ -1972,13 +1972,13 @@ class Exam(MdqModel):
     def _load_included(self, bank: QuestionBank, question_id: str) -> dict[str, Any]:
         source = bank.load(question_id)
         if isinstance(source, str):
-            question: dict[str, Any] = dict(parser.parse_question(source))
+            question: dict[str, Any] = dict(_parser.parse_question(source))
         else:
             question = dict(source)
         # An included question already has an identity, so it keeps its
         # own id -- falling back to the id it was found by.
         question.setdefault("id", question_id)
-        for field in parser.INHERITED_FIELDS:
+        for field in _parser.INHERITED_FIELDS:
             value = getattr(self, field)
             if field not in question and value is not None:
                 question[field] = value
@@ -2056,7 +2056,7 @@ class Exam(MdqModel):
             frontmatter.pop(key, None)
 
         heading: list[str] = []
-        if self.id is not None and re.fullmatch(parser.SLUG_BODY_RE, self.id):
+        if self.id is not None and re.fullmatch(_parser.SLUG_BODY_RE, self.id):
             heading.append(f"[{self.id}]")
         elif self.id is not None:
             frontmatter["id"] = self.id
@@ -2066,7 +2066,7 @@ class Exam(MdqModel):
             title is not None
             and title == title.strip()
             and len(title.splitlines()) == 1
-            and (heading or not parser.SLUG_PREFIX_RE.match(title))
+            and (heading or not _parser.SLUG_PREFIX_RE.match(title))
         )
         if title_fits:
             heading.append(str(title))
@@ -2077,7 +2077,7 @@ class Exam(MdqModel):
             if not heading:
                 lines = (title or "").strip().splitlines()
                 placeholder = lines[0] if lines else ""
-                if not placeholder or parser.SLUG_PREFIX_RE.match(placeholder):
+                if not placeholder or _parser.SLUG_PREFIX_RE.match(placeholder):
                     placeholder = "Exam"
                 heading.append(placeholder)
 
@@ -2100,11 +2100,11 @@ class Exam(MdqModel):
         # exam's value in the question's frontmatter is redundant.
         inherited = {
             field: None
-            for field in parser.INHERITED_FIELDS
+            for field in _parser.INHERITED_FIELDS
             if getattr(entry, field) is not None
             and getattr(entry, field) == getattr(self, field)
         }
-        yield parser.SEPARATOR
+        yield _parser.SEPARATOR
         yield ""
         yield entry.model_copy(update=inherited).render()
 
@@ -2379,7 +2379,7 @@ def can_inline_id(preamble: str | None, stem: str) -> bool:
     caller already normalized the model.
     """
     combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = _markdown.reconstruct_blocks(combined.strip())
+    blocks = _parser.reconstruct_blocks(combined.strip())
     return bool(blocks) and blocks[0][0] == "paragraph"
 
 
@@ -2394,11 +2394,11 @@ def normalize_paragraphs(src: str) -> str:
     plain paragraph's soft-wrapped lines collapse to a single space once
     a render/parse round trip touches them (`MDQParser.raw_text`), while
     a list, blockquote, heading or code block survives byte-for-byte.
-    `_markdown.reconstruct_blocks` applies the parser's own rule for each
+    `_parser.reconstruct_blocks` applies the parser's own rule for each
     block instead of guessing, so this function is a fixed point of
     render-then-parse: normalizing again after a round trip is a no-op.
     """
-    return "\n\n".join(text for _, text in _markdown.reconstruct_blocks(src))
+    return "\n\n".join(text for _, text in _parser.reconstruct_blocks(src))
 
 
 def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
@@ -2420,7 +2420,7 @@ def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
     makes that possible.
     """
     combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = _markdown.reconstruct_blocks(combined.strip())
+    blocks = _parser.reconstruct_blocks(combined.strip())
     if not blocks:
         return None, stem.strip()
     new_stem = blocks[-1][1]

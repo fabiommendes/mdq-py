@@ -1,6 +1,6 @@
 # doc0: skip
 """
-A basic Markdown parser for the MDQ file format.
+A basic Markdown parser for one MDQ question document.
 
 This module turns MDQ Markdown source (frontmatter + introduction + body +
 epilogue, as described in ``docs/question-types/generic.md``) into the same
@@ -27,65 +27,73 @@ text) are just reconstructed from their raw lines, soft-wrapped lines
 joined with a single space -- the same collapsing a YAML folded (`>-`)
 scalar does, which is how every paired `.yaml` fixture represents them.
 
-The public functions below are thin wrappers around `ParseMDQ`, a
-recursive-descent parser that walks a cursor over one question's block
-children.
+`parse_question` is a thin wrapper around `MDQParser`, a recursive-descent
+parser that walks a cursor over one question's block children. Exam-level
+concerns (splitting a document into question blocks, inheritance, the
+`===` grammar) live in `_exam`, which calls back into `parse_question` for
+each block.
 """
 
 from __future__ import annotations
 
-import math
 import re
-from dataclasses import dataclass, field, replace
-from pathlib import Path
-from typing import Any, Mapping, NamedTuple, Required, TypedDict, cast
+from dataclasses import dataclass, field
+from typing import Any, cast
 
-import yaml
 from markdown_it.tree import SyntaxTreeNode as Node
 
-from . import _schedule
-from ._markdown import (
-    find_forbidden_elements,
-    find_misplaced_blank_markers,
-    md,
-    reconstruct_blocks,
-)
-from .errors import ConflictingAnswerKey, IncompleteQuestion, MissingField, ParseError
-from ._diagnostics import Diagnostic
-from .types import (
+from .._diagnostics import Diagnostic
+from .._markdown import md
+from ..errors import ConflictingAnswerKey, IncompleteQuestion, MissingField, ParseError
+from ..types import (
     BlankDict,
-    ExamDict,
-    ExamEntryDict,
-    IncludeAllDict,
-    IncludeDict,
     NumericBlankDict,
-    NumericDomain,
-    PatternDict,
     QuestionDict,
     ScoredChoiceDict,
     ShortAnswerBlankDict,
-    ToleranceDict,
+)
+from ._choices import (
+    FALSE_LETTERS,
+    PLAIN_ITEM_RE,
+    RawChoice,
+    SLUG_BODY_RE,
+    SLUG_PREFIX_RE,
+    _assign_choice_ids,
+    _infer_choice_type,
+    _pattern_entry,
+    _score_from_value,
+    _split_list_items,
+    _strip_list_marker,
+    parse_marker,
+)
+from ._frontmatter import (
+    GRADED_QUESTION_TYPES,
+    _copy_pattern_lists,
+    _extract_comment,
+    _load_frontmatter_yaml,
+    _normalize_tags,
+    _question_frontmatter_warnings,
+    _split_frontmatter,
+)
+from ._numeric import _parse_numeric_expression
+from ._ordering import (
+    ORDERING_SECTION_RE,
+    RawAlternative,
+    RawLine,
+    is_comment_block,
+    join_prefixed_lines,
+    ordering_alternative,
+    ordering_code_lines,
+    ordering_leveled,
+    ordering_ul_lines,
+    ordering_unit,
 )
 
-__all__ = [
-    "parse_any",
-    "parse_file",
-    "parse_exam",
-    "parse_question",
-    "is_exam",
-    "reconstruct_blocks",
-    "find_forbidden_elements",
-    "find_misplaced_blank_markers",
-]
+__all__ = ["parse_question", "reconstruct_blocks", "find_forbidden_elements"]
 
 #
 # Constants
 #
-
-# Slugs and choice ids.
-SLUG_BODY_RE = r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
-SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]\s*")
-CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]\s*")
 
 # Body-start detection.
 ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
@@ -113,214 +121,11 @@ BLANK_KIND_RE = re.compile(
 BRACKET_ITEM_RE = re.compile(r"^[*+-]\s*\[")
 ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
 ORDERING_TAG_RE = re.compile(r"^\[ordering\]$")
-# `## [extra]` / `## [accept]` / `## [reject]`, matched the way
-# ANSWER_KEY_RE matches `## [answer-key]`.
-ORDERING_SECTION_RE = re.compile(r"^\[(?P<name>extra|accept|reject)\]$")
-# An ordering `ul` item's line: leading whitespace (the indentation to be
-# measured), the marker, and the item's raw markdown source verbatim.
-ORDERING_ITEM_RE = re.compile(r"^(?P<indent>[ \t]*)[*+-][ \t]+(?P<text>.*)$")
-
-# Choice-list parsing.
-ITEM_MARKER_RE = re.compile(r"^[*+-]\s+\[(?P<value>[^\]]*)\]\s?(?P<rest>.*)$")
-PERCENT_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?%$")
-PLAIN_ITEM_RE = re.compile(r"^[*+-]\s+(?P<rest>.*)$")
-
-# True/false marker classification, per
-# docs/question-types/true-false.md#body. Only FALSE letters mean false;
-# TRUE and PROVISIONAL letters both mean true. CJK characters have no
-# case, so they're listed once rather than lowercased.
-FALSE_LETTERS = {"f", "错", "偽"}
-
-# Numeric body parsing.
-NUM_VALUE_RE = re.compile(
-    r"^(?P<sign>[+-])?(?P<value>\d+/\d+|\d+\.\d+|\d+)"
-    r"(?P<tolerances>(?:\s*\+-\s*\d+(?:\.\d+)?%?)*)\s*$"
-)
-TOL_TERM_RE = re.compile(r"\+-\s*(?P<num>\d+(?:\.\d+)?)(?P<pct>%)?")
-
-# Exams.
-#: An exam's questions are separated by a line of exactly three equals
-#: signs. It must be preceded by a blank line -- without one, CommonMark
-#: reads it as a setext underline and turns the paragraph above into an
-#: H1, which is the exam-title syntax.
-SEPARATOR = "==="
-
-#: `# Title` or `# [slug] Title`.
-H1_RE = re.compile(r"^#[ \t]+(?P<rest>.*?)[ \t]*$")
-
-#: Fields a question inherits from the exam when it declares none itself.
-#: `tags` is deliberately absent -- tags classify a question individually.
-INHERITED_FIELDS = ("locale", "author")
 
 
 #
 # Public API
 #
-def parse_any(
-    text: str,
-    *,
-    warnings: list[Diagnostic] | None = None,
-) -> QuestionDict | ExamDict:
-    """
-    Parse MDQ source into a JSON-like document, dispatching on its kind.
-
-    Returns an exam document when the source carries an H1 title, and a
-    question document otherwise.
-
-    Args:
-        text: MDQ source text, with or without YAML frontmatter.
-        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
-            is appended for every frontmatter key the parser does not
-            consume. Parsing never fails because of them.
-
-    Returns:
-        The parsed exam or question document, in the shape validated by
-        `mdq.validator.validate_document`.
-
-    Raises:
-        ParseError: If the source is not valid MDQ.
-        MissingField: If a required field (e.g. `stem`, `title`) is
-            missing.
-        IncompleteQuestion: If a question's type cannot be inferred.
-
-    Example:
-        >>> parse_any("What is 2 + 2?\\n\\n* [x] 4\\n* [ ] 5\\n")["type"]
-        'multiple-selection'
-    """
-
-    if is_exam(text):
-        return parse_exam(text, warnings=warnings)
-    return parse_question(text, warnings=warnings)
-
-
-def parse_file(path: Path) -> QuestionDict | ExamDict:
-    """
-    Parse a file, dispatching on whether it holds an exam or a question.
-
-    Include blocks are left unresolved: where a question lives is the
-    host's business, and an exam whose includes have not been resolved is
-    still a well-formed document. See `mdq.models.Exam.resolve`.
-
-    Args:
-        path: Path to the MDQ source file.
-
-    Returns:
-        The parsed exam or question document, in the shape validated by
-        `mdq.validator.validate_document`.
-
-    Raises:
-        OSError: If `path` cannot be read.
-        ParseError: If the source is not valid MDQ.
-        MissingField: If a required field (e.g. `stem`, `title`) is
-            missing.
-        IncompleteQuestion: If a question's type cannot be inferred.
-    """
-
-    path = Path(path)
-    return parse_any(path.read_text(encoding="utf-8"))
-
-
-def parse_exam(
-    text: str,
-    *,
-    warnings: list[Diagnostic] | None = None,
-) -> ExamDict:
-    """
-    Parse an exam document.
-
-    `include:` and `include-all:` blocks are left as they are written, as
-    `{"include": id}` and `{"include-all": query}` entries. See
-    `mdq.models.Exam.resolve`.
-
-    Args:
-        text: MDQ source text for an exam (i.e. one with an H1 title).
-        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
-            is appended for every frontmatter key the parser does not
-            consume -- at the exam's own top level (`path=(key,)`) and
-            inside each question block (`path=("questions", i, key)`,
-            0-based). Parsing never fails because of them.
-
-    Returns:
-        The parsed exam document, in the shape validated by
-        `mdq.validator.validate_document`.
-
-    Raises:
-        MissingField: If the exam has no title.
-        ParseError: If a question block is not valid MDQ.
-        IncompleteQuestion: If a question's type cannot be inferred.
-
-    Example:
-        >>> exam = parse_exam(
-        ...     "# Sample Exam\\n\\n===\\n\\nWhat is 2 + 2?\\n\\n"
-        ...     "* [x] 4\\n* [ ] 5\\n"
-        ... )
-        >>> exam["title"]
-        'Sample Exam'
-        >>> len(exam["questions"])
-        1
-    """
-
-    # FIXME: move this logic to the MDQParser and reuse their methods
-    frontmatter_text, body = _split_frontmatter(text)
-    front: dict[str, Any] = {}
-    if frontmatter_text is not None:
-        front = _load_frontmatter_yaml(frontmatter_text)
-
-    if warnings is not None:
-        warnings.extend(_unknown_frontmatter_warnings(front, EXAM_FRONTMATTER_KEYS))
-
-    doc: dict[str, Any] = {"type": "exam"}
-
-    lines = body.splitlines()
-    heading: str | None = None
-    title_index = 0
-    for title_index, line in enumerate(lines):
-        if m := H1_RE.match(line):
-            heading = m.group("rest")
-            break
-    if heading is None:
-        raise MissingField("title")
-
-    slug_match = SLUG_PREFIX_RE.match(heading)
-    if slug_match:
-        doc["id"] = slug_match.group("slug")
-        heading = heading[slug_match.end() :].strip()
-    if heading:
-        doc["title"] = heading
-
-    # The frontmatter wins over the H1 for both fields it can also carry.
-    for key in EXAM_PASSTHROUGH_KEYS:
-        if key in front:
-            doc[key] = str(front[key]) if key == "id" else front[key]
-    if "tags" in front:
-        doc["tags"] = _normalize_tags(front["tags"])
-    if "start" in front:
-        try:
-            doc["start"] = _schedule.format_start(_schedule.parse_start(front["start"]))
-        except ValueError as exc:
-            raise ParseError(f"exam start: {exc}") from exc
-    if "duration" in front:
-        try:
-            doc["duration"] = _schedule.format_duration(
-                _schedule.parse_duration(front["duration"])
-            )
-        except ValueError as exc:
-            raise ParseError(f"exam duration: {exc}") from exc
-
-    instructions, blocks = _split_exam_blocks(lines[title_index + 1 :])
-    if instructions:
-        doc["instructions"] = instructions
-
-    questions: list[ExamEntryDict] = []
-    for index, block in enumerate(blocks):
-        questions.append(
-            _parse_exam_block(block, doc, warnings=warnings, index=index)
-        )
-    doc["questions"] = questions
-
-    return cast(ExamDict, doc)
-
-
 def parse_question(
     text: str, *, warnings: list[Diagnostic] | None = None
 ) -> QuestionDict:
@@ -364,62 +169,9 @@ def parse_question(
     return doc
 
 
-def is_exam(text: str) -> bool:
-    """
-    Report whether `text` is an exam rather than a single question.
-
-    An exam is recognized by its H1 title, which a question document can
-    never carry: generic.md lists H1 headings among the block elements a
-    question's preamble rejects.
-
-    Args:
-        text: MDQ source text, with or without YAML frontmatter.
-
-    Returns:
-        True if `text` has a top-level (H1) heading, False otherwise.
-
-    Example:
-        >>> is_exam("# Sample Exam\\n\\nWhat is 2 + 2?")
-        True
-        >>> is_exam("What is 2 + 2?\\n\\n* [x] 4\\n* [ ] 5")
-        False
-    """
-
-    _, body = _split_frontmatter(text)
-    for line in body.splitlines():
-        if H1_RE.match(line):
-            return True
-    return False
-
-
 #
 # Implementation
 #
-
-#: Frontmatter keys every question type accepts, read by
-#: `MDQParser.apply_common_frontmatter` -- except `type`, which is read
-#: directly in `MDQParser.parse_question` to pick the parsing path before
-#: any state exists to apply frontmatter onto.
-COMMON_QUESTION_KEYS = frozenset(
-    {"type", "id", "uuid", "title", "author", "locale", "tags", "meta", "weight"}
-)
-
-#: The question types that choose a grading strategy and may be shuffled,
-#: read by `MDQParser.apply_type_specific_frontmatter`. Mirrors
-#: `mdq.models.GradedQuestionType`, which cannot be imported here since
-#: `mdq.models` imports this module.
-GRADED_QUESTION_TYPES = ("multiple-choice", "multiple-selection", "true-false", "fill-in")
-
-
-@dataclass(slots=True)
-class RawChoice:
-    value: str
-    explicit_id: str | None
-    text: str
-    feedback: str | None = None
-    comment: str | None = None
-
-
 @dataclass
 class MDQParser:
     """
@@ -1351,285 +1103,6 @@ class MDQParser:
         return cast(QuestionDict, self.state)
 
 
-#
-# Frontmatter
-#
-def _split_frontmatter(text: str) -> tuple[str | None, str]:
-    """
-    Split source text into (raw frontmatter body, remaining document text).
-
-    Returns (None, text) if there is no frontmatter block at all.
-    """
-
-    if not text.startswith("---"):
-        return None, text
-
-    lines = text.splitlines(keepends=True)
-    if lines[0].rstrip("\r\n") != "---":
-        return None, text
-
-    for i in range(1, len(lines)):
-        if lines[i].rstrip("\r\n") == "---":
-            frontmatter = "".join(lines[1:i])
-            rest = "".join(lines[i + 1 :])
-            return frontmatter, rest
-
-    # Unterminated frontmatter marker: treat the whole thing as a document
-    # with no frontmatter, rather than silently swallowing the file.
-    return None, text
-
-
-def _extract_comment(frontmatter_text: str) -> str | None:
-    """
-    Pull out the leading `#`-comment block, per the `comment_string` rule
-    in docs/question-types/generic.md. A blank line breaks it.
-    """
-
-    lines = frontmatter_text.splitlines()
-    i = 0
-    while i < len(lines) and lines[i].strip() == "":
-        i += 1
-
-    comment_lines = []
-    while i < len(lines) and lines[i].startswith("#"):
-        content = lines[i][1:]
-        if content.startswith(" "):
-            content = content[1:]
-        comment_lines.append(content)
-        i += 1
-
-    return " ".join(comment_lines) if comment_lines else None
-
-
-class _FrontmatterLoader(yaml.SafeLoader):
-    """
-    `yaml.SafeLoader`, minus YAML 1.1's base-60 int/float resolution.
-
-    PyYAML's `SafeLoader` reads an unquoted `1:30` as the sexagesimal
-    integer `90` (`1*60 + 30`) -- a YAML 1.1 rule that YAML 1.2 dropped.
-    MDQ needs `1:30` to stay the string `"1:30"` so `HH:MM` durations
-    need no quoting in the frontmatter (see `mdq._schedule`), so this
-    loader keeps every other implicit resolver -- timestamps included --
-    and only replaces `int`/`float`'s regex with one that drops the
-    `H:MM[:SS]` alternative.
-    """
-
-
-#: `tag:yaml.org,2002:int`'s pattern, minus the sexagesimal alternative.
-_INT_RE = re.compile(
-    r"""^(?:[-+]?0b[0-1_]+
-        |[-+]?0[0-7_]+
-        |[-+]?(?:0|[1-9][0-9_]*)
-        |[-+]?0x[0-9a-fA-F_]+)$""",
-    re.VERBOSE,
-)
-
-#: `tag:yaml.org,2002:float`'s pattern, minus the sexagesimal alternative.
-_FLOAT_RE = re.compile(
-    r"""^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?
-        |\.[0-9][0-9_]*(?:[eE][-+][0-9]+)?
-        |[-+]?\.(?:inf|Inf|INF)
-        |\.(?:nan|NaN|NAN))$""",
-    re.VERBOSE,
-)
-
-_FrontmatterLoader.yaml_implicit_resolvers = {
-    first_char: [
-        (tag, _INT_RE)
-        if tag == "tag:yaml.org,2002:int"
-        else (tag, _FLOAT_RE)
-        if tag == "tag:yaml.org,2002:float"
-        else (tag, regexp)
-        for tag, regexp in resolvers
-    ]
-    for first_char, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
-}
-
-
-def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
-    data = yaml.load(text, Loader=_FrontmatterLoader)
-    return data if isinstance(data, dict) else {}
-
-
-def _unknown_frontmatter_warnings(
-    front: Mapping[str, Any],
-    known: frozenset[str],
-    path_prefix: tuple[str | int, ...] = (),
-) -> list[Diagnostic]:
-    """
-    One `unknown-frontmatter-key` `Diagnostic` per key of `front` that is
-    not in `known`, in frontmatter order.
-
-    The parser is the only component that knows which keys it actually
-    consumes, so it is the one reporting the ones it doesn't -- a typo
-    like `auther:`, or a field that simply does not exist, otherwise
-    vanishes without a trace.
-    """
-    return [
-        Diagnostic(
-            severity="warning",
-            code="unknown-frontmatter-key",
-            path=path_prefix + (key,),
-            message=f"{key!r} is not a recognized frontmatter field and is ignored",
-        )
-        for key in front
-        if key not in known
-    ]
-
-
-#
-# Body-start detection
-#
-#: Frontmatter keys holding pattern lists, copied through verbatim.
-PATTERN_LIST_KEYS = ("accept", "reject", "preAccept", "preReject")
-
-
-def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
-    """Copy the frontmatter's pattern lists onto the parsed document."""
-    for key in PATTERN_LIST_KEYS:
-        if key in front and key not in doc:
-            doc[key] = front[key]
-
-
-#: Per-type frontmatter keys, one entry per question type that reads
-#: fields of its own beyond `COMMON_QUESTION_KEYS`. Each set is declared
-#: next to the method that actually consumes it:
-#:
-#: * multiple-choice/multiple-selection/true-false/fill-in `shuffle` and
-#:   `grading`: `MDQParser.apply_type_specific_frontmatter` (fill-in also
-#:   reads its own `shuffle` and `diacritics` directly in
-#:   `MDQParser.parse_fill_in_body`).
-#: * essay `input`/`highlight`: `MDQParser.parse_essay_body`.
-#: * ordering: `MDQParser.parse_ordering_body`.
-#: * short-answer `openEnded`/`regex`/`diacritics`/pattern lists:
-#:   `MDQParser.parse_short_answer_body` and `_copy_pattern_lists`.
-#: * numeric `domain`/`decimalPlaces`/`unit`: `MDQParser.parse_numeric_body`.
-TYPE_QUESTION_KEYS: dict[str, frozenset[str]] = {
-    "multiple-choice": frozenset({"shuffle", "grading"}),
-    "multiple-selection": frozenset({"shuffle", "grading"}),
-    "true-false": frozenset({"shuffle", "grading"}),
-    "fill-in": frozenset({"shuffle", "grading", "diacritics"}),
-    "essay": frozenset({"input", "highlight"}),
-    "ordering": frozenset(
-        {"content", "highlight", "indentation", "unmatched", "normalizations"}
-    ),
-    "short-answer": frozenset({"openEnded", "regex", "diacritics", *PATTERN_LIST_KEYS}),
-    "numeric": frozenset({"domain", "decimalPlaces", "unit"}),
-}
-
-
-def _question_frontmatter_warnings(
-    front: Mapping[str, Any], question_type: str
-) -> list[Diagnostic]:
-    """`unknown-frontmatter-key` warnings for one question's frontmatter."""
-    known = COMMON_QUESTION_KEYS | TYPE_QUESTION_KEYS.get(question_type, frozenset())
-    return _unknown_frontmatter_warnings(front, known)
-
-
-def _pattern_entry(item: RawChoice) -> str | PatternDict:
-    """Return one accept/reject entry, bare when it has no feedback or comment."""
-    pattern = item.text.strip()
-    if not pattern:
-        raise ParseError("a short-answer pattern line cannot be empty")
-    if not item.feedback and not item.comment:
-        return pattern
-    entry: PatternDict = {"pattern": pattern}
-    if item.feedback:
-        entry["feedback"] = item.feedback
-    if item.comment:
-        entry["comment"] = item.comment
-    return entry
-
-
-#
-# Ordering body parsing
-#
-#: A line before its indentation is reduced to a level -- the leading
-#: whitespace measured in columns (tabs counted as 4), and the text.
-RawLine = tuple[int, str]
-
-
-class RawAlternative(NamedTuple):
-    """One raw `## [accept]`/`## [reject]` section, before leveling."""
-
-    lines: list[RawLine]
-    feedback: str | None
-    comment: str | None
-
-
-def ordering_code_lines(content: str) -> list[RawLine]:
-    """Split a fence's raw content into `(indent, text)` pairs, one per line."""
-    raw_lines = content.split("\n")
-    if raw_lines and raw_lines[-1] == "":  # trailing newline
-        raw_lines.pop()
-    return [ordering_line_indent(line) for line in raw_lines]
-
-
-def ordering_ul_lines(raw_lines: list[str]) -> list[RawLine]:
-    """Split a `ul` block's raw source lines into `(indent, text)` pairs."""
-    items = []
-    for line in raw_lines:
-        m = ORDERING_ITEM_RE.match(line)
-        if m:
-            items.append((len(m.group("indent").expandtabs(4)), m.group("text")))
-    return items
-
-
-def ordering_line_indent(line: str) -> RawLine:
-    """
-    A code line's `(indent, text)`, tabs expanded to 4 spaces.
-
-    A blank line (whitespace only) carries no indentation of its own,
-    regardless of any accidental leading whitespace.
-    """
-    if not line.strip():
-        return 0, ""
-    expanded = line.expandtabs(4)
-    stripped = expanded.lstrip(" ")
-    return len(expanded) - len(stripped), stripped
-
-
-def ordering_unit(indents: list[int]) -> int:
-    """
-    The indentation unit for a question: the GCD of every positive
-    indent among `indents`, or 4 spaces when none is indented at all
-    (ordering.md#indentation).
-    """
-    positives = [i for i in indents if i > 0]
-    return math.gcd(*positives) if positives else 4
-
-
-def ordering_leveled(raw: list[RawLine], unit: int) -> list[list[int | str]]:
-    """Convert `(indent, text)` pairs into `[level, text]` lists, per fixture shape."""
-    return [[indent // unit, text] for indent, text in raw]
-
-
-def ordering_alternative(alt: RawAlternative, unit: int) -> dict[str, Any]:
-    """Build one `accept`/`reject` entry from its raw lines and observations."""
-    entry: dict[str, Any] = {"lines": ordering_leveled(alt.lines, unit)}
-    if alt.feedback:
-        entry["feedback"] = alt.feedback
-    if alt.comment:
-        entry["comment"] = alt.comment
-    return entry
-
-
-def join_prefixed_lines(lines: list[str], prefix: str) -> str:
-    """Strip a `>`/`!` prefix from each raw line and join the rest with spaces."""
-    parts = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(prefix):
-            stripped = stripped[len(prefix) :].strip()
-        parts.append(stripped)
-    return " ".join(p for p in parts if p)
-
-
-def is_comment_block(lines: list[str]) -> bool:
-    """Whether every raw line of a paragraph is a `!`-prefixed comment line."""
-    return bool(lines) and all(line.strip().startswith("!") for line in lines)
-
-
 def _matches_tag(text: str) -> str | None:
     """Return which known body/blank tag `text` looks like, if any."""
 
@@ -1647,436 +1120,95 @@ def _matches_tag(text: str) -> str | None:
 
 
 #
-# Choice-list parsing (multiple-choice / multiple-selection / true-false /
-# fill-in choice blanks)
+# Block reconstruction, shared with mdq.models
 #
-class ParsedMarker(NamedTuple):
-    marker: str
-    id: str | None
-    rest: str
-
-
-def parse_marker(line: str) -> ParsedMarker:
+def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     """
-    Extract a choice item's (value, explicit id, remaining text) from
-    its first raw line, e.g. `* [x] [my-id] Some text`.
+    Parse `src` as a standalone sequence of top-level Markdown blocks and
+    reconstruct each one exactly as it would read after being embedded in
+    a full MDQ document and parsed back out.
 
-    Raises:
-        ParseError: If `line` does not start with a `* [value]` marker.
+    This is `MDQParser.raw_text`, applied to every top-level block `src`
+    parses into: a plain paragraph's soft-wrapped lines collapse to
+    single spaces, while a list, blockquote, heading or code block is
+    reproduced byte-for-byte. It exists so `mdq.models` can canonicalize
+    a `preamble`/`epilogue`/`stem` field into the fixed point a
+    render-then-parse round trip actually produces, using the parser's
+    own reconstruction rules instead of a second, drifting copy of them.
+
+    Args:
+        src: Markdown source for a preamble, epilogue, or stem -- a
+            sequence of block elements with no YAML frontmatter of its
+            own (a bare `---` at the very start would be misread as one,
+            but no MDQ block legitimately starts with a thematic break).
+
+    Returns:
+        One `(node_type, text)` pair per top-level block found in `src`,
+        in source order.
     """
-
-    m = ITEM_MARKER_RE.match(line)
-    if not m:
-        raise ParseError(f"malformed choice item: {line!r}")
-
-    value = m.group("value").strip()
-    rest = m.group("rest")
-
-    id = None
-    id_match = CHOICE_ID_PREFIX_RE.match(rest)
-    if id_match:
-        id = id_match.group("id")
-        rest = rest[id_match.end() :]
-
-    return ParsedMarker(value, id, rest)
+    reader = MDQParser(src)
+    return [(node.type, reader.raw_text(node)) for node in reader.children]
 
 
-def _strip_list_marker(line: str) -> str:
-    """Strip a plain (non-bracket) list item's `* `/`- ` marker."""
-
-    m = PLAIN_ITEM_RE.match(line)
-    return m.group("rest").strip() if m else line.strip()
+def _starts_with_bracket(text: str) -> bool:
+    return text.lstrip().startswith("[")
 
 
-def _split_list_items(item_lines: list[str]) -> list[list[str]]:
-    items: list[list[str]] = []
-    current: list[str] = []
-    for line in item_lines:
-        if re.match(r"^[*+-]\s", line):
-            current = [line]
-            items.append(current)
-        else:
-            current.append(line)
-    return items
-
-
-def _assign_choice_ids(choices: list[RawChoice]) -> list[str | None]:
+def find_forbidden_elements(
+    src: str, *, allow_first_paragraph_bracket: bool = False
+) -> list[str]:
     """
-    Return each choice's id, exactly as the author wrote it -- `None` for
-    a choice with no explicit id.
+    base.md, "Forbidden elements": return a human-readable description of
+    every forbidden top-level block construct in `src` -- a preamble,
+    stem, or epilogue field, checked on its own.
 
-    A choice without an id used to get one derived from its text here;
-    that derivation now lives in `mdq.models.BaseQuestion.with_ids`,
-    called by whoever needs an addressable document
-    (dev/specs/to-do/derived-ids.md).
+    The forbidden constructs are: an H1 heading; a heading starting with
+    optional whitespace and `[`; an unordered list whose items all start
+    with optional whitespace and `[`; and a paragraph starting with
+    optional whitespace and `[`, unless it is immediately followed by
+    `^` (the fill-in blank marker syntax) or -- see
+    `allow_first_paragraph_bracket` -- it is `src`'s own first block (the
+    slug syntax, base.md "Slug").
+
+    Args:
+        src: Markdown source for one field -- no YAML frontmatter.
+        allow_first_paragraph_bracket: Exempt a leading `[...]` paragraph
+            as a possible slug. Only the combined preamble+stem
+            sequence's own first block qualifies -- pass `True` for
+            whichever of `preamble`/`stem` is first when the other is
+            absent or empty, `False` for everything else (including the
+            epilogue, which is never that first block).
+
+    Returns:
+        One description per forbidden block found, in source order.
+        Empty when `src` is blank or holds nothing forbidden.
     """
-    return [choice.explicit_id for choice in choices]
+    if not src.strip():
+        return []
 
-
-def _infer_choice_type(values: list[str]) -> str | None:
-    """
-    Infer multiple-choice / multiple-selection / true-false from the
-    bracket values used in a choice list, per generic.md's rule that a
-    bracket-led list is never valid preamble -- it is always a choice
-    body of one of these three kinds.
-
-    A list whose markers are all blank is multiple-selection: nothing is
-    marked correct, which multiple-selection allows outright (zero correct
-    choices is a legal answer key) but multiple-choice does not.
-    """
-
-    for v in values:
-        if v == "*" or PERCENT_RE.match(v):
-            return "multiple-choice"
-    for v in values:
-        if v.lower() == "x":
-            return "multiple-selection"
-    for v in values:
-        if v and v.lower() not in ("x",) and len(v) == 1 and v.isalpha():
-            return "true-false"
-    return "multiple-selection"
-
-
-def _score_from_value(value: str) -> float | int:
-    if value == "*":
-        return 1
-    if PERCENT_RE.match(value):
-        return float(value[:-1]) / 100
-    return 0
-
-
-#
-# Numeric body parsing
-#
-class _NumericExpr(TypedDict, total=False):
-    """
-    The fields `_parse_numeric_expression` fills in.
-
-    A fragment of `NumericQuestionDict`/`NumericBlankDict` -- everything
-    but the `type` (and, for a blank, `id`) the caller already knows and
-    adds itself.
-    """
-
-    answer: Required[float]
-    domain: NumericDomain
-    decimalPlaces: int
-    tolerance: ToleranceDict
-
-
-def _parse_numeric_expression(expr: str) -> _NumericExpr:
-    """
-    Parse the value/tolerance grammar from docs/question-types/numeric.md
-    (`sign? value abstol? reltol?`, order-independent in practice -- see
-    numeric/tolerances.mdq.md, which writes the relative tolerance
-    first).
-    """
-
-    m = NUM_VALUE_RE.match(expr.strip())
-    if not m:
-        raise ParseError(f"malformed numeric body: {expr!r}")
-
-    sign = -1 if m.group("sign") == "-" else 1
-    value_str = m.group("value")
-
-    result: _NumericExpr
-    if "/" in value_str:
-        num, den = value_str.split("/")
-        result = {"answer": sign * (int(num) / int(den)), "domain": "fraction"}
-    elif "." in value_str:
-        result = {
-            "answer": sign * float(value_str),
-            "domain": "decimal",
-            "decimalPlaces": len(value_str.split(".", 1)[1]),
-        }
-    else:
-        result = {"answer": sign * int(value_str), "domain": "integer"}
-
-    tolerance: ToleranceDict = {}
-    for tol_match in TOL_TERM_RE.finditer(m.group("tolerances")):
-        num = float(tol_match.group("num"))
-        if tol_match.group("pct"):
-            tolerance["relative"] = num / 100
-        else:
-            tolerance["absolute"] = num
-    if tolerance:
-        result["tolerance"] = tolerance
-
-    return result
-
-
-#
-# Generic frontmatter fields
-#
-def _normalize_tags(tags: Any) -> list[str]:
-    """
-    generic.md: `tags` is a list, or a single comma-delimited string that
-    is split into one. Exams and questions share the rule.
-    """
-    if isinstance(tags, str):
-        return [part.strip() for part in tags.split(",") if part.strip()]
-    return list(tags)
-
-
-#
-# Exams
-#
-
-#: Simple frontmatter fields copied verbatim into the exam document by
-#: `parse_exam`; the frontmatter wins over the H1 for `id`/`title`.
-#: `tags`, `start` and `duration` need their own normalization/parsing and
-#: are handled separately there.
-EXAM_PASSTHROUGH_KEYS = (
-    "id",
-    "title",
-    "uuid",
-    "course",
-    "description",
-    "author",
-    "locale",
-    "meta",
-    "penalty",
-    "grading",
-)
-
-#: Every frontmatter key an exam accepts. `type` has no effect of its own
-#: -- an exam is recognized by its H1 title, not by declaring `type:
-#: exam` (docs/exam.md) -- but is accepted, not flagged as a mistake.
-EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {"tags", "start", "duration", "type"}
-
-#: Frontmatter keys a `===`/`---`-delimited block's own YAML accepts when
-#: it names an `include:` rather than an inline question (docs/exam.md,
-#: "Question block"): nothing else, since an include only has an identity
-#: to name. A block with no `include:` is an inline question instead, and
-#: its frontmatter is checked against `COMMON_QUESTION_KEYS`/
-#: `TYPE_QUESTION_KEYS` like any other question's, by `parse_question`.
-EXAM_BLOCK_FRONTMATTER_KEYS = frozenset({"include"})
-
-#: The same, for a block that holds an `include-all:` query instead.
-EXAM_INCLUDE_ALL_KEYS = frozenset({"include-all", "max"})
-
-
-def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
-    """
-    Split the text below the title into (instructions, question blocks).
-
-    A block starts at a `===` separator -- always, unconditionally -- or
-    at a bare `---` frontmatter fence. Telling a fence-that-opens-a-new-
-    question apart from a thematic break sitting in some other question's
-    own preamble/epilogue prose (which generic.md allows outright) can't
-    be done by content alone: an entirely ordinary prose line like "Nota:
-    leia com atenção." parses as a YAML mapping just as readily as real
-    frontmatter fields do, so a bare `---` only opens a *new* question
-    when position says it structurally could:
-
-    * it is the very first one found at all -- there is nothing yet to
-      confuse it with, and exam.md's Body rule already forbids ordinary
-      instructions prose from using a `---`-fenced block, so whatever
-      fence is found first, however much instructions prose precedes it,
-      is trustworthy; or
-    * nothing but blank lines separates it from the line right after a
-      *previous bare fence's own closing* `---` (exam.md's worked example
-      chains two bare-frontmatter questions exactly this way, back to
-      back, with no `===` between them); or
-    * the current question (opened by `===` or a previous fence) has
-      already shown a recognizable body -- a body tag (`[essay]`,
-      `[short-answer]: ...`, `[numeric]: ...`, a `[^blank]:` line) or the
-      first item of a bracket-choice list -- since its own frontmatter
-      closed. Once that has happened the question is structurally
-      complete (only optional epilogue prose can still follow), so a
-      further bare fence safely opens the next question even with
-      arbitrary epilogue text in between, no `===` required -- this is
-      exactly what lets a duplicate-id check span two bare-frontmatter
-      essay questions with real bodies, not just empty `include`s.
-
-    A fence immediately after a `===`, with nothing but blank lines
-    before it, is none of those: it is simply that question's own
-    frontmatter (any question may have one, `===`-opened or not), not a
-    second, separate start -- so it is consumed like normal content, not
-    recorded as a new block, though a further fence chaining off *its*
-    close is fair game again.
-
-    Before any body tag has appeared for the current question, a bare
-    `---` is necessarily still inside its own preamble/stem, and no
-    signal available from raw lines can tell a thematic break there from
-    a genuine fence -- so it is never treated as one.
-    """
-
-    starts: list[int] = []
-    index = 0
-    #: Position right after the most recently accepted block boundary.
-    boundary = 0
-    #: Whether that boundary was a `===` (as opposed to a previous bare
-    #: fence's own closing `---`, or the still-unresolved start of the
-    #: instructions region).
-    boundary_is_separator = False
-    #: Whether the current question has shown a recognizable body tag or
-    #: bracket-choice list item since its own frontmatter (if any) closed.
-    body_seen = False
-    while index < len(lines):
-        line = lines[index].rstrip()
-        stripped = line.strip()
-        blank_before = index == 0 or not lines[index - 1].strip()
-
-        if not body_seen and (
-            _matches_tag(stripped) or BRACKET_ITEM_RE.match(stripped)
-        ):
-            body_seen = True
-
-        if line == SEPARATOR and blank_before:
-            starts.append(index)
-            boundary = index + 1
-            boundary_is_separator = True
-            body_seen = False
-            index += 1
+    reader = MDQParser(src)
+    forbidden: list[str] = []
+    for index, node in enumerate(reader.children):
+        if node.type == "heading":
+            if node.tag == "h1":
+                forbidden.append("an H1 heading")
+            elif _starts_with_bracket(reader.raw_text(node)):
+                forbidden.append("a heading starting with '['")
             continue
 
-        if line == "---" and blank_before:
-            adjacent = all(not gap.strip() for gap in lines[boundary:index])
-            is_own_frontmatter = boundary_is_separator and adjacent
-            is_new_start = not is_own_frontmatter and (
-                not starts or adjacent or body_seen
-            )
-            if is_own_frontmatter or is_new_start:
-                # Positionally this candidate is allowed to open a fence;
-                # still require the enclosed text to actually look like
-                # YAML frontmatter (a cheap secondary guard, never the
-                # primary test) before committing to it.
-                closing = next(
-                    (
-                        j
-                        for j in range(index + 1, len(lines))
-                        if lines[j].rstrip() == "---"
-                        and _looks_like_frontmatter(lines[index + 1 : j])
-                    ),
-                    None,
-                )
-                if closing is not None:
-                    if is_new_start:
-                        starts.append(index)
-                    boundary = closing + 1
-                    boundary_is_separator = False
-                    body_seen = False
-                    index = closing + 1
-                    continue
-            if body_seen:
-                # docs/exam.md, "Question and include blocks": after the
-                # body, a `---` can only start the next block.
-                raise ParseError(
-                    f"line {index + 1}: a question's epilogue cannot use '---' "
-                    "as a thematic break inside an exam; use '***' or '___'"
-                )
+        if node.type == "bullet_list" and reader.is_bracket_list(node):
+            forbidden.append("an unordered list whose items all start with '['")
+            continue
 
-        index += 1
+        if node.type == "paragraph":
+            text = reader.raw_text(node)
+            stripped = text.lstrip()
+            if not stripped.startswith("["):
+                continue
+            if stripped.startswith("[^"):
+                continue
+            if index == 0 and allow_first_paragraph_bracket:
+                continue
+            forbidden.append("a paragraph starting with '['")
 
-    if not starts:
-        return _clean_block("\n".join(lines)), []
-
-    instructions = _clean_block("\n".join(lines[: starts[0]]))
-    bounds = starts + [len(lines)]
-    blocks = [lines[bounds[i] : bounds[i + 1]] for i in range(len(starts))]
-    return instructions, blocks
-
-
-def _looks_like_frontmatter(lines: list[str]) -> bool:
-    """
-    Report whether the lines between a candidate `---` pair parse as a
-    YAML mapping, or nothing at all (an empty frontmatter block).
-
-    A cheap secondary guard only: `_split_exam_blocks` decides whether a
-    `---` is even eligible to open a fence by *position* first (see its
-    docstring); this just keeps a positionally-eligible candidate from
-    being treated as frontmatter when its enclosed text plainly isn't
-    YAML at all (e.g. a malformed document, or two coincidentally close
-    thematic breaks).
-    """
-
-    try:
-        loaded = yaml.safe_load("\n".join(lines))
-    except yaml.YAMLError:
-        return False
-    return loaded is None or isinstance(loaded, dict)
-
-
-def _clean_block(text: str) -> str | None:
-    stripped = text.strip()
-    return stripped or None
-
-
-def _parse_exam_block(
-    lines: list[str],
-    exam: dict[str, Any],
-    *,
-    warnings: list[Diagnostic] | None = None,
-    index: int = 0,
-) -> ExamEntryDict:
-    """
-    Turn one question block into an entry of the exam's `questions`.
-
-    `index` is the block's 0-based position, used only to path-prefix any
-    `unknown-frontmatter-key` warning as `("questions", index, key)`.
-
-    A block with no explicit `id` gets none here -- the implicit,
-    position-based id (`q<position>`, exam.md "Question ids") is
-    `Exam.with_ids()`'s job, not the parser's
-    (dev/specs/to-do/derived-ids.md).
-    """
-
-    # Drop a leading `===`; what follows is ordinary question source.
-    has_separator = bool(lines) and lines[0].rstrip() == SEPARATOR
-    if has_separator:
-        lines = lines[1:]
-
-    source = "\n".join(lines).strip("\n")
-    frontmatter_text, _ = _split_frontmatter(source + "\n")
-    front = _load_frontmatter_yaml(frontmatter_text) if frontmatter_text else {}
-
-    is_include = "include" in front or "include-all" in front
-    if has_separator and is_include and warnings is not None:
-        warnings.append(
-            Diagnostic(
-                severity="warning",
-                code="separator-before-include",
-                path=("questions", index),
-                message="an include block needs no '===' separator before it",
-            )
-        )
-
-    if "include-all" in front:
-        if warnings is not None:
-            warnings.extend(
-                _unknown_frontmatter_warnings(
-                    front, EXAM_INCLUDE_ALL_KEYS, ("questions", index)
-                )
-            )
-        entry = IncludeAllDict({"include-all": str(front["include-all"])})
-        if "max" in front:
-            entry["max"] = front["max"]
-        return entry
-
-    if "include" in front:
-        target = str(front["include"])
-        if warnings is not None:
-            warnings.extend(
-                _unknown_frontmatter_warnings(
-                    front, EXAM_BLOCK_FRONTMATTER_KEYS, ("questions", index)
-                )
-            )
-        return IncludeDict(include=target)
-
-    block_warnings: list[Diagnostic] = []
-    parsed_question: dict[str, Any] = dict(
-        parse_question(source, warnings=block_warnings if warnings is not None else None)
-    )
-    if warnings is not None:
-        warnings.extend(
-            replace(w, path=("questions", index) + w.path) for w in block_warnings
-        )
-    _inherit_from_exam(parsed_question, exam)
-    return cast(QuestionDict, parsed_question)
-
-
-def _inherit_from_exam(question: dict[str, Any], exam: dict[str, Any]) -> None:
-    """A question takes the exam's locale and author when it names none."""
-    for field in INHERITED_FIELDS:
-        if field not in question and field in exam:
-            question[field] = exam[field]
+    return forbidden

@@ -13,7 +13,6 @@ Modules
    mdq.loaders
    mdq.loading
    mdq.models
-   mdq.parser
    mdq.query
    mdq.regex
    mdq.render

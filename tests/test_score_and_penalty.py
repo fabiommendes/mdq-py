@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from mdq.parser import parse_any
 from mdq import load
+from _parse import parse_any
 
 
 def _multiple_choice(score: float) -> dict[str, Any]:
