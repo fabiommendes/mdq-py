@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mdq import schedule
+from mdq import _schedule
 from mdq.types import QUESTION_TYPES
 from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
@@ -138,19 +138,19 @@ def test_start_and_duration_normalize_to_the_parsed_canonical_form(
     docs/exam.md: `start`/`duration` keep their meaning but not their
     spelling -- the frontmatter's surface form (an unquoted YAML
     timestamp, a shorthand duration) must resolve to exactly what
-    `mdq.schedule.parse_*`/`format_*` would produce from it.
+    `mdq._schedule.parse_*`/`format_*` would produce from it.
     """
     frontmatter, _ = _split_frontmatter(source.read_text(encoding="utf-8"))
     parsed = load_document(parsed_sibling(source))
 
     if "start" in frontmatter:
-        assert schedule.format_start(schedule.parse_start(frontmatter["start"])) == (
+        assert _schedule.format_start(_schedule.parse_start(frontmatter["start"])) == (
             parsed.get("start")
         ), f"{relative_id(source)}: frontmatter start does not match parsed start"
 
     if "duration" in frontmatter:
-        assert schedule.format_duration(
-            schedule.parse_duration(frontmatter["duration"])
+        assert _schedule.format_duration(
+            _schedule.parse_duration(frontmatter["duration"])
         ) == parsed.get("duration"), (
             f"{relative_id(source)}: frontmatter duration does not match parsed duration"
         )

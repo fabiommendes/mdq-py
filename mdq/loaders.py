@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
 from . import parser
-from .errors import MdqError
+from .errors import IncludeNotFound, MdqError
 
 __all__ = [
     "IncludeNotFound",
@@ -28,17 +28,6 @@ __all__ = [
 #: Extensions a question document may use. A question and an exam share
 #: these -- they are told apart by their content, not by their name.
 SOURCE_SUFFIXES = (".mdq.md", ".mdq")
-
-
-class IncludeNotFound(MdqError):
-    """Raised when a bank cannot resolve an included question id."""
-
-    def __init__(self, question_id: str, detail: str = "") -> None:
-        message = f"cannot resolve included question {question_id!r}"
-        if detail:
-            message = f"{message}: {detail}"
-        super().__init__(message)
-        self.question_id = question_id
 
 
 @runtime_checkable

@@ -18,7 +18,6 @@ Modules
    mdq.regex
    mdq.render
    mdq.scaffold
-   mdq.schedule
    mdq.show
    mdq.slugify
    mdq.types

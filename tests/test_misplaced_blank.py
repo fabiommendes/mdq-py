@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from mdq.parser import find_misplaced_blank_markers
+from mdq._markdown import find_misplaced_blank_markers
 
 
 @pytest.mark.parametrize(

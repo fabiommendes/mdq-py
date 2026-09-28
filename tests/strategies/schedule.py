@@ -4,7 +4,7 @@ docs/exam.md § "Duration and Start Time", schema/exam.yaml, and
 mdq/schedule.py).
 
 Strategies here are built directly from the spec's grammar and
-canonicalization rules -- not from `mdq.schedule` itself -- so tests that
+canonicalization rules -- not from `mdq._schedule` itself -- so tests that
 use them exercise the contract, not whatever the implementation happens
 to do. Most surface-form strategies return `(text, timedelta)` or
 `(text, date | datetime)` pairs: the text a user could type, paired with

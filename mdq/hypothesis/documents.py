@@ -14,7 +14,7 @@ explains the specific CommonMark rule it is built around.
 A generated block is "safe" when it survives render -> parse -> normalize
 unchanged: rendering it into a document, parsing that document back with
 `mdq.parser`, and normalizing both sides (`mdq.models.BaseQuestion.
-normalize`) yields the same value it started from. `mdq.parser.
+normalize`) yields the same value it started from. `mdq._markdown.
 reconstruct_blocks` -- also used by `mdq.models.normalize_paragraphs` --
 is what makes this a precise, checkable contract instead of a hand-wavy
 one: it runs the same CommonMark parser MDQ uses and reconstructs each
@@ -310,8 +310,8 @@ def md_lists(max_depth: int = 1) -> st.SearchStrategy[str]:
     never requires increasing numbers -- and is tight (no blank line
     between items). A *loose* list, or two adjacent lists that happen to
     share a marker and so parse back as a single, merged CommonMark node,
-    would still reconstruct correctly (`mdq.parser.reconstruct_blocks` is
-    verbatim for list blocks, merged or not); tight just keeps the
+    would still reconstruct correctly (`mdq._markdown.reconstruct_blocks`
+    is verbatim for list blocks, merged or not); tight just keeps the
     generated source simple.
     """
     return _list_lines(max_depth).map("\n".join)
@@ -434,7 +434,7 @@ def md_safe_multi_blocks(
     joined the way `mdq.render` joins a preamble/epilogue's blocks: two
     newlines apart.
 
-    `mdq.parser.reconstruct_blocks` (and so `mdq.models.
+    `mdq._markdown.reconstruct_blocks` (and so `mdq.models.
     normalize_paragraphs`) reconstructs the result exactly, even when two
     adjacent blocks of the same kind parse back as a single, merged
     CommonMark node -- see `md_list`.

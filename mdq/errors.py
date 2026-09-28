@@ -1,5 +1,7 @@
 from markdown_it.tree import SyntaxTreeNode as Node
 
+from ._diagnostics import Diagnostic
+
 
 class MdqError(ValueError):
     """
@@ -19,6 +21,33 @@ class ParseError(MdqError):
     def __init__(self, message: str, node: Node | None = None):
         super().__init__(message)
         self.node = node
+
+
+class InvalidDocument(MdqError):
+    """
+    Raised by `Loaded.validate` when a diagnostic meets the severity
+    threshold it was asked to enforce -- or there is no document at all.
+
+    Carries every diagnostic `load` produced, not just the ones that
+    triggered it, so a caller that only catches this exception still
+    sees the full picture.
+    """
+
+    def __init__(self, diagnostics: list[Diagnostic]) -> None:
+        self.diagnostics = diagnostics
+        summary = "; ".join(f"{d.severity} {d.code}: {d.message}" for d in diagnostics)
+        super().__init__(summary or "invalid document")
+
+
+class IncludeNotFound(MdqError):
+    """Raised when a bank cannot resolve an included question id."""
+
+    def __init__(self, question_id: str, detail: str = "") -> None:
+        message = f"cannot resolve included question {question_id!r}"
+        if detail:
+            message = f"{message}: {detail}"
+        super().__init__(message)
+        self.question_id = question_id
 
 
 class GradingError(MdqError):

@@ -30,7 +30,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from . import models, render, schedule
+from . import _schedule, models, render
 from .loaders import FileLoader, QuestionBank
 from .loading import Source, parse
 
@@ -180,9 +180,9 @@ def _exam_metadata(exam: models.Exam) -> list[tuple[str, str]]:
     if exam.tags:
         rows.append(("Tags", ", ".join(exam.tags)))
     if exam.start is not None:
-        rows.append(("Start", schedule.format_start(exam.start)))
+        rows.append(("Start", _schedule.format_start(exam.start)))
     if exam.duration is not None:
-        rows.append(("Duration", schedule.format_duration(exam.duration)))
+        rows.append(("Duration", _schedule.format_duration(exam.duration)))
     rows.append(("Penalty policy", exam.penalty))
     rows.append(("Questions", str(len(exam.questions))))
     return rows

@@ -1,11 +1,11 @@
 """
-`mdq.schedule`: parsing and canonicalizing an exam's `start` and
+`mdq._schedule`: parsing and canonicalizing an exam's `start` and
 `duration` fields (docs/exam.md § "Duration and Start Time",
 schema/exam.yaml).
 
 Property tests use the strategies in `strategies.schedule`, built
 directly from the spec's grammar and canonicalization rules rather than
-from `mdq.schedule` itself. Table-driven tests pin the rejection list
+from `mdq._schedule` itself. Table-driven tests pin the rejection list
 and a handful of canonical examples the spec calls out by name.
 """
 
@@ -17,7 +17,7 @@ from datetime import date, datetime, timedelta
 import pytest
 from hypothesis import given
 
-from mdq import schedule
+from mdq import _schedule
 from strategies import schedule as st_schedule
 
 #: Copied verbatim from schema/exam.yaml so a drift between the schema
@@ -37,7 +37,7 @@ DURATION_PATTERN = re.compile(
 #
 @given(st_schedule.positive_timedeltas())
 def test_parse_duration_undoes_format_duration(td: timedelta) -> None:
-    assert schedule.parse_duration(schedule.format_duration(td)) == td
+    assert _schedule.parse_duration(_schedule.format_duration(td)) == td
 
 
 @given(st_schedule.canonical_durations())
@@ -45,7 +45,7 @@ def test_format_duration_undoes_parse_duration_for_canonical_strings(
     pair: tuple[str, timedelta],
 ) -> None:
     text, _expected = pair
-    assert schedule.format_duration(schedule.parse_duration(text)) == text
+    assert _schedule.format_duration(_schedule.parse_duration(text)) == text
 
 
 @given(st_schedule.canonical_durations())
@@ -53,7 +53,7 @@ def test_parse_duration_reads_a_canonical_string_to_its_timedelta(
     pair: tuple[str, timedelta],
 ) -> None:
     text, expected = pair
-    assert schedule.parse_duration(text) == expected
+    assert _schedule.parse_duration(text) == expected
 
 
 @given(st_schedule.shorthand_duration_strings())
@@ -61,7 +61,7 @@ def test_parse_duration_reads_every_surface_form_to_its_timedelta(
     pair: tuple[str, timedelta],
 ) -> None:
     text, expected = pair
-    assert schedule.parse_duration(text) == expected
+    assert _schedule.parse_duration(text) == expected
 
 
 @given(st_schedule.xd_yh_zm_strings())
@@ -74,7 +74,7 @@ def test_xd_yh_zm_equals_the_iso_form_built_from_the_same_numbers(
     hours, remainder = divmod(seconds, 3600)
     minutes = remainder // 60
     iso = "P" + (f"{days}D" if days else "") + "T" + f"{hours}H{minutes}M"
-    assert schedule.parse_duration(text) == schedule.parse_duration(iso)
+    assert _schedule.parse_duration(text) == _schedule.parse_duration(iso)
 
 
 @given(st_schedule.hh_mm_strings())
@@ -86,18 +86,18 @@ def test_hh_mm_equals_the_iso_form_built_from_the_same_numbers(
     total_minutes = expected.days * 24 * 60 + expected.seconds // 60
     hours, minutes = divmod(total_minutes, 60)
     iso = f"PT{hours}H{minutes}M" if hours else f"PT{minutes}M"
-    assert schedule.parse_duration(text) == schedule.parse_duration(iso)
+    assert _schedule.parse_duration(text) == _schedule.parse_duration(iso)
 
 
 @given(st_schedule.positive_timedeltas())
 def test_format_duration_matches_the_schema_pattern(td: timedelta) -> None:
-    formatted = schedule.format_duration(td)
+    formatted = _schedule.format_duration(td)
     assert DURATION_PATTERN.match(formatted), formatted
 
 
 @given(st_schedule.positive_timedeltas())
 def test_timedelta_is_returned_unchanged_by_parse_duration(td: timedelta) -> None:
-    assert schedule.parse_duration(td) == td
+    assert _schedule.parse_duration(td) == td
 
 
 #
@@ -105,22 +105,22 @@ def test_timedelta_is_returned_unchanged_by_parse_duration(td: timedelta) -> Non
 #
 @given(st_schedule.dates())
 def test_parse_start_undoes_format_start_for_dates(value: date) -> None:
-    assert schedule.parse_start(schedule.format_start(value)) == value
+    assert _schedule.parse_start(_schedule.format_start(value)) == value
 
 
 @given(st_schedule.naive_datetimes())
 def test_parse_start_undoes_format_start_for_naive_datetimes(value: datetime) -> None:
-    assert schedule.parse_start(schedule.format_start(value)) == value
+    assert _schedule.parse_start(_schedule.format_start(value)) == value
 
 
 @given(st_schedule.aware_datetimes())
 def test_parse_start_undoes_format_start_for_aware_datetimes(value: datetime) -> None:
-    assert schedule.parse_start(schedule.format_start(value)) == value
+    assert _schedule.parse_start(_schedule.format_start(value)) == value
 
 
 @given(st_schedule.starts())
 def test_format_start_matches_the_schema_pattern(value: date | datetime) -> None:
-    formatted = schedule.format_start(value)
+    formatted = _schedule.format_start(value)
     assert START_PATTERN.match(formatted), formatted
 
 
@@ -128,7 +128,7 @@ def test_format_start_matches_the_schema_pattern(value: date | datetime) -> None
 def test_date_or_datetime_is_returned_unchanged_by_parse_start(
     value: date | datetime,
 ) -> None:
-    assert schedule.parse_start(value) == value
+    assert _schedule.parse_start(value) == value
 
 
 #
@@ -159,7 +159,7 @@ def test_date_or_datetime_is_returned_unchanged_by_parse_start(
 )
 def test_parse_duration_rejects(value: object) -> None:
     with pytest.raises(ValueError):
-        schedule.parse_duration(value)  # type: ignore[arg-type]
+        _schedule.parse_duration(value)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -176,7 +176,7 @@ def test_parse_duration_rejects(value: object) -> None:
     ],
 )
 def test_parse_duration_canonical_examples(surface: str, canonical: str) -> None:
-    assert schedule.format_duration(schedule.parse_duration(surface)) == canonical
+    assert _schedule.format_duration(_schedule.parse_duration(surface)) == canonical
 
 
 #
@@ -195,7 +195,7 @@ def test_parse_duration_canonical_examples(surface: str, canonical: str) -> None
 )
 def test_parse_start_rejects(value: str) -> None:
     with pytest.raises(ValueError):
-        schedule.parse_start(value)
+        _schedule.parse_start(value)
 
 
 @pytest.mark.parametrize(
@@ -207,4 +207,4 @@ def test_parse_start_rejects(value: str) -> None:
     ],
 )
 def test_parse_start_canonical_examples(surface: str, canonical: str) -> None:
-    assert schedule.format_start(schedule.parse_start(surface)) == canonical
+    assert _schedule.format_start(_schedule.parse_start(surface)) == canonical

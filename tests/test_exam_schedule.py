@@ -3,7 +3,7 @@ Exam-level integration of `start`/`duration`: the `Exam` model
 round-trip, `mdq.parser.parse_exam` normalization and error reporting,
 and the `mdq show` metadata table.
 
-`tests/test_schedule.py` covers `mdq.schedule` in isolation;
+`tests/test_schedule.py` covers `mdq._schedule` in isolation;
 `tests/test_exam.py` covers exam parsing in general. This file is only
 about the seam between the two: does an `Exam` carrying a schedule
 survive `to_dict()` / `model_validate()`, and does the parser wire

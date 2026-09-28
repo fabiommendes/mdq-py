@@ -9,7 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from mdq import parser
+from mdq import _markdown
 from mdq.convert.moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
 
 __all__ = [
@@ -242,7 +242,7 @@ def mdq_text(max_size: int = 30) -> st.SearchStrategy[str]:
             # D) wherever it lands as a stem/preamble, so a generated
             # value that happens to look like one is excluded rather
             # than producing a document that can never be built.
-            and not parser.find_forbidden_elements(
+            and not _markdown.find_forbidden_elements(
                 s, allow_first_paragraph_bracket=True
             )
         )

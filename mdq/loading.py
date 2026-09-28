@@ -24,8 +24,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from . import models, parser
 from ._diagnostics import RANK, Diagnostic, Severity
-from .errors import MdqError
-from .errors import UnresolvedInclude
+from .errors import InvalidDocument, MdqError, UnresolvedInclude
 
 __all__ = [
     "Diagnostic",
@@ -58,22 +57,6 @@ Ids = Literal["fill", "keep"]
 _MDQ_SUFFIXES = (".mdq.md", ".mdq")
 _YAML_SUFFIXES = (".yaml", ".yml")
 _JSON_SUFFIXES = (".json",)
-
-
-class InvalidDocument(MdqError):
-    """
-    Raised by `Loaded.validate` when a diagnostic meets the severity
-    threshold it was asked to enforce -- or there is no document at all.
-
-    Carries every diagnostic `load` produced, not just the ones that
-    triggered it, so a caller that only catches this exception still
-    sees the full picture.
-    """
-
-    def __init__(self, diagnostics: list[Diagnostic]) -> None:
-        self.diagnostics = diagnostics
-        summary = "; ".join(f"{d.severity} {d.code}: {d.message}" for d in diagnostics)
-        super().__init__(summary or "invalid document")
 
 
 @dataclass(frozen=True)

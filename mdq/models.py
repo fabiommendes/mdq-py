@@ -19,15 +19,16 @@ Two rules govern this module:
 
 Nothing here is implemented yet: the fields are the design.
 
-This module imports `mdq.parser` -- a new direction of coupling for the
-model layer, which otherwise knows nothing about how Markdown gets
-parsed. It is deliberate: `normalize_paragraphs`/`normalize_intro` need
-to canonicalize `preamble`/`stem`/`epilogue` into the exact fixed point
-a render-then-parse round trip produces, and the only way to guarantee
-that without a second, drifting copy of the parser's reconstruction
-rules is to call the parser itself (`parser.reconstruct_blocks`).
-`mdq.parser` has no reciprocal dependency on this module (it hands back
-plain dicts), so this stays one-directional.
+This module imports `mdq.parser` and `mdq._markdown` -- a new direction
+of coupling for the model layer, which otherwise knows nothing about how
+Markdown gets parsed. It is deliberate: `normalize_paragraphs`/
+`normalize_intro` need to canonicalize `preamble`/`stem`/`epilogue` into
+the exact fixed point a render-then-parse round trip produces, and the
+only way to guarantee that without a second, drifting copy of the
+parser's reconstruction rules is to call the parser itself
+(`_markdown.reconstruct_blocks`). Neither module has a reciprocal
+dependency on this one (they hand back plain dicts), so this stays
+one-directional.
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from . import linter, parser, render, schedule, slugify
+from . import _markdown, _schedule, linter, parser, render, slugify
 from . import types as t
 from .types import (
     Diacritics,
@@ -343,15 +344,15 @@ def _validate_mdq_regex(value: str | None) -> str | None:
 #: offset. Serialized in canonical ISO 8601 form.
 ExamStart = Annotated[
     datetime | date,
-    BeforeValidator(schedule.parse_start),
-    PlainSerializer(schedule.format_start),
+    BeforeValidator(_schedule.parse_start),
+    PlainSerializer(_schedule.format_start),
 ]
 
 #: How long an exam lasts. Serialized as a canonical ISO 8601 duration.
 ExamDuration = Annotated[
     timedelta,
-    BeforeValidator(schedule.parse_duration),
-    PlainSerializer(schedule.format_duration),
+    BeforeValidator(_schedule.parse_duration),
+    PlainSerializer(_schedule.format_duration),
 ]
 
 
@@ -535,7 +536,7 @@ class BaseQuestion[R](MdqModel):
         for field_name, text, allow_leading_bracket in fields:
             if not text:
                 continue
-            for description in parser.find_forbidden_elements(
+            for description in _markdown.find_forbidden_elements(
                 text, allow_first_paragraph_bracket=allow_leading_bracket
             ):
                 _raise_unique_id_error(
@@ -1397,7 +1398,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         link, or a code span, where a student would not read it as the
         blank it names.
         """
-        misplaced = parser.find_misplaced_blank_markers(self.stem)
+        misplaced = _markdown.find_misplaced_blank_markers(self.stem)
         if misplaced:
             _raise_unique_id_error(
                 type(self).__name__,
@@ -2378,7 +2379,7 @@ def can_inline_id(preamble: str | None, stem: str) -> bool:
     caller already normalized the model.
     """
     combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = parser.reconstruct_blocks(combined.strip())
+    blocks = _markdown.reconstruct_blocks(combined.strip())
     return bool(blocks) and blocks[0][0] == "paragraph"
 
 
@@ -2393,11 +2394,11 @@ def normalize_paragraphs(src: str) -> str:
     plain paragraph's soft-wrapped lines collapse to a single space once
     a render/parse round trip touches them (`MDQParser.raw_text`), while
     a list, blockquote, heading or code block survives byte-for-byte.
-    `parser.reconstruct_blocks` applies the parser's own rule for each
+    `_markdown.reconstruct_blocks` applies the parser's own rule for each
     block instead of guessing, so this function is a fixed point of
     render-then-parse: normalizing again after a round trip is a no-op.
     """
-    return "\n\n".join(text for _, text in parser.reconstruct_blocks(src))
+    return "\n\n".join(text for _, text in _markdown.reconstruct_blocks(src))
 
 
 def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
@@ -2419,7 +2420,7 @@ def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
     makes that possible.
     """
     combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = parser.reconstruct_blocks(combined.strip())
+    blocks = _markdown.reconstruct_blocks(combined.strip())
     if not blocks:
         return None, stem.strip()
     new_stem = blocks[-1][1]
