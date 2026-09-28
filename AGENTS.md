@@ -1,5 +1,3 @@
-
-
 ## Typing discipline
 
 * Use `T | None` instead of `Optional[T]` for optional types.

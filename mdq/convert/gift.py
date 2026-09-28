@@ -21,7 +21,7 @@ from ..models import (
     Tolerance,
     TrueFalseQuestion,
 )
-from .base import ConversionBase
+from .base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
 from .parser import StringParser
 
 __all__ = [
@@ -268,7 +268,9 @@ class GiftEncoder:
         )
 
     def blocks_from_true_false(self, question: TrueFalseQuestion) -> list[GiftBlock]:
-        group_stem = join_blocks(question.preamble, question.stem)
+        # The fallback stem stands for "no shared text", so it round-trips.
+        stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
+        group_stem = join_blocks(question.preamble, stem)
         blocks = []
         for i, statement in enumerate(question.choices):
             stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -437,7 +439,7 @@ class GiftDecoder:
         split = prefix.rfind("\n\n")
 
         if split == -1:
-            group_stem = ""
+            group_stem = TRUE_FALSE_FALLBACK_STEM
             statement_texts = stems
         else:
             group_stem = prefix[:split].strip()

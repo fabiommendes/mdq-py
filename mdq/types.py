@@ -92,8 +92,16 @@ class IncludeDict(TypedDict):
     include: str
 
 
+#: A query for out-of-line questions -- schema/exam.yaml#/$defs/IncludeAll.
+#: Declared with the functional syntax, since `include-all` is not a valid
+#: Python identifier.
+IncludeAllDict = TypedDict(
+    "IncludeAllDict", {"include-all": Required[str], "max": int}, total=False
+)
+
+
 #: One block of an exam's `questions` array -- schema/exam.yaml#/$defs/Entry.
-type ExamEntryDict = IncludeDict | QuestionDict
+type ExamEntryDict = IncludeDict | IncludeAllDict | QuestionDict
 
 #: Any question document, discriminated by `type` -- the dict shape
 #: `mdq.parser.parse_question` returns.

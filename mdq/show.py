@@ -21,6 +21,7 @@ model.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
 from rich.console import Console, Group, RenderableType
@@ -30,7 +31,7 @@ from rich.table import Table
 from rich.text import Text
 
 from . import models, render, schedule
-from .loaders import QuestionLoader
+from .loaders import FileLoader, QuestionBank
 from .loading import Source, parse
 
 __all__ = ["show_source", "render_question", "render_exam"]
@@ -45,7 +46,7 @@ def show_source(
     console: Console,
     *,
     show_answer_key: bool = True,
-    loader: QuestionLoader | None = None,
+    bank: QuestionBank | None = None,
 ) -> None:
     """
     Load an MDQ document and print a human-readable rendering of it.
@@ -55,9 +56,9 @@ def show_source(
 
     Args:
         src: Anything `mdq.parse` accepts -- MDQ source text, a `Path`,
-            or an open file. A `Path` resolves an exam's `include:`
-            references against its own directory unless `loader`
-            overrides it; text has no directory to resolve against.
+            or an open file. A `Path` resolves an exam's include blocks
+            against its own directory unless `bank` overrides it; text
+            has no directory, so its include blocks stay unresolved.
         console: Where to print the rendering.
         show_answer_key: When false, everything that would reveal the
             correct answer (correctness marks, an essay's answer key, a
@@ -65,17 +66,23 @@ def show_source(
             replaced by a note that it is hidden. Choices, statements
             and blanks themselves are still shown -- only the key is
             hidden, as when previewing a question for a student.
-        loader: Resolves an exam's `include:` references, if given.
-            Ignored for a question document.
+        bank: Resolves an exam's include blocks, if given. Ignored for a
+            question document.
 
     Raises:
         InvalidDocument: `src` is not a valid MDQ document.
     """
-    document = parse(src, loader=loader, ids="fill")
+    document = parse(src)
     if isinstance(document, models.Exam):
+        if bank is None and isinstance(src, Path):
+            bank = FileLoader(src.parent)
+        if bank is not None:
+            document = document.resolve(bank)
+        if not any(isinstance(q, models.IncludeAll) for q in document.questions):
+            document = document.with_ids()
         render_exam(document, console, show_answer_key=show_answer_key)
     else:
-        render_question(document, console, show_answer_key=show_answer_key)
+        render_question(document.with_ids(), console, show_answer_key=show_answer_key)
 
 
 def render_question(
@@ -123,7 +130,14 @@ def render_exam(
     for index, question in enumerate(exam.questions, start=1):
         console.print()
         console.rule(f"Question {index}", style="dim")
-        render_question(question, console, show_answer_key=show_answer_key)
+        if isinstance(question, models.Include):
+            console.print(Text(f"Includes question {question.include!r}.", style=_NOTE_STYLE))
+        elif isinstance(question, models.IncludeAll):
+            console.print(
+                Text(f"Includes questions matching {question.include_all!r}.", style=_NOTE_STYLE)
+            )
+        else:
+            render_question(question, console, show_answer_key=show_answer_key)
 
 
 #

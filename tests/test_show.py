@@ -37,13 +37,13 @@ def render(path: Path, *, show_answer_key: bool = True) -> str:
         src,
         console,
         show_answer_key=show_answer_key,
-        loader=FileLoader(path.parent),
+        bank=FileLoader(path.parent),
     )
     return buf.getvalue()
 
 
 def render_source(src: str, *, show_answer_key: bool = True) -> str:
-    """Like `render`, but for source text that isn't on disk (no loader)."""
+    """Like `render`, but for source text that isn't on disk (no bank)."""
     buf = io.StringIO()
     console = Console(file=buf, width=100, highlight=False)
     show_mod.show_source(src, console, show_answer_key=show_answer_key)

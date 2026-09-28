@@ -290,7 +290,7 @@ def test_with_ids_exam_position_counts_includes() -> None:
     )
     loader = DictLoader({"amazonia": _AMAZONIA})
 
-    kept = parse(text, kind="exam", loader=loader, ids="keep")
+    kept = parse(text, kind="exam", ids="keep").resolve(loader)
     assert kept.questions[0].id == "amazonia"
     assert kept.questions[1].id is None
 

@@ -180,7 +180,7 @@ A model answer.
 
 def test_render_fill_in_question() -> None:
     question = models.FillInQuestion(
-        stem="The capital is [^capital], and pi is [^pi].",
+        stem="The capital is [^capital], the main river is [^river], and pi is [^pi].",
         shuffle=True,
         grading="partial",
         blanks=[
@@ -206,7 +206,7 @@ grading: partial
 shuffle: true
 ---
 
-The capital is [^capital], and pi is [^pi].
+The capital is [^capital], the main river is [^river], and pi is [^pi].
 
 [^capital]:
 * [*] Brasília

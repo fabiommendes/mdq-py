@@ -26,7 +26,6 @@ from typer.testing import CliRunner
 from mdq.cli import app
 from mdq.hypothesis import frontmatter as st_frontmatter
 from mdq._diagnostics import Diagnostic
-from mdq.loaders import FileLoader
 from mdq.parser import parse_any, parse_exam, parse_question
 from mdq.testing import VALID_SOURCES, relative_id
 
@@ -67,8 +66,8 @@ def test_every_frontmatter_key_used_by_a_valid_example_is_known(path: Path) -> N
     """
     warnings: list[Diagnostic] = []
     text = path.read_text(encoding="utf-8")
-    parse_any(text, loader=FileLoader(path.parent), warnings=warnings)
-    assert _rules(warnings) == []
+    parse_any(text, warnings=warnings)
+    assert "unknown-frontmatter-key" not in _rules(warnings)
 
 
 #

@@ -78,47 +78,82 @@ def _assert_matches_lint_json(doc_path: Path) -> None:
 # md/yaml pair sharing one `.lint.json`.
 # ---------------------------------------------------------------------
 
-#: A malformed locale -- one default-level warning.
+#: A blank tag -- one default-level warning.
 #:
-#: (Previously a pair of duplicate choices; `duplicate-choice-id` and
-#: `duplicate-choice-text` are `error` diagnostics raised by the models
-#: now -- dev/specs/to-do/unique-ids.md -- so a document that trips them
-#: never reaches the lint pass at all, and can no longer stand in for
-#: "a document with a lint warning" here.)
+#: (Previously a malformed `locale`; `malformed-locale` is an `error`
+#: diagnostic raised by the models now -- dev/specs/to-do/
+#: lint-on-models.md -- so a document that trips it never reaches the
+#: lint pass at all, and can no longer stand in for "a document with a
+#: lint warning" here. Before that, it stood in for a pair of duplicate
+#: choices, promoted to `error` the same way by
+#: dev/specs/to-do/unique-ids.md.)
 DUPLICATE_TEXT_YAML = """\
 type: essay
+id: coriolis
+title: O efeito Coriolis
 stem: Explique o efeito Coriolis.
-locale: xx-99
+answerKey: Ele desvia o movimento de fluidos devido a rotação da Terra.
+tags:
+  - "   "
 """
 
 DUPLICATE_TEXT_MD = (
     "---\n"
-    "locale: xx-99\n"
+    "id: coriolis\n"
+    "title: O efeito Coriolis\n"
+    "tags:\n"
+    "  - \"   \"\n"
     "---\n"
     "\n"
     "Explique o efeito Coriolis.\n"
     "\n"
     "[essay]\n"
+    "\n"
+    "## [answer-key]\n"
+    "\n"
+    "Ele desvia o movimento de fluidos devido a rotação da Terra.\n"
 )
 
 DUPLICATE_TEXT_LINT_JSON = [
-    {"code": "malformed-locale", "severity": "warning", "path": ["locale"]},
+    {"code": "blank-tag", "severity": "warning", "path": ["tags", 0]},
 ]
 
+#: An essay question with `id`/`title`/`answerKey` all defined, so it
+#: produces no diagnostics at all -- a genuine zero-diagnostics baseline,
+#: now that those three are their own info-level rules
+#: (dev/specs/to-do/rule-conformance.md, section C).
+_ZERO_DIAGNOSTIC_ESSAY_MD = (
+    "---\n"
+    "id: coriolis\n"
+    "title: O efeito Coriolis\n"
+    "---\n"
+    "\n"
+    "Explique o efeito Coriolis.\n"
+    "\n"
+    "[essay]\n"
+    "\n"
+    "## [answer-key]\n"
+    "\n"
+    "Ele desvia o movimento de fluidos devido a rotação da Terra.\n"
+)
 
-#: Two independent warnings on the same document: a malformed locale and
-#: a blank tag.
+
+#: Two independent warnings on the same document: a blank tag and an
+#: unsplit comma-delimited tag.
 TWO_WARNINGS_YAML = """\
 type: essay
+id: coriolis
+title: O efeito Coriolis
 stem: Explique o efeito Coriolis.
-locale: xx-99
+answerKey: Ele desvia o movimento de fluidos devido a rotação da Terra.
 tags:
   - "   "
+  - "a,b"
 """
 
 TWO_WARNINGS_LINT_JSON = [
-    {"code": "malformed-locale", "severity": "warning", "path": ["locale"]},
     {"code": "blank-tag", "severity": "warning", "path": ["tags", 0]},
+    {"code": "unsplit-tag-list", "severity": "warning", "path": ["tags", 1]},
 ]
 
 
@@ -144,7 +179,7 @@ def test_lint_json_match_must_be_exact_as_a_multiset() -> None:
 
 def test_missing_lint_json_expects_zero_diagnostics(tmp_path: Path) -> None:
     doc = tmp_path / "coriolis.mdq.md"
-    doc.write_text("Explique o efeito Coriolis.\n\n[essay]\n", encoding="utf-8")
+    doc.write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
     # No coriolis.lint.json next to it.
     assert _expected_diagnostics(doc) == []
     _assert_matches_lint_json(doc)  # this document really produces none
@@ -219,9 +254,7 @@ def test_snapshot_writes_a_missing_lint_json(tmp_path: Path) -> None:
 
 def test_snapshot_never_writes_a_document_with_no_diagnostics(tmp_path: Path) -> None:
     root = tmp_path
-    (root / "coriolis.mdq.md").write_text(
-        "Explique o efeito Coriolis.\n\n[essay]\n", encoding="utf-8"
-    )
+    (root / "coriolis.mdq.md").write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
     code = lint_snapshot.main(["--root", str(root)])
     assert code == 0
     assert not (root / "coriolis.lint.json").exists()

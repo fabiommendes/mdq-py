@@ -11,7 +11,9 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError as PydanticValidationError
 
+from mdq.convert.base import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert.moodle_xml import (
     MoodleAnswer,
     MoodleCloze,
@@ -644,7 +646,7 @@ def test_to_mdq_truefalse_group_becomes_true_false():
     }
 
 
-def test_to_mdq_truefalse_group_without_common_prefix_uses_empty_stem():
+def test_to_mdq_truefalse_group_without_common_prefix_uses_fallback_stem():
     blocks = [
         MoodleXmlBlock(
             type="truefalse",
@@ -665,7 +667,7 @@ def test_to_mdq_truefalse_group_without_common_prefix_uses_empty_stem():
     ]
     question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks))
     assert isinstance(question, TrueFalseQuestion)
-    assert question.stem == ""
+    assert question.stem == TRUE_FALSE_FALLBACK_STEM
     assert {c.text for c in question.choices} == {
         "Brasilia is the capital of Brazil.",
         "The Amazon is the longest river.",
@@ -756,9 +758,9 @@ def test_from_mdq_true_false_produces_one_block_per_statement():
     )
 
 
-def test_from_mdq_true_false_empty_stem_uses_bare_statement_text():
+def test_from_mdq_true_false_fallback_stem_uses_bare_statement_text():
     question = TrueFalseQuestion(
-        stem="",
+        stem=TRUE_FALSE_FALLBACK_STEM,
         choices=[
             Statement(text="Brasilia is the capital of Brazil.", correct=True),
             Statement(text="The Amazon is the longest river.", correct=True),
@@ -848,24 +850,29 @@ def test_from_mdq_fill_in_multiple_blanks():
 
 
 def test_from_mdq_fill_in_stem_marker_without_matching_blank_raises():
-    question = FillInQuestion(
-        stem="Brazil has [^a] states and [^b] time zones.",
-        blanks=[NumericBlank(id="a", answer=26)],
-    )
-    with pytest.raises(ValueError):
-        MoodleXml().from_mdq(question)
+    """
+    A stem marker naming no declared blank is now an `undefined-blank`
+    model error (dev/specs/to-do/lint-on-models.md), so the mismatch is
+    caught building the `FillInQuestion` itself -- `MoodleXml().from_mdq`
+    never gets a chance to raise its own `ValueError` for it.
+    """
+    with pytest.raises(PydanticValidationError):
+        FillInQuestion(
+            stem="Brazil has [^a] states and [^b] time zones.",
+            blanks=[NumericBlank(id="a", answer=26)],
+        )
 
 
 def test_from_mdq_fill_in_unreferenced_blank_raises():
-    question = FillInQuestion(
-        stem="Brazil has [^a] states.",
-        blanks=[
-            NumericBlank(id="a", answer=26),
-            NumericBlank(id="b", answer=4),
-        ],
-    )
-    with pytest.raises(ValueError):
-        MoodleXml().from_mdq(question)
+    """See `test_from_mdq_fill_in_stem_marker_without_matching_blank_raises`."""
+    with pytest.raises(PydanticValidationError):
+        FillInQuestion(
+            stem="Brazil has [^a] states.",
+            blanks=[
+                NumericBlank(id="a", answer=26),
+                NumericBlank(id="b", answer=4),
+            ],
+        )
 
 
 def test_from_mdq_common_fields_carry_over():

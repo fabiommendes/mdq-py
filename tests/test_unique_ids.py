@@ -18,7 +18,6 @@ against the public `mdq.load` API only -- no parser/linter internals.
 from __future__ import annotations
 
 from mdq import Diagnostic, load
-from mdq.loaders import DictLoader
 
 #: The four rules this spec promotes from lint warnings to model errors.
 _UNIQUE_ID_CODES = frozenset(
@@ -231,13 +230,6 @@ def test_duplicate_choice_text_inside_a_fill_in_choice_blank_is_a_model_error() 
 # duplicate-question-id (exam)
 # ---------------------------------------------------------------------
 
-_INCLUDED_CAPITAL = {
-    "id": "capital",
-    "type": "essay",
-    "stem": "Qual é a capital do Brasil?",
-}
-
-
 def test_two_inline_questions_with_the_same_id_is_a_model_error() -> None:
     text = (
         "# Prova de Geografia do Brasil\n"
@@ -280,8 +272,7 @@ def test_the_same_included_question_twice_is_a_model_error() -> None:
         "include: capital\n"
         "---\n"
     )
-    loader = DictLoader({"capital": _INCLUDED_CAPITAL})
-    loaded = load(text, kind="exam", loader=loader)
+    loaded = load(text, kind="exam")
     assert loaded.document is None
     diagnostic = _assert_is_error(loaded.diagnostics, "duplicate-question-id")
     assert diagnostic.path[-2:] == ("questions", 1)
@@ -305,8 +296,7 @@ def test_an_inline_id_equal_to_an_included_questions_id_is_a_model_error() -> No
         "\n"
         "[essay]\n"
     )
-    loader = DictLoader({"capital": _INCLUDED_CAPITAL})
-    loaded = load(text, kind="exam", loader=loader)
+    loaded = load(text, kind="exam")
     assert loaded.document is None
     diagnostic = _assert_is_error(loaded.diagnostics, "duplicate-question-id")
     assert diagnostic.path[-2:] == ("questions", 1)

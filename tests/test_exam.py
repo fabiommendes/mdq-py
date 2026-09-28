@@ -9,7 +9,8 @@ import pytest
 import yaml
 
 from mdq import load
-from mdq.loaders import DictLoader, FileLoader, IncludeNotFound, QuestionLoader
+from mdq.models import Exam, Include
+from mdq.loaders import DictLoader, FileLoader, IncludeNotFound, QuestionBank
 from mdq.parser import is_exam, parse_any, parse_file
 from mdq.testing import VALID_DIR, parsed_sibling
 
@@ -69,8 +70,7 @@ def test_midterm_matches_its_fixture() -> None:
 
 
 def test_midterm_validates() -> None:
-    resolved = parse_file(MIDTERM, loader=FileLoader(MIDTERM.parent))
-    assert load(resolved)
+    assert load(MIDTERM).document.resolve(FileLoader(MIDTERM.parent))
 
 
 def test_title_and_slug_come_from_the_h1() -> None:
@@ -209,19 +209,23 @@ def test_description_lands_on_the_exam_and_is_not_inherited() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_includes_are_unresolved_without_a_loader() -> None:
+def test_includes_are_unresolved_after_load() -> None:
     """An exam whose includes have not been resolved is still well-formed;
     where a question lives is the host's business."""
     doc = parse_file(MIDTERM)
     assert doc["questions"][0] == {"include": "recursion-01"}
+    exam = load(MIDTERM).validate()
+    assert exam.questions[0] == Include(include="recursion-01")
+
+
+def resolved_midterm(bank: QuestionBank | None = None) -> Exam:
+    return load(MIDTERM).validate().resolve(bank or FileLoader(MIDTERM.parent))
 
 
 def test_file_loader_resolves_an_include() -> None:
-    doc = parse_file(MIDTERM, loader=FileLoader(MIDTERM.parent))
-    resolved = doc["questions"][0]
-    assert resolved["type"] == "essay"
-    assert resolved["title"] == "Base cases"
-    assert load(doc)
+    included = resolved_midterm().questions[0]
+    assert included.type == "essay"
+    assert included.title == "Base cases"
 
 
 def test_file_loader_searches_subdirectories() -> None:
@@ -240,31 +244,40 @@ def test_file_loader_can_be_restricted_to_its_root() -> None:
 def test_a_resolved_include_keeps_its_own_id() -> None:
     """It names a question that already has an identity, so the exam's
     positional numbering never renames it."""
-    doc = parse_file(MIDTERM, loader=FileLoader(MIDTERM.parent))
-    assert doc["questions"][0]["id"] == "recursion-01"
+    assert resolved_midterm().questions[0].id == "recursion-01"
 
 
 def test_a_resolved_include_inherits_from_the_exam() -> None:
-    doc = parse_file(MIDTERM, loader=FileLoader(MIDTERM.parent))
-    assert doc["questions"][0]["locale"] == "pt-BR"
+    assert resolved_midterm().questions[0].locale == "pt-BR"
+
+
+def test_resolve_does_not_change_the_exam() -> None:
+    exam = load(MIDTERM).validate()
+    exam.resolve(FileLoader(MIDTERM.parent))
+    assert isinstance(exam.questions[0], Include)
 
 
 def test_an_unresolvable_include_raises() -> None:
     with pytest.raises(IncludeNotFound) as excinfo:
-        parse_file(MIDTERM, loader=DictLoader({}))
+        resolved_midterm(DictLoader({}))
     assert excinfo.value.question_id == "recursion-01"
 
 
-def test_any_object_with_load_is_a_loader() -> None:
-    """The parser depends on the protocol, not on FileLoader."""
+def test_any_object_with_the_protocol_is_a_bank() -> None:
+    """`resolve` depends on the protocol, not on FileLoader."""
 
     class Bank:
         def load(self, question_id: str) -> dict:
             return {"type": "essay", "stem": f"Question {question_id}."}
 
-    assert isinstance(Bank(), QuestionLoader)
-    doc = parse_file(MIDTERM, loader=Bank())
-    assert doc["questions"][0]["stem"] == "Question recursion-01."
+        def tagged(self, tag: str) -> set[str]:
+            return set()
+
+        def ids(self) -> set[str]:
+            return set()
+
+    assert isinstance(Bank(), QuestionBank)
+    assert resolved_midterm(Bank()).questions[0].stem == "Question recursion-01."
 
 
 def test_equal_exams_compare_equal_without_recursing() -> None:
@@ -280,3 +293,17 @@ def test_equal_exams_compare_equal_without_recursing() -> None:
 
     assert first == second
     assert first != other
+
+
+@pytest.mark.parametrize("rule", ["***", "___"])
+def test_epilogue_thematic_break_other_than_dashes_is_allowed(rule: str) -> None:
+    text = f"# Exam\n\n===\n\nExplique.\n\n[essay]\n\n{rule}\n\nRubrica.\n"
+    assert len(parse_any(text)["questions"]) == 1
+
+
+def test_epilogue_dash_thematic_break_is_an_error() -> None:
+    """docs/exam.md: after the body, `---` can only start the next block."""
+    text = "# Exam\n\n===\n\nExplique.\n\n[essay]\n\n---\n\nRubrica.\n"
+    loaded = load(text)
+    assert loaded.document is None
+    assert [d.code for d in loaded.diagnostics] == ["parse-error"]

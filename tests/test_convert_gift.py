@@ -11,6 +11,7 @@ import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
+from mdq.convert.base import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert.gift import (
     Gift,
     GiftBlock,
@@ -520,14 +521,14 @@ def test_to_mdq_boolean_group_becomes_true_false():
     }
 
 
-def test_to_mdq_boolean_group_without_common_prefix_uses_empty_stem():
+def test_to_mdq_boolean_group_without_common_prefix_uses_fallback_stem():
     blocks = [
         GiftBlock(stem="Brasilia is the capital of Brazil.", answer=GiftBoolean(True)),
         GiftBlock(stem="The Amazon is the longest river.", answer=GiftBoolean(False)),
     ]
     question = Gift().to_mdq(GiftQuestion(blocks=blocks))
     assert isinstance(question, TrueFalseQuestion)
-    assert question.stem == ""
+    assert question.stem == TRUE_FALSE_FALLBACK_STEM
     assert {c.text for c in question.choices} == {
         "Brasilia is the capital of Brazil.",
         "The Amazon is the longest river.",
@@ -671,11 +672,11 @@ def test_from_mdq_true_false_produces_one_block_per_statement():
     assert gift.blocks[1].answer == GiftBoolean(False)
 
 
-def test_from_mdq_true_false_empty_stem_uses_bare_statement_text():
+def test_from_mdq_true_false_fallback_stem_uses_bare_statement_text():
     from mdq.models import Statement
 
     question = TrueFalseQuestion(
-        stem="",
+        stem=TRUE_FALSE_FALLBACK_STEM,
         choices=[
             Statement(text="Brasilia is the capital of Brazil.", correct=True),
             Statement(text="The Amazon is the longest river.", correct=True),

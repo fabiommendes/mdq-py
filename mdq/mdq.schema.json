@@ -201,7 +201,7 @@
         },
         "duration": {
           "type": "string",
-          "description": "How long the exam lasts, as an ISO 8601 duration. Only fixed-length units are allowed (weeks, days, hours, minutes, seconds): years and months have no fixed length. The surface shorthands `HH:MM` and `Xd Yh Zm` are normalized to this form.",
+          "description": "How long the exam lasts, as an ISO 8601 duration. Only fixed-length units are allowed (weeks, days, hours, minutes, seconds): years and months have no fixed length. The surface shorthands `HH:MM` and `Xd Yh Zm` allowed in the Markdown document are normalized to this form.",
           "pattern": "^P(?!$)([0-9]+W)?([0-9]+D)?(T(?=[0-9])([0-9]+H)?([0-9]+M)?([0-9]+(\\.[0-9]+)?S)?)?$",
           "examples": [
             "PT1H30M",
@@ -234,6 +234,9 @@
           "oneOf": [
             {
               "$ref": "#/$defs/Include"
+            },
+            {
+              "$ref": "#/$defs/IncludeAll"
             },
             {
               "$ref": "./multiple-choice.yaml"
@@ -275,6 +278,30 @@
           },
           "required": [
             "include"
+          ]
+        },
+        "IncludeAll": {
+          "type": "object",
+          "title": "Include all",
+          "description": "A query for questions defined outside this exam. Adds every question that matches it, except the ones the exam already contains through an `include`, a declared inline id, or an earlier `include-all`. Resolving the query is the host system's job; a document that merely fails to resolve is still well-formed.",
+          "additionalProperties": false,
+          "properties": {
+            "include-all": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The query. docs/exam.md recommends a language of tags combined with AND, OR, NOT and parentheses, followed by an optional EXCEPT with a comma-separated list of question ids.",
+              "examples": [
+                "recursion AND NOT draft EXCEPT recursion-07"
+              ]
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The maximum number of questions to add. Which ones are kept is implementation-defined."
+            }
+          },
+          "required": [
+            "include-all"
           ]
         }
       }

@@ -1,25 +1,29 @@
 """
-Lint checks for MDQ question documents that go beyond what JSON Schema
-can express -- cross-field constraints, "not just whitespace" checks, and
-the like.
+Helpers implementing the `lint()` methods of the models in `mdq.models`
+(`mdq/render.py` is the same kind of helper module for `render()`).
 
-These implement the SHOULD/MAY-level rules the specification leaves to
-implementations (see docs/question-types/): a compliant parser is free to
-accept these documents, but an author almost never wants them. They run
-on documents that have already been (or are being) validated against
-their JSON Schema, so the checks here are defensive about malformed input
-(wrong types, missing fields) -- reporting that is the schema validator's
-job, not the linter's.
+These are the SHOULD/MAY-level rules the specification leaves to
+implementations (see docs/question-types/): a compliant parser is free
+to accept these documents, but an author almost never wants them. A
+handful of rules serious enough that the specification calls them
+critical stopped a document from *loading* instead -- those live as
+pydantic validators in `mdq.models` now (see its module docstring and
+dev/specs/to-do/lint-on-models.md), not here.
 
 Every rule always runs, and each is tagged with the severity of what it
 found:
 
 * ``warning`` -- the document is probably wrong: a dead field, an
-  ungradable answer key, a duplicate id, a tolerance that can never
-  match.
+  ungradable answer key, a tolerance that can never match.
 * ``info`` -- advisory/stylistic rules where the specification says an
   implementation MAY complain: redundant regex anchors, no-op fields,
   locale mismatches.
+
+Every function here takes the already-validated field values (or
+models) a `lint()` method has on hand, not a raw document: the shape
+checks the old dict-based linter needed (`_iter_choices`, `_is_number`)
+are the model layer's job now, so there is nothing left to guard against
+here.
 
 One ``warning``-severity rule, ``unknown-frontmatter-key``, is not
 implemented here: an already-parsed document has no way to see a
@@ -28,41 +32,45 @@ emitted by ``mdq.parser`` (``parse_question``/``parse_exam``/
 ``parse_any``, via an optional ``warnings`` sink) for every frontmatter
 key it does not recognize -- a typo like ``auther:``, or a field that
 never existed -- and merged into `mdq.loading`'s diagnostics ahead of
-the ones ``lint_document`` produces here.
+the ones `lint()` produces.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Iterator, TypeIs, Union
+import unicodedata
+from typing import TYPE_CHECKING, Sequence, Union
+
+from markdown_it import MarkdownIt
+from pygments.lexers import find_lexer_class_by_name
+from pygments.util import ClassNotFound
 
 from ._diagnostics import Diagnostic
-from .regex import InvalidRegexError, RegexPattern
+from .query import is_standard_query
+from .regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
 
-# question-base.yaml fields that are just `type: string` -- so an
-# empty-but-technically-non-empty string like "   " (or even "" where
-# minLength isn't set) passes JSON Schema but isn't a meaningful value.
-_TEXT_FIELDS = (
-    "title",
-    "author",
-    "preamble",
-    "stem",
-    "epilogue",
-    "comment",
-    "answerKey",
-)
+if TYPE_CHECKING:
+    from . import models
 
-_CHOICE_QUESTION_TYPES = ("true-false", "multiple-choice", "multiple-selection")
+#: Renders a single line's inline markdown to compare two ordering lines,
+#: or two choices' texts, the way a student would see them
+#: (`check_ordering_visually_identical_lines`,
+#: `check_choices_visually_identical`), the same engine `mdq.parser` uses
+#: to parse MDQ source.
+_RENDER_MD = MarkdownIt("gfm-like")
 
 # true-false.md: `T`, `V`, `S` and the CJK characters 对/真 always mean
 # true; `F` and the CJK characters 错/偽 always mean false. Any other
-# letter is PROVISIONAL -- it reads as true today, but the document says
-# compliant implementations SHOULD warn, since a future revision of the
-# spec may reassign it.
-_TRUE_MARKERS = frozenset("TVS对真")
-_FALSE_MARKERS = frozenset("F错偽")
-# `X` is the multiple-selection marker and never appears in true-false.
-_RESERVED_MARKERS = frozenset("X")
+# letter (besides the reserved `X`, rejected at the model layer) is
+# PROVISIONAL -- it reads as true today, but the document says compliant
+# implementations SHOULD warn, since a future revision of the spec may
+# reassign it.
+#
+# Public (not `_`-prefixed): `mdq.models`'s TrueFalseQuestion validator
+# (true-false.md:210, "marker agrees with correct") also classifies a
+# marker by these sets, to raise a model error rather than a lint warning.
+TRUE_MARKERS = frozenset("TVS对真")
+FALSE_MARKERS = frozenset("F错偽")
 
 # docs/references/true-false-spellings.md, keyed by primary language
 # subtag: the letters an author writing in that language would reach for.
@@ -71,13 +79,6 @@ _LOCALE_MARKERS = {
     "pt": ("V", "F"),  # verdadeiro / falso
     "es": ("V", "F"),  # verdadero / falso
 }
-
-# generic.md [^4]: `locale` must be a BCP 47 language tag. This is the
-# common `language[-Script][-REGION]` shape, which is what questions
-# actually use; a tag with private-use or extension subtags is rarer than
-# a language *name* written where a tag belongs, which is what this
-# catches.
-_BCP47_RE = re.compile(r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$")
 
 # Two-letter codes that look like a language but are not valid ISO 639-1;
 # they are almost always a country code written where a language belongs.
@@ -117,86 +118,8 @@ _UUID_RE = re.compile(
 _UUID_VERSIONS = frozenset("12345678")
 _UUID_VARIANTS = frozenset("89abAB")
 
-#: `[^blank-id]` markers, as written in a fill-in stem.
-_BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
 
-__all__ = [
-    "lint_document",
-]
-
-
-def lint_document(
-    document: dict[str, Any],
-    question_type: str,
-) -> list[Diagnostic]:
-    """
-    Run every lint check applicable to `question_type` and return the
-    resulting diagnostics (empty if none).
-
-    Every rule always runs; what used to be the ``strict``-only rules
-    (see the module docstring) simply report at ``info`` instead of
-    ``warning`` rather than being skipped.
-    """
-    diagnostics: list[Diagnostic] = []
-
-    # -- checks that apply to every question type ----------------------
-    diagnostics.extend(_check_text_fields_not_blank(document))
-    diagnostics.extend(_check_uuid_version_and_variant(document))
-    diagnostics.extend(_check_tags(document))
-    diagnostics.extend(_check_locale_is_well_formed(document))
-    diagnostics.extend(_check_stem_is_a_paragraph(document))
-    diagnostics.extend(_check_stem_ellipsis_expanded(document))
-    diagnostics.extend(_check_locale_language_subtag(document))
-
-    # -- per-type checks -----------------------------------------------
-    if question_type in _CHOICE_QUESTION_TYPES:
-        diagnostics.extend(_check_choices(document, ("choices",)))
-
-    if question_type == "multiple-choice":
-        diagnostics.extend(_check_multiple_choice_answers(document, ("choices",)))
-
-    if question_type == "true-false":
-        diagnostics.extend(_check_true_false_markers(document))
-
-    if question_type == "essay":
-        diagnostics.extend(_check_essay_highlight(document))
-
-    if question_type == "short-answer":
-        diagnostics.extend(_check_short_answer(document, ()))
-
-    if question_type == "numeric":
-        diagnostics.extend(_check_numeric(document, ()))
-
-    if question_type == "fill-in":
-        diagnostics.extend(_check_fill_in(document))
-
-    if question_type == "exam":
-        diagnostics.extend(_check_exam(document))
-
-    return diagnostics
-
-
-# ----------------------------------------------------------------------
-# helpers
-# ----------------------------------------------------------------------
-
-
-def _is_number(value: object) -> TypeIs[int | float]:
-    """JSON numbers, excluding bools (which are ints in Python)."""
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _iter_choices(container: Any) -> Iterator[tuple[int, dict[str, Any]]]:
-    """Yield ``(index, choice)`` for every dict in a choices list."""
-    if not isinstance(container, list):
-        return
-    for index, choice in enumerate(container):
-        if isinstance(choice, dict):
-            yield index, choice
-
-
-def _language_subtag(document: dict[str, Any]) -> str:
-    locale = document.get("locale")
+def _language_subtag(locale: str | None) -> str:
     if not isinstance(locale, str):
         return ""
     return locale.split("-")[0].lower()
@@ -205,38 +128,79 @@ def _language_subtag(document: dict[str, Any]) -> str:
 # ----------------------------------------------------------------------
 # common rules
 # ----------------------------------------------------------------------
-def _check_text_fields_not_blank(document: dict[str, Any]) -> list[Diagnostic]:
+def check_blank_text_field(value: str | None, field_name: str) -> list[Diagnostic]:
     """
-    Free-text fields, if defined, must have at least one visible
+    A free-text field, if defined, must have at least one visible
     (non-whitespace) character.
+
+    Only for the fields this stays a *warning* on (`title`, `author`,
+    `comment`, `answerKey`) -- `preamble`/`epilogue`/`stem` raise
+    `blank-text-field` as a model error instead (`mdq.models`).
     """
-    warnings = []
-    for field_name in _TEXT_FIELDS:
-        value = document.get(field_name)
-        if value is None or not isinstance(value, str):
-            # Missing is fine (they're optional, except stem which the
-            # schema already requires); wrong type is the schema's job to
-            # flag, not the linter's.
-            continue
-        if value.strip() == "":
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="blank-text-field",
-                    path=(field_name,),
-                    message=f"'{field_name}' is defined but has no visible characters",
-                )
+    if value is None or value.strip() != "":
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="blank-text-field",
+            path=(field_name,),
+            message=f"'{field_name}' is defined but has no visible characters",
+        )
+    ]
+
+
+#: base.md:252, footnote [^2]: the url-safe shape a question `id` SHOULD have.
+_URL_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$")
+
+
+def check_id_is_url_safe(id: str | None) -> list[Diagnostic]:
+    """base.md:252: `id` SHOULD be url-safe (`[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*`)."""
+    if id is None or _URL_SAFE_ID_RE.match(id):
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="unsafe-id",
+            path=("id",),
+            message=(
+                f"{id!r} is not url-safe; expected only letters, digits, "
+                f"'-' and '_', per the pattern "
+                f"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
+            ),
+        )
+    ]
+
+
+def check_id_and_title_defined(id: str | None, title: str | None) -> list[Diagnostic]:
+    """base.md:255: `id` and `title` SHOULD both be defined."""
+    warnings: list[Diagnostic] = []
+    if id is None:
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="missing-id",
+                path=("id",),
+                message="'id' is not defined",
             )
+        )
+    if title is None:
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="missing-title",
+                path=("title",),
+                message="'title' is not defined",
+            )
+        )
     return warnings
 
 
-def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[Diagnostic]:
+def check_uuid_version_and_variant(uuid: str | None) -> list[Diagnostic]:
     """generic.md: the UUID's version and variant nibbles are meaningful."""
-    value = document.get("uuid")
-    if not isinstance(value, str):
+    if uuid is None:
         return []
 
-    match = _UUID_RE.match(value)
+    match = _UUID_RE.match(uuid)
     if match is None:
         # Malformed shape -- the schema pattern already reports that.
         return []
@@ -251,7 +215,7 @@ def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[Diagnostic
                 path=("uuid",),
                 message=(
                     f"UUID version nibble is {version!r}; expected one of "
-                    f"1-8 (got the 13th character of {value!r})"
+                    f"1-8 (got the 13th character of {uuid!r})"
                 ),
             )
         )
@@ -265,27 +229,21 @@ def _check_uuid_version_and_variant(document: dict[str, Any]) -> list[Diagnostic
                 path=("uuid",),
                 message=(
                     f"UUID variant nibble is {variant!r}; expected one of "
-                    f"8, 9, a, b (got the 17th character of {value!r})"
+                    f"8, 9, a, b (got the 17th character of {uuid!r})"
                 ),
             )
         )
     return warnings
 
 
-def _check_tags(document: dict[str, Any]) -> list[Diagnostic]:
+def check_tags(tags: Sequence[str]) -> list[Diagnostic]:
     """
     generic.md accepts `tags` as a list or as a single comma-delimited
     string; a comma surviving inside a list entry means the string form
     was never split.
     """
-    tags = document.get("tags")
-    if not isinstance(tags, list):
-        return []
-
     warnings = []
     for index, tag in enumerate(tags):
-        if not isinstance(tag, str):
-            continue
         if tag.strip() == "":
             warnings.append(
                 Diagnostic(
@@ -311,17 +269,16 @@ def _check_tags(document: dict[str, Any]) -> list[Diagnostic]:
     return warnings
 
 
-def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[Diagnostic]:
+def check_stem_is_a_paragraph(stem: str) -> list[Diagnostic]:
     """generic.md: implementations SHOULD require the stem to be a paragraph."""
-    stem = document.get("stem")
-    if not isinstance(stem, str) or not stem.strip():
+    if not stem.strip():
         return []
 
     for pattern, description in _NON_PARAGRAPH_STEM:
         if pattern.match(stem.lstrip("\n")):
             return [
                 Diagnostic(
-                    severity="info",
+                    severity="warning",
                     code="stem-not-a-paragraph",
                     path=("stem",),
                     message=(
@@ -333,53 +290,32 @@ def _check_stem_is_a_paragraph(document: dict[str, Any]) -> list[Diagnostic]:
     return []
 
 
-def _check_stem_ellipsis_expanded(document: dict[str, Any]) -> list[Diagnostic]:
+def check_stem_ellipsis_expanded(stem: str) -> list[Diagnostic]:
     """
     generic.md: a stem of a single ellipsis MAY be replaced by a default
     statement for the question type -- flag the ones that never were.
     """
-    stem = document.get("stem")
-    if not isinstance(stem, str):
-        return []
-    if stem.strip() in ("...", "…"):
-        return [
-            Diagnostic(
-                severity="info",
-                code="unexpanded-stem-ellipsis",
-                path=("stem",),
-                message=(
-                    "stem is a bare ellipsis; it was never replaced by a "
-                    "default statement for the question type"
-                ),
-            )
-        ]
-    return []
-
-
-def _check_locale_is_well_formed(document: dict[str, Any]) -> list[Diagnostic]:
-    """generic.md [^4]: `locale` must be a valid BCP 47 language tag."""
-    locale = document.get("locale")
-    if not isinstance(locale, str) or _BCP47_RE.match(locale):
+    if stem.strip() not in ("...", "…"):
         return []
     return [
         Diagnostic(
-            severity="warning",
-            code="malformed-locale",
-            path=("locale",),
+            severity="info",
+            code="unexpanded-stem-ellipsis",
+            path=("stem",),
             message=(
-                f"{locale!r} is not a BCP 47 language tag; expected a form "
-                f"like 'en', 'pt-BR', or 'zh-Hans-CN'"
+                "stem is a bare ellipsis; it was never replaced by a "
+                "default statement for the question type"
             ),
         )
     ]
 
 
-def _check_locale_language_subtag(document: dict[str, Any]) -> list[Diagnostic]:
+def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
     """
     A well-formed tag can still name the wrong thing: this catches
     country codes written where a language belongs.
     """
-    subtag = _language_subtag(document)
+    subtag = _language_subtag(locale)
     suggestion = _LOOKALIKE_LANGUAGE_SUBTAGS.get(subtag)
     if suggestion is None:
         return []
@@ -402,31 +338,21 @@ def _check_locale_language_subtag(document: dict[str, Any]) -> list[Diagnostic]:
 # ----------------------------------------------------------------------
 
 
-def _check_choices(
-    document: dict[str, Any],
+def check_choices(
+    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
     multiple-choice.md, "Choices": no choice text may be empty.
 
-    Uniqueness of choice ids and texts is enforced by the model layer now
+    Uniqueness of choice ids and texts is enforced by the model layer
     (`duplicate-choice-id`, `duplicate-choice-text` --
-    dev/specs/to-do/unique-ids.md), not here.
+    dev/specs/to-do/unique-ids.md), not here. `path` names where the
+    choices live: a question's own `choices`, or one fill-in blank's.
     """
     warnings: list[Diagnostic] = []
-    # `document` is the question, or one blank of a fill-in question;
-    # either way the choices live under "choices". `path` only says where
-    # to point the warnings.
-    choices = document.get("choices")
-    if not isinstance(choices, list):
-        return warnings
-
-    for index, choice in _iter_choices(choices):
-        text = choice.get("text")
-        if not isinstance(text, str):
-            continue
-
-        if text.strip() == "":
+    for index, choice in enumerate(choices):
+        if choice.text.strip() == "":
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -435,41 +361,127 @@ def _check_choices(
                     message="choice text has no visible characters",
                 )
             )
-
     return warnings
 
 
-def _check_multiple_choice_answers(
-    document: dict[str, Any],
+def check_choice_feedback_and_comment(
+    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    multiple-choice.md, "Choices" (shared by multiple-selection and
+    true-false): a choice's `feedback`/`comment`, if defined, must have
+    at least one visible character -- the same rule
+    `check_blank_text_field` applies to a question's own free-text
+    fields, applied per choice instead.
+    """
+    warnings: list[Diagnostic] = []
+    for index, choice in enumerate(choices):
+        for field_name, code in (
+            ("feedback", "blank-choice-feedback"),
+            ("comment", "blank-choice-comment"),
+        ):
+            value = getattr(choice, field_name)
+            if value is not None and value.strip() == "":
+                warnings.append(
+                    Diagnostic(
+                        severity="warning",
+                        code=code,
+                        path=path + (index, field_name),
+                        message=(
+                            f"choice {field_name} is defined but has no "
+                            f"visible characters"
+                        ),
+                    )
+                )
+    return warnings
+
+
+def check_choice_ids_defined(
+    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    multiple-choice.md, "Choices": a choice SHOULD declare its own `id`
+    rather than rely on one derived from its text -- a derived id is
+    only as stable as the slugifier that produced it.
+    """
+    warnings: list[Diagnostic] = []
+    for index, choice in enumerate(choices):
+        if choice.id is None:
+            warnings.append(
+                Diagnostic(
+                    severity="info",
+                    code="missing-choice-id",
+                    path=path + (index, "id"),
+                    message=(
+                        "choice has no explicit id; one will be derived "
+                        "from its text"
+                    ),
+                )
+            )
+    return warnings
+
+
+def check_choices_visually_identical(
+    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    multiple-choice.md, "Choices": two choices whose text renders alike
+    but is written differently in source are indistinguishable to a
+    reader -- the same comparison
+    `check_ordering_visually_identical_lines` applies to ordering lines.
+    """
+    warnings: list[Diagnostic] = []
+    seen: dict[str, tuple[int, str]] = {}
+    for index, choice in enumerate(choices):
+        key = _render_visual_key(choice.text)
+        first = seen.get(key)
+        if first is None:
+            seen[key] = (index, choice.text)
+            continue
+        first_index, first_text = first
+        if choice.text == first_text:
+            continue  # an intentional repeat, not a same-render pair.
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="visually-identical-choices",
+                path=path + (index, "text"),
+                message=(
+                    f"choice text renders the same as choices[{first_index}] "
+                    f"but is written differently in source"
+                ),
+            )
+        )
+    return warnings
+
+
+def check_multiple_choice_answers(
+    choices: Sequence[models.ScoredChoice],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
     multiple-choice.md: exactly one choice should carry full credit --
     the student picks a single radio button.
     """
-    choices = document.get("choices")
-    if not isinstance(choices, list):
-        return []
-
-    correct = [
-        index
-        for index, choice in _iter_choices(choices)
-        if _is_number(choice.get("score")) and choice["score"] >= 1
-    ]
+    correct = [index for index, choice in enumerate(choices) if (choice.score or 0) >= 1]
 
     if not correct:
         return [
             Diagnostic(
-                severity="warning",
+                severity="info",
                 code="multiple-choice-no-correct-choice",
                 path=path,
                 message="no choice has a score >= 1; the question has no correct answer",
             )
         ]
 
+    warnings: list[Diagnostic] = []
     if len(correct) > 1:
         listed = ", ".join(str(index) for index in correct)
-        return [
+        warnings.append(
             Diagnostic(
                 severity="warning",
                 code="multiple-choice-many-correct-choices",
@@ -479,12 +491,56 @@ def _check_multiple_choice_answers(
                     f"can be selected; use multiple-selection instead"
                 ),
             )
-        ]
-    return []
+        )
+
+    if len(correct) == len(choices):
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="all-choices-correct",
+                path=path,
+                message="every choice has a score >= 1; the question has no wrong answer",
+            )
+        )
+    return warnings
 
 
-def _check_true_false_markers(
-    document: dict[str, Any],
+def check_multiple_selection_answers(
+    choices: Sequence[models.BooleanChoice],
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    multiple-selection.md: a well-formed question mixes correct and
+    incorrect choices -- one with none correct has nothing to select,
+    and one where every choice is correct has nothing to leave unchecked.
+    """
+    warnings: list[Diagnostic] = []
+    correct = [index for index, choice in enumerate(choices) if choice.correct]
+
+    if not correct:
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="no-correct-choice",
+                path=path,
+                message="no choice is correct; the question has nothing to select",
+            )
+        )
+    elif len(correct) == len(choices):
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="all-choices-correct",
+                path=path,
+                message="every choice is correct; the question has nothing to leave unchecked",
+            )
+        )
+    return warnings
+
+
+def check_true_false_markers(
+    choices: Sequence[models.Statement],
+    locale: str | None,
 ) -> list[Diagnostic]:
     """
     true-false.md: PROVISIONAL letters SHOULD warn, since a later
@@ -493,35 +549,20 @@ def _check_true_false_markers(
     SHOULD get an escalated warning, since it reads as true globally but
     is the initial letter of Indonesian "salah" (false) -- a document
     that meant false there is silently graded true, not just mismatched.
-    """
-    choices = document.get("choices")
-    if not isinstance(choices, list):
-        return []
 
+    The reserved `X`/`x` marker is rejected at the model layer
+    (`reserved-true-false-marker`), so it never reaches here.
+    """
     warnings: list[Diagnostic] = []
-    language = _language_subtag(document)
+    language = _language_subtag(locale)
     expected = _LOCALE_MARKERS.get(language)
 
-    for index, choice in _iter_choices(choices):
-        marker = choice.get("marker")
-        if not isinstance(marker, str) or len(marker) != 1:
+    for index, choice in enumerate(choices):
+        marker = choice.marker
+        if marker is None:
             continue
 
         upper = marker.upper()
-        if upper in _RESERVED_MARKERS:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="reserved-true-false-marker",
-                    path=("choices", index, "marker"),
-                    message=(
-                        f"{marker!r} marks a selected multiple-selection "
-                        f"choice and has no true/false meaning"
-                    ),
-                )
-            )
-            continue
-
         if language == "id" and upper == "S":
             warnings.append(
                 Diagnostic(
@@ -538,7 +579,7 @@ def _check_true_false_markers(
             )
             continue
 
-        if upper not in _TRUE_MARKERS and upper not in _FALSE_MARKERS:
+        if upper not in TRUE_MARKERS and upper not in FALSE_MARKERS:
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -557,17 +598,16 @@ def _check_true_false_markers(
             continue
 
         expected_true, expected_false = expected
-        wanted = expected_true if upper in _TRUE_MARKERS else expected_false
+        wanted = expected_true if upper in TRUE_MARKERS else expected_false
         if upper != wanted:
             warnings.append(
                 Diagnostic(
-                    severity="info",
+                    severity="warning",
                     code="locale-mismatched-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
-                        f"{marker!r} is unusual for locale "
-                        f"{document.get('locale')!r}, which normally writes "
-                        f"{expected_true!r}/{expected_false!r}"
+                        f"{marker!r} is unusual for locale {locale!r}, which "
+                        f"normally writes {expected_true!r}/{expected_false!r}"
                     ),
                 )
             )
@@ -575,14 +615,90 @@ def _check_true_false_markers(
     return warnings
 
 
+def check_true_false_marker_nfc(choices: Sequence[models.Statement]) -> list[Diagnostic]:
+    """
+    true-false.md:219: a marker is one code point by the field's own
+    shape, but that code point should also be its own NFC form -- one
+    that normalizes to something else (e.g. U+212B ANGSTROM SIGN, which
+    NFC turns into U+00C5) is easy to type by mistake and renders
+    differently than intended.
+    """
+    warnings: list[Diagnostic] = []
+    for index, choice in enumerate(choices):
+        marker = choice.marker
+        if marker is None:
+            continue
+        if unicodedata.normalize("NFC", marker) != marker:
+            warnings.append(
+                Diagnostic(
+                    severity="info",
+                    code="non-nfc-true-false-marker",
+                    path=("choices", index, "marker"),
+                    message=(
+                        f"{marker!r} is not its own NFC form "
+                        f"({unicodedata.normalize('NFC', marker)!r})"
+                    ),
+                )
+            )
+    return warnings
+
+
+def check_true_false_uniform_answers(choices: Sequence[models.Statement]) -> list[Diagnostic]:
+    """
+    true-false.md:218: a question whose statements are all true or all
+    false is usually an authoring mistake -- a well-formed question
+    presents a mix for the student to judge.
+    """
+    if not choices:
+        return []
+    values = {choice.correct for choice in choices}
+    if len(values) > 1:
+        return []
+    return [
+        Diagnostic(
+            severity="info",
+            code="uniform-true-false-answers",
+            path=("choices",),
+            message=(
+                f"every statement is {'true' if choices[0].correct else 'false'}; "
+                f"a true/false question should mix true and false statements"
+            ),
+        )
+    ]
+
+
 # ----------------------------------------------------------------------
 # per-type rules
 # ----------------------------------------------------------------------
-def _check_essay_highlight(document: dict[str, Any]) -> list[Diagnostic]:
-    """essay.md: `highlight` is ignored unless the input is `code`."""
-    highlight = document.get("highlight")
-    input_kind = document.get("input", "text")
+def check_highlight_language(highlight: str | None) -> list[Diagnostic]:
+    """
+    essay.md:89, ordering.md:343: `highlight` SHOULD name a language a
+    highlighter can recognize. Any alias of a Pygments lexer is
+    accepted as the reference list (`pygments.lexers.
+    find_lexer_class_by_name`) -- `pygments` is a direct dependency for
+    exactly this check.
+    """
+    if highlight is None:
+        return []
+    try:
+        find_lexer_class_by_name(highlight)
+    except ClassNotFound:
+        return [
+            Diagnostic(
+                severity="info",
+                code="unknown-highlight-language",
+                path=("highlight",),
+                message=(
+                    f"{highlight!r} is not a recognized Pygments lexer "
+                    f"alias, so a highlighter would not know this language"
+                ),
+            )
+        ]
+    return []
 
+
+def check_essay_highlight(input_kind: str, highlight: str | None) -> list[Diagnostic]:
+    """essay.md: `highlight` is ignored unless the input is `code`."""
     if highlight is not None and input_kind != "code":
         return [
             Diagnostic(
@@ -599,7 +715,7 @@ def _check_essay_highlight(document: dict[str, Any]) -> list[Diagnostic]:
     if input_kind == "code" and highlight is None:
         return [
             Diagnostic(
-                severity="warning",
+                severity="info",
                 code="code-input-without-highlight",
                 path=("input",),
                 message=(
@@ -608,41 +724,48 @@ def _check_essay_highlight(document: dict[str, Any]) -> list[Diagnostic]:
                 ),
             )
         ]
+    if input_kind == "code" and highlight is not None:
+        return check_highlight_language(highlight)
     return []
 
 
-def _check_short_answer(
-    document: dict[str, Any],
+def check_missing_answer_key(answer_key: str | None) -> list[Diagnostic]:
+    """essay.md:91: `answerKey` SHOULD be defined, for a human grader's benefit."""
+    if answer_key is not None:
+        return []
+    return [
+        Diagnostic(
+            severity="info",
+            code="missing-answer-key",
+            path=("answerKey",),
+            message="'answerKey' is not defined",
+        )
+    ]
+
+
+def check_short_answer(
+    *,
+    regex: str | None,
+    one_of: list[str] | None,
+    accept: "list[models.AnswerPattern] | None",
+    reject: "list[models.AnswerPattern] | None" = None,
+    open_ended: bool,
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
-    short-answer.md: `regex` takes precedence over the body's answers, is
-    applied as a full match, and must actually compile. A question with
-    none of `regex`/`oneOf` and no `openEnded` flag cannot be graded
-    either way.
+    short-answer.md: `regex` takes precedence over the body's answers.
+    A question with none of `regex`/`oneOf`/`accept` and no `openEnded`
+    flag cannot be graded either way.
+
+    Whether `regex` and every `/`-delimited pattern in `accept`/`reject`/
+    `preAccept`/`preReject` compile is a model error now
+    (`invalid-regex` -- dev/specs/to-do/lint-on-models.md), not checked
+    here.
     """
     warnings: list[Diagnostic] = []
-    regex = document.get("regex")
-    accepted = document.get("oneOf")
-    open_ended = document.get("openEnded", False)
 
-    for key in ("accept", "reject", "preAccept", "preReject"):
-        warnings.extend(_check_patterns(document.get(key), path + (key,)))
-
-    if isinstance(regex, str):
-        try:
-            re.compile(regex)
-        except re.error as exc:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="invalid-regex",
-                    path=path + ("regex",),
-                    message=f"regex does not compile: {exc}",
-                )
-            )
-
-        if isinstance(accepted, list) and accepted:
+    if regex is not None:
+        if one_of:
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -668,12 +791,9 @@ def _check_short_answer(
                 )
             )
 
-    if (
-        not open_ended
-        and not isinstance(regex, str)
-        and not accepted
-        and not document.get("accept")
-    ):
+        warnings.extend(_check_ignored_regex_flags(regex, path + ("regex",)))
+
+    if not open_ended and regex is None and not one_of and not accept:
         warnings.append(
             Diagnostic(
                 severity="warning",
@@ -687,41 +807,95 @@ def _check_short_answer(
             )
         )
 
-    return warnings
-
-
-def _check_patterns(
-    patterns: Any, path: tuple[Union[str, int], ...]
-) -> list[Diagnostic]:
-    """
-    short-answer.md: every delimited pattern in an accept/reject list must
-    parse as an MDQ regex.
-    """
-    if not isinstance(patterns, list):
-        return []
-
-    warnings: list[Diagnostic] = []
-    for index, entry in enumerate(patterns):
-        pattern = entry.get("pattern") if isinstance(entry, dict) else entry
-        if not isinstance(pattern, str) or not pattern.strip().startswith("/"):
-            continue
-        try:
-            RegexPattern(pattern)
-        except InvalidRegexError as exc:
+    for index, pattern in enumerate(accept or []):
+        if pattern.pattern.strip() == "*":
             warnings.append(
                 Diagnostic(
                     severity="warning",
-                    code="invalid-regex",
-                    path=path + (index,),
-                    message=f"regex does not compile: {exc}",
+                    code="accept-wildcard",
+                    path=path + ("accept", index),
+                    message=(
+                        "'*' accepts every response, defeating the purpose "
+                        "of an answer key"
+                    ),
                 )
             )
+        warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("accept", index)))
+
+    reject_list = reject or []
+    last_index = len(reject_list) - 1
+    for index, pattern in enumerate(reject_list):
+        if pattern.pattern.strip() == "*" and index != last_index:
+            warnings.append(
+                Diagnostic(
+                    severity="info",
+                    code="unreachable-reject",
+                    path=path + ("reject", index),
+                    message=(
+                        f"'*' rejects every response; reject[{index + 1}:] "
+                        f"is never reached"
+                    ),
+                )
+            )
+        warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("reject", index)))
+
     return warnings
 
 
-def _check_numeric(
-    document: dict[str, Any],
-    path: tuple[str | int, ...],
+def _check_ignored_regex_flags(
+    pattern: str, path: tuple[Union[str, int], ...]
+) -> list[Diagnostic]:
+    """
+    short-answer.md:385: `m`, `g`, `s`, `u`, `v`, `y` and `d` are accepted
+    for compatibility but have no effect (see [regex flags](regex-flags)).
+    Only a delimited (`/.../flags`) pattern carries flags at all.
+    """
+    if not pattern.strip().startswith("/"):
+        return []
+    try:
+        _, raw_flags = parse_regex(pattern)
+    except InvalidRegexError:
+        return []
+    ignored = sorted(set(raw_flags) & IGNORED_FLAGS)
+    if not ignored:
+        return []
+    flags_text = ", ".join(repr(flag) for flag in ignored)
+    return [
+        Diagnostic(
+            severity="info",
+            code="ignored-regex-flag",
+            path=path,
+            message=f"flag(s) {flags_text} are accepted but have no effect on matching",
+        )
+    ]
+
+
+def _infer_numeric_domain(answer: float | str) -> "models.NumericDomain":
+    """
+    numeric.md, "Number type/domain": infer the domain an `answer` is
+    written in, ranking integer < fraction < decimal. A `str` answer
+    holds a `/` (a fraction) or a `.` (a decimal) or neither (an
+    integer); a `float`/`int` answer is an integer when it has no
+    fractional part, decimal otherwise -- it can never be a fraction,
+    since JSON/YAML has no rational-number literal.
+    """
+    if isinstance(answer, str):
+        text = answer.strip()
+        if "/" in text:
+            return "fraction"
+        if "." in text:
+            return "decimal"
+        return "integer"
+    return "integer" if float(answer) == int(answer) else "decimal"
+
+
+def check_numeric(
+    *,
+    answer: float | str,
+    domain: "models.NumericDomain | None",
+    decimal_places: int | None,
+    tolerance: "models.Tolerance | None",
+    path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
     numeric.md: the domain is inferred from the answer's representation
@@ -730,12 +904,11 @@ def _check_numeric(
     the accepted range.
     """
     warnings: list[Diagnostic] = []
-    answer = document.get("answer")
-    domain = document.get("domain")
-    decimal_places = document.get("decimalPlaces")
-    tolerance = document.get("tolerance")
+    inferred_domain = _infer_numeric_domain(answer)
 
-    if domain == "integer" and _is_number(answer) and float(answer) != int(answer):
+    if domain == "integer" and isinstance(answer, (int, float)) and float(answer) != int(
+        answer
+    ):
         warnings.append(
             Diagnostic(
                 severity="warning",
@@ -748,9 +921,36 @@ def _check_numeric(
             )
         )
 
-    if isinstance(tolerance, dict):
-        relative = tolerance.get("relative")
-        if _is_number(relative) and relative > 0 and answer == 0:
+    if domain is not None and domain != inferred_domain:
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="domain-mismatch",
+                path=path + ("domain",),
+                message=(
+                    f"domain is {domain!r}, but the answer {answer!r} is "
+                    f"written as a {inferred_domain!r} value"
+                ),
+            )
+        )
+
+    if tolerance is None and inferred_domain in ("decimal", "fraction"):
+        warnings.append(
+            Diagnostic(
+                severity="info",
+                code="missing-tolerance",
+                path=path + ("tolerance",),
+                message=(
+                    f"the answer {answer!r} is a {inferred_domain} value, but "
+                    f"no tolerance is given; an exact comparison rarely "
+                    f"matches a typed response"
+                ),
+            )
+        )
+
+    if tolerance is not None:
+        relative = tolerance.relative
+        if relative is not None and relative > 0 and answer == 0:
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -764,7 +964,7 @@ def _check_numeric(
                 )
             )
 
-        if _is_number(relative) and relative > 1:
+        if relative is not None and relative > 1:
             warnings.append(
                 Diagnostic(
                     severity="info",
@@ -791,115 +991,259 @@ def _check_numeric(
     return warnings
 
 
-def _check_fill_in(document: dict[str, Any]) -> list[Diagnostic]:
-    """
-    fill-in.md: every blank is referenced from the stem by its id, so the
-    two sides must line up; and each blank is graded like the question
-    type it names, so it inherits that type's checks.
-    """
-    blanks = document.get("blanks")
-    if not isinstance(blanks, list):
-        return []
-
-    warnings: list[Diagnostic] = []
-    blank_ids: list[str] = []
-
-    for index, blank in enumerate(blanks):
-        if not isinstance(blank, dict):
-            continue
-
-        blank_id = blank.get("id")
-        if isinstance(blank_id, str):
-            blank_ids.append(blank_id)
-
-        blank_type = blank.get("type")
-        blank_path: tuple[Union[str, int], ...] = ("blanks", index)
-
-        if blank_type == "multiple-choice":
-            warnings.extend(_check_choices(blank, blank_path + ("choices",)))
-            warnings.extend(
-                _check_multiple_choice_answers(blank, blank_path + ("choices",))
-            )
-        elif blank_type == "short-answer":
-            warnings.extend(_check_short_answer(blank, blank_path))
-        elif blank_type == "numeric":
-            warnings.extend(_check_numeric(blank, blank_path))
-
-    warnings.extend(_check_blank_markers(document, blank_ids))
-    return warnings
-
-
-def _check_blank_markers(
-    document: dict[str, Any],
-    blank_ids: list[str],
+def check_exam_without_questions(
+    questions: Sequence[object], path: tuple[Union[str, int], ...]
 ) -> list[Diagnostic]:
-    """Cross-check the stem's `[^id]` markers against the declared blanks."""
-    stem = document.get("stem")
-    if not isinstance(stem, str):
-        return []
-
-    # `[^size/numeric]` states the blank's type inline; the id is the
-    # part before the slash.
-    referenced = [
-        marker.split("/", 1)[0].strip() for marker in _BLANK_MARKER_RE.findall(stem)
-    ]
-
-    warnings: list[Diagnostic] = []
-    declared = set(blank_ids)
-
-    for name in dict.fromkeys(referenced):
-        if name not in declared:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="undefined-blank",
-                    path=("stem",),
-                    message=(
-                        f"the stem references [^{name}] but no blank with "
-                        f"that id is defined"
-                    ),
-                )
-            )
-
-    seen = set(referenced)
-    for index, blank_id in enumerate(blank_ids):
-        if blank_id not in seen:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="unreferenced-blank",
-                    path=("blanks", index, "id"),
-                    message=(
-                        f"blank {blank_id!r} is never referenced by a "
-                        f"[^{blank_id}] marker in the stem"
-                    ),
-                )
-            )
-
-    return warnings
-
-
-def _check_exam(document: dict[str, Any]) -> list[Diagnostic]:
     """
     exam.md: an exam MAY contain zero questions, but SHOULD warn -- an
     exam with nothing to answer is a draft, not an assessment.
-
-    Duplicate question ids are an `error` raised by `Exam` itself now
-    (`duplicate-question-id` -- dev/specs/to-do/unique-ids.md), not a
-    lint warning.
     """
-    questions = document.get("questions")
-    if not isinstance(questions, list):
+    if questions:
         return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="exam-without-questions",
+            path=path,
+            message="the exam contains no questions, so it cannot be answered",
+        )
+    ]
 
-    if not questions:
+
+def check_include_query(
+    query: str, path: tuple[Union[str, int], ...]
+) -> list[Diagnostic]:
+    """exam.md, "Include all": a query should follow the recommended language."""
+    if is_standard_query(query):
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="nonstandard-include-query",
+            path=path,
+            message=f"the query {query!r} does not follow the recommended query language",
+        )
+    ]
+
+
+def check_undeclared_id_after_include_all(
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    exam.md, "Question ids": the derived id of a question after an
+    `include-all` changes with the questions the query adds.
+    """
+    return [
+        Diagnostic(
+            severity="warning",
+            code="undeclared-id-after-include-all",
+            path=path,
+            message=(
+                "the derived id of a question after an 'include-all' changes "
+                "with the questions the query adds; declare an 'id'"
+            ),
+        )
+    ]
+
+
+# ----------------------------------------------------------------------
+# ordering
+# ----------------------------------------------------------------------
+
+
+def check_ordering_highlight(question: models.OrderingQuestion) -> list[Diagnostic]:
+    """ordering.md: `highlight` must be omitted unless `content` is 'code'."""
+    if question.highlight is not None and question.content != "code":
         return [
             Diagnostic(
                 severity="warning",
-                code="exam-without-questions",
-                path=("questions",),
-                message="the exam contains no questions, so it cannot be answered",
+                code="ignored-highlight",
+                path=("highlight",),
+                message=(
+                    f"'highlight' is ignored because content is "
+                    f"{question.content!r}, not 'code'"
+                ),
             )
         ]
-
+    if question.content == "code" and question.highlight is not None:
+        return check_highlight_language(question.highlight)
     return []
+
+
+def check_ordering_duplicate_alternatives(
+    question: models.OrderingQuestion,
+) -> list[Diagnostic]:
+    """
+    ordering.md#acceptedrejected-answers: a question SHOULD NOT declare
+    two `accept`/`reject` sections whose lines are the same once fully
+    normalized -- every entry of `normalizations`, plus whatever
+    `indentation` implies.
+    """
+    warnings: list[Diagnostic] = []
+    seen: dict[tuple, tuple[str, int]] = {}
+    for section in ("accept", "reject"):
+        for index, alt in enumerate(getattr(question, section)):
+            key = question.comparison_key(alt.lines)
+            first = seen.get(key)
+            if first is not None:
+                first_section, first_index = first
+                warnings.append(
+                    Diagnostic(
+                        severity="warning",
+                        code="duplicate-alternative-lines",
+                        path=(section, index, "lines"),
+                        message=(
+                            f"{section}[{index}] holds the same lines as "
+                            f"{first_section}[{first_index}], once fully "
+                            f"normalized"
+                        ),
+                    )
+                )
+            else:
+                seen[key] = (section, index)
+    return warnings
+
+
+def check_ordering_accept_repeats_answer_key(
+    question: models.OrderingQuestion,
+) -> list[Diagnostic]:
+    """ordering.md#acceptedrejected-answers: `accept` SHOULD NOT repeat `lines`."""
+    answer_key = question.comparison_key(question.lines)
+    warnings = []
+    for index, alt in enumerate(question.accept):
+        if question.comparison_key(alt.lines) == answer_key:
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="accept-repeats-answer-key",
+                    path=("accept", index, "lines"),
+                    message=(
+                        f"accept[{index}] repeats the [ordering] block's own "
+                        f"lines, once fully normalized"
+                    ),
+                )
+            )
+    return warnings
+
+
+def check_ordering_redundant_strict_indentation(
+    question: models.OrderingQuestion,
+) -> list[Diagnostic]:
+    """
+    ordering.md#indentation[^8]: `dedent` flattens every line to level 0,
+    so `indentation: "strict"` has nothing left to compare.
+    `indentation: "lenient"` implies `dedent` and therefore never
+    combines with `"strict"` in the first place, so only an explicit
+    `dedent` in `normalizations` can trigger this.
+    """
+    if question.indentation != "strict":
+        return []
+    if "dedent" not in question.effective_normalizations():
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="redundant-strict-indentation",
+            path=("indentation",),
+            message=(
+                "indentation is 'strict' but 'dedent' is normalized, which "
+                "flattens every line to level 0, so there is nothing left "
+                "for 'strict' to compare"
+            ),
+        )
+    ]
+
+
+def check_ordering_blank_lines(question: models.OrderingQuestion) -> list[Diagnostic]:
+    """
+    ordering.md#additional-rules: a blank `lines`/`extra` entry should
+    only appear when `skip-blanks` is normalized -- otherwise it counts
+    when comparing a response.
+    """
+    if "skip-blanks" in question.effective_normalizations():
+        return []
+
+    warnings = []
+    for field_name in ("lines", "extra"):
+        for index, (_, text) in enumerate(getattr(question, field_name)):
+            if text.strip() == "":
+                warnings.append(
+                    Diagnostic(
+                        severity="info",
+                        code="blank-ordering-line",
+                        path=(field_name, index),
+                        message=(
+                            "line is blank, and 'skip-blanks' is not "
+                            "normalized, so it counts when comparing a "
+                            "response"
+                        ),
+                    )
+                )
+    return warnings
+
+
+def check_ordering_reject_without_feedback(
+    question: models.OrderingQuestion,
+) -> list[Diagnostic]:
+    """ordering.md#feedback: a `reject` section SHOULD declare feedback."""
+    warnings = []
+    for index, alt in enumerate(question.reject):
+        if not alt.feedback or not alt.feedback.strip():
+            warnings.append(
+                Diagnostic(
+                    severity="info",
+                    code="reject-without-feedback",
+                    path=("reject", index),
+                    message=(
+                        f"reject[{index}] declares no feedback, which is its "
+                        f"whole purpose"
+                    ),
+                )
+            )
+    return warnings
+
+
+def _render_visual_key(text: str) -> str:
+    """How `text` renders, for comparing lines/choices as a reader would."""
+    return _RENDER_MD.renderInline(text).strip()
+
+
+def check_ordering_visually_identical_lines(
+    question: models.OrderingQuestion,
+) -> list[Diagnostic]:
+    """
+    ordering.md#body: two `lines`/`extra` entries at the same
+    indentation level should not render alike while differing in their
+    raw markdown source -- a student ordering the rendered text cannot
+    tell such a pair apart. Only meaningful for `content: "text"`: a
+    code block's content is shown verbatim, never rendered.
+    """
+    if question.content != "text":
+        return []
+
+    warnings: list[Diagnostic] = []
+    seen: dict[tuple[int, str], tuple[str, int, str]] = {}
+    for field_name in ("lines", "extra"):
+        for index, (level, text) in enumerate(getattr(question, field_name)):
+            key = (level, _render_visual_key(text))
+            first = seen.get(key)
+            if first is None:
+                seen[key] = (field_name, index, text)
+                continue
+
+            first_field, first_index, first_text = first
+            if text == first_text:
+                continue  # an intentional repeat, not a same-render pair.
+            warnings.append(
+                Diagnostic(
+                    severity="info",
+                    code="visually-identical-lines",
+                    path=(field_name, index),
+                    message=(
+                        f"line renders the same as {first_field}[{first_index}] "
+                        f"but is written differently in source; a student "
+                        f"ordering the rendered text cannot tell them apart"
+                    ),
+                )
+            )
+    return warnings

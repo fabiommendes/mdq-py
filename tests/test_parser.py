@@ -23,6 +23,7 @@ from rich.syntax import Syntax
 
 from mdq import load
 from mdq.loaders import FileLoader
+from mdq.models import Exam
 from mdq.parser import parse_any, parse_exam, parse_file
 from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
 
@@ -150,11 +151,11 @@ def test_parsed_document_validates(source: Path) -> None:
     key = relative_id(source)
     if key in NOT_YET_SUPPORTED:
         pytest.xfail(NOT_YET_SUPPORTED[key])
-    # An exam's `include:` entries need a loader to resolve before the
-    # document can validate; harmless for a plain question source.
-    document = parse_file(source, loader=FileLoader(source.parent))
-    loaded = load(document)
+    loaded = load(parse_file(source))
     assert loaded, loaded.diagnostics
+    # An exam's include blocks must also resolve against the examples.
+    if isinstance(loaded.document, Exam):
+        loaded.document.resolve(FileLoader(source.parent))
 
 
 # ---------------------------------------------------------------------

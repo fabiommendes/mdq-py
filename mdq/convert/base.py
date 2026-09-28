@@ -9,6 +9,12 @@ from ..types import QuestionType
 CONVERSION_REGISTRY: dict[str, ConversionBase | str] = {}
 
 
+#: The stem of a true/false question built from a group of statements that
+#: share no leading paragraph. MDQ requires a stem with a visible character
+#: (docs/question-types/base.md, "Additional Rules").
+TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
+
+
 class ConversionBase[Q]:
     """
     Base class for conversion types.

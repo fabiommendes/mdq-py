@@ -32,9 +32,12 @@ plain dicts), so this stays one-directional.
 
 from __future__ import annotations
 
+import random
 import re
 import unicodedata
 import weakref
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from fractions import Fraction
 from typing import Annotated, Any, Iterable, Literal, Mapping, Self, Sequence
@@ -45,18 +48,24 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
+    Discriminator,
     Field,
     PlainSerializer,
     RootModel,
+    Tag,
+    field_validator,
     model_validator,
 )
 from pydantic.alias_generators import to_camel
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from . import parser, render, schedule, slugify
+from . import linter, parser, render, schedule, slugify
 from . import types as t
-from .errors import NotAutoGradable, ResponseError
-from .regex import RegexPattern
+from ._diagnostics import Diagnostic
+from .errors import NotAutoGradable, ResponseError, UnresolvedInclude
+from .loaders import QuestionBank
+from .query import QuerySyntaxError, parse_query
+from .regex import InvalidRegexError, RegexPattern
 from .regex import normalize_text as strip_accents
 
 __all__ = [
@@ -83,6 +92,11 @@ __all__ = [
     "OrderingQuestion",
     "Question",
     "QuestionRoot",
+    "Include",
+    "IncludeAll",
+    "ExamEntry",
+    "Select",
+    "select_random",
     "Exam",
     "QuestionScore",
     "ExamScore",
@@ -99,12 +113,6 @@ __all__ = [
     "Indentation",
     "Unmatched",
     "Normalization",
-    "coerce_ordering_lines",
-    "first_feedback",
-    "render_pattern_block",
-    "normalize_paragraphs",
-    "normalize_intro",
-    "remove_trailing_ws",
 ]
 
 
@@ -262,6 +270,57 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
 
 
 #
+# Model errors that used to be `warning`-level lint checks
+# (dev/specs/to-do/lint-on-models.md, "New errors"): a document that
+# violates one of these fails to build at all, the same way a duplicate
+# id does above.
+#
+
+#: generic.md [^4]: `locale` must be a BCP 47 language tag. This is the
+#: common `language[-Script][-REGION]` shape, which is what questions
+#: actually use; a tag with private-use or extension subtags is rarer
+#: than a language *name* written where a tag belongs, which is what
+#: this catches.
+_BCP47_RE = re.compile(r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$")
+
+#: `[^blank-id]` markers, as written in a fill-in stem.
+_BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
+
+
+def _validate_locale(value: str | None) -> str | None:
+    """generic.md [^4]: raise `malformed-locale` for an ill-formed tag."""
+    if value is not None and not _BCP47_RE.match(value):
+        raise PydanticCustomError(
+            "malformed-locale",
+            f"{value!r} is not a BCP 47 language tag; expected a form "
+            f"like 'en', 'pt-BR', or 'zh-Hans-CN'",
+        )
+    return value
+
+
+def _validate_not_blank(value: str | None, field_name: str) -> str | None:
+    """base.md: raise `blank-text-field` for a defined-but-blank value."""
+    if value is not None and value.strip() == "":
+        raise PydanticCustomError(
+            "blank-text-field",
+            f"'{field_name}' is defined but has no visible characters",
+        )
+    return value
+
+
+def _validate_mdq_regex(value: str | None) -> str | None:
+    """short-answer.md: raise `invalid-regex` for a pattern that doesn't compile."""
+    if value is not None:
+        try:
+            RegexPattern(value)
+        except InvalidRegexError as exc:
+            raise PydanticCustomError(
+                "invalid-regex", f"regex does not compile: {exc}"
+            ) from exc
+    return value
+
+
+#
 # Shared vocabulary
 #
 
@@ -384,6 +443,21 @@ class Statement(MdqModel):
     feedback: str | None = None
     comment: str | None = None
 
+    @field_validator("marker")
+    @classmethod
+    def check_marker_is_not_reserved(cls, value: str | None) -> str | None:
+        """
+        true-false.md: `X`/`x` marks a selected multiple-selection
+        choice and never means true or false (`reserved-true-false-marker`).
+        """
+        if value is not None and value.upper() == "X":
+            raise PydanticCustomError(
+                "reserved-true-false-marker",
+                f"{value!r} marks a selected multiple-selection choice "
+                f"and has no true/false meaning",
+            )
+        return value
+
 
 #
 # `with_ids()`: deriving ids (dev/specs/to-do/derived-ids.md)
@@ -450,6 +524,73 @@ class BaseQuestion[R](MdqModel):
     meta: dict[str, object] | None = None
     tags: list[str] = Field(default_factory=list)
     _exam: Annotated[weakref.ref[Exam] | None, Field(default=None, exclude=True)] = None
+
+    @field_validator("locale")
+    @classmethod
+    def check_locale_is_well_formed(cls, value: str | None) -> str | None:
+        return _validate_locale(value)
+
+    @field_validator("preamble")
+    @classmethod
+    def check_preamble_is_not_blank(cls, value: str | None) -> str | None:
+        return _validate_not_blank(value, "preamble")
+
+    @field_validator("stem")
+    @classmethod
+    def check_stem_is_not_blank(cls, value: str) -> str:
+        """
+        base.md, "Additional Rules": raise `blank-text-field` for a stem
+        without a visible character.
+        """
+        if not value.strip():
+            raise PydanticCustomError(
+                "blank-text-field", "'stem' has no visible characters"
+            )
+        return value
+
+    @field_validator("epilogue")
+    @classmethod
+    def check_epilogue_is_not_blank(cls, value: str | None) -> str | None:
+        return _validate_not_blank(value, "epilogue")
+
+    @model_validator(mode="after")
+    def check_no_forbidden_block_elements(self) -> Self:
+        """
+        base.md:250, "Forbidden elements": `preamble`, `stem` and
+        `epilogue` may not hold an H1 heading, a heading or paragraph
+        starting with `[` (the syntax a body tag or a fill-in blank
+        marker use), or an unordered list whose items all start with
+        `[` -- any of these could be mistaken for the question's body.
+        Checked here (not only by `mdq.parser`), so a document built
+        directly from a `dict`/YAML/JSON skips no less than a parsed one
+        does (dev/specs/to-do/rule-conformance.md, section D).
+
+        A leading `[slug]` prefix is exempt only on the very first block
+        of the combined preamble+stem sequence (generic.md, "Slug") --
+        the epilogue, which is never that first block, gets no exemption.
+        """
+        fields = (
+            ("preamble", self.preamble, bool(self.preamble)),
+            ("stem", self.stem, not self.preamble),
+            ("epilogue", self.epilogue, False),
+        )
+        for field_name, text, allow_leading_bracket in fields:
+            if not text:
+                continue
+            for description in parser.find_forbidden_elements(
+                text, allow_first_paragraph_bracket=allow_leading_bracket
+            ):
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "forbidden-block-element",
+                    (
+                        f"'{field_name}' holds {description}, which base.md's "
+                        f"\"Forbidden elements\" reserves for the question body"
+                    ),
+                    (field_name,),
+                    text,
+                )
+        return self
 
     @property
     def exam(self) -> Exam | None:
@@ -564,6 +705,30 @@ class BaseQuestion[R](MdqModel):
         """
         raise NotImplementedError("Subclasses must implement score_response()")
 
+    def lint(self) -> list[Diagnostic]:
+        """
+        Run the lint rules common to every question type.
+
+        Subclasses call `super().lint()` and add their own rules on top
+        (dev/specs/to-do/lint-on-models.md). These are advisory
+        (`warning`/`info`) checks only -- a rule serious enough to stop a
+        document from loading at all is a model validator instead (see
+        the module docstring).
+        """
+        diagnostics: list[Diagnostic] = []
+        for field_name in ("title", "author", "comment"):
+            diagnostics.extend(
+                linter.check_blank_text_field(getattr(self, field_name), field_name)
+            )
+        diagnostics.extend(linter.check_uuid_version_and_variant(self.uuid))
+        diagnostics.extend(linter.check_tags(self.tags))
+        diagnostics.extend(linter.check_locale_language_subtag(self.locale))
+        diagnostics.extend(linter.check_stem_is_a_paragraph(self.stem))
+        diagnostics.extend(linter.check_stem_ellipsis_expanded(self.stem))
+        diagnostics.extend(linter.check_id_is_url_safe(self.id))
+        diagnostics.extend(linter.check_id_and_title_defined(self.id, self.title))
+        return diagnostics
+
     def with_ids(self) -> Self:
         """
         Return a copy of this question with a derived id filled in for
@@ -595,6 +760,16 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     def with_ids(self) -> Self:
         """See `BaseQuestion.with_ids`."""
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
+
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(linter.check_choices(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_feedback_and_comment(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_ids_defined(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choices_visually_identical(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_multiple_choice_answers(self.choices, ("choices",)))
+        return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -671,6 +846,16 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         """See `BaseQuestion.with_ids`."""
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
 
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(linter.check_choices(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_feedback_and_comment(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_ids_defined(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choices_visually_identical(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_multiple_selection_answers(self.choices, ("choices",)))
+        return diagnostics
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.shuffle is not None:
@@ -731,9 +916,53 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
+    @model_validator(mode="after")
+    def check_markers_agree_with_correct(self) -> Self:
+        """
+        true-false.md:210: a marker's category (TRUE/FALSE/PROVISIONAL,
+        see `mdq.linter.TRUE_MARKERS`/`FALSE_MARKERS`) must agree with
+        `correct` -- a FALSE-category marker paired with `correct: true`,
+        or a TRUE-category one paired with `correct: false`, is a direct
+        contradiction. A PROVISIONAL marker (which SHOULD warn instead,
+        see `mdq.linter.check_true_false_markers`) always agrees, since
+        it reads as true either way.
+        """
+        for index, choice in enumerate(self.choices):
+            marker = choice.marker
+            if marker is None:
+                continue
+            upper = marker.upper()
+            disagrees = (upper in linter.TRUE_MARKERS and not choice.correct) or (
+                upper in linter.FALSE_MARKERS and choice.correct
+            )
+            if disagrees:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "true-false-marker-disagrees-with-correct",
+                    (
+                        f"marker {marker!r} disagrees with correct="
+                        f"{choice.correct!r} for choices[{index}]"
+                    ),
+                    ("choices", index, "marker"),
+                    marker,
+                )
+        return self
+
     def with_ids(self) -> Self:
         """See `BaseQuestion.with_ids`."""
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
+
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(linter.check_choices(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_feedback_and_comment(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choice_ids_defined(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_choices_visually_identical(self.choices, ("choices",)))
+        diagnostics.extend(linter.check_true_false_markers(self.choices, self.locale))
+        diagnostics.extend(linter.check_true_false_uniform_answers(self.choices))
+        diagnostics.extend(linter.check_true_false_marker_nfc(self.choices))
+        return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -799,6 +1028,20 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     decimal_places: int | None = Field(default=None, ge=0)
     tolerance: Tolerance | None = None
 
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(
+            linter.check_numeric(
+                answer=self.answer,
+                domain=self.domain,
+                decimal_places=self.decimal_places,
+                tolerance=self.tolerance,
+                path=(),
+            )
+        )
+        return diagnostics
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.domain is not None:
@@ -835,8 +1078,7 @@ class AnswerPattern(MdqModel):
     """
 
     #: A regex when delimited by `/`, a lone `*` for the wildcard, and a
-    #: plain literal otherwise. Not compiled here: an uncompilable regex
-    #: must still load, so the linter can report `invalid-regex` on it.
+    #: plain literal otherwise.
     pattern: Annotated[str, Field(min_length=1, pattern=r"\S")]
     feedback: str | None = None
     comment: str | None = None
@@ -846,6 +1088,29 @@ class AnswerPattern(MdqModel):
     def _accept_bare_string(cls, value: Any) -> Any:
         """Expand the bare-string shorthand into the object form."""
         return {"pattern": value} if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def check_pattern_compiles(self) -> Self:
+        """
+        short-answer.md, "Additional Rules": a `/`-delimited pattern
+        must compile as an MDQ regex (`invalid-regex`).
+
+        Only the pattern itself is checked here, not the field: `loc`
+        stays at this model's own root, so the diagnostic points at the
+        list entry (`accept[0]`), not `accept[0].pattern`.
+        """
+        if self.pattern.strip().startswith("/"):
+            try:
+                RegexPattern(self.pattern)
+            except InvalidRegexError as exc:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "invalid-regex",
+                    f"regex does not compile: {exc}",
+                    (),
+                    self.pattern,
+                )
+        return self
 
     def matches(self, response: str, *, diacritics: Diacritics = "fold") -> bool:
         """
@@ -895,6 +1160,11 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
     #: How inexact literals treat diacritics, in every pattern list.
     diacritics: Diacritics = "fold"
 
+    @field_validator("regex")
+    @classmethod
+    def check_regex_compiles(cls, value: str | None) -> str | None:
+        return _validate_mdq_regex(value)
+
     @model_validator(mode="after")
     def check_open_ended_has_no_answer_key(self) -> Self:
         """
@@ -917,6 +1187,21 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
                 "oneOf, regex, accept or reject"
             )
         return self
+
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(
+            linter.check_short_answer(
+                regex=self.regex,
+                one_of=self.one_of,
+                accept=self.accept,
+                reject=self.reject,
+                open_ended=self.open_ended,
+                path=(),
+            )
+        )
+        return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -989,6 +1274,14 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     #: make the question auto-gradable.
     answer_key: str | None = None
 
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(linter.check_essay_highlight(self.input, self.highlight))
+        diagnostics.extend(linter.check_blank_text_field(self.answer_key, "answerKey"))
+        diagnostics.extend(linter.check_missing_answer_key(self.answer_key))
+        return diagnostics
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.input != "text":
@@ -1045,6 +1338,11 @@ class ShortAnswerBlank(MdqModel):
     pre_accept: list[AnswerPattern] | None = None
     pre_reject: list[AnswerPattern] | None = None
 
+    @field_validator("regex")
+    @classmethod
+    def check_regex_compiles(cls, value: str | None) -> str | None:
+        return _validate_mdq_regex(value)
+
 
 class NumericBlank(MdqModel):
     id: str
@@ -1095,6 +1393,65 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             seen[blank.id] = index
         return self
 
+    @model_validator(mode="after")
+    def check_blank_markers(self) -> Self:
+        """
+        fill-in.md, "Additional Rules": every `[^id]` marker in the stem
+        names a declared blank (`undefined-blank`), and every declared
+        blank is referenced by one (`unreferenced-blank`).
+        """
+        referenced = [
+            marker.split("/", 1)[0].strip()
+            for marker in _BLANK_MARKER_RE.findall(self.stem)
+        ]
+        declared = {blank.id for blank in self.blanks}
+
+        for name in dict.fromkeys(referenced):
+            if name not in declared:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "undefined-blank",
+                    f"the stem references [^{name}] but no blank with that "
+                    f"id is defined",
+                    ("stem",),
+                    self.stem,
+                )
+
+        seen_markers = set(referenced)
+        for index, blank in enumerate(self.blanks):
+            if blank.id not in seen_markers:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "unreferenced-blank",
+                    f"blank {blank.id!r} is never referenced by a "
+                    f"[^{blank.id}] marker in the stem",
+                    ("blanks", index, "id"),
+                    blank.id,
+                )
+        return self
+
+    @model_validator(mode="after")
+    def check_blank_markers_are_in_plain_text(self) -> Self:
+        """
+        fill-in.md:301: a `[^id]` marker may only appear in a plain text
+        run of a paragraph -- not inside emphasis, a strong span, a
+        link, or a code span, where a student would not read it as the
+        blank it names.
+        """
+        misplaced = parser.find_misplaced_blank_markers(self.stem)
+        if misplaced:
+            _raise_unique_id_error(
+                type(self).__name__,
+                "misplaced-blank",
+                (
+                    f"[^{misplaced[0]}] must appear in a plain text run of "
+                    f"the stem, not inside emphasis, a link, or a code span"
+                ),
+                ("stem",),
+                self.stem,
+            )
+        return self
+
     def with_ids(self) -> Self:
         """
         See `BaseQuestion.with_ids`.
@@ -1110,6 +1467,45 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             for blank in self.blanks
         ]
         return self.model_copy(update={"blanks": new_blanks})
+
+    def lint(self) -> list[Diagnostic]:
+        """
+        See `BaseQuestion.lint`.
+
+        Each blank is graded like the question type it names, so it
+        inherits that type's checks, with the path pointing into the
+        blank.
+        """
+        diagnostics = super().lint()
+        for index, blank in enumerate(self.blanks):
+            path: tuple[str | int, ...] = ("blanks", index)
+            if isinstance(blank, ChoiceBlank):
+                diagnostics.extend(linter.check_choices(blank.choices, path + ("choices",)))
+                diagnostics.extend(
+                    linter.check_multiple_choice_answers(blank.choices, path + ("choices",))
+                )
+            elif isinstance(blank, ShortAnswerBlank):
+                diagnostics.extend(
+                    linter.check_short_answer(
+                        regex=blank.regex,
+                        one_of=blank.one_of,
+                        accept=blank.accept,
+                        reject=blank.reject,
+                        open_ended=False,
+                        path=path,
+                    )
+                )
+            else:
+                diagnostics.extend(
+                    linter.check_numeric(
+                        answer=blank.answer,
+                        domain=blank.domain,
+                        decimal_places=blank.decimal_places,
+                        tolerance=blank.tolerance,
+                        path=path,
+                    )
+                )
+        return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
@@ -1256,6 +1652,18 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     unmatched: Unmatched = "manual"
     normalizations: list[Normalization] = Field(default_factory=list)
 
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(linter.check_ordering_highlight(self))
+        diagnostics.extend(linter.check_ordering_duplicate_alternatives(self))
+        diagnostics.extend(linter.check_ordering_accept_repeats_answer_key(self))
+        diagnostics.extend(linter.check_ordering_redundant_strict_indentation(self))
+        diagnostics.extend(linter.check_ordering_blank_lines(self))
+        diagnostics.extend(linter.check_ordering_reject_without_feedback(self))
+        diagnostics.extend(linter.check_ordering_visually_identical_lines(self))
+        return diagnostics
+
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.indentation != "fixed":
@@ -1290,14 +1698,15 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         rejected (ordering.md#additional-rules).
 
         Raises:
-            ValueError: some `accept` entry holds the same lines as some
-                `reject` entry.
+            PydanticCustomError: `accept-reject-overlap` -- some `accept`
+                entry holds the same lines as some `reject` entry.
         """
         reject_lines = {tuple(alt.lines) for alt in self.reject}
         for alt in self.accept:
             if tuple(alt.lines) in reject_lines:
-                raise ValueError(
-                    "the same lines must not be declared in both accept and reject"
+                raise PydanticCustomError(
+                    "accept-reject-overlap",
+                    "the same lines must not be declared in both accept and reject",
                 )
         return self
 
@@ -1390,9 +1799,70 @@ class QuestionRoot(RootModel):
 #
 # Exams
 #
+class Include(MdqModel):
+    """
+    A reference to one question stored outside the exam, by its id --
+    schema/exam.yaml#/$defs/Include.
+    """
+
+    include: str
+
+
+class IncludeAll(MdqModel):
+    """
+    A query for questions stored outside the exam --
+    schema/exam.yaml#/$defs/IncludeAll.
+    """
+
+    include_all: Annotated[str, Field(alias="include-all", min_length=1)]
+    max: Annotated[int | None, Field(default=None, ge=1, strict=True)] = None
+
+
+def _entry_kind(value: Any) -> str:
+    """The tag of `ExamEntry` that `value` validates against."""
+    if isinstance(value, Include):
+        return "include"
+    if isinstance(value, IncludeAll):
+        return "include-all"
+    if isinstance(value, Mapping) and "type" not in value:
+        if "include-all" in value or "include_all" in value:
+            return "include-all"
+        if "include" in value:
+            return "include"
+    return "question"
+
+
+#: One entry of an exam's `questions`: a question written inline, or an
+#: include block that `Exam.resolve` replaces -- schema/exam.yaml#/$defs/Entry.
+ExamEntry = Annotated[
+    Annotated[Question, Tag("question")]
+    | Annotated[Include, Tag("include")]
+    | Annotated[IncludeAll, Tag("include-all")],
+    Discriminator(_entry_kind),
+]
+
+#: Chooses which questions an `include-all` block adds. It receives the
+#: ids that match the query and are not in the exam yet, sorted, and the
+#: block's `max`. It returns the chosen ids, in the order the exam shows
+#: them: at most `max` of them, all taken from the candidates.
+type Select = Callable[[list[str], int | None], Sequence[str]]
+
+
+def select_random(candidates: list[str], max: int | None) -> list[str]:
+    """
+    The default `Select`: every candidate when there is no `max`, or a
+    random sample of `max` of them otherwise. The result keeps the order
+    of `candidates`.
+    """
+    if max is None or max >= len(candidates):
+        return list(candidates)
+    chosen = set(random.sample(candidates, max))
+    return [candidate for candidate in candidates if candidate in chosen]
+
+
 class Exam(MdqModel):
     """
-    A resolved exam.
+    An exam. Its include blocks stay unresolved until `resolve()`.
     """
 
     type: Literal["exam"] = "exam"
@@ -1410,7 +1880,7 @@ class Exam(MdqModel):
     grading: ExamGrading = "symmetric"
     start: ExamStart | None = None
     duration: ExamDuration | None = None
-    questions: list[Question]
+    questions: list[ExamEntry]
 
     @model_validator(mode="after")
     def check_questions_have_unique_ids(self) -> Self:
@@ -1424,10 +1894,16 @@ class Exam(MdqModel):
         computes them, to catch the collision early. A question with
         neither a declared id nor a colliding implicit one does not
         participate: there is nothing to collide.
+
+        Before `resolve()`, an `include` counts with the id it references.
+        An `include-all` adds questions that are not known yet, so the
+        implicit ids after it are not checked.
         """
         seen: dict[str, int] = {}
-        for index, question in enumerate(self.questions):
-            question_id = question.id
+        for index, entry in enumerate(self.questions):
+            if isinstance(entry, IncludeAll):
+                continue
+            question_id = entry.include if isinstance(entry, Include) else entry.id
             if question_id is None:
                 continue
             first_index = seen.get(question_id)
@@ -1444,8 +1920,10 @@ class Exam(MdqModel):
                 )
             seen[question_id] = index
 
-        for index, question in enumerate(self.questions):
-            if question.id is not None:
+        for index, entry in enumerate(self.questions):
+            if isinstance(entry, IncludeAll):
+                break
+            if isinstance(entry, Include) or entry.id is not None:
                 continue
             implicit_id = _implicit_question_id(index)
             colliding_index = seen.get(implicit_id)
@@ -1463,6 +1941,89 @@ class Exam(MdqModel):
                 )
         return self
 
+    def resolve(
+        self,
+        bank: QuestionBank,
+        *,
+        select: Select | None = None,
+        warnings: list[Diagnostic] | None = None,
+    ) -> Exam:
+        """
+        Return a copy of this exam in which every `include` and
+        `include-all` block is replaced by the questions it selects from
+        `bank` (exam.md, "Include" and "Include all").
+
+        An `include-all` never adds a question that the exam already
+        contains: the target of an `include`, a declared inline id, or a
+        question an earlier `include-all` added. `select` then chooses
+        among the remaining matches; it defaults to `select_random`. A
+        query that does not follow the recommended language adds no
+        questions. Included questions inherit `locale` and `author` from
+        the exam.
+
+        Args:
+            bank: Where the included questions come from.
+            select: Chooses the questions of each `include-all` block.
+            warnings: When given, an `empty-include-all` `Diagnostic` is
+                appended for every `include-all` block that adds nothing.
+
+        Raises:
+            IncludeNotFound: `bank` cannot load an included question.
+            ValueError: `select` returns an id that is not a candidate,
+                or more than `max` ids.
+            pydantic.ValidationError: an included question is invalid,
+                or the resolved exam has duplicate question ids.
+        """
+        select = select or select_random
+        taken = {
+            entry.include if isinstance(entry, Include) else entry.id
+            for entry in self.questions
+            if not isinstance(entry, IncludeAll)
+        }
+        questions: list[dict[str, Any]] = []
+        for index, entry in enumerate(self.questions):
+            if isinstance(entry, Include):
+                questions.append(self._load_included(bank, entry.include))
+            elif isinstance(entry, IncludeAll):
+                candidates = sorted(_query_ids(bank, entry.include_all) - taken)
+                chosen = list(select(candidates, entry.max))
+                _check_selection(chosen, candidates, entry.max)
+                taken.update(chosen)
+                if not chosen and warnings is not None:
+                    warnings.append(
+                        Diagnostic(
+                            severity="warning",
+                            code="empty-include-all",
+                            path=("questions", index),
+                            message=(
+                                f"the query {entry.include_all!r} adds no "
+                                "question to the exam"
+                            ),
+                        )
+                    )
+                questions.extend(self._load_included(bank, qid) for qid in chosen)
+            else:
+                questions.append(entry.to_dict())
+
+        data = self.to_dict()
+        data["questions"] = questions
+        return type(self).model_validate(data)
+
+    def _load_included(self, bank: QuestionBank, question_id: str) -> dict[str, Any]:
+        source = bank.load(question_id)
+        if isinstance(source, str):
+            question: dict[str, Any] = dict(parser.parse_question(source))
+        else:
+            question = dict(source)
+        # An included question already has an identity, so it keeps its
+        # own id -- falling back to the id it was found by.
+        question.setdefault("id", question_id)
+        for field in parser.INHERITED_FIELDS:
+            value = getattr(self, field)
+            if field not in question and value is not None:
+                question[field] = value
+        return question
+
     def with_ids(self) -> Self:
         """
         Return a copy of this exam in which every question -- and every
@@ -1475,23 +2036,59 @@ class Exam(MdqModel):
         never touched. Every question then runs its own `with_ids()`, so
         its choices get theirs too. Never changes `self`, and running it
         twice gives the same result as running it once.
+
+        Raises:
+            UnresolvedInclude: the exam has an `include-all` block, so
+                the positions after it are not known. Call `resolve()`
+                first.
         """
-        new_questions = [
-            question.with_ids()
-            if question.id is not None
-            else question.with_ids().model_copy(
-                update={"id": _implicit_question_id(index)}
+        if any(isinstance(entry, IncludeAll) for entry in self.questions):
+            raise UnresolvedInclude(
+                "the positions after an 'include-all' block are only known "
+                "after resolve()"
             )
-            for index, question in enumerate(self.questions)
-        ]
+        new_questions: list[Question | Include | IncludeAll] = []
+        for index, entry in enumerate(self.questions):
+            if isinstance(entry, (Include, IncludeAll)):
+                new_questions.append(entry)
+            elif entry.id is not None:
+                new_questions.append(entry.with_ids())
+            else:
+                new_questions.append(
+                    entry.with_ids().model_copy(update={"id": _implicit_question_id(index)})
+                )
         return self.model_copy(update={"questions": new_questions})
 
+    def lint(self) -> list[Diagnostic]:
+        """
+        Run the exam-level lint rules, then each question's own `lint()`,
+        with `("questions", i)` prepended to that question's diagnostics
+        (dev/specs/to-do/lint-on-models.md).
+        """
+        diagnostics = linter.check_exam_without_questions(self.questions, ("questions",))
+        after_include_all = False
+        for index, entry in enumerate(self.questions):
+            path: tuple[str | int, ...] = ("questions", index)
+            if isinstance(entry, IncludeAll):
+                after_include_all = True
+                diagnostics.extend(
+                    linter.check_include_query(entry.include_all, path + ("include-all",))
+                )
+            elif not isinstance(entry, Include):
+                if after_include_all and entry.id is None:
+                    diagnostics.extend(linter.check_undeclared_id_after_include_all(path))
+                diagnostics.extend(
+                    replace(d, path=path + d.path) for d in entry.lint()
+                )
+        return diagnostics
+
     def model_post_init(self, __ctx):
-        for i, question in enumerate(self.questions):
+        questions = [q for q in self.questions if isinstance(q, BaseQuestion)]
+        for i, question in enumerate(questions):
             if question.exam is not None:
                 raise ValueError(f"Question at index {i} already belongs to an exam")
 
-        for question in self.questions:
+        for question in questions:
             question._exam = weakref.ref(self)
 
     def add_question(self, question: Question, position: int | None = None):
@@ -1508,6 +2105,25 @@ class Exam(MdqModel):
         else:
             self.questions.insert(position, question)
         question._exam = weakref.ref(self)
+
+
+def _query_ids(bank: QuestionBank, query: str) -> set[str]:
+    """The ids `query` selects from `bank`; none if it cannot be read."""
+    try:
+        return parse_query(query).select(bank)
+    except QuerySyntaxError:
+        # Reported by `Exam.lint` as `nonstandard-include-query`.
+        return set()
+
+
+def _check_selection(chosen: list[str], candidates: list[str], max: int | None) -> None:
+    unknown = set(chosen) - set(candidates)
+    if unknown:
+        raise ValueError(f"select() returned ids that are not candidates: {sorted(unknown)}")
+    if len(set(chosen)) != len(chosen):
+        raise ValueError("select() returned the same id twice")
+    if max is not None and len(chosen) > max:
+        raise ValueError(f"select() returned {len(chosen)} ids, but max is {max}")
 
 
 #

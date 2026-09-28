@@ -19,7 +19,11 @@ def _rules(diagnostics) -> set[str]:
 # ---------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("field_name", ["preamble", "stem", "epilogue", "comment"])
+#: `preamble`/`stem`/`epilogue` are `blank-text-field` model *errors* now
+#: (dev/specs/to-do/lint-on-models.md) -- see
+#: tests/test_model_rule_errors.py. `comment` (and `title`/`author`/
+#: `answerKey`) stays a lint warning.
+@pytest.mark.parametrize("field_name", ["comment"])
 def test_whitespace_only_text_field_warns(field_name: str) -> None:
     doc = {
         "type": "essay",
@@ -36,18 +40,29 @@ def test_whitespace_only_text_field_warns(field_name: str) -> None:
 def test_non_blank_text_fields_do_not_warn() -> None:
     doc = {
         "type": "essay",
+        "id": "explain-x",
+        "title": "Explain X",
         "stem": "Explain X.",
         "preamble": "Some context.",
         "epilogue": "Be concise.",
         "comment": "Internal note.",
         "input": "text",
+        "answerKey": "X is Y.",
     }
     assert load(doc).diagnostics == []
 
 
 def test_missing_text_fields_do_not_warn() -> None:
+    """`author`/`comment` are merely absent -- `blank-text-field` only
+    fires on a defined-but-empty value, never on `None`. `id`/`title`/
+    `answerKey` get their own rules for that (`missing-id`,
+    `missing-title`, `missing-answer-key`), asserted elsewhere."""
     doc = {"type": "essay", "stem": "Explain X.", "input": "text"}
-    assert load(doc).diagnostics == []
+    assert _rules(load(doc).diagnostics) == {
+        "missing-id",
+        "missing-title",
+        "missing-answer-key",
+    }
 
 
 # ---------------------------------------------------------------------
@@ -60,6 +75,8 @@ def test_missing_text_fields_do_not_warn() -> None:
 def test_unique_choices_do_not_warn() -> None:
     doc = {
         "type": "multiple-choice",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
         "choices": [
             {"id": "a", "text": "A", "score": 1},
@@ -71,21 +88,42 @@ def test_unique_choices_do_not_warn() -> None:
 
 def test_choices_without_id_are_not_flagged_as_duplicates() -> None:
     """Choice `id` is optional -- two choices both omitting it isn't a
-    collision, and shouldn't be treated as one."""
+    collision, and shouldn't be treated as one (it does earn its own
+    `missing-choice-id` info notice each -- see
+    dev/specs/to-do/rule-conformance.md, section C)."""
     doc = {
         "type": "multiple-choice",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
         "choices": [
             {"text": "A", "score": 1},
             {"text": "B"},
         ],
     }
-    assert _rules(load(doc).diagnostics) == set()
+    rules = _rules(load(doc).diagnostics)
+    assert "duplicate-choice-id" not in rules
+    assert "duplicate-choice-text" not in rules
+    assert rules == {"missing-choice-id"}
 
 
 def test_choice_checks_do_not_apply_to_essay_or_numeric() -> None:
-    essay_doc = {"type": "essay", "stem": "x", "input": "text"}
-    numeric_doc = {"type": "numeric", "stem": "x", "answer": 4}
+    essay_doc = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "input": "text",
+        "answerKey": "y",
+    }
+    numeric_doc = {
+        "type": "numeric",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "answer": 4,
+        "tolerance": {"absolute": 0.1},
+    }
     assert load(essay_doc).diagnostics == []
     assert load(numeric_doc).diagnostics == []
 
@@ -184,7 +222,11 @@ def test_uuid_with_bad_version_or_variant_warns(uuid: str, rule: str) -> None:
 def test_well_formed_uuid_does_not_warn() -> None:
     doc = {
         "type": "essay",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
+        "input": "text",
+        "answerKey": "y",
         "uuid": "123e4567-e89b-12d3-a456-426614174000",
     }
     assert _rules(load(doc).diagnostics) == set()
@@ -193,7 +235,15 @@ def test_well_formed_uuid_does_not_warn() -> None:
 def test_malformed_uuid_is_left_to_the_schema() -> None:
     """A UUID of the wrong shape is a schema `pattern` failure; the
     linter must not pile a second, confusing message on top of it."""
-    doc = {"type": "essay", "stem": "x", "uuid": "nope"}
+    doc = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "input": "text",
+        "answerKey": "y",
+        "uuid": "nope",
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -210,7 +260,15 @@ def test_blank_tag_warns() -> None:
 
 
 def test_ordinary_tags_do_not_warn() -> None:
-    doc = {"type": "essay", "stem": "x", "tags": ["algorithms", "complexity"]}
+    doc = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "input": "text",
+        "answerKey": "y",
+        "tags": ["algorithms", "complexity"],
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -231,13 +289,28 @@ def test_non_paragraph_stem_warns_at_strict(stem: str) -> None:
 
 
 def test_ordinary_stem_is_not_flagged_as_a_block() -> None:
-    doc = {"type": "essay", "stem": "Explain why 2 + 2 = 4."}
+    doc = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "Explain why 2 + 2 = 4.",
+        "input": "text",
+        "answerKey": "y",
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
 def test_locale_lookalike_warns_but_real_locale_does_not() -> None:
-    bad = {"type": "essay", "stem": "x", "locale": "cn"}
-    good = {"type": "essay", "stem": "x", "locale": "zh-Hans-CN"}
+    common = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "input": "text",
+        "answerKey": "y",
+    }
+    bad = {**common, "locale": "cn"}
+    good = {**common, "locale": "zh-Hans-CN"}
     assert "locale-lookalike-language" in _rules(
         load(bad).diagnostics
     )
@@ -305,16 +378,19 @@ def test_partial_credit_choices_are_not_correct_answers() -> None:
     "marker", ["T", "V", "S", "F", "t", "v", "s", "f", "对", "真", "错", "偽"]
 )
 def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
+    a_correct = marker.upper() not in ("F", "错", "偽")
     doc = {
         "type": "true-false",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
         "choices": [
-            {
-                "text": "A",
-                "marker": marker,
-                "correct": marker.upper() not in ("F", "错", "偽"),
-            },
-            {"text": "B", "marker": "F"},
+            {"id": "a", "text": "A", "marker": marker, "correct": a_correct},
+            # Opposite of A's `correct`, so the pair is never uniform, and
+            # A's own marker (whichever letter or case it is) matches its
+            # `correct` -- B just needs to disagree, so a plain T/F marker
+            # does that without also being PROVISIONAL.
+            {"id": "b", "text": "B", "marker": "T" if not a_correct else "F", "correct": not a_correct},
         ],
     }
     assert _rules(load(doc).diagnostics) == set()
@@ -350,15 +426,9 @@ def test_indonesian_s_marker_warns_as_false_friend() -> None:
     assert "provisional-true-false-marker" not in rules
 
 
-def test_multiple_selection_marker_is_reserved() -> None:
-    doc = {
-        "type": "true-false",
-        "stem": "x",
-        "choices": [{"text": "A", "marker": "X"}, {"text": "B", "marker": "F"}],
-    }
-    rules = _rules(load(doc).diagnostics)
-    assert "reserved-true-false-marker" in rules
-    assert "provisional-true-false-marker" not in rules
+#: `reserved-true-false-marker` (`X`/`x`) is a model error now
+#: (dev/specs/to-do/lint-on-models.md) -- see
+#: tests/test_model_rule_errors.py.
 
 
 def test_marker_inconsistent_with_locale_warns_at_strict() -> None:
@@ -380,11 +450,13 @@ def test_marker_inconsistent_with_locale_warns_at_strict() -> None:
 def test_marker_consistent_with_locale_does_not_warn() -> None:
     doc = {
         "type": "true-false",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
         "locale": "pt-BR",
         "choices": [
-            {"text": "A", "marker": "V", "correct": True},
-            {"text": "B", "marker": "F"},
+            {"id": "a", "text": "A", "marker": "V", "correct": True},
+            {"id": "b", "text": "B", "marker": "F", "correct": False},
         ],
     }
     assert _rules(load(doc).diagnostics) == set()
@@ -395,8 +467,13 @@ def test_choices_without_markers_are_not_flagged() -> None:
     `answer` must lint clean."""
     doc = {
         "type": "true-false",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
-        "choices": [{"text": "A", "correct": True}, {"text": "B"}],
+        "choices": [
+            {"id": "a", "text": "A", "correct": True},
+            {"id": "b", "text": "B", "correct": False},
+        ],
     }
     assert _rules(load(doc).diagnostics) == set()
 
@@ -424,7 +501,15 @@ def test_code_input_without_highlight_warns() -> None:
 
 
 def test_code_input_with_highlight_does_not_warn() -> None:
-    doc = {"type": "essay", "stem": "x", "input": "code", "highlight": "python"}
+    doc = {
+        "type": "essay",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "input": "code",
+        "highlight": "python",
+        "answerKey": "y",
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -433,9 +518,8 @@ def test_code_input_with_highlight_does_not_warn() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_uncompilable_regex_warns() -> None:
-    doc = {"type": "short-answer", "stem": "x", "regex": "([unclosed"}
-    assert "invalid-regex" in _rules(load(doc).diagnostics)
+#: `invalid-regex` is a model error now (dev/specs/to-do/lint-on-models.md)
+#: -- see tests/test_model_rule_errors.py.
 
 
 def test_regex_shadows_the_accepted_answers() -> None:
@@ -461,12 +545,24 @@ def test_short_answer_without_any_grading_strategy_warns() -> None:
 
 
 def test_open_ended_short_answer_does_not_need_an_answer() -> None:
-    doc = {"type": "short-answer", "stem": "x", "openEnded": True}
+    doc = {
+        "type": "short-answer",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "openEnded": True,
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
 def test_short_answer_with_accepted_answers_does_not_warn() -> None:
-    doc = {"type": "short-answer", "stem": "x", "oneOf": ["Brasília"]}
+    doc = {
+        "type": "short-answer",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "oneOf": ["Brasília"],
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -481,7 +577,14 @@ def test_integer_domain_with_a_fractional_answer_warns() -> None:
 
 
 def test_integer_domain_with_a_whole_answer_does_not_warn() -> None:
-    doc = {"type": "numeric", "stem": "x", "answer": 4.0, "domain": "integer"}
+    doc = {
+        "type": "numeric",
+        "id": "q",
+        "title": "Q",
+        "stem": "x",
+        "answer": 4.0,
+        "domain": "integer",
+    }
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -500,6 +603,8 @@ def test_relative_tolerance_around_zero_warns() -> None:
 def test_absolute_tolerance_around_zero_is_fine() -> None:
     doc = {
         "type": "numeric",
+        "id": "q",
+        "title": "Q",
         "stem": "x",
         "answer": 0,
         "tolerance": {"absolute": 0.05},
@@ -534,42 +639,25 @@ def test_decimal_places_ignored_for_integer_domain_warns_at_strict() -> None:
 
 
 def _fill_in(stem: str, blanks: list) -> dict:
-    return {"type": "fill-in", "stem": stem, "blanks": blanks}
+    return {"type": "fill-in", "id": "q", "title": "Q", "stem": stem, "blanks": blanks}
 
 
-def test_stem_referencing_an_undefined_blank_warns() -> None:
-    doc = _fill_in(
-        "The capital is [^capital] and the size is [^size].",
-        [{"id": "capital", "type": "short-answer", "oneOf": ["Brasília"]}],
-    )
-    warnings = load(doc).diagnostics
-    assert "undefined-blank" in _rules(warnings)
-
-
-def test_blank_never_referenced_by_the_stem_warns() -> None:
-    doc = _fill_in(
-        "The capital is [^capital].",
-        [
-            {"id": "capital", "type": "short-answer", "oneOf": ["Brasília"]},
-            {"id": "size", "type": "numeric", "answer": 2800000},
-        ],
-    )
-    warnings = load(doc).diagnostics
-    assert "unreferenced-blank" in _rules(warnings)
-    matching = [w for w in warnings if w.code == "unreferenced-blank"]
-    assert matching[0].path == ("blanks", 1, "id")
+#: `undefined-blank`/`unreferenced-blank` are model errors now
+#: (dev/specs/to-do/lint-on-models.md) -- see tests/test_model_rule_errors.py.
 
 
 def test_inline_blank_type_is_stripped_from_the_marker() -> None:
     """fill-in.md writes `[^size/numeric]` to state a blank's type
-    inline; the id is the part before the slash."""
+    inline; the id is the part before the slash -- so it must not be
+    mistaken for an undefined/unreferenced blank (which would now stop
+    the document from loading at all)."""
     doc = _fill_in(
         "It has about [^size/numeric] habitants.",
         [{"id": "size", "type": "numeric", "answer": 2800000}],
     )
-    rules = _rules(load(doc).diagnostics)
-    assert "undefined-blank" not in rules
-    assert "unreferenced-blank" not in rules
+    loaded = load(doc)
+    assert loaded.document is not None
+    assert _rules(loaded.diagnostics) == set()
 
 
 #: `duplicate-blank-id` is a model error now, not a lint warning -- see

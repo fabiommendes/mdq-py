@@ -262,9 +262,9 @@ def show(
     # square brackets, which Rich would otherwise parse as markup (and,
     # for a stray closing tag like `[/]`, raise instead of print).
     #
-    # A `Path` source resolves an exam's `include:` entries against its
-    # own directory automatically (see `mdq.load`); stdin has no
-    # directory to resolve against, so it is read as plain text instead.
+    # A `Path` source resolves an exam's include blocks against its own
+    # directory (see `mdq.show.show_source`); stdin has no directory to
+    # resolve against, so it is read as plain text instead.
     source = sys.stdin.read() if str(file) == "-" else file
 
     try:

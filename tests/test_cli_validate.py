@@ -39,16 +39,19 @@ reject:
       - [0, "return a"]
 """
 
-# A well-formed question with a malformed `locale` -- a default-level
-# lint warning, not an error.
+# A well-formed question with a blank tag -- a default-level lint
+# warning, not an error.
 #
-# (Previously two choices sharing the same text; `duplicate-choice-text`
-# is an `error` diagnostic raised by the models now --
-# dev/specs/to-do/unique-ids.md -- so it no longer fits "a warning, not
-# an error".)
+# (Previously a malformed `locale`; `malformed-locale` is an `error`
+# diagnostic raised by the models now --
+# dev/specs/to-do/lint-on-models.md -- so it no longer fits "a warning,
+# not an error". Before that, it stood in for two choices sharing the
+# same text, promoted to `error` the same way by
+# dev/specs/to-do/unique-ids.md.)
 WARNING_ONLY_MD = (
     "---\n"
-    "locale: xx-99\n"
+    "tags:\n"
+    '  - "   "\n'
     "---\n"
     "\n"
     "Explique o efeito Coriolis.\n"

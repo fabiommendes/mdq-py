@@ -16,6 +16,7 @@ dependencies = [
     "optionz>=0.2.0",
     "linkify-it-py>=2.2.0",
     "python-slugify>=8.0.4",
+    "pygments>=2.21.0",
 ]
 
 [project.optional-dependencies]
@@ -47,13 +48,14 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-coverage>=0.0",
     "taskipy>=1.14.1",
+    "doc-zero>=0.2.1",
 ]
 
 [tool.taskipy.tasks]
 test = "pytest tests"
 cov = "pytest --cov=mdq --cov-report=term-missing"
-doc = "uv doc0 build"
-doc-watch = "uv doc0 watch"
+doc = "uv run doc0 build"
+doc-watch = "uv run doc0 watch"
 
 
 [[tool.mypy.overrides]]
@@ -62,6 +64,10 @@ follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
 module = ["yaml.*"]
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pygments.*"]
 follow_untyped_imports = true
 
 [tool.ruff.lint]

@@ -1,23 +1,26 @@
 """
-Resolution of `include:` references from an exam.
+Question banks: where an exam's `include:` and `include-all:` blocks find
+their questions.
 
-An exam may pull in a question that lives elsewhere rather than writing it
+An exam may pull in questions that live elsewhere rather than writing them
 inline. Where "elsewhere" is depends entirely on the host: a directory of
-files, a database, an HTTP question bank. The parser therefore never looks
-anything up itself -- it delegates to a `QuestionLoader`, and this module
-provides the obvious filesystem implementation.
+files, a database, an HTTP question bank. `mdq.load` therefore never looks
+anything up itself. The host calls `Exam.resolve` with a `QuestionBank`,
+and this module provides the obvious filesystem and in-memory ones.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
+from . import parser
 from .errors import MdqError
 
 __all__ = [
     "IncludeNotFound",
-    "QuestionLoader",
+    "QuestionBank",
     "FileLoader",
     "DictLoader",
 ]
@@ -28,7 +31,7 @@ SOURCE_SUFFIXES = (".mdq.md", ".mdq")
 
 
 class IncludeNotFound(MdqError):
-    """Raised when a loader cannot resolve an `include:` reference."""
+    """Raised when a bank cannot resolve an included question id."""
 
     def __init__(self, question_id: str, detail: str = "") -> None:
         message = f"cannot resolve included question {question_id!r}"
@@ -39,23 +42,71 @@ class IncludeNotFound(MdqError):
 
 
 @runtime_checkable
-class QuestionLoader(Protocol):
+class QuestionBank(Protocol):
     """
-    Resolves an `include:` id to the question document it names.
+    The questions an exam can include, by id and by tag.
 
-    Implementations raise `IncludeNotFound` when the id names nothing.
-    They return the question's source, not an already-parsed document:
-    `str` for Markdown text (run through the same `load`/`parse`
-    pipeline as any other Markdown source), or a `Mapping` for
-    already-parsed data (skipping the parse step, exactly like a
-    `Mapping` passed directly to `mdq.load`). Either way, a loader is
-    free to serve questions that were never Markdown to begin with.
+    `load` returns the question's source, not a parsed document: `str`
+    for Markdown text, or a `Mapping` for already-parsed data. It raises
+    `IncludeNotFound` when the id names nothing.
+
+    `tagged` and `ids` are what an `include-all:` query reads (see
+    `mdq.query`). `ids` is only called for a query that selects by
+    exclusion alone, like `NOT draft`, so a large bank can serve most
+    queries from a tag index without listing every question.
     """
 
-    def load(self, question_id: str) -> str | Mapping[str, Any]: ...
+    def load(self, question_id: str) -> str | Mapping[str, Any]:
+        """The source of the question with this id."""
+        ...
+
+    def tagged(self, tag: str) -> Collection[str]:
+        """The ids of the questions that carry `tag`."""
+        ...
+
+    def ids(self) -> Collection[str]:
+        """The ids of every question in the bank."""
+        ...
 
 
-class FileLoader:
+class _IndexedBank:
+    """
+    `tagged`/`ids` for a bank that can list its sources: every question
+    is read once, the first time a query needs the index.
+    """
+
+    _index: dict[str, set[str]] | None = None
+    _ids: set[str] | None = None
+
+    def _sources(self) -> Iterator[tuple[str, str | Mapping[str, Any]]]:
+        raise NotImplementedError
+
+    def tagged(self, tag: str) -> Collection[str]:
+        self._build_index()
+        assert self._index is not None
+        return self._index.get(tag, set())
+
+    def ids(self) -> Collection[str]:
+        self._build_index()
+        assert self._ids is not None
+        return self._ids
+
+    def _build_index(self) -> None:
+        if self._index is not None:
+            return
+        index: dict[str, set[str]] = {}
+        ids: set[str] = set()
+        for question_id, source in self._sources():
+            tags = _tags(source)
+            if tags is None:
+                continue
+            ids.add(question_id)
+            for tag in tags:
+                index.setdefault(tag, set()).add(question_id)
+        self._index, self._ids = index, ids
+
+
+class FileLoader(_IndexedBank):
     """
     Loads questions from a directory tree on the local filesystem.
 
@@ -63,6 +114,8 @@ class FileLoader:
     `recursive` is set, the tree is searched for a file with that stem
     anywhere beneath the root, which is how a bank organised into
     per-topic subdirectories keeps working without qualifying every id.
+    A file that holds an exam, or that does not parse, is not a question
+    of the bank.
     """
 
     def __init__(self, root: Path | str, recursive: bool = True) -> None:
@@ -94,8 +147,15 @@ class FileLoader:
             f"looked for {'/'.join(s for s in SOURCE_SUFFIXES)} under {self.root}",
         )
 
+    def _sources(self) -> Iterator[tuple[str, str]]:
+        paths = self.root.rglob("*") if self.recursive else self.root.iterdir()
+        for path in sorted(paths):
+            question_id = _question_id(path)
+            if question_id is not None and path.is_file():
+                yield question_id, path.read_text(encoding="utf-8")
 
-class DictLoader:
+
+class DictLoader(_IndexedBank):
     """
     Serves questions from an in-memory mapping of id to document.
 
@@ -111,3 +171,31 @@ class DictLoader:
             return self.questions[question_id]
         except KeyError:
             raise IncludeNotFound(question_id, "not in the mapping") from None
+
+    def _sources(self) -> Iterator[tuple[str, str | Mapping[str, Any]]]:
+        yield from self.questions.items()
+
+
+def _question_id(path: Path) -> str | None:
+    """The id a question file answers to: its name, without the suffix."""
+    for suffix in SOURCE_SUFFIXES:
+        if path.name.endswith(suffix):
+            return path.name[: -len(suffix)]
+    return None
+
+
+def _tags(source: str | Mapping[str, Any]) -> list[str] | None:
+    """The tags of a question's source, or `None` if it is not a question."""
+    if isinstance(source, str):
+        if parser.is_exam(source):
+            return None
+        try:
+            source = parser.parse_question(source)
+        except MdqError:
+            return None
+    if source.get("type") == "exam":
+        return None
+    tags = source.get("tags", [])
+    if isinstance(tags, str):
+        return [tag.strip() for tag in tags.split(",") if tag.strip()]
+    return [str(tag) for tag in tags]

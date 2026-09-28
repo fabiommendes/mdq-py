@@ -9,6 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
+from .. import parser
 from ..convert.moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
 
 __all__ = [
@@ -230,5 +231,19 @@ def mdq_text(max_size: int = 30) -> st.SearchStrategy[str]:
         ),
     )
     return st.text(alphabet=alphabet, min_size=1, max_size=max_size).filter(
-        lambda s: s == s.strip() and s != "" and "\n\n" not in s and "[^" not in s
+        lambda s: (
+            s == s.strip()
+            and s != ""
+            and "\n\n" not in s
+            and "[^" not in s
+            # base.md, "Forbidden elements": an H1 heading, a heading or
+            # paragraph starting with '[', or a '['-led list, is now a
+            # model error (dev/specs/to-do/rule-conformance.md, section
+            # D) wherever it lands as a stem/preamble, so a generated
+            # value that happens to look like one is excluded rather
+            # than producing a document that can never be built.
+            and not parser.find_forbidden_elements(
+                s, allow_first_paragraph_bracket=True
+            )
+        )
     )

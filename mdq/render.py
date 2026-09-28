@@ -14,27 +14,6 @@ if TYPE_CHECKING:
     from . import models
 
 
-def common_frontmatter(model: models.BaseQuestion) -> dict[str, Any]:
-    """
-    Return a dict of the common frontmatter fields for a model.
-
-    The `**kwargs` are passed to `mdq.render.render()`.
-    """
-    return {
-        "id": model.id,
-        "uuid": model.uuid,
-        "title": model.title,
-        "author": model.author,
-        "preamble": model.preamble,
-        "epilogue": model.epilogue,
-        "comment": model.comment,
-        "locale": model.locale,
-        "tags": model.tags,
-        "meta": model.meta,
-        "weight": model.weight,
-    }
-
-
 def yield_frontmatter(
     data: dict[str, Any], comment: str | None = None
 ) -> Iterable[str]:

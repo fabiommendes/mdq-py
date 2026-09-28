@@ -19,21 +19,28 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 import mdq
 from mdq import Diagnostic, InvalidDocument, Severity, load, parse
 from mdq.loaders import DictLoader, IncludeNotFound
+from mdq.models import Include
 
 # ---------------------------------------------------------------------
 # Fixtures: Brazil-themed MDQ source, in each surface form.
 # ---------------------------------------------------------------------
 
 QUESTION_MD = """\
+---
+id: capital-do-brasil
+title: A capital do Brasil
+---
+
 Qual é a capital do Brasil?
 
-* [ ] Rio de Janeiro
-* [x] Brasília
-* [ ] São Paulo
+* [ ] [rio] Rio de Janeiro
+* [x] [brasilia] Brasília
+* [ ] [sao-paulo] São Paulo
 """
 
 QUESTION_DATA = {
@@ -64,10 +71,27 @@ ESSAY_MD = """\
 Explique, em uma frase, o que é o efeito Coriolis.
 
 [essay]
+
+## [answer-key]
+
+Ele desvia o movimento de fluidos devido a rotação da Terra.
 """
+
+#: `auther` is a deliberate typo of `author`, for the `unknown-frontmatter-
+#: key` tests below; `id`/`title` are defined so pairing it with `ESSAY_MD`
+#: (which itself defines `answerKey`) produces exactly one diagnostic --
+#: the typo warning -- and nothing from the newer `missing-id`/
+#: `missing-title`/`missing-answer-key` info rules.
+ESSAY_MD_WITH_TYPO = (
+    "---\nid: coriolis\ntitle: O efeito Coriolis\nauther: Machado de Assis\n---\n\n"
+    + ESSAY_MD
+)
 
 ESSAY_DATA = {
     "type": "essay",
+    "id": "coriolis",
+    "title": "O efeito Coriolis",
+    "answerKey": "Ele desvia o movimento de fluidos devido a rotação da Terra.",
     "stem": "Explique, em uma frase, o que é o efeito Coriolis.",
 }
 
@@ -238,7 +262,7 @@ def test_kind_question_narrows_a_question_document() -> None:
 
 
 def test_kind_exam_narrows_an_exam_document() -> None:
-    loaded = load(EXAM_MD, kind="exam", loader=DictLoader({}))
+    loaded = load(EXAM_MD, kind="exam")
     assert loaded
     assert loaded.document.title == "Exame de Geografia do Brasil"
 
@@ -248,11 +272,11 @@ def test_kind_none_accepts_a_question() -> None:
 
 
 def test_kind_none_accepts_an_exam() -> None:
-    assert load(EXAM_MD, kind=None, loader=DictLoader({}))
+    assert load(EXAM_MD, kind=None)
 
 
 def test_kind_question_on_an_exam_reports_wrong_kind() -> None:
-    loaded = load(EXAM_MD, kind="question", loader=DictLoader({}))
+    loaded = load(EXAM_MD, kind="question")
     assert not loaded
     assert loaded.document is None
     assert len(loaded.diagnostics) == 1
@@ -304,7 +328,7 @@ def test_loaded_is_falsy_when_no_document_was_built() -> None:
 def test_loaded_with_only_warnings_is_still_truthy() -> None:
     # An unknown frontmatter key produces a warning, not an error; the
     # document is still built.
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     assert any(d.severity == "warning" for d in loaded.diagnostics)
     assert bool(loaded) is True
     assert loaded.document is not None
@@ -321,7 +345,7 @@ def test_validate_returns_the_document_when_clean() -> None:
 
 
 def test_validate_default_raises_on_error_but_not_on_warning() -> None:
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     assert any(d.severity == "warning" for d in loaded.diagnostics)
     # default raise_on="error": warnings alone must not raise.
     document = loaded.validate()
@@ -329,7 +353,7 @@ def test_validate_default_raises_on_error_but_not_on_warning() -> None:
 
 
 def test_validate_raise_on_warning_raises_when_a_warning_is_present() -> None:
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     with pytest.raises(InvalidDocument):
         loaded.validate(raise_on="warning")
 
@@ -348,7 +372,7 @@ def test_validate_raise_on_info_also_raises_on_a_plain_warning() -> None:
     anything "at or above" `raise_on`. "info" is the lowest rank, so
     every diagnostic -- including a plain warning -- is at or above it.
     """
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     diagnostics = loaded.diagnostics
     assert any(d.severity == "warning" for d in diagnostics)
     assert not any(d.severity in ("error", "info") for d in diagnostics)
@@ -373,7 +397,7 @@ def test_validate_always_raises_when_there_is_no_document() -> None:
 
 
 def test_validate_error_raised_carries_every_diagnostic() -> None:
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     try:
         loaded.validate(raise_on="warning")
     except InvalidDocument as exc:
@@ -404,7 +428,7 @@ def test_parse_raises_invalid_document_on_error() -> None:
 
 def test_parse_raise_on_warning_raises_on_a_warning() -> None:
     with pytest.raises(InvalidDocument):
-        parse("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD, raise_on="warning")
+        parse(ESSAY_MD_WITH_TYPO, raise_on="warning")
 
 
 def test_parse_never_leaks_parse_error_or_pydantic_validation_error() -> None:
@@ -514,7 +538,7 @@ def test_pydantic_only_rule_ordering_overlap_is_reported_as_an_error() -> None:
     assert len(loaded.diagnostics) == 1
     diagnostic = loaded.diagnostics[0]
     assert diagnostic.severity == "error"
-    assert diagnostic.code == "value_error"
+    assert diagnostic.code == "accept-reject-overlap"
 
 
 def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> None:
@@ -531,20 +555,23 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 
 
 def test_default_level_lint_rules_are_warnings() -> None:
-    # No choice scores >= 1, so the question has no correct answer.
+    # Two choices with a score >= 1: only one can be selected
+    # (dev/specs/to-do/rule-conformance.md, section A -- this rule's
+    # sibling, `multiple-choice-no-correct-choice`, moved to `info`,
+    # but this one stays a `warning`).
     data = {
         "type": "multiple-choice",
         "stem": "Qual das opções é a capital do Brasil?",
         "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 0},
-            {"id": "b", "text": "Brasília", "score": 0},
+            {"id": "a", "text": "Rio de Janeiro", "score": 1},
+            {"id": "b", "text": "Brasília", "score": 1},
         ],
     }
     loaded = load(data)
     assert loaded
-    assert "multiple-choice-no-correct-choice" in _codes(loaded.diagnostics)
+    assert "multiple-choice-many-correct-choices" in _codes(loaded.diagnostics)
     matching = [
-        d for d in loaded.diagnostics if d.code == "multiple-choice-no-correct-choice"
+        d for d in loaded.diagnostics if d.code == "multiple-choice-many-correct-choices"
     ]
     assert matching[0].severity == "warning"
 
@@ -574,7 +601,7 @@ def test_unknown_frontmatter_warnings_come_before_lint_diagnostics() -> None:
 
 
 def test_unknown_frontmatter_warning_severity_is_warning() -> None:
-    loaded = load("---\nauther: Machado de Assis\n---\n\n" + ESSAY_MD)
+    loaded = load(ESSAY_MD_WITH_TYPO)
     matching = [d for d in loaded.diagnostics if d.code == "unknown-frontmatter-key"]
     assert len(matching) == 1
     assert matching[0].severity == "warning"
@@ -613,93 +640,53 @@ def _exam_with_include(include_id: str) -> str:
     )
 
 
-def test_default_loader_for_path_source_is_file_loader_of_the_parent_dir(
-    tmp_path: Path,
-) -> None:
+def test_load_leaves_includes_unresolved(tmp_path: Path) -> None:
+    """Resolution is the host's job (`Exam.resolve`), even for a `Path`."""
     (tmp_path / "recursao-fatorial.mdq.md").write_text(
         INCLUDED_QUESTION_MD, encoding="utf-8"
     )
     exam_path = tmp_path / "prova.mdq.md"
     exam_path.write_text(_exam_with_include("recursao-fatorial"), encoding="utf-8")
 
-    loaded = load(exam_path)  # no explicit loader
+    loaded = load(exam_path)
     assert loaded
-    assert loaded.document.questions[0].id == "recursao-fatorial"
+    assert loaded.document.questions[0] == Include(include="recursao-fatorial")
 
 
-def test_explicit_loader_overrides_the_default() -> None:
-    text = _exam_with_include("recursao-fatorial")
-    loader = DictLoader({"recursao-fatorial": INCLUDED_QUESTION_DATA})
-    loaded = load(text, loader=loader)
-    assert loaded
-    assert loaded.document.questions[0].id == "recursao-fatorial"
+def test_resolve_accepts_a_mapping() -> None:
+    bank = DictLoader({"recursao-fatorial": INCLUDED_QUESTION_DATA})
+    exam = load(_exam_with_include("recursao-fatorial")).validate().resolve(bank)
+    assert exam.questions[0].id == "recursao-fatorial"
 
 
-def test_loader_may_return_markdown_text() -> None:
-    class _StrLoader:
-        def load(self, question_id: str) -> str:
-            return INCLUDED_QUESTION_MD
-
-    loaded = load(_exam_with_include("recursao-fatorial"), loader=_StrLoader())
-    assert loaded
-    assert loaded.document.questions[0].id == "recursao-fatorial"
-
-
-def test_loader_may_return_a_mapping() -> None:
-    loader = DictLoader({"recursao-fatorial": INCLUDED_QUESTION_DATA})
-    loaded = load(_exam_with_include("recursao-fatorial"), loader=loader)
-    assert loaded
-    assert loaded.document.questions[0].id == "recursao-fatorial"
+def test_resolve_accepts_markdown_text() -> None:
+    bank = DictLoader({"recursao-fatorial": INCLUDED_QUESTION_MD})
+    exam = load(_exam_with_include("recursao-fatorial")).validate().resolve(bank)
+    assert exam.questions[0].id == "recursao-fatorial"
 
 
 def test_included_question_diagnostics_are_prefixed_with_questions_index() -> None:
     included_with_warning = {
-        # unknown-frontmatter-key cannot fire on a Mapping source (there's
-        # no frontmatter to parse) -- use a lint-level rule instead: a
-        # blank comment field.
         "id": "recursao-fatorial",
         "type": "essay",
         "stem": "Converta este algoritmo iterativo de fatorial em um recursivo.",
         "comment": "   ",
     }
-    loader = DictLoader({"recursao-fatorial": included_with_warning})
-    loaded = load(_exam_with_include("recursao-fatorial"), loader=loader)
-    assert loaded
-    matching = [d for d in loaded.diagnostics if d.code == "blank-text-field"]
+    bank = DictLoader({"recursao-fatorial": included_with_warning})
+    exam = load(_exam_with_include("recursao-fatorial")).validate().resolve(bank)
+    matching = [d for d in exam.lint() if d.code == "blank-text-field"]
     assert len(matching) == 1
     assert matching[0].path[:2] == ("questions", 0)
 
 
-def test_included_question_error_becomes_an_exam_error() -> None:
+def test_an_invalid_included_question_fails_to_resolve() -> None:
     broken = {"id": "recursao-fatorial", "type": "essay"}  # missing 'stem'
-    loader = DictLoader({"recursao-fatorial": broken})
-    loaded = load(_exam_with_include("recursao-fatorial"), loader=loader)
-    assert not loaded
-    assert loaded.document is None
-    assert any(d.severity == "error" for d in loaded.diagnostics)
+    exam = load(_exam_with_include("recursao-fatorial")).validate()
+    with pytest.raises(PydanticValidationError):
+        exam.resolve(DictLoader({"recursao-fatorial": broken}))
 
 
-def test_include_not_found_is_an_error_diagnostic_at_questions_index() -> None:
-    loader = DictLoader({})
-    loaded = load(_exam_with_include("nao-existe"), loader=loader)
-    assert not loaded
-    assert loaded.document is None
-    assert len(loaded.diagnostics) == 1
-    diagnostic = loaded.diagnostics[0]
-    assert diagnostic.severity == "error"
-    assert diagnostic.path == ("questions", 0)
-
-
-def test_include_without_loader_is_an_error_diagnostic_at_questions_index() -> None:
-    loaded = load(_exam_with_include("nao-existe"))
-    assert not loaded
-    assert [(d.severity, d.path) for d in loaded.diagnostics] == [
-        ("error", ("questions", 0))
-    ]
-
-
-def test_include_not_found_raises_from_the_loader_directly() -> None:
-    """Sanity check on the fixture: `DictLoader` itself still raises."""
-    loader = DictLoader({})
+def test_include_not_found_raises_from_resolve() -> None:
+    exam = load(_exam_with_include("nao-existe")).validate()
     with pytest.raises(IncludeNotFound):
-        loader.load("nao-existe")
+        exam.resolve(DictLoader({}))

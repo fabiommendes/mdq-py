@@ -61,7 +61,10 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
     return draw(
         st.builds(
             OrderingQuestion,
-            stem=st.text(min_size=1, max_size=10),
+            # A whitespace-only stem is a `blank-text-field` model error
+            # now (dev/specs/to-do/lint-on-models.md), so it must not
+            # come up here.
+            stem=st.text(min_size=1, max_size=10).filter(lambda s: s.strip() != ""),
             lines=lines("main", min_size=2),
             extra=lines("extra", min_size=0, max_size=3),
             accept=alternatives("accept"),

@@ -1,10 +1,10 @@
 """
-The one path from Markdown/data to a validated model: parse, resolve
-`include:` references, build the pydantic model, then lint.
+The one path from Markdown/data to a validated model: parse, build the
+pydantic model, then lint. An exam's include blocks stay unresolved; the
+host resolves them with `Exam.resolve`.
 
-Every caller -- the library's own top-level `parse`/`load`, the CLI, and
-include resolution for an exam's nested questions -- goes through this
-module. It never raises for a problem *in* the document: a parse
+Every caller -- the library's own top-level `parse`/`load` and the CLI --
+goes through this module. It never raises for a problem *in* the document: a parse
 failure, a pydantic-only rule violation (e.g. an `ordering` question's
 `accept`/`reject` overlap), and a lint warning all come back as
 `Diagnostic`s on the returned `Loaded`. It raises only for a problem
@@ -15,17 +15,17 @@ with the *call itself*: a file that does not exist, or an unknown
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any, Generic, Literal, Mapping, TypeVar, overload
 
 import yaml
 from pydantic import ValidationError as PydanticValidationError
 
-from . import linter, models, parser
+from . import models, parser
 from ._diagnostics import RANK, Diagnostic, Severity
 from .errors import MdqError
-from .loaders import FileLoader, IncludeNotFound, QuestionLoader
+from .errors import UnresolvedInclude
 
 __all__ = [
     "Diagnostic",
@@ -120,7 +120,6 @@ def load(
     *,
     kind: Literal["question"],
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     ids: Ids = "keep",
 ) -> Loaded[models.Question]: ...
 @overload
@@ -129,7 +128,6 @@ def load(
     *,
     kind: Literal["exam"],
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     ids: Ids = "keep",
 ) -> Loaded[models.Exam]: ...
 @overload
@@ -138,7 +136,6 @@ def load(
     *,
     kind: None = None,
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     ids: Ids = "keep",
 ) -> Loaded[models.Question | models.Exam]: ...
 def load(
@@ -146,7 +143,6 @@ def load(
     *,
     kind: Kind | None = None,
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     ids: Ids = "keep",
 ) -> Loaded[Any]:
     """
@@ -159,15 +155,13 @@ def load(
     Args:
         source: A `str` is always the document's own Markdown text (or
             other format, with `format`), never a path. A `Path`'s
-            format comes from its suffix, unless `format` overrides it;
-            when `loader` is `None`, `FileLoader(source.parent)` resolves
-            its includes. An `IO[str]` is read, then handled as `str`. A
+            format comes from its suffix, unless `format` overrides it.
+            An `IO[str]` is read, then handled as `str`. A
             `Mapping` is already-parsed data, and skips the parse step.
         kind: Narrows the return type and checks the document is the
             kind claimed. A mismatch is one `error` diagnostic, code
             `wrong-kind`, detected before any model validation runs.
         format: Overrides the format `source` would otherwise imply.
-        loader: Resolves an exam's `include:` references.
         ids: `"keep"` (the default) returns `Loaded.document` exactly as
             written. `"fill"` returns `document.with_ids()` instead, so
             every question and choice has an id. Lint always inspects
@@ -178,13 +172,11 @@ def load(
         ValueError: `format` cannot be determined, or is not recognized.
     """
     if isinstance(source, Mapping):
-        return _load_data(dict(source), kind=kind, loader=loader, ids=ids)
+        return _load_data(dict(source), kind=kind, ids=ids)
 
     if isinstance(source, Path):
         fmt = format or _format_from_path(source)
         text = source.read_text(encoding="utf-8")
-        if loader is None:
-            loader = FileLoader(source.parent)
     elif isinstance(source, str):
         fmt = format or "mdq"
         text = source
@@ -194,7 +186,7 @@ def load(
     else:
         raise TypeError(f"unsupported source type: {type(source)!r}")
 
-    return _load_text(text, fmt, kind=kind, loader=loader, ids=ids)
+    return _load_text(text, fmt, kind=kind, ids=ids)
 
 
 @overload
@@ -203,7 +195,6 @@ def parse(
     *,
     kind: Literal["question"],
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
     ids: Ids = "keep",
 ) -> models.Question: ...
@@ -213,7 +204,6 @@ def parse(
     *,
     kind: Literal["exam"],
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
     ids: Ids = "keep",
 ) -> models.Exam: ...
@@ -223,7 +213,6 @@ def parse(
     *,
     kind: None = None,
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
     ids: Ids = "keep",
 ) -> models.Question | models.Exam: ...
@@ -232,7 +221,6 @@ def parse(
     *,
     kind: Kind | None = None,
     format: Format | None = None,
-    loader: QuestionLoader | None = None,
     raise_on: Severity = "error",
     ids: Ids = "keep",
 ) -> Any:
@@ -246,7 +234,7 @@ def parse(
             a `ParseError` nor a pydantic `ValidationError` ever escapes
             -- both are folded into this.
     """
-    return load(source, kind=kind, format=format, loader=loader, ids=ids).validate(
+    return load(source, kind=kind, format=format, ids=ids).validate(
         raise_on
     )
 
@@ -275,18 +263,17 @@ def _load_text(
     fmt: str,
     *,
     kind: Kind | None,
-    loader: QuestionLoader | None,
     ids: Ids,
 ) -> Loaded[Any]:
     if fmt == "mdq":
-        return _load_mdq_text(text, kind=kind, loader=loader, ids=ids)
+        return _load_mdq_text(text, kind=kind, ids=ids)
     if fmt in ("yaml", "yml"):
         try:
             data = yaml.safe_load(text)
         except yaml.YAMLError as exc:
             return Loaded(None, [_syntax_error("yaml-syntax-error", exc)])
         return _load_data(
-            data if isinstance(data, dict) else {}, kind=kind, loader=loader, ids=ids
+            data if isinstance(data, dict) else {}, kind=kind, ids=ids
         )
     if fmt == "json":
         try:
@@ -294,7 +281,7 @@ def _load_text(
         except json.JSONDecodeError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
         return _load_data(
-            data if isinstance(data, dict) else {}, kind=kind, loader=loader, ids=ids
+            data if isinstance(data, dict) else {}, kind=kind, ids=ids
         )
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
 
@@ -307,7 +294,6 @@ def _load_mdq_text(
     text: str,
     *,
     kind: Kind | None,
-    loader: QuestionLoader | None,
     ids: Ids,
 ) -> Loaded[Any]:
     is_exam_doc = parser.is_exam(text)
@@ -319,7 +305,7 @@ def _load_mdq_text(
     try:
         if is_exam_doc:
             data: dict[str, Any] = dict(
-                parser.parse_exam(text, loader=None, warnings=collected)
+                parser.parse_exam(text, warnings=collected)
             )
         else:
             data = dict(parser.parse_question(text, warnings=collected))
@@ -327,7 +313,7 @@ def _load_mdq_text(
         return Loaded(None, [_parse_error(exc)])
 
     if is_exam_doc:
-        return _load_exam(data, collected, loader, ids=ids)
+        return _load_exam(data, collected, ids=ids)
     return _load_question(data, collected, ids=ids)
 
 
@@ -335,7 +321,6 @@ def _load_data(
     data: Any,
     *,
     kind: Kind | None,
-    loader: QuestionLoader | None = None,
     ids: Ids = "keep",
 ) -> Loaded[Any]:
     if not isinstance(data, Mapping):
@@ -356,7 +341,7 @@ def _load_data(
         return Loaded(None, [mismatch])
 
     if is_exam_doc:
-        return _load_exam(dict(data), [], loader, ids=ids)
+        return _load_exam(dict(data), [], ids=ids)
     return _load_question(dict(data), [], ids=ids)
 
 
@@ -387,7 +372,8 @@ def _parse_error(exc: MdqError) -> Diagnostic:
     node = getattr(exc, "node", None)
     if node is not None and node.map is not None:
         line = node.map[0] + 1
-    return Diagnostic(severity="error", code="parse-error", message=str(exc), line=line)
+    code = getattr(exc, "code", "parse-error")
+    return Diagnostic(severity="error", code=code, message=str(exc), line=line)
 
 
 # ---------------------------------------------------------------------
@@ -395,13 +381,44 @@ def _parse_error(exc: MdqError) -> Diagnostic:
 # ---------------------------------------------------------------------
 
 
-def _pydantic_diagnostics(exc: PydanticValidationError) -> list[Diagnostic]:
+def _strip_discriminator_tags(
+    loc: tuple[str | int, ...], data: Any
+) -> tuple[str | int, ...]:
+    """
+    Drop the segments pydantic inserts into `loc` for a discriminated
+    union member (`models.Question`, `models.Blank`).
+
+    Such a segment is the member's `type` tag, not a key or index of the
+    document, and `Diagnostic.path` promises only keys and indices. A
+    segment is a tag when the input value at that point is a dict whose
+    `type` equals the segment and which has no key of that name. Walking
+    `data` keeps real keys that happen to look like a tag, such as the
+    question types used as keys of an exam's `grading`.
+    """
+    path: list[str | int] = []
+    node = data
+    for segment in loc:
+        if (
+            isinstance(node, dict)
+            and segment not in node
+            and node.get("type") == segment
+        ):
+            continue
+        path.append(segment)
+        try:
+            node = node[segment]
+        except (KeyError, IndexError, TypeError):
+            node = None
+    return tuple(path)
+
+
+def _pydantic_diagnostics(exc: PydanticValidationError, data: Any) -> list[Diagnostic]:
     return [
         Diagnostic(
             severity="error",
             code=str(error["type"]),
             message=error["msg"],
-            path=tuple(error["loc"]),
+            path=_strip_discriminator_tags(tuple(error["loc"]), data),
         )
         for error in exc.errors()
     ]
@@ -414,10 +431,10 @@ def _load_question(
     try:
         question = models.QuestionRoot.model_validate(data).root
     except PydanticValidationError as exc:
-        diagnostics.extend(_pydantic_diagnostics(exc))
+        diagnostics.extend(_pydantic_diagnostics(exc, data))
         return Loaded(None, diagnostics)
 
-    diagnostics.extend(linter.lint_document(data, data.get("type", "")))
+    diagnostics.extend(question.lint())
     if ids == "fill":
         question = question.with_ids()
     return Loaded(question, diagnostics)
@@ -426,95 +443,23 @@ def _load_question(
 def _load_exam(
     data: dict[str, Any],
     diagnostics: list[Diagnostic],
-    loader: QuestionLoader | None,
     *,
     ids: Ids = "keep",
 ) -> Loaded[Any]:
     diagnostics = list(diagnostics)
-    entries = list(data.get("questions") or [])
-    ok = True
-    resolved: list[Any] = []
-
-    for index, entry in enumerate(entries):
-        if _is_unresolved_include(entry):
-            question_dict, entry_diagnostics = _resolve_include(
-                loader, entry["include"], data
-            )
-        else:
-            question_dict, entry_diagnostics = dict(entry), []
-
-        diagnostics.extend(
-            replace(d, path=("questions", index) + d.path) for d in entry_diagnostics
-        )
-        if question_dict is None:
-            ok = False
-            continue
-
-        diagnostics.extend(
-            replace(d, path=("questions", index) + d.path)
-            for d in linter.lint_document(question_dict, question_dict.get("type", ""))
-        )
-        resolved.append(question_dict)
-
-    if not ok:
-        return Loaded(None, diagnostics)
-
-    data = {**data, "questions": resolved}
     try:
         exam = models.Exam.model_validate(data)
     except PydanticValidationError as exc:
-        diagnostics.extend(_pydantic_diagnostics(exc))
+        diagnostics.extend(_pydantic_diagnostics(exc, data))
         return Loaded(None, diagnostics)
 
-    diagnostics.extend(linter.lint_document(data, "exam"))
+    diagnostics.extend(exam.lint())
     if ids == "fill":
-        exam = exam.with_ids()
-    return Loaded(exam, diagnostics)
-
-
-def _is_unresolved_include(entry: Any) -> bool:
-    return isinstance(entry, Mapping) and "include" in entry and "type" not in entry
-
-
-#: Fields a question inherits from the exam when it declares none itself
-#: -- mirrors `mdq.parser.INHERITED_FIELDS`.
-_INHERITED_FIELDS = ("locale", "author")
-
-
-def _resolve_include(
-    loader: QuestionLoader | None,
-    target: Any,
-    exam: Mapping[str, Any],
-) -> tuple[dict[str, Any] | None, list[Diagnostic]]:
-    target = str(target)
-    if loader is None:
-        return None, [
-            Diagnostic(
-                severity="error",
-                code="include-not-found",
-                message=f"cannot resolve included question {target!r}: no loader given",
-            )
-        ]
-
-    try:
-        source = loader.load(target)
-    except IncludeNotFound as exc:
-        return None, [
-            Diagnostic(severity="error", code="include-not-found", message=str(exc))
-        ]
-
-    diagnostics: list[Diagnostic] = []
-    if isinstance(source, str):
         try:
-            data = dict(parser.parse_question(source, warnings=diagnostics))
-        except MdqError as exc:
-            return None, [_parse_error(exc)]
-    else:
-        data = dict(source)
-
-    data.setdefault("id", target)
-    for field_name in _INHERITED_FIELDS:
-        if field_name not in data and field_name in exam:
-            data[field_name] = exam[field_name]
-
-    return data, diagnostics
+            exam = exam.with_ids()
+        except UnresolvedInclude as exc:
+            diagnostics.append(
+                Diagnostic(severity="error", code="unresolved-include-all", message=str(exc))
+            )
+            return Loaded(None, diagnostics)
+    return Loaded(exam, diagnostics)
