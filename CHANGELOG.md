@@ -19,6 +19,7 @@ Implements the unreleased MDQ specification.
 - `mdq.load()` and `mdq.parse()`, with diagnostics for errors, warnings and
   lint problems.
 - Derived ids for questions and choices (`with_ids()`).
+- `render()` and `str()` write questions and exams as MDQ Markdown.
 - Scoring of student responses.
 - Import and export of GIFT, Aiken and Moodle XML.
 - `mdq` CLI with the `new`, `validate`, `show`, `import` and `export`

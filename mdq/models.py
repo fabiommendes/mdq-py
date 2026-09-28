@@ -652,8 +652,9 @@ class BaseQuestion[R](MdqModel):
         )
         if not skip_frontmatter:
             id = None
-            yield from render.yield_frontmatter(frontmatter, self.comment)
-            yield ""
+            if frontmatter or self.comment:
+                yield from render.yield_frontmatter(frontmatter, self.comment)
+                yield ""
 
         yield from render.yield_introduction(self, id=id)
         yield from self._render_body()
@@ -2081,6 +2082,72 @@ class Exam(MdqModel):
                     replace(d, path=path + d.path) for d in entry.lint()
                 )
         return diagnostics
+
+    def _render_lines(self) -> Iterable[str]:
+        """
+        Render the exam as MDQ Markdown (docs/exam.md): frontmatter, H1
+        title, instructions, then one block per entry.
+
+        The H1 carries `[id] title` when both fit there exactly. Otherwise
+        the frontmatter carries them, because it takes precedence over the
+        H1 when the exam is parsed again.
+        """
+        frontmatter = self.to_dict()
+        for key in ("type", "id", "title", "instructions", "questions"):
+            frontmatter.pop(key, None)
+
+        heading: list[str] = []
+        if self.id is not None and re.fullmatch(parser.SLUG_BODY_RE, self.id):
+            heading.append(f"[{self.id}]")
+        elif self.id is not None:
+            frontmatter["id"] = self.id
+
+        title = self.title
+        title_fits = (
+            title is not None
+            and title == title.strip()
+            and len(title.splitlines()) == 1
+            and (heading or not parser.SLUG_PREFIX_RE.match(title))
+        )
+        if title_fits:
+            heading.append(str(title))
+        else:
+            # Also written when `title` is None: the H1 below then holds a
+            # placeholder, and `title: null` keeps it out of the model.
+            frontmatter["title"] = title
+            if not heading:
+                lines = (title or "").strip().splitlines()
+                placeholder = lines[0] if lines else ""
+                if not placeholder or parser.SLUG_PREFIX_RE.match(placeholder):
+                    placeholder = "Exam"
+                heading.append(placeholder)
+
+        if frontmatter:
+            yield from render.yield_frontmatter(frontmatter)
+            yield ""
+        yield "# " + " ".join(heading)
+        if self.instructions:
+            yield ""
+            yield self.instructions
+        for entry in self.questions:
+            yield ""
+            yield from self._render_entry(entry)
+
+    def _render_entry(self, entry: Question | Include | IncludeAll) -> Iterable[str]:
+        if isinstance(entry, (Include, IncludeAll)):
+            yield from render.yield_frontmatter(entry.to_dict())
+            return
+        # A question inherits these fields from the exam, so repeating the
+        # exam's value in the question's frontmatter is redundant.
+        inherited = {
+            field: None
+            for field in parser.INHERITED_FIELDS
+            if getattr(entry, field) is not None
+            and getattr(entry, field) == getattr(self, field)
+        }
+        yield parser.SEPARATOR
+        yield ""
+        yield entry.model_copy(update=inherited).render()
 
     def model_post_init(self, __ctx):
         questions = [q for q in self.questions if isinstance(q, BaseQuestion)]
