@@ -19,7 +19,8 @@ import pytest
 from hypothesis import given
 from rich.console import Console
 
-from mdq import load, models, show as show_mod
+from mdq import load, models
+from mdq.cli import _show as show_mod
 from mdq.errors import ParseError
 from strategies import schedule as st_schedule
 from mdq._parser import parse_exam

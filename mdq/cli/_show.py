@@ -1,5 +1,5 @@
 """
-Human-readable console presentation of a parsed MDQ document.
+`mdq show`: human-readable console presentation of a parsed MDQ document.
 
 `models.BaseQuestion.render()` is the round-trip serializer: it turns a
 model back into MDQ Markdown, byte for byte close enough to parse back
@@ -21,22 +21,23 @@ model.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Iterable
 
+import typer
 from rich.console import Console, Group, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from . import _schedule, models
-from .models import _render
-from ._banks import FileLoader, QuestionBank
-from ._loading import parse
-from .types import NumericDomain, Source
-
-__all__ = ["show_source", "render_question", "render_exam"]
+from .. import _schedule, models
+from ..models import _render
+from .._banks import FileLoader, QuestionBank
+from .._loading import InvalidDocument, parse
+from ..types import NumericDomain, Source
+from ._app import app
 
 _ANSWER_KEY_STYLE = "green"
 _NOTE_STYLE = "dim italic"
@@ -548,3 +549,68 @@ def _render_markdown(console: Console, text: str | None) -> None:
 
 def _format_number(value: float) -> str:
     return f"{value:g}"
+
+
+#
+# CLI command
+#
+@app.command()
+def show(
+    file: Path = typer.Argument(
+        ...,
+        help="Path to a question or exam document (.mdq.md or .mdq), or - for stdin.",
+    ),
+    no_answer_key: bool = typer.Option(
+        False,
+        "--no-answer-key",
+        help=(
+            "Hide anything that reveals the correct answer (correctness "
+            "marks, an essay's answer key, a numeric answer, ...), as if "
+            "previewing the question for a student."
+        ),
+    ),
+    width: int | None = typer.Option(
+        None,
+        "--width",
+        help="Console width to render at (default: the terminal's own width).",
+    ),
+) -> None:
+    """
+    Show the parsed representation of a question or exam document.
+
+    Renders rich-text fields (preamble, stem, epilogue, choice text,
+    feedback, ...) as Markdown and everything else as structured
+    metadata, so the document's shape is easy to check at a glance.
+    """
+
+    console = Console(
+        file=sys.stdout,
+        width=width,
+        highlight=False,
+        force_terminal=True,
+    )
+    error_console = Console(
+        file=sys.stderr,
+        highlight=False,
+        force_terminal=True,
+    )
+
+    # Everything below that can embed a path or an exception message is
+    # printed as a `Text` object, never spliced into a markup `str` --
+    # `file` and `exc` can both carry document/filesystem content with
+    # square brackets, which Rich would otherwise parse as markup (and,
+    # for a stray closing tag like `[/]`, raise instead of print).
+    #
+    # A `Path` source resolves an exam's include blocks against its own
+    # directory (see `show_source` above); stdin has no directory to
+    # resolve against, so it is read as plain text instead.
+    source = sys.stdin.read() if str(file) == "-" else file
+
+    try:
+        show_source(source, console, show_answer_key=not no_answer_key)
+    except OSError as exc:
+        error_console.print("[b red]error:[/]", Text(f"could not read {file}: {exc}"))
+        raise typer.Exit(code=2)
+    except (ValueError, InvalidDocument) as exc:
+        error_console.print("[b red]error:[/]", Text(str(exc)))
+        raise typer.Exit(code=1)

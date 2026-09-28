@@ -1,19 +1,20 @@
 """
-Scaffold new question documents for each MDQ question type.
+`mdq new`: scaffold a question document for each MDQ question type.
 
 `render_template` returns the markdown for a bare-bones or a
-feature-complete example of a given question type, so `mdq new` (and any
-other caller) has one source of truth for what a freshly scaffolded
-document looks like.
+feature-complete example of a given question type, so `new` has one
+source of truth for what a freshly scaffolded document looks like.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
-from .types import QUESTION_TYPES as _QUESTION_TYPES
+import typer
 
-__all__ = ["QUESTION_TYPES", "default_output_path", "render_template"]
+from ..types import QUESTION_TYPES as _QUESTION_TYPES
+from ._app import app
 
 #: Every question type `mdq new` can scaffold, sorted for stable CLI output.
 QUESTION_TYPES: tuple[str, ...] = tuple(sorted(_QUESTION_TYPES))
@@ -424,3 +425,50 @@ print(area, perimeter)
 ```
 ''',
 }
+
+
+@app.command()
+def new(
+    question_type: str = typer.Argument(
+        ...,
+        help=f"Question type to scaffold ({', '.join(QUESTION_TYPES)}).",
+    ),
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            ...,
+            "-o",
+            "--output",
+            help="Where to write the new question file (default: <type>.mdq.md).",
+        ),
+    ] = None,
+    complete: bool = typer.Option(
+        False,
+        "--complete",
+        help=(
+            "Illustrate every feature the question type supports, "
+            "instead of a bare-bones example."
+        ),
+    ),
+) -> None:
+    """
+    Scaffold a new question document.
+    """
+
+    try:
+        content = render_template(question_type, complete=complete)
+    except KeyError:
+        valid = ", ".join(QUESTION_TYPES)
+        typer.echo(
+            f"error: unknown question type {question_type!r} (expected one of: {valid})",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    path = output or default_output_path(question_type)
+    if path.exists():
+        typer.echo(f"error: {path} already exists", err=True)
+        raise typer.Exit(code=2)
+
+    path.write_text(content, encoding="utf-8")
+    typer.echo(f"wrote {path}")

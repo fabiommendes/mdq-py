@@ -1,5 +1,5 @@
 """
-Tests for `mdq.show` and the `mdq show` CLI command.
+Tests for `mdq.cli._show` and the `mdq show` CLI command.
 
 Mirrors the pattern in `tests/test_render.py`: render into a
 `rich.console.Console` backed by an `io.StringIO()` and assert on the
@@ -20,8 +20,8 @@ import pytest
 from rich.console import Console
 from typer.testing import CliRunner
 
-from mdq import show as show_mod
 from mdq.cli import app
+from mdq.cli import _show as show_mod
 from mdq._banks import FileLoader
 from _corpus import VALID_EXAMS, VALID_QUESTIONS, VALID_SOURCES, relative_id
 
@@ -29,7 +29,7 @@ runner = CliRunner()
 
 
 def render(path: Path, *, show_answer_key: bool = True) -> str:
-    """Render `path` with `mdq.show.show_source` and return the plain text."""
+    """Render `path` with `mdq.cli._show.show_source` and return the plain text."""
     buf = io.StringIO()
     console = Console(file=buf, width=100, highlight=False)
     src = path.read_text(encoding="utf-8")
