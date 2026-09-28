@@ -141,7 +141,7 @@ def test_render_short_answer_question() -> None:
     )
     src = question.render()
     expected = (
-        "\nName a primary colour.\n\n"
+        "Name a primary colour.\n\n"
         "[short-answer]:\n"
         "* `red`\n"
         "* `green`\n"
