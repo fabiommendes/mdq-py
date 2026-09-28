@@ -61,10 +61,9 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
     return draw(
         st.builds(
             OrderingQuestion,
-            # A whitespace-only stem is a `blank-text-field` model error
-            # now (dev/specs/to-do/lint-on-models.md), so it must not
-            # come up here.
-            stem=st.text(min_size=1, max_size=10).filter(lambda s: s.strip() != ""),
+            # Plain prose: a blank stem or one that starts a forbidden
+            # block (an H1, say) is a model error, not what this tests.
+            stem=st.from_regex(r"[A-Za-z][A-Za-z ]{0,9}", fullmatch=True),
             lines=lines("main", min_size=2),
             extra=lines("extra", min_size=0, max_size=3),
             accept=alternatives("accept"),
