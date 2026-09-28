@@ -9,8 +9,8 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from .. import parser
-from ..convert.moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
+from mdq import parser
+from mdq.convert.moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
 
 __all__ = [
     "moodle_text",

@@ -25,7 +25,7 @@ from mdq import models
 from mdq.errors import NotAutoGradable, ParseError
 from mdq.parser import parse_any, parse_file
 from mdq.regex import RegexPattern
-from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
+from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
 
 def _parse(source: str) -> dict:

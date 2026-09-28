@@ -9,7 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from ..convert.gift import GiftBlock, GiftNumericOption, GiftOption
+from mdq.convert.gift import GiftBlock, GiftNumericOption, GiftOption
 
 __all__ = [
     "GIFT_SPECIAL_CHARS",

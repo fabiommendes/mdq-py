@@ -1,12 +1,9 @@
 """
 Locations of the example documents the test suite runs against.
 
-DEVELOPMENT ONLY: the examples live at the root of the source checkout,
-outside the package, so they are not shipped in the built distribution.
-Every path below resolves relative to the repo root and therefore means
-nothing in an installed `mdq` -- the `collect_*` functions simply return
-empty lists there. Import this from the test suite, never from library
-or CLI code.
+Every path below resolves relative to the repository root -- one level
+up from `mdq-py/` -- so it means nothing outside this checkout. Import
+this from the test suite only, never from library or CLI code.
 """
 
 import json
@@ -30,11 +27,6 @@ VALID_EXAMS_DIR = VALID_DIR / "exam"
 #: Surface-syntax questions. A question and an exam share this extension
 #: and are told apart by their content, not by their name.
 SOURCE_SUFFIX = ".mdq.md"
-
-#: Every extension a document's own surface syntax may use -- the
-#: `.lint.json` sitting next to it is named after whichever of these its
-#: filename ends with (see `lint_json_sibling`).
-_DOCUMENT_SUFFIXES_ALL = (".mdq.md", ".mdq", ".yaml", ".yml", ".json")
 
 VALID_SOURCES: list[Path]
 VALID_PARSED: list[Path]
@@ -70,26 +62,6 @@ def collect_sources(root: Path) -> list[Path]:
 #: The .yaml a source document is expected to parse into.
 def parsed_sibling(source: Path) -> Path:
     return source.with_name(source.name[: -len(SOURCE_SUFFIX)] + ".yaml")
-
-
-def lint_json_sibling(document: Path) -> Path:
-    """
-    The `.lint.json` a document's expected lint diagnostics live in.
-
-    `foo.mdq.md` and `foo.yaml` share `foo.lint.json`: both are stripped
-    to the same stem before the `.lint.json` suffix is appended. Doesn't
-    check that the file exists -- a missing one means zero diagnostics
-    are expected, not that there's nothing to check (see
-    `dev/specs/to-do/loading-module.md`, "Expected lint files").
-    """
-    name = document.name
-    for suffix in _DOCUMENT_SUFFIXES_ALL:
-        if name.endswith(suffix):
-            stem = name[: -len(suffix)]
-            break
-    else:
-        stem = document.stem
-    return document.with_name(f"{stem}.lint.json")
 
 
 INVALID_MODEL_ONLY_PARSED = collect_files(INVALID_MODEL_ONLY_DIR)

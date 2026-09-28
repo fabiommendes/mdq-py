@@ -16,7 +16,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError as JsonSchemaError
 from jsonschema.validators import validator_for
 
-from mdq.testing import (
+from _corpus import (
     INVALID_PARSED,
     VALID_PARSED,
     bundled_types,

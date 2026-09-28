@@ -27,7 +27,7 @@ from mdq.convert.moodle_xml import (
     render_cloze,
 )
 from mdq.convert.parser import ParserError
-from mdq.hypothesis.moodle_xml import (
+from strategies.moodle_xml import (
     mdq_text,
     moodle_cloze,
     moodle_essay_block,

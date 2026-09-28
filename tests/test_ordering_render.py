@@ -23,7 +23,7 @@ import pytest
 from hypothesis import given
 
 from mdq.models import OrderingAlternative, OrderingQuestion
-from mdq.testing import relative_id
+from _corpus import relative_id
 from test_ordering_models import MINIMAL, ORDERING_FIXTURES, ordering_questions
 from test_ordering_scoring import load_fixture
 

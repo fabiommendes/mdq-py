@@ -10,7 +10,7 @@ from hypothesis import given
 
 from mdq.convert.aiken import Aiken, AikenParser, AikenQuestion
 from mdq.convert.parser import ParserError
-from mdq.hypothesis.aiken import aiken_questions
+from strategies.aiken import aiken_questions
 from mdq.models import EssayQuestion, MultipleChoiceQuestion, ScoredChoice
 
 

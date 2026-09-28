@@ -1,14 +1,11 @@
-from . import frontmatter, schedule
+"""
+Hypothesis strategies for generating MDQ questions and exams. Requires
+the `mdq[hypothesis]` extra.
+"""
+
 from .documents import exams, questions
-from .slugs import colliding_text_sets, forbid_sets, sluggable_texts, text_sets
 
 __all__ = [
     "exams",
     "questions",
-    "colliding_text_sets",
-    "forbid_sets",
-    "sluggable_texts",
-    "text_sets",
-    "frontmatter",
-    "schedule",
 ]

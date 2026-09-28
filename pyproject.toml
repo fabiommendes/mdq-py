@@ -21,12 +21,10 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+hypothesis = ["hypothesis>=6.167.1"]
 
 [project.scripts]
 mdq = "mdq.cli:main"
-
-[tool.setuptools]
-packages = ["mdq"]
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]
@@ -75,5 +73,6 @@ ignore = [
     "F402", # Ignore redefinition of unused name from import
 ]
 
-[tool.pytest]
+[tool.pytest.ini_options]
+pythonpath = ["tests", "scripts"]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

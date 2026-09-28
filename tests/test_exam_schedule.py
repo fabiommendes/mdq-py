@@ -21,7 +21,7 @@ from rich.console import Console
 
 from mdq import load, models, show as show_mod
 from mdq.errors import ParseError
-from mdq.hypothesis import schedule as st_schedule
+from strategies import schedule as st_schedule
 from mdq.parser import parse_exam
 
 

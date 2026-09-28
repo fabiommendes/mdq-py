@@ -28,7 +28,7 @@ from mdq.models import (
     OrderingQuestion,
     QuestionRoot,
 )
-from mdq.testing import VALID_DIR, collect_files, relative_id
+from _corpus import VALID_DIR, collect_files, relative_id
 
 ORDERING_DIR = VALID_DIR / "ordering"
 ORDERING_FIXTURES = collect_files(ORDERING_DIR)

@@ -34,7 +34,7 @@ from __future__ import annotations
 import re
 
 from mdq import load
-from mdq.testing import INVALID_MODEL_ONLY_PARSED, MDQ_ROOT, VALID_PARSED
+from _corpus import INVALID_MODEL_ONLY_PARSED, MDQ_ROOT, VALID_PARSED
 
 _LINT_CODES_MD = MDQ_ROOT / "docs" / "lint-codes.md"
 _ROW_RE = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|")

@@ -25,7 +25,7 @@ from mdq import load
 from mdq.loaders import FileLoader
 from mdq.models import Exam
 from mdq.parser import parse_any, parse_exam, parse_file
-from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
+from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
 #: Pairs the parser is known not to reproduce exactly, with the reason.
 #: Keyed by the same id `relative_id` gives the pair (e.g.

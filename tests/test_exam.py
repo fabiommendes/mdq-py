@@ -12,7 +12,7 @@ from mdq import load
 from mdq.models import Exam, Include
 from mdq.loaders import DictLoader, FileLoader, IncludeNotFound, QuestionBank
 from mdq.parser import is_exam, parse_any, parse_file
-from mdq.testing import VALID_DIR, parsed_sibling
+from _corpus import VALID_DIR, parsed_sibling
 
 MIDTERM = VALID_DIR / "exam" / "midterm.mdq.md"
 

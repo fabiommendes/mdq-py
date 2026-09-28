@@ -24,10 +24,10 @@ from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from mdq.cli import app
-from mdq.hypothesis import frontmatter as st_frontmatter
+from strategies import frontmatter as st_frontmatter
 from mdq._diagnostics import Diagnostic
 from mdq.parser import parse_any, parse_exam, parse_question
-from mdq.testing import VALID_SOURCES, relative_id
+from _corpus import VALID_SOURCES, relative_id
 
 runner = CliRunner()
 

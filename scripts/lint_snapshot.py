@@ -10,10 +10,9 @@ same document. This script never hand-edits an existing file: it only
 creates one that is missing, or reports a mismatch for a human to
 review and, if it agrees, rewrite explicitly with `--overwrite`.
 
-Reachable only by running this module directly (``python -m
-mdq.scripts.lint_snapshot``) -- like `scripts/schema_bundle.py` at the repository root, this is
-a maintenance step for this repo, not something a user of the `mdq` CLI
-ever needs.
+Run it from `mdq-py/` with `uv run scripts/lint_snapshot.py` -- like
+`scripts/schema_bundle.py` at the repository root, this is a maintenance
+step for this repo, not something a user of the `mdq` CLI ever needs.
 """
 
 from __future__ import annotations
@@ -27,6 +26,9 @@ from typing import Any
 from mdq import load
 
 __all__ = ["diagnostics_for", "main"]
+
+#: Root of the mdq-spec checkout, one level above `mdq-py/`.
+_MDQ_ROOT = Path(__file__).resolve().parent.parent.parent
 
 #: Every surface syntax a document may use. Longest-first, so `.mdq.md`
 #: is stripped whole rather than leaving a stray `.md`.
@@ -49,7 +51,7 @@ def diagnostics_for(path: Path) -> list[dict[str, Any]]:
 
 def main(argv: list[str] | None = None) -> int:
     """
-    Entry point for `python -m mdq.scripts.lint_snapshot`.
+    Entry point for `uv run scripts/lint_snapshot.py`.
 
     Args:
         argv: Command-line arguments, defaulting to `sys.argv[1:]`.
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         otherwise.
     """
     parser = argparse.ArgumentParser(
-        prog="python -m mdq.scripts.lint_snapshot",
+        prog="scripts/lint_snapshot.py",
         description=(
             "Create missing .lint.json snapshots and report stale ones. "
             "Never rewrites an existing file except one named by "
@@ -70,8 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path("examples/valid"),
-        help="corpus root to scan (default: examples/valid)",
+        default=_MDQ_ROOT / "examples" / "valid",
+        help="corpus root to scan (default: examples/valid at the repository root)",
     )
     parser.add_argument(
         "--overwrite",

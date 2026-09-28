@@ -4,7 +4,7 @@ Tests for the `.lint.json` corpus convention and its snapshot script (see
 dev/specs/to-do/loading-module.md).
 
 ASSUMPTION (the spec names the script but not its exact CLI shape): the
-snapshot script `mdq/scripts/lint_snapshot.py` exposes a
+snapshot script `mdq-py/scripts/lint_snapshot.py` exposes a
 `main(argv: list[str]) -> int` entry point mirroring
 `main` in the root `scripts/schema_bundle.py`, accepting `--root PATH` to point at a
 corpus root (default: `examples/valid`) and `--overwrite PATH...` to
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from mdq import load
-from mdq.testing import VALID_PARSED, VALID_SOURCES, relative_id
+from _corpus import VALID_PARSED, VALID_SOURCES, relative_id
 
 # ---------------------------------------------------------------------
 # Shared helpers: computing / comparing a document's expected diagnostics
@@ -227,10 +227,10 @@ def test_valid_source_example_matches_its_lint_json(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------
-# Snapshot script: mdq/scripts/lint_snapshot.py
+# Snapshot script: mdq-py/scripts/lint_snapshot.py
 # ---------------------------------------------------------------------
 
-lint_snapshot = pytest.importorskip("mdq.scripts.lint_snapshot")
+lint_snapshot = pytest.importorskip("lint_snapshot")
 
 
 def _write_corpus(tmp_path: Path) -> Path:

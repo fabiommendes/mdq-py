@@ -9,7 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from ..convert.aiken import CHOICE_REGEX, AikenQuestion
+from mdq.convert.aiken import CHOICE_REGEX, AikenQuestion
 
 __all__ = ["aiken_line_text", "aiken_stems", "aiken_questions"]
 

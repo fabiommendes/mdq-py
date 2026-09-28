@@ -25,7 +25,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from mdq import load
-from mdq.testing import (
+from _corpus import (
     INVALID_MODEL_ONLY_PARSED,
     INVALID_PARSED,
     VALID_PARSED,

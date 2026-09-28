@@ -3,7 +3,7 @@
 `duration` fields (docs/exam.md § "Duration and Start Time",
 schema/exam.yaml).
 
-Property tests use the strategies in `mdq.hypothesis.schedule`, built
+Property tests use the strategies in `strategies.schedule`, built
 directly from the spec's grammar and canonicalization rules rather than
 from `mdq.schedule` itself. Table-driven tests pin the rejection list
 and a handful of canonical examples the spec calls out by name.
@@ -18,7 +18,7 @@ import pytest
 from hypothesis import given
 
 from mdq import schedule
-from mdq.hypothesis import schedule as st_schedule
+from strategies import schedule as st_schedule
 
 #: Copied verbatim from schema/exam.yaml so a drift between the schema
 #: and this test suite is caught, not silently tolerated.

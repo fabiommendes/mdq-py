@@ -7,7 +7,7 @@ non-forbidden slug for every item, no matter how degenerate the input text
 is (empty, symbols-only, all-identical-once-slugified, ...). The corner
 cases below pin specific inputs; the Hypothesis properties at the bottom
 check the same contract holds for the much wider space of inputs
-`mdq.hypothesis.slugs` can generate, including deliberately collision-prone
+`strategies.slugs` can generate, including deliberately collision-prone
 sets built from cosmetic variants of the same text.
 """
 
@@ -17,7 +17,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from mdq.hypothesis import slugs as st_slugs
+from strategies import slugs as st_slugs
 from mdq.slugify import (
     DIGIT_NAMES,
     SLUGIFIERS,

@@ -22,7 +22,7 @@ import yaml
 
 from mdq import schedule
 from mdq.types import QUESTION_TYPES
-from mdq.testing import VALID_SOURCES, parsed_sibling, relative_id
+from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
 #: `* [x] text`, `- [ ] text`, `+ [50%] text` -- a body choice item. The
 #: bracket is what separates a choice from an ordinary list item.

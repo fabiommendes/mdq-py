@@ -24,3 +24,5 @@ Implements the unreleased MDQ specification.
 - Import and export of GIFT, Aiken and Moodle XML.
 - `mdq` CLI with the `new`, `validate`, `show`, `import` and `export`
   commands.
+- `mdq[hypothesis]` extra with Hypothesis strategies for generating
+  questions and exams (`mdq.hypothesis`).

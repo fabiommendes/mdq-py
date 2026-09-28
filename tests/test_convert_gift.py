@@ -28,7 +28,7 @@ from mdq.convert.gift import (
     unescape_gift,
 )
 from mdq.convert.parser import ParserError
-from mdq.hypothesis.gift import (
+from strategies.gift import (
     GIFT_SPECIAL_CHARS,
     gift_blocks,
     gift_choice_options,

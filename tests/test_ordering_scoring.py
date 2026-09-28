@@ -25,7 +25,7 @@ from mdq.models import (
     QuestionScore,
     coerce_ordering_lines,
 )
-from mdq.testing import relative_id
+from _corpus import relative_id
 from test_ordering_models import MINIMAL, ORDERING_FIXTURES, ordering_questions
 
 

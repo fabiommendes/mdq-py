@@ -12,7 +12,7 @@ from mdq.loaders import DictLoader, FileLoader
 from mdq.models import Exam, IncludeAll, select_random
 from mdq.parser import parse_exam
 from mdq.query import QuerySyntaxError, is_standard_query, parse_query
-from mdq.testing import VALID_DIR
+from _corpus import VALID_DIR
 
 BANK = DictLoader(
     {

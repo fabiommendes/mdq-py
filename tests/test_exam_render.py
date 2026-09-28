@@ -11,7 +11,7 @@ from hypothesis import strategies as st
 
 from mdq import models, parse
 from mdq.hypothesis import documents as mst
-from mdq.testing import VALID_EXAMS, VALID_EXAMS_DIR, relative_id
+from _corpus import VALID_EXAMS, VALID_EXAMS_DIR, relative_id
 
 #: `exam/bank/` holds the questions the exams include, not exams.
 EXAMS = [source for source in VALID_EXAMS if source.parent == VALID_EXAMS_DIR]
