@@ -16,7 +16,7 @@ Sections mirror the spec:
   says so in a comment.
 
 Written against the public `mdq.load` API and the models' own `lint()`
-method -- no `mdq.linter` internals. Fixtures use Brazil-themed
+method -- no `mdq.models._lint` internals. Fixtures use Brazil-themed
 questions, per AGENTS.md. No corpus examples are added here: the spec
 has the implementer add them together with the `.lint.json` files.
 """

@@ -1,5 +1,5 @@
 """
-Tests for `mdq.regex`: `parse_regex`, `normalize_text`, `normalize_regex`,
+Tests for `mdq.models._regex`: `parse_regex`, `normalize_text`, `normalize_regex`,
 and the `RegexPattern` class used to compile and match MDQ's restricted,
 JavaScript-flavoured regex dialect (see `docs/question-types/short-answer.md`,
 sections "Regex" and "Regex flags").
@@ -30,7 +30,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from mdq.regex import (
+from mdq.models._regex import (
     InvalidRegexError,
     RegexPattern,
     normalize_regex,

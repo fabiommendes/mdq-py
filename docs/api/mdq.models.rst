@@ -110,29 +110,3 @@ mdq.models
 .. autoclass:: mdq.models.QuestionScore
    :members:
    :member-order: bysource
-
-.. autodata:: mdq.models.GradingStrategy
-
-.. autodata:: mdq.models.GradedQuestionType
-
-.. autodata:: mdq.models.ExamGrading
-
-.. autodata:: mdq.models.Diacritics
-
-.. autodata:: mdq.models.PenaltyPolicy
-
-.. autodata:: mdq.models.ExamStart
-
-.. autodata:: mdq.models.ExamDuration
-
-.. autodata:: mdq.models.NumericDomain
-
-.. autodata:: mdq.models.EssayInput
-
-.. autodata:: mdq.models.OrderingContent
-
-.. autodata:: mdq.models.Indentation
-
-.. autodata:: mdq.models.Unmatched
-
-.. autodata:: mdq.models.Normalization

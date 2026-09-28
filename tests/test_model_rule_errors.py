@@ -3,7 +3,7 @@ Tests for the "New errors" table of `dev/specs/to-do/lint-on-models.md`
 (candidate C2 of `dev/architecture-review.md`).
 
 Seven rules that used to be `warning`-level lint checks in
-`mdq.linter.lint_document` become pydantic model validators, raising
+`mdq.models._lint.lint_document` become pydantic model validators, raising
 `PydanticCustomError(code, message)` the way `_check_unique_choices`
 does (see `dev/specs/to-do/unique-ids.md` / `tests/test_unique_ids.py`,
 which this file mirrors): `load` must report each one as an `error`

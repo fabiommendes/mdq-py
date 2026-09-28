@@ -1,4 +1,4 @@
-"""Tests for the mdq.linter checks -- the "beyond JSON Schema" rules
+"""Tests for the mdq.models._lint checks -- the "beyond JSON Schema" rules
 applied on top of schema validation (duplicate choice ids/texts, blank
 text fields, multiple-choice needing a correct choice, ...).
 """

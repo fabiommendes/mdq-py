@@ -7,7 +7,7 @@ to pydantic model validators: `load` must report them as `error`
 diagnostics, with `document=None`, using the same codes and paths the
 linter used to report as warnings.
 
-Derived-id disambiguation (`mdq.slugify.loose` never colliding, and never
+Derived-id disambiguation (`mdq.models._slugify.loose` never colliding, and never
 stepping on an explicit id) moved to `with_ids()` and is covered by
 `tests/test_derived_ids.py`, per dev/specs/to-do/derived-ids.md.
 

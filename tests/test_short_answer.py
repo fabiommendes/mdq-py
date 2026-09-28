@@ -1,6 +1,6 @@
 """
 Short-answer accept/reject migration: the pattern mini-language,
-`mdq.models.normalize_text`, `ShortAnswerQuestion.score_response` /
+`mdq.models._text.normalize_text`, `ShortAnswerQuestion.score_response` /
 `effective_accept`, legacy `one_of`/`regex` desugaring, and the
 `[short-answer/accept]` / `[short-answer/reject]` parser support.
 
@@ -22,8 +22,9 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from mdq import models
+from mdq.models import _text
 from mdq.errors import NotAutoGradable, ParseError
-from mdq.regex import RegexPattern
+from mdq.models._regex import RegexPattern
 from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 from _parse import parse_any, parse_file
 
@@ -83,11 +84,11 @@ def test_empty_or_whitespace_only_pattern_is_an_error(pattern: str) -> None:
     ids=["accented-title", "ascii-upper", "padded-lower", "accented-lower", "mixed-accented"],
 )
 def test_normalize_text_folds_case_strips_accents_and_trims(value: str) -> None:
-    assert models.normalize_text(value) == "brasilia"
+    assert _text.normalize_text(value) == "brasilia"
 
 
 def test_normalize_text_collapses_internal_whitespace() -> None:
-    assert models.normalize_text("Rio   de\tJaneiro\n") == "rio de janeiro"
+    assert _text.normalize_text("Rio   de\tJaneiro\n") == "rio de janeiro"
 
 
 def test_bare_literal_accepts_a_differently_cased_unaccented_response() -> None:
@@ -127,7 +128,7 @@ def test_a_single_question_mixes_exact_and_inexact_patterns() -> None:
 # Regex patterns match the raw response
 #
 def test_regex_pattern_sanity_check_against_mdq_regex() -> None:
-    """mdq.regex is already implemented and tested; confirm the fixture
+    """mdq.models._regex is already implemented and tested; confirm the fixture
     assumption before relying on it through ShortAnswerQuestion."""
     pattern = RegexPattern("/[A-Z]{3}/")
     assert pattern.match("GRU")
@@ -567,8 +568,8 @@ def test_first_feedback_honours_the_diacritics_keyword() -> None:
         models.AnswerPattern(pattern="Maceió", feedback="Exact match."),
         models.AnswerPattern(pattern="*", feedback="Fallback."),
     ]
-    assert models.first_feedback(patterns, "Maceio", diacritics="keep") == ["Fallback."]
-    assert models.first_feedback(patterns, "Maceio", diacritics="fold") == ["Exact match."]
+    assert _text.first_feedback(patterns, "Maceio", diacritics="keep") == ["Fallback."]
+    assert _text.first_feedback(patterns, "Maceio", diacritics="fold") == ["Exact match."]
 
 
 @given(

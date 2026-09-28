@@ -23,8 +23,8 @@ from mdq.models import (
     OrderingQuestion,
     QuestionRoot,
     QuestionScore,
-    coerce_ordering_lines,
 )
+from mdq.models._ordering import coerce_ordering_lines
 from _corpus import relative_id
 from test_ordering_models import MINIMAL, ORDERING_FIXTURES, ordering_questions
 

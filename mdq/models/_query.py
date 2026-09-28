@@ -25,7 +25,7 @@ from typing import Protocol
 from dataclasses import dataclass
 from typing import NoReturn
 
-from .errors import MdqError
+from ..errors import MdqError
 
 __all__ = [
     "Query",

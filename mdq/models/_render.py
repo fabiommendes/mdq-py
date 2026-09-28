@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 import yaml
 
 if TYPE_CHECKING:
-    from . import models
+    from . import _base, _choice
 
 
 def yield_frontmatter(
@@ -37,12 +37,12 @@ def yield_frontmatter(
 
 
 def yield_introduction(
-    model: models.BaseQuestion, id: str | None = None
+    model: _base.BaseQuestion, id: str | None = None
 ) -> Iterable[str]:
     """
     Yield lines of the introductory sections (preamble, stem) as strings.
 
-    The `id` is passed to `mdq.render.yield_introduction()`.
+    The `id` is passed to `mdq.models._render.yield_introduction()`.
     """
 
     if model.preamble:
@@ -61,12 +61,12 @@ def yield_introduction(
 
 
 def yield_conclusion(
-    model: models.BaseQuestion, skip_line: bool = False
+    model: _base.BaseQuestion, skip_line: bool = False
 ) -> Iterable[str]:
     """
     Yield lines of the concluding sections (epilogue) as strings.
 
-    The `**kwargs` are passed to `mdq.render.render()`.
+    The `**kwargs` are passed to `mdq.models._render.render()`.
     """
     if model.epilogue:
         if skip_line:
@@ -127,7 +127,7 @@ def yield_ordering_section(
 
 
 def yield_choice(
-    choice: models.ScoredChoice | models.BooleanChoice | models.Statement, mark: str
+    choice: _choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement, mark: str
 ):
     """
     Yield lines of a choice as strings.

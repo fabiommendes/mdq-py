@@ -1,5 +1,5 @@
 """
-Hypothesis strategies for stress-testing `mdq.slugify`.
+Hypothesis strategies for stress-testing `mdq.models._slugify`.
 
 Random text almost never collides once slugified, so a strategy that just
 draws independent random strings would rarely exercise the collision-
@@ -30,7 +30,7 @@ def text_sets(
 ) -> st.SearchStrategy[frozenset[str]]:
     """
     Strategy for sets of distinct strings suitable as `items` for
-    `mdq.slugify.slugify`/`loose`/`simple`: a mix of plain random text and
+    `mdq.models._slugify.slugify`/`loose`/`simple`: a mix of plain random text and
     deliberately collision-prone sets.
     """
     plain = st.sets(

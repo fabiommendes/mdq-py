@@ -1,6 +1,6 @@
 """
 Helpers implementing the `lint()` methods of the models in `mdq.models`
-(`mdq/render.py` is the same kind of helper module for `render()`).
+(`mdq.models._render` is the same kind of helper module for `render()`).
 
 These are the SHOULD/MAY-level rules the specification leaves to
 implementations (see docs/question-types/): a compliant parser is free
@@ -45,12 +45,13 @@ from markdown_it import MarkdownIt
 from pygments.lexers import find_lexer_class_by_name
 from pygments.util import ClassNotFound
 
-from ._diagnostics import Diagnostic
-from .query import is_standard_query
-from .regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
+from .._diagnostics import Diagnostic
+from ._query import is_standard_query
+from ._regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
 
 if TYPE_CHECKING:
-    from . import models
+    from ..types import NumericDomain
+    from . import _choice, _numeric, _ordering, _text
 
 #: Renders a single line's inline markdown to compare two ordering lines,
 #: or two choices' texts, the way a student would see them
@@ -339,7 +340,7 @@ def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
 
 
 def check_choices(
-    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -365,7 +366,7 @@ def check_choices(
 
 
 def check_choice_feedback_and_comment(
-    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -398,7 +399,7 @@ def check_choice_feedback_and_comment(
 
 
 def check_choice_ids_defined(
-    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -424,7 +425,7 @@ def check_choice_ids_defined(
 
 
 def check_choices_visually_identical(
-    choices: Sequence[models.ScoredChoice | models.BooleanChoice | models.Statement],
+    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -459,7 +460,7 @@ def check_choices_visually_identical(
 
 
 def check_multiple_choice_answers(
-    choices: Sequence[models.ScoredChoice],
+    choices: Sequence[_choice.ScoredChoice],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -506,7 +507,7 @@ def check_multiple_choice_answers(
 
 
 def check_multiple_selection_answers(
-    choices: Sequence[models.BooleanChoice],
+    choices: Sequence[_choice.BooleanChoice],
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -539,7 +540,7 @@ def check_multiple_selection_answers(
 
 
 def check_true_false_markers(
-    choices: Sequence[models.Statement],
+    choices: Sequence[_choice.Statement],
     locale: str | None,
 ) -> list[Diagnostic]:
     """
@@ -615,7 +616,7 @@ def check_true_false_markers(
     return warnings
 
 
-def check_true_false_marker_nfc(choices: Sequence[models.Statement]) -> list[Diagnostic]:
+def check_true_false_marker_nfc(choices: Sequence[_choice.Statement]) -> list[Diagnostic]:
     """
     true-false.md:219: a marker is one code point by the field's own
     shape, but that code point should also be its own NFC form -- one
@@ -643,7 +644,7 @@ def check_true_false_marker_nfc(choices: Sequence[models.Statement]) -> list[Dia
     return warnings
 
 
-def check_true_false_uniform_answers(choices: Sequence[models.Statement]) -> list[Diagnostic]:
+def check_true_false_uniform_answers(choices: Sequence[_choice.Statement]) -> list[Diagnostic]:
     """
     true-false.md:218: a question whose statements are all true or all
     false is usually an authoring mistake -- a well-formed question
@@ -747,8 +748,8 @@ def check_short_answer(
     *,
     regex: str | None,
     one_of: list[str] | None,
-    accept: "list[models.AnswerPattern] | None",
-    reject: "list[models.AnswerPattern] | None" = None,
+    accept: "list[_text.AnswerPattern] | None",
+    reject: "list[_text.AnswerPattern] | None" = None,
     open_ended: bool,
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
@@ -870,7 +871,7 @@ def _check_ignored_regex_flags(
     ]
 
 
-def _infer_numeric_domain(answer: float | str) -> "models.NumericDomain":
+def _infer_numeric_domain(answer: float | str) -> "NumericDomain":
     """
     numeric.md, "Number type/domain": infer the domain an `answer` is
     written in, ranking integer < fraction < decimal. A `str` answer
@@ -892,9 +893,9 @@ def _infer_numeric_domain(answer: float | str) -> "models.NumericDomain":
 def check_numeric(
     *,
     answer: float | str,
-    domain: "models.NumericDomain | None",
+    domain: "NumericDomain | None",
     decimal_places: int | None,
-    tolerance: "models.Tolerance | None",
+    tolerance: "_numeric.Tolerance | None",
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
@@ -1051,7 +1052,7 @@ def check_undeclared_id_after_include_all(
 # ----------------------------------------------------------------------
 
 
-def check_ordering_highlight(question: models.OrderingQuestion) -> list[Diagnostic]:
+def check_ordering_highlight(question: _ordering.OrderingQuestion) -> list[Diagnostic]:
     """ordering.md: `highlight` must be omitted unless `content` is 'code'."""
     if question.highlight is not None and question.content != "code":
         return [
@@ -1071,7 +1072,7 @@ def check_ordering_highlight(question: models.OrderingQuestion) -> list[Diagnost
 
 
 def check_ordering_duplicate_alternatives(
-    question: models.OrderingQuestion,
+    question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
     """
     ordering.md#acceptedrejected-answers: a question SHOULD NOT declare
@@ -1105,7 +1106,7 @@ def check_ordering_duplicate_alternatives(
 
 
 def check_ordering_accept_repeats_answer_key(
-    question: models.OrderingQuestion,
+    question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
     """ordering.md#acceptedrejected-answers: `accept` SHOULD NOT repeat `lines`."""
     answer_key = question.comparison_key(question.lines)
@@ -1127,7 +1128,7 @@ def check_ordering_accept_repeats_answer_key(
 
 
 def check_ordering_redundant_strict_indentation(
-    question: models.OrderingQuestion,
+    question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
     """
     ordering.md#indentation[^8]: `dedent` flattens every line to level 0,
@@ -1154,7 +1155,7 @@ def check_ordering_redundant_strict_indentation(
     ]
 
 
-def check_ordering_blank_lines(question: models.OrderingQuestion) -> list[Diagnostic]:
+def check_ordering_blank_lines(question: _ordering.OrderingQuestion) -> list[Diagnostic]:
     """
     ordering.md#additional-rules: a blank `lines`/`extra` entry should
     only appear when `skip-blanks` is normalized -- otherwise it counts
@@ -1183,7 +1184,7 @@ def check_ordering_blank_lines(question: models.OrderingQuestion) -> list[Diagno
 
 
 def check_ordering_reject_without_feedback(
-    question: models.OrderingQuestion,
+    question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
     """ordering.md#feedback: a `reject` section SHOULD declare feedback."""
     warnings = []
@@ -1209,7 +1210,7 @@ def _render_visual_key(text: str) -> str:
 
 
 def check_ordering_visually_identical_lines(
-    question: models.OrderingQuestion,
+    question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
     """
     ordering.md#body: two `lines`/`extra` entries at the same

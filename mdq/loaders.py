@@ -40,7 +40,7 @@ class QuestionBank(Protocol):
     `IncludeNotFound` when the id names nothing.
 
     `tagged` and `ids` are what an `include-all:` query reads (see
-    `mdq.query`). `ids` is only called for a query that selects by
+    `mdq.models._query`). `ids` is only called for a query that selects by
     exclusion alone, like `NOT draft`, so a large bank can serve most
     queries from a tag index without listing every question.
     """

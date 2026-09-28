@@ -20,7 +20,7 @@ there is no instance to call `.lint()` on for those -- see
 
 Fixtures use Brazil-themed questions, per AGENTS.md. Written against the
 public `mdq.load` API and the models' own `lint()` method -- no
-`mdq.linter` internals.
+`mdq.models._lint` internals.
 """
 
 from __future__ import annotations

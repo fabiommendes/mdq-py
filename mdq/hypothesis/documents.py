@@ -27,7 +27,7 @@ from typing import Any, Callable, Literal, get_args
 from hypothesis import strategies as st
 
 from .. import models
-from ..types import QuestionType
+from ..types import EssayInput, QuestionType
 
 # QUESTION_TYPES = get_args(QuestionType)
 QUESTION_TYPES: tuple[QuestionType, ...] = ("essay",)
@@ -134,7 +134,7 @@ def short_answer_questions() -> st.SearchStrategy[models.Question]:
 
 def essay_questions(
     *,
-    input: models.EssayInput | None = None,
+    input: EssayInput | None = None,
 ) -> st.SearchStrategy[models.Question]:
     """
     Return a strategy for generating questions of the given type.
@@ -142,7 +142,7 @@ def essay_questions(
     If `type` is `None`, any question type is allowed.
     """
     if input is None:
-        inputs = get_args(models.EssayInput)
+        inputs = get_args(EssayInput)
         return st.sampled_from(inputs).flatmap(lambda t: essay_questions(input=t))
 
     return st.builds(
@@ -431,7 +431,7 @@ def md_safe_multi_blocks(
 ) -> st.SearchStrategy[str]:
     """
     Return a strategy for generating a sequence of safe Markdown blocks,
-    joined the way `mdq.render` joins a preamble/epilogue's blocks: two
+    joined the way `mdq.models._render` joins a preamble/epilogue's blocks: two
     newlines apart.
 
     `mdq._parser.reconstruct_blocks` (and so `mdq.models.

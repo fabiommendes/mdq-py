@@ -30,9 +30,11 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from . import _schedule, models, render
+from . import _schedule, models
+from .models import _render
 from .loaders import FileLoader, QuestionBank
 from .loading import Source, parse
+from .types import NumericDomain
 
 __all__ = ["show_source", "render_question", "render_exam"]
 
@@ -283,7 +285,7 @@ def _render_numeric(
     *,
     answer: float | str,
     unit: str | None,
-    domain: models.NumericDomain | None,
+    domain: NumericDomain | None,
     decimal_places: int | None,
     tolerance: models.Tolerance | None,
     show_answer_key: bool,
@@ -474,7 +476,7 @@ def _render_ordering_lines(
     highlight: str | None,
 ) -> None:
     """Print a block of ordering lines the way `render` would write them."""
-    source = "\n".join(render.yield_ordering_content(lines, content, highlight))
+    source = "\n".join(_render.yield_ordering_content(lines, content, highlight))
     console.print(Markdown(source))
 
 

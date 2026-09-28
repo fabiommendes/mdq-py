@@ -1,5 +1,5 @@
 """
-Tests for `mdq.slugify`: the `loose`/`simple` unique-slugifier strategies,
+Tests for `mdq.models._slugify`: the `loose`/`simple` unique-slugifier strategies,
 `validate_slug`, and the `slugify` dispatcher.
 
 `loose` is the interesting one -- it must *always* produce a valid, unique,
@@ -18,7 +18,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from strategies import slugs as st_slugs
-from mdq.slugify import (
+from mdq.models._slugify import (
     DIGIT_NAMES,
     SLUGIFIERS,
     SYMBOL_NAMES,

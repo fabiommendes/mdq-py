@@ -10,7 +10,6 @@ from ..models import (
     Blank,
     BooleanChoice,
     ChoiceBlank,
-    EssayInput,
     EssayQuestion,
     FillInQuestion,
     MultipleChoiceQuestion,
@@ -25,6 +24,7 @@ from ..models import (
     Tolerance,
     TrueFalseQuestion,
 )
+from ..types import EssayInput
 from .base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
 from .parser import StringParser
 

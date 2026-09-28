@@ -1,6 +1,6 @@
 """
 Hypothesis strategies used only by the test suite: generators for the
-converter formats (`aiken`, `gift`, `moodle_xml`), `mdq.slugify`
+converter formats (`aiken`, `gift`, `moodle_xml`), `mdq.models._slugify`
 (`slugs`), the exam `start`/`duration` grammar (`schedule`), and the
 `unknown-frontmatter-key` lint rule (`frontmatter`).
 
