@@ -8,10 +8,7 @@ Modules
    mdq
    mdq.cli
    mdq.convert
-   mdq.hypothesis.documents
-   mdq.loaders
-   mdq.loading
+   mdq.errors
+   mdq.hypothesis
    mdq.models
-   mdq.scaffold
-   mdq.show
    mdq.types

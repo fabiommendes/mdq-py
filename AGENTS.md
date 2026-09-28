@@ -1,3 +1,23 @@
+## Package layout
+
+Public modules (each has a `docs/api/` page): `mdq`, `mdq.models`,
+`mdq.types`, `mdq.errors`, `mdq.convert`, `mdq.hypothesis`. `mdq.cli`
+exposes only `app`/`main` and is not API.
+
+Everything else is a `_module`, owned by one package. Rule: a `_module`
+is imported only by its parent package or its siblings -- never from
+outside that package. Known exception: `cli/_show.py` imports
+`models/_render.py`. Tests may import private modules directly (unit
+tests of `_regex`, `_slugify`, `_query`, a converter's internals, ...);
+host code and docs never do.
+
+Where things live: `_parser/` (Markdown -> dict, one file per question
+family), `models/` (dict -> Pydantic, one file per question family),
+`convert/` (MDQ <-> external formats, one file per format), `cli/`
+(one file per command). `tests/_corpus.py` loads the example corpus;
+`tests/strategies/` holds Hypothesis strategies for the converters;
+`scripts/` holds maintenance scripts run with `uv run scripts/<name>.py`.
+
 ## Typing discipline
 
 * Use `T | None` instead of `Optional[T]` for optional types.

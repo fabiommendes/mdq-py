@@ -9,10 +9,6 @@ mdq
    :members:
    :member-order: bysource
 
-.. autoclass:: mdq.ParseError
-   :members:
-   :member-order: bysource
-
 Loading
 -------
 
@@ -30,6 +26,25 @@ Loading
 
 .. autodata:: mdq.Severity
 
+.. autoclass:: mdq.MdqError
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.InvalidDocument
+   :members:
+   :member-order: bysource
+
+Question banks
+---------------
+
+.. autoclass:: mdq.QuestionBank
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.FileLoader
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.DictLoader
    :members:
    :member-order: bysource
