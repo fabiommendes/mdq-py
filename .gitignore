@@ -11,3 +11,4 @@ handoff*
 prompt.md
 prompt/.base-ast/
 .base-ast-cache/
+dist/
