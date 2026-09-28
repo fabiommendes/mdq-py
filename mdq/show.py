@@ -32,9 +32,9 @@ from rich.text import Text
 
 from . import _schedule, models
 from .models import _render
-from .loaders import FileLoader, QuestionBank
-from .loading import Source, parse
-from .types import NumericDomain
+from ._banks import FileLoader, QuestionBank
+from ._loading import parse
+from .types import NumericDomain, Source
 
 __all__ = ["show_source", "render_question", "render_exam"]
 

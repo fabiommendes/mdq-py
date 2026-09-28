@@ -31,7 +31,7 @@ frontmatter key the parser dropped while building it. It is instead
 emitted by ``mdq._parser`` (``parse_question``/``parse_exam``, via an
 optional ``warnings`` sink) for every frontmatter key it does not
 recognize -- a typo like ``auther:``, or a field that
-never existed -- and merged into `mdq.loading`'s diagnostics ahead of
+never existed -- and merged into `mdq._loading`'s diagnostics ahead of
 the ones `lint()` produces.
 """
 

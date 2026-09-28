@@ -137,7 +137,7 @@ def _raise_unique_id_error(
 ) -> None:
     """
     Raise a pydantic `ValidationError` whose one error carries `code` as
-    its `type` (so `mdq.loading` recovers it as the diagnostic `code`)
+    its `type` (so `mdq._loading` recovers it as the diagnostic `code`)
     and `loc` as its location, regardless of where in the model tree
     this runs -- `loc` is relative to whatever model raises, and
     pydantic prepends the path down to it (occasionally with a

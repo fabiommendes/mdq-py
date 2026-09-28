@@ -1,10 +1,10 @@
 """
-`Diagnostic`, the one problem shape every stage of `mdq.loading`'s
+`Diagnostic`, the one problem shape every stage of `mdq._loading`'s
 pipeline reports through -- a parse failure, a pydantic error, a lint
 warning, an unknown frontmatter key.
 
-Split out from `mdq.loading` (which owns and re-exports it) so that
-`mdq.models._lint` and `mdq._parser` -- both upstream of `mdq.loading`
+Split out from `mdq._loading` (which owns and re-exports it) so that
+`mdq.models._lint` and `mdq._parser` -- both upstream of `mdq._loading`
 in the pipeline -- can report `Diagnostic`s of their own without
 importing back into the module that orchestrates them.
 """

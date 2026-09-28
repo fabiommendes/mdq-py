@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from fractions import Fraction
-from typing import Any, Literal, Required, TypedDict, get_args
+from pathlib import Path
+from typing import IO, Any, Literal, Mapping, Required, TypedDict, get_args
 
 QuestionType = Literal[
     "multiple-choice",
@@ -55,6 +56,29 @@ Diacritics = Literal["fold", "keep"]
 
 
 QUESTION_TYPES = set(get_args(QuestionType))
+
+
+#
+# Loading
+#
+# The aliases `mdq.load`/`mdq.parse` annotate their own parameters with.
+#
+
+#: Anything `mdq.load` accepts as a document source.
+Source = str | Path | IO[str] | Mapping[str, Any]
+
+#: The three surface syntaxes a document may be written in.
+Format = Literal["mdq", "yaml", "json"]
+
+#: What a document is: a single question, or an exam.
+Kind = Literal["question", "exam"]
+
+#: `"keep"` returns `Loaded.document` exactly as written; `"fill"` returns
+#: `document.with_ids()` instead, so every question and every choice has
+#: an id (see `mdq.models.BaseQuestion.with_ids`/`mdq.models.Exam.with_ids`,
+#: GLOSSARY.md "Addressable"). Lint always inspects the document as
+#: written, regardless of `ids` -- it never changes what gets linted.
+Ids = Literal["fill", "keep"]
 
 
 #

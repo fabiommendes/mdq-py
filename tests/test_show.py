@@ -22,7 +22,7 @@ from typer.testing import CliRunner
 
 from mdq import show as show_mod
 from mdq.cli import app
-from mdq.loaders import FileLoader
+from mdq._banks import FileLoader
 from _corpus import VALID_EXAMS, VALID_QUESTIONS, VALID_SOURCES, relative_id
 
 runner = CliRunner()

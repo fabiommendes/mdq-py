@@ -1,5 +1,5 @@
 """
-Tests for `mdq.loading`, the module that owns the full
+Tests for `mdq._loading`, the module that owns the full
 markdown/data -> model -> diagnostics pipeline (see
 `dev/specs/to-do/loading-module.md`).
 
@@ -23,7 +23,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 import mdq
 from mdq import Diagnostic, InvalidDocument, Severity, load, parse
-from mdq.loaders import DictLoader, IncludeNotFound
+from mdq._banks import DictLoader, IncludeNotFound
 from mdq.models import Include
 
 # ---------------------------------------------------------------------

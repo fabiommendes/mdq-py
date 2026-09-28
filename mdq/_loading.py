@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, Generic, Literal, Mapping, TypeVar, overload
+from typing import Any, Generic, Literal, Mapping, TypeVar, overload
 
 import yaml
 from pydantic import ValidationError as PydanticValidationError
@@ -25,6 +25,7 @@ from pydantic import ValidationError as PydanticValidationError
 from . import _parser, models
 from ._diagnostics import RANK, Diagnostic, Severity
 from .errors import InvalidDocument, MdqError, UnresolvedInclude
+from .types import Format, Ids, Kind, Source
 
 __all__ = [
     "Diagnostic",
@@ -36,21 +37,6 @@ __all__ = [
 ]
 
 D = TypeVar("D")
-
-#: Anything `load` accepts as a document source.
-Source = str | Path | IO[str] | Mapping[str, Any]
-
-#: The three surface syntaxes a document may be written in.
-Format = Literal["mdq", "yaml", "json"]
-
-Kind = Literal["question", "exam"]
-
-#: `"keep"` returns `Loaded.document` exactly as written; `"fill"` returns
-#: `document.with_ids()` instead, so every question and every choice has
-#: an id (see `mdq.models.BaseQuestion.with_ids`/`mdq.models.Exam.with_ids`,
-#: GLOSSARY.md "Addressable"). Lint always inspects the document as
-#: written, regardless of `ids` -- it never changes what gets linted.
-Ids = Literal["fill", "keep"]
 
 #: `Path` suffixes that select each format, checked against the whole
 #: filename (not `Path.suffix`) since `.mdq.md` is a compound suffix.

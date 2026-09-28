@@ -8,7 +8,7 @@ import pytest
 
 from mdq import load
 from mdq.errors import UnresolvedInclude
-from mdq.loaders import DictLoader, FileLoader
+from mdq._banks import DictLoader, FileLoader
 from mdq.models import Exam, IncludeAll, select_random
 from mdq._parser import parse_exam
 from mdq.models._query import QuerySyntaxError, is_standard_query, parse_query

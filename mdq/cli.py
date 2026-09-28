@@ -17,7 +17,7 @@ from rich.text import Text
 
 from . import show as _show
 from .convert import export_question, import_question
-from .loading import Diagnostic, InvalidDocument, load, parse
+from ._loading import Diagnostic, InvalidDocument, load, parse
 from .scaffold import QUESTION_TYPES, default_output_path, render_template
 
 app = typer.Typer(

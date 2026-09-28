@@ -21,7 +21,7 @@ questions and exams, per AGENTS.md.
 from __future__ import annotations
 
 from mdq import load, parse
-from mdq.loaders import DictLoader
+from mdq._banks import DictLoader
 from mdq.models import (
     BooleanChoice,
     ChoiceBlank,

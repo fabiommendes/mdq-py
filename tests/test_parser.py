@@ -22,7 +22,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from mdq import load
-from mdq.loaders import FileLoader
+from mdq._banks import FileLoader
 from mdq.models import Exam
 from mdq._parser import parse_exam
 from _parse import parse_any, parse_file

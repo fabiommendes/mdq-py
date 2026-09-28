@@ -1,5 +1,5 @@
 """
-Tests for `mdq validate`, once it is rebuilt on top of `mdq.loading` (see
+Tests for `mdq validate`, once it is rebuilt on top of `mdq._loading` (see
 `dev/specs/to-do/loading-module.md`).
 
 The command drops `--type`/`--schema-dir` (`load` figures out the format

@@ -32,7 +32,7 @@ from pydantic import (
 from .. import _parser, _schedule
 from .._diagnostics import Diagnostic
 from ..errors import UnresolvedInclude
-from ..loaders import QuestionBank
+from .._banks import QuestionBank
 from ..types import ExamGrading, PenaltyPolicy
 from . import _lint, _render
 from ._base import BaseQuestion, MdqModel, _raise_unique_id_error

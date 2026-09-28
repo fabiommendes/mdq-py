@@ -127,7 +127,7 @@ class ConflictingAnswerKey(ParseError):
     are declared both as a frontmatter field and as a `[short-answer/
     accept]`/`[short-answer/reject]` body block -- two spellings of the
     same list that would otherwise silently disagree about which one
-    wins. Carries its own `code` so `mdq.loading._parse_error` can report
+    wins. Carries its own `code` so `mdq._loading._parse_error` can report
     it as something more specific than the generic `parse-error`.
     """
 
