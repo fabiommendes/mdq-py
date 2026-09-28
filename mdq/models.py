@@ -61,6 +61,19 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from . import linter, parser, render, schedule, slugify
 from . import types as t
+from .types import (
+    Diacritics,
+    EssayInput,
+    ExamGrading,
+    GradedQuestionType,
+    GradingStrategy,
+    Indentation,
+    Normalization,
+    NumericDomain,
+    OrderingContent,
+    PenaltyPolicy,
+    Unmatched,
+)
 from ._diagnostics import Diagnostic
 from .errors import NotAutoGradable, ResponseError, UnresolvedInclude
 from .loaders import QuestionBank
@@ -99,7 +112,6 @@ __all__ = [
     "select_random",
     "Exam",
     "QuestionScore",
-    "ExamScore",
     "GradingStrategy",
     "GradedQuestionType",
     "ExamGrading",
@@ -134,7 +146,7 @@ class MdqModel(BaseModel):
         """
         Return a Markdown representation of the model.
 
-        The `**kwargs` are passed to `mdq.render.render()`.
+        Same as `render()`.
         """
         return self.render()
 
@@ -173,7 +185,7 @@ class MdqModel(BaseModel):
         """
         Return a Markdown representation of the model.
 
-        The `**kwargs` are passed to `mdq.render.render()`.
+        Joins the lines `_render_lines()` yields with newlines.
         """
         return "\n".join(self._render_lines())
 
@@ -323,42 +335,9 @@ def _validate_mdq_regex(value: str | None) -> str | None:
 #
 # Shared vocabulary
 #
-
-#: How a question with several parts reduces them to one score.
-#: `symmetric` may go below zero; `partial` stays within [0, 1] while
-#: still awarding credit for parts; `all-or-nothing` returns 1 or 0.
-#: `partial` names a range, not one formula -- each question type
-#: defines its own (see docs/adr/0002-partial-names-a-range-not-an-algorithm.md).
-GradingStrategy = Literal["symmetric", "partial", "all-or-nothing"]
-
-#: The question types that choose a grading strategy. The other types
-#: grade by a fixed rule and take no `grading` field. On these types,
-#: `grading` is `None` when the question declares none, so the exam's
-#: `grading` applies to it, and `symmetric` applies when neither does.
-#: An explicit `symmetric` is kept, since the exam cannot override it.
-GradedQuestionType = Literal[
-    "multiple-choice",
-    "multiple-selection",
-    "true-false",
-    "fill-in",
-]
-
-#: An exam's grading strategy: one for every question it holds, or one
-#: per question type. Types missing from the mapping grade as
-#: `symmetric`, and a question that declares its own `grading` ignores
-#: the exam's.
-ExamGrading = GradingStrategy | dict[GradedQuestionType, GradingStrategy]
-
-#: How inexact literals treat diacritics: `fold` strips them before
-#: comparing, `keep` preserves them. Regexes, exact literals and the `*`
-#: wildcard ignore it (docs/question-types/short-answer.md § Diacritics).
-Diacritics = Literal["fold", "keep"]
-
-#: An exam's policy for whether a negative question score survives.
-#: Questions never clamp their own score -- this is the only place
-#: clamping happens (see
-#: docs/adr/0001-score-scale-and-exam-level-clamping.md).
-PenaltyPolicy = Literal["none", "capped", "full"]
+# The Literal aliases below are defined once, in `mdq.types`, and
+# re-exported here under the same names for `mdq.models` callers.
+#
 
 #: When an exam begins: a date, or a date-time that may carry a UTC
 #: offset. Serialized in canonical ISO 8601 form.
@@ -374,27 +353,6 @@ ExamDuration = Annotated[
     BeforeValidator(schedule.parse_duration),
     PlainSerializer(schedule.format_duration),
 ]
-
-NumericDomain = Literal["integer", "decimal", "fraction"]
-
-EssayInput = Literal["code", "text", "plain"]
-
-#: How an ordering question's lines are written and presented: `code` for
-#: a fenced code block, `text` for an unordered list.
-OrderingContent = Literal["code", "text"]
-
-#: Whether the student may re-indent an ordering question's lines, and
-#: whether that indentation counts when grading. `lenient` implies the
-#: `dedent` normalization.
-Indentation = Literal["fixed", "lenient", "strict"]
-
-#: What becomes of an ordering response that matches no answer key:
-#: `manual` leaves it for a human, `incorrect` scores it 0.
-Unmatched = Literal["manual", "incorrect"]
-
-#: A transformation applied to both sides of every ordering comparison --
-#: the response and each answer key alike -- before they are matched.
-Normalization = Literal["dedent", "skip-blanks"]
 
 
 class Tolerance(MdqModel):
@@ -2158,21 +2116,6 @@ class Exam(MdqModel):
         for question in questions:
             question._exam = weakref.ref(self)
 
-    def add_question(self, question: Question, position: int | None = None):
-        """
-        Add a question to the exam at `position`, or at the end if
-        `position` is `None`.
-
-        Question cannot be bound to another exam.
-        """
-        if question.exam not in (self, None):
-            raise ValueError("Question already belongs to another exam")
-        if position is None:
-            self.questions.append(question)
-        else:
-            self.questions.insert(position, question)
-        question._exam = weakref.ref(self)
-
 
 def _query_ids(bank: QuestionBank, query: str) -> set[str]:
     """The ids `query` selects from `bank`; none if it cannot be read."""
@@ -2211,34 +2154,6 @@ class QuestionScore(MdqModel):
     #: choices in multiple-selection, wrongly judged or unjudged
     #: statements in true-false. A skipped question triggers none.
     feedback: list[str] = Field(default_factory=list)
-
-
-class ExamScore(MdqModel):
-    """
-    What a whole exam attempt was worth.
-
-    Covers auto-gradable questions only. `score` is the weighted mean of
-    their scores after the exam's `penalty` policy is applied, and is
-    `None` when nothing was auto-gradable -- an exam of essays, or one
-    where every weight is zero. `None` is not a zero: it means no
-    auto-grade exists.
-    """
-
-    score: float | None = Field(default=None, ge=-1, le=1)
-
-    #: Weight of the questions that `score` covers, and of the whole
-    #: exam. Two absolute values rather than a fraction, so "0.8 over
-    #: 70% of the exam" needs no guessing about the denominator.
-    graded_weight: float = Field(ge=0)
-    total_weight: float = Field(ge=0)
-
-    #: Ids of the questions awaiting a human grader. These are absent
-    #: from `questions`; the union of the two is the exam.
-    pending: list[str] = Field(default_factory=list)
-
-    #: Per-question results, keyed by question id, for the auto-gradable
-    #: questions only.
-    questions: dict[str, QuestionScore] = Field(default_factory=dict)
 
 
 #

@@ -23,8 +23,18 @@ QuestionType = Literal[
     "ordering",
 ]
 
-GradingType = Literal["partial", "all-or-nothing", "symmetric"]
+#: How a question with several parts reduces them to one score.
+#: `symmetric` may go below zero; `partial` stays within [0, 1] while
+#: still awarding credit for parts; `all-or-nothing` returns 1 or 0.
+#: `partial` names a range, not one formula -- each question type
+#: defines its own (see docs/adr/0002-partial-names-a-range-not-an-algorithm.md).
+GradingStrategy = Literal["symmetric", "partial", "all-or-nothing"]
 
+#: The question types that choose a grading strategy. The other types
+#: grade by a fixed rule and take no `grading` field. On these types,
+#: `grading` is `None` when the question declares none, so the exam's
+#: `grading` applies to it, and `symmetric` applies when neither does.
+#: An explicit `symmetric` is kept, since the exam cannot override it.
 GradedQuestionType = Literal[
     "multiple-choice",
     "multiple-selection",
@@ -32,11 +42,16 @@ GradedQuestionType = Literal[
     "fill-in",
 ]
 
-ExamGradingType = GradingType | dict[GradedQuestionType, GradingType]
+#: An exam's grading strategy: one for every question it holds, or one
+#: per question type. Types missing from the mapping grade as
+#: `symmetric`, and a question that declares its own `grading` ignores
+#: the exam's.
+ExamGrading = GradingStrategy | dict[GradedQuestionType, GradingStrategy]
 
-#: How inexact literals treat diacritics: `fold` strips them, `keep`
-#: preserves them (docs/question-types/short-answer.md § Diacritics).
-DiacriticsType = Literal["fold", "keep"]
+#: How inexact literals treat diacritics: `fold` strips them before
+#: comparing, `keep` preserves them. Regexes, exact literals and the `*`
+#: wildcard ignore it (docs/question-types/short-answer.md § Diacritics).
+Diacritics = Literal["fold", "keep"]
 
 
 QUESTION_TYPES = set(get_args(QuestionType))
@@ -78,7 +93,7 @@ class ExamDict(TypedDict, total=False):
     tags: list[str]
     meta: dict[str, Any]
     penalty: PenaltyPolicy
-    grading: ExamGradingType
+    grading: ExamGrading
     start: str
     duration: str
     questions: Required[list[ExamEntryDict]]
@@ -141,7 +156,7 @@ class MultipleChoiceQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["multiple-choice"]]
     choices: Required[list[ScoredChoiceDict]]
     shuffle: bool
-    grading: GradingType
+    grading: GradingStrategy
 
 
 class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
@@ -150,7 +165,7 @@ class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["multiple-selection"]]
     choices: Required[list[BooleanChoiceDict]]
     shuffle: bool
-    grading: GradingType
+    grading: GradingStrategy
 
 
 class TrueFalseQuestionDict(QuestionBaseDict, total=False):
@@ -159,7 +174,7 @@ class TrueFalseQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["true-false"]]
     choices: Required[list[StatementDict]]
     shuffle: bool
-    grading: GradingType
+    grading: GradingStrategy
 
 
 class NumericQuestionDict(QuestionBaseDict, total=False):
@@ -196,7 +211,7 @@ class ShortAnswerQuestionDict(QuestionBaseDict, total=False):
     reject: list[PatternEntry]
     preAccept: list[PatternEntry]
     preReject: list[PatternEntry]
-    diacritics: DiacriticsType
+    diacritics: Diacritics
 
 
 class EssayQuestionDict(QuestionBaseDict, total=False):
@@ -214,8 +229,8 @@ class FillInQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["fill-in"]]
     blanks: Required[list[BlankDict]]
     shuffle: bool
-    grading: GradingType
-    diacritics: DiacriticsType
+    grading: GradingStrategy
+    diacritics: Diacritics
 
 
 #: schema/fill-in.yaml#/$defs/Blank -- discriminated by `type`.
@@ -328,21 +343,27 @@ NumericDomain = Literal["integer", "decimal", "fraction"]
 #: schema/essay.yaml.
 EssayInput = Literal["code", "text", "plain"]
 
-#: schema/ordering.yaml -- how the lines are written and presented.
+#: How an ordering question's lines are written and presented: `code` for
+#: a fenced code block, `text` for an unordered list.
 OrderingContent = Literal["code", "text"]
 
-#: schema/ordering.yaml -- whether the student may re-indent a line, and
-#: whether that indentation counts when grading.
+#: Whether the student may re-indent an ordering question's lines, and
+#: whether that indentation counts when grading. `lenient` implies the
+#: `dedent` normalization.
 Indentation = Literal["fixed", "lenient", "strict"]
 
-#: schema/ordering.yaml -- what becomes of a response no answer key matches.
+#: What becomes of an ordering response that matches no answer key:
+#: `manual` leaves it for a human, `incorrect` scores it 0.
 Unmatched = Literal["manual", "incorrect"]
 
-#: schema/ordering.yaml -- a transformation applied to both sides of every
-#: comparison before they are matched.
+#: A transformation applied to both sides of every ordering comparison --
+#: the response and each answer key alike -- before they are matched.
 Normalization = Literal["dedent", "skip-blanks"]
 
-#: schema/exam.yaml.
+#: An exam's policy for whether a negative question score survives.
+#: Questions never clamp their own score -- this is the only place
+#: clamping happens (see
+#: docs/adr/0001-score-scale-and-exam-level-clamping.md).
 PenaltyPolicy = Literal["none", "capped", "full"]
 
 

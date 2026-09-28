@@ -10,25 +10,13 @@ document looks like.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import get_args
 
-from .models import Question
+from .types import QUESTION_TYPES as _QUESTION_TYPES
 
 __all__ = ["QUESTION_TYPES", "default_output_path", "render_template"]
 
-
-def _question_types() -> tuple[str, ...]:
-    """Every `type` literal of the `Question` union, sorted."""
-    # `Question` is `Annotated[Union[...], Field(discriminator="type")]`;
-    # `get_args` on the annotated form's first argument peels off the
-    # discriminator metadata to reach the union of question models.
-    union = get_args(Question)[0]
-    literals = (get_args(model.model_fields["type"].annotation)[0] for model in get_args(union))
-    return tuple(sorted(literals))
-
-
-#: Every question type `mdq new` can scaffold.
-QUESTION_TYPES = _question_types()
+#: Every question type `mdq new` can scaffold, sorted for stable CLI output.
+QUESTION_TYPES: tuple[str, ...] = tuple(sorted(_QUESTION_TYPES))
 
 
 def render_template(question_type: str, *, complete: bool = False) -> str:

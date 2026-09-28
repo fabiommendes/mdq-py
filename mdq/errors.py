@@ -21,12 +21,6 @@ class ParseError(MdqError):
         self.node = node
 
 
-class ValidationError(MdqError):
-    """
-    Base class for errors that occur during validation of the exam markdown.
-    """
-
-
 class GradingError(MdqError):
     """
     Base class for errors raised at the grading boundary.
@@ -74,26 +68,10 @@ class NotAutoGradable(GradingError):
     Raised when a score is asked of a manually-graded question.
 
     Essays never carry a machine-checkable answer key, and neither do
-    `openEnded` short answers. `score_exam` routes these to
-    `ExamScore.pending` instead; the single-question entry point has no
-    such escape, so it refuses.
+    `openEnded` short answers. An exam-level scorer routes these into a
+    pending set instead; the single-question entry point has no such
+    escape, so it refuses.
     """
-
-
-class EmptyQuestions(ParseError):
-    """
-    Raised when an exam has no questions.
-    """
-
-    _MESSAGE = "The exam contains no questions"
-
-
-class NodesRemaining(ParseError):
-    node: Node
-    _MESSAGE: str = "There are unparsed nodes remaining"
-
-    def __init__(self, node: Node, message: str | None = None):
-        super().__init__(message or self._MESSAGE, node=node)
 
 
 class MissingField(ParseError):

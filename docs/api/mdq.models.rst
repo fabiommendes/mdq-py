@@ -111,10 +111,6 @@ mdq.models
    :members:
    :member-order: bysource
 
-.. autoclass:: mdq.models.ExamScore
-   :members:
-   :member-order: bysource
-
 .. autodata:: mdq.models.GradingStrategy
 
 .. autodata:: mdq.models.GradedQuestionType
