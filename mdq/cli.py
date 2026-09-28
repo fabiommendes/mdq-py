@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.text import Text
 
 from . import show as _show
-from .convert import export_question, import_question
+from .convert import FORMATS, export_question, import_question
 from ._loading import Diagnostic, InvalidDocument, load, parse
 from .scaffold import QUESTION_TYPES, default_output_path, render_template
 
@@ -137,7 +137,10 @@ def import_(
     format: str | None = typer.Option(
         None,
         "--format",
-        help="External format to import from (default: inferred from FILE's extension).",
+        help=(
+            f"External format to import from ({', '.join(FORMATS)}; "
+            "default: inferred from FILE's extension)."
+        ),
     ),
 ) -> None:
     """
@@ -184,8 +187,8 @@ def export(
         None,
         "--format",
         help=(
-            "External format to export to (default: inferred from -o's "
-            "extension, falling back to 'aiken')."
+            f"External format to export to ({', '.join(FORMATS)}; "
+            "default: inferred from -o's extension, falling back to 'aiken')."
         ),
     ),
 ) -> None:

@@ -1,5 +1,5 @@
 """
-Tests for `mdq.convert.aiken`: parsing the Aiken multiple-choice format,
+Tests for `mdq.convert._aiken`: parsing the Aiken multiple-choice format,
 and round-tripping through the internal `MultipleChoiceQuestion` model.
 """
 
@@ -8,8 +8,8 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 
-from mdq.convert.aiken import Aiken, AikenParser, AikenQuestion
-from mdq.convert.parser import ParserError
+from mdq.convert._aiken import Aiken, AikenParser, AikenQuestion
+from mdq.convert._string_parser import ParserError
 from strategies.aiken import aiken_questions
 from mdq.models import EssayQuestion, MultipleChoiceQuestion, ScoredChoice
 
@@ -162,7 +162,7 @@ def test_full_round_trip_mdq_to_aiken_source_and_back():
 
 
 # ---------------------------------------------------------------------
-# Regression tests for bugs fixed in `mdq.convert.aiken`.
+# Regression tests for bugs fixed in `mdq.convert._aiken`.
 # ---------------------------------------------------------------------
 
 

@@ -1,9 +1,9 @@
 """
-Tests for the `mdq.convert.parser` recursive-descent primitives
+Tests for the `mdq.convert._string_parser` recursive-descent primitives
 (`StringParser`, `ParserError`).
 
 These primitives are format-agnostic building blocks used by
-`mdq.convert.aiken` (and future converters), so they're exercised here
+`mdq.convert._aiken` (and future converters), so they're exercised here
 directly through a minimal subclass rather than through Aiken.
 """
 
@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from mdq.convert.parser import ParserError, StringParser
+from mdq.convert._string_parser import ParserError, StringParser
 
 
 class EchoParser(StringParser[str]):
@@ -139,7 +139,7 @@ def test_parser_error_reports_one_indexed_line_and_col():
 
 
 # ---------------------------------------------------------------------
-# Regression tests for bugs fixed in `mdq.convert.parser`.
+# Regression tests for bugs fixed in `mdq.convert._string_parser`.
 # ---------------------------------------------------------------------
 
 

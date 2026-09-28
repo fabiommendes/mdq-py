@@ -1,5 +1,5 @@
 """
-Hypothesis strategies for `mdq.convert.gift` values, in "Brazil core"
+Hypothesis strategies for `mdq.convert._gift` values, in "Brazil core"
 flavored text.
 """
 
@@ -9,7 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from mdq.convert.gift import GiftBlock, GiftNumericOption, GiftOption
+from mdq.convert._gift import GiftBlock, GiftNumericOption, GiftOption
 
 __all__ = [
     "GIFT_SPECIAL_CHARS",

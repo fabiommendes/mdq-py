@@ -6,7 +6,17 @@ from typing import Any, ClassVar, Literal
 from ..models import Question
 from ..types import QuestionType
 
-CONVERSION_REGISTRY: dict[str, ConversionBase | str] = {}
+#: Every format `mdq.convert` can import from and export to.
+FORMATS: tuple[str, ...] = ("aiken", "gift", "moodle-xml")
+
+#: A format name maps to its converter, either already instantiated or as
+#: a lazy `"module:ClassName"` reference -- `load_converter` imports it on
+#: first use, so importing `mdq.convert` never imports every converter.
+CONVERSION_REGISTRY: dict[str, "ConversionBase | str"] = {
+    "aiken": "mdq.convert._aiken:Aiken",
+    "gift": "mdq.convert._gift:Gift",
+    "moodle-xml": "mdq.convert._moodle_xml:MoodleXml",
+}
 
 
 #: The stem of a true/false question built from a group of statements that
@@ -46,13 +56,6 @@ class ConversionBase[Q]:
         representation.
         """
         raise NotImplementedError
-
-
-def register_format(format: str, *, converter: str | ConversionBase):
-    """
-    Associate a format to the given conversion class instance.
-    """
-    CONVERSION_REGISTRY[format.lower()] = converter
 
 
 def load_converter(format: str) -> ConversionBase[Any]:

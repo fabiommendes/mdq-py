@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from string import ascii_lowercase
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
-from .base import ConversionBase
-from .parser import StringParser
+from ._base import ConversionBase
+from ._string_parser import StringParser
 
 CHOICE_REGEX = re.compile(r"(?P<letter>[a-zA-Z])[.)]\s+(?P<choice>[^\n]*)")
 NEWLINE_REGEX = re.compile(r"\s*\n\s*")

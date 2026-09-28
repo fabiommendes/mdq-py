@@ -1,5 +1,5 @@
 """
-Hypothesis strategies for `mdq.convert.moodle_xml` values, in "Brazil core"
+Hypothesis strategies for `mdq.convert._moodle_xml` values, in "Brazil core"
 flavored text.
 """
 
@@ -10,7 +10,7 @@ from typing import Literal
 from hypothesis import strategies as st
 
 from mdq import _parser
-from mdq.convert.moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
+from mdq.convert._moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
 
 __all__ = [
     "moodle_text",

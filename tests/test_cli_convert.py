@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from mdq.cli import app
 from mdq.convert import export_question, import_question
-from mdq.convert.base import load_converter
+from mdq.convert._base import load_converter
 
 runner = CliRunner()
 

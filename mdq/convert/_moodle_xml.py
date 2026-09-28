@@ -25,8 +25,8 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import EssayInput
-from .base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
-from .parser import StringParser
+from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
+from ._string_parser import StringParser
 
 __all__ = [
     "MoodleXml",

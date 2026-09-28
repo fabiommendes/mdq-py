@@ -1,5 +1,5 @@
 """
-Tests for `mdq.convert.gift`: parsing the GIFT question format, rendering
+Tests for `mdq.convert._gift`: parsing the GIFT question format, rendering
 it back, and round-tripping through the internal MDQ `Question` models.
 
 Reference: https://docs.moodle.org/502/en/GIFT_format
@@ -11,8 +11,8 @@ import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
-from mdq.convert.base import TRUE_FALSE_FALLBACK_STEM
-from mdq.convert.gift import (
+from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
+from mdq.convert._gift import (
     Gift,
     GiftBlock,
     GiftBoolean,
@@ -27,7 +27,7 @@ from mdq.convert.gift import (
     escape_gift,
     unescape_gift,
 )
-from mdq.convert.parser import ParserError
+from mdq.convert._string_parser import ParserError
 from strategies.gift import (
     GIFT_SPECIAL_CHARS,
     gift_blocks,

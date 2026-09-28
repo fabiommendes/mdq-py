@@ -1,5 +1,5 @@
 """
-Tests for `mdq.convert.moodle_xml`: parsing the Moodle XML question format,
+Tests for `mdq.convert._moodle_xml`: parsing the Moodle XML question format,
 rendering it back, and round-tripping through the internal MDQ `Question`
 models.
 
@@ -13,8 +13,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError as PydanticValidationError
 
-from mdq.convert.base import TRUE_FALSE_FALLBACK_STEM
-from mdq.convert.moodle_xml import (
+from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
+from mdq.convert._moodle_xml import (
     MoodleAnswer,
     MoodleCloze,
     MoodleXml,
@@ -26,7 +26,7 @@ from mdq.convert.moodle_xml import (
     parse_cloze,
     render_cloze,
 )
-from mdq.convert.parser import ParserError
+from mdq.convert._string_parser import ParserError
 from strategies.moodle_xml import (
     mdq_text,
     moodle_cloze,

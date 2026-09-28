@@ -1,5 +1,5 @@
 """
-Hypothesis strategies for `mdq.convert.aiken` values, in "Brazil core"
+Hypothesis strategies for `mdq.convert._aiken` values, in "Brazil core"
 flavored text.
 """
 
@@ -9,7 +9,7 @@ from typing import Literal
 
 from hypothesis import strategies as st
 
-from mdq.convert.aiken import CHOICE_REGEX, AikenQuestion
+from mdq.convert._aiken import CHOICE_REGEX, AikenQuestion
 
 __all__ = ["aiken_line_text", "aiken_stems", "aiken_questions"]
 
