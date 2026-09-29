@@ -537,7 +537,7 @@ def test_to_mdq_numerical_with_tolerance():
     question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
     assert isinstance(question, NumericQuestion)
     assert question.answer == pytest.approx(3.0)
-    assert question.unit == "x10^8 m/s"
+    assert question.unit == "x10^8m/s"
     assert question.tolerance == Tolerance(absolute=0.1)
 
 
@@ -776,12 +776,12 @@ def test_from_mdq_numeric():
         stem="Speed of light in vacuum (x10^8 m/s)?",
         answer=3.0,
         tolerance=Tolerance(absolute=0.1),
-        unit="x10^8 m/s",
+        unit="x10^8m/s",
     )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks
     assert block.type == "numerical"
-    assert block.unit == "x10^8 m/s"
+    assert block.unit == "x10^8m/s"
     [answer] = block.answers
     assert answer.tolerance == pytest.approx(0.1)
 
@@ -1001,7 +1001,7 @@ def test_full_round_trip_numeric():
         stem="Speed of light in vacuum (x10^8 m/s)?",
         answer=3.0,
         tolerance=Tolerance(absolute=0.1),
-        unit="x10^8 m/s",
+        unit="x10^8m/s",
     )
     converter = MoodleXml()
     source = converter.render(converter.from_mdq(question))
@@ -1172,3 +1172,21 @@ def test_fill_in_choice_blank_allows_unscored_choices():
     )
     cloze = MoodleXmlEncoder().cloze_from_blank(question.blanks[0])
     assert [answer.fraction for answer in cloze.answers] == [0.0, 100.0, 0.0]
+
+
+@pytest.mark.parametrize(
+    ("moodle_unit", "unit"),
+    [("km / h", "km/h"), ("(kg)", "kg"), ("[m]", "m"), (" ( ) ", None), ("°C", "°C")],
+)
+def test_to_mdq_numerical_unit_is_made_valid(moodle_unit, unit):
+    """numeric.md, "Unit conversion": an MDQ unit has no whitespace and
+    no `()[]`. Moodle allows both, so the importer removes them."""
+    block = MoodleXmlBlock(
+        type="numerical",
+        questiontext="Velocidade média de um trem-bala?",
+        answers=[MoodleAnswer(text="300", fraction=100.0, tolerance=0)],
+        unit=moodle_unit,
+    )
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    assert isinstance(question, NumericQuestion)
+    assert question.unit == unit

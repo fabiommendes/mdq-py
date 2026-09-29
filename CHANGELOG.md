@@ -42,3 +42,15 @@ Implements the unreleased MDQ specification.
   same `sign? value` grammar (`mdq._parser.parse_numeric_value`); a
   malformed one, or a fraction with a zero denominator, is the new
   `malformed-numeric-answer` model error.
+- A fill-in choice blank now gets the choice lint rules of multiple choice:
+  `blank-choice-feedback`, `blank-choice-comment`, `missing-choice-id` and
+  `visually-identical-choices`.
+- The models reject a numeric question's/blank's `unit` that does not match
+  `^[^\s()\[\]]+$`, like the schema and the parser. The Moodle XML importer
+  removes whitespace and `()[]` from a Moodle unit to make it valid.
+
+### Fixed
+
+- `answer-outside-domain` and `relative-tolerance-around-zero` now judge a
+  string `answer` (`"3/2"`, `"0"`) by its value. Before, they only checked a
+  number.

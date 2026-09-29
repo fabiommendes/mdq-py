@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from fractions import Fraction
 from typing import TYPE_CHECKING, Sequence, Union
 
 from markdown_it import MarkdownIt
@@ -887,10 +888,10 @@ def check_numeric(
     """
     warnings: list[Diagnostic] = []
     inferred_domain = _infer_numeric_domain(answer)
+    # A string answer is already grammar-validated, so `Fraction` accepts it.
+    value: Fraction | float = Fraction(answer) if isinstance(answer, str) else answer
 
-    if domain == "integer" and isinstance(answer, (int, float)) and float(answer) != int(
-        answer
-    ):
+    if domain == "integer" and value != int(value):
         warnings.append(
             Diagnostic(
                 severity="warning",
@@ -932,7 +933,7 @@ def check_numeric(
 
     if tolerance is not None:
         relative = tolerance.relative
-        if relative is not None and relative > 0 and answer == 0:
+        if relative is not None and relative > 0 and value == 0:
             warnings.append(
                 Diagnostic(
                     severity="warning",

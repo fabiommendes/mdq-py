@@ -7,7 +7,7 @@ value/tolerance-matching helpers a numeric fill-in blank
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Any, Iterable, Literal
+from typing import Annotated, Any, Iterable, Literal
 
 from pydantic import Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -21,6 +21,10 @@ from ._base import BaseQuestion, MdqModel
 from ._score import QuestionScore
 
 __all__ = ["Tolerance", "NumericQuestion"]
+
+#: numeric.md, "Unit conversion": non-empty, no whitespace, no parentheses
+#: or brackets. Mirrors the `unit` pattern in `schema/numeric.yaml`.
+_UNIT_PATTERN = r"^[^\s()\[\]]+$"
 
 
 def _validate_numeric_answer(value: float | str) -> float | str:
@@ -55,7 +59,7 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     #: which no float can represent.
     answer: float | str
     type: Literal["numeric"] = "numeric"
-    unit: str | None = None
+    unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
     domain: NumericDomain | None = None
     decimal_places: int | None = Field(default=None, ge=0)
     tolerance: Tolerance | None = None

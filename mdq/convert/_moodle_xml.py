@@ -441,7 +441,7 @@ class MoodleXmlDecoder:
         return NumericQuestion(
             stem=block.questiontext,
             answer=float(answer.text),
-            unit=block.unit,
+            unit=_mdq_unit(block.unit),
             tolerance=tolerance,
             title=block.name,
             id=block.idnumber,
@@ -614,6 +614,11 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
             default_grade=default_grade,
             tags=tags,
         )
+
+
+def _mdq_unit(unit: str | None) -> str | None:
+    """Strip whitespace and `()[]` from a Moodle unit (numeric.md, "Unit conversion")."""
+    return re.sub(r"[\s()\[\]]", "", unit or "") or None
 
 
 def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:

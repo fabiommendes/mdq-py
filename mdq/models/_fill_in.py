@@ -29,7 +29,7 @@ from ._base import (
     _validate_mdq_regex,
 )
 from ._choice import ScoredChoice, _with_choice_ids
-from ._numeric import Tolerance, _validate_numeric_answer, numeric_matches, render_numeric_tag
+from ._numeric import _UNIT_PATTERN, Tolerance, _validate_numeric_answer, numeric_matches, render_numeric_tag
 from ._score import QuestionScore
 from ._text import AnswerPattern, render_pattern_block, short_answer_matches
 
@@ -74,7 +74,7 @@ class NumericBlank(MdqModel):
     id: str
     type: Literal["numeric"] = "numeric"
     answer: float | str
-    unit: str | None = None
+    unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
     domain: NumericDomain | None = None
     decimal_places: Annotated[int | None, Field(ge=0)] = None
     tolerance: Tolerance | None = None
@@ -213,8 +213,14 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         for index, blank in enumerate(self.blanks):
             path: tuple[str | int, ...] = ("blanks", index)
             if isinstance(blank, ChoiceBlank):
+                choices_path = path + ("choices",)
+                diagnostics.extend(_lint.check_multiple_choice_answers(blank.choices, choices_path))
                 diagnostics.extend(
-                    _lint.check_multiple_choice_answers(blank.choices, path + ("choices",))
+                    _lint.check_choice_feedback_and_comment(blank.choices, choices_path)
+                )
+                diagnostics.extend(_lint.check_choice_ids_defined(blank.choices, choices_path))
+                diagnostics.extend(
+                    _lint.check_choices_visually_identical(blank.choices, choices_path)
                 )
             elif isinstance(blank, ShortAnswerBlank):
                 diagnostics.extend(
