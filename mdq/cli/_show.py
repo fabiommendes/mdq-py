@@ -284,7 +284,7 @@ def _bool_mark(correct: bool, show_answer_key: bool) -> Text:
 def _render_numeric(
     console: Console,
     *,
-    answer: float | str,
+    answer: int | float | str,
     unit: str | None,
     domain: NumericDomain | None,
     decimal_places: int | None,
@@ -317,9 +317,9 @@ def _render_numeric(
 
 
 def _format_numeric_answer(
-    answer: float | str, unit: str | None, tolerance: models.Tolerance | None
+    answer: int | float | str, unit: str | None, tolerance: models.Tolerance | None
 ) -> str:
-    answer_text = _format_number(answer) if isinstance(answer, float) else answer
+    answer_text = _format_number(answer) if isinstance(answer, float) else str(answer)
     parts = [answer_text]
     if unit:
         parts.append(unit)

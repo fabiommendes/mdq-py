@@ -21,7 +21,7 @@ from ..models import (
     Tolerance,
     TrueFalseQuestion,
 )
-from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
+from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase, mdq_numeric_answer
 from ._string_parser import StringParser
 
 __all__ = [
@@ -406,7 +406,7 @@ class GiftDecoder:
             tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
             return NumericQuestion(
                 stem=block.stem,
-                answer=opt.value,
+                answer=mdq_numeric_answer(format_num(opt.value)),
                 tolerance=tolerance,
                 title=block.title,
                 comment=block.comment,
@@ -428,7 +428,7 @@ class GiftDecoder:
         if isinstance(answer, GiftNumeric):
             opt = answer.options[0]
             tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
-            return NumericBlank(id="blank", answer=opt.value, tolerance=tolerance)
+            return NumericBlank(id="blank", answer=mdq_numeric_answer(format_num(opt.value)), tolerance=tolerance)
         raise ValueError(
             f"GIFT missing-word tail is not supported for {type(answer).__name__} answers"
         )

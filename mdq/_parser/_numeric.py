@@ -8,7 +8,9 @@ and merge the result into their own document/blank dict.
 
 from __future__ import annotations
 
+import math
 import re
+from decimal import Decimal
 from typing import Required, TypedDict
 
 from ..errors import ParseError
@@ -32,12 +34,15 @@ NUM_VALUE_RE = re.compile(
 TOL_TERM_RE = re.compile(rf"\+-\s*(?P<num>{_TOLERANCE_NUM})(?P<pct>%)?")
 
 #: The bare `sign? value` grammar (numeric.md) -- no tolerance terms.
-#: Used to validate an `answer` written as a `str` directly in a
-#: dict/YAML/JSON document (`mdq.models._numeric`, `mdq.models.
-#: _fill_in`); the Markdown surface syntax never produces this shape on
-#: its own, since `_parse_numeric_expression` below always turns a body
-#: fraction into a `float`.
+#: Used to validate an `answer` written as a `str` (`mdq.models.
+#: _numeric`, `mdq.models._fill_in`), whether a dict/YAML/JSON document
+#: wrote it or `_parse_numeric_expression` below kept it as one.
 VALUE_RE = re.compile(rf"^(?P<sign>[+-])?(?P<value>{_VALUE})$")
+
+#: numeric.md, "Answer representation": an integer outside the 32-bit
+#: signed range stays a string.
+_INT32_MIN = -(2**31)
+_INT32_MAX = 2**31 - 1
 
 
 class _NumericExpr(TypedDict, total=False):
@@ -49,7 +54,7 @@ class _NumericExpr(TypedDict, total=False):
     adds itself.
     """
 
-    answer: Required[float]
+    answer: Required[int | float | str]
     domain: NumericDomain
     decimalPlaces: int
     tolerance: ToleranceDict
@@ -67,23 +72,24 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     if not m:
         raise ParseError(f"malformed numeric body: {expr!r}")
 
-    sign = -1 if m.group("sign") == "-" else 1
+    sign = m.group("sign") or ""
     value_str = m.group("value")
+
+    if "/" in value_str and int(value_str.split("/")[1]) == 0:
+        raise ParseError(f"zero denominator in numeric body: {expr!r}")
+    answer = _answer_value(sign, value_str)
 
     result: _NumericExpr
     if "/" in value_str:
-        num, den = value_str.split("/")
-        if int(den) == 0:
-            raise ParseError(f"zero denominator in numeric body: {expr!r}")
-        result = {"answer": sign * (int(num) / int(den)), "domain": "fraction"}
+        result = {"answer": answer, "domain": "fraction"}
     elif "." in value_str:
         result = {
-            "answer": sign * float(value_str),
+            "answer": answer,
             "domain": "decimal",
             "decimalPlaces": len(value_str.split(".", 1)[1]),
         }
     else:
-        result = {"answer": sign * int(value_str), "domain": "integer"}
+        result = {"answer": answer, "domain": "integer"}
 
     tolerance: ToleranceDict = {}
     absolute_is_decimal = False
@@ -104,11 +110,41 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     return result
 
 
-def parse_numeric_value(text: str) -> float:
+def _answer_value(sign: str, value: str) -> int | float | str:
+    """
+    numeric.md, "Answer representation": the JSON value of a numeric
+    body's `sign? value`. A `+` sign is dropped, since it adds nothing.
+
+    * An integer is an `int` if it fits the 32-bit signed range, a
+      string otherwise.
+    * A fraction is always a string: most have no exact float.
+    * A decimal is a `float` only if the float gives back the written
+      digits: its shortest repr is the same decimal, and the written
+      value does not end in a zero, which records a significant digit
+      the float drops (`2.50`). Otherwise it is a string.
+    """
+    text = "-" + value if sign == "-" else value
+    if "/" in value:
+        return text
+    if "." in value:
+        number = float(text)
+        if not value.endswith("0") and math.isfinite(number):
+            if Decimal(repr(number)) == Decimal(text):
+                return number
+        return text
+    integer = int(text)
+    if _INT32_MIN <= integer <= _INT32_MAX:
+        return integer
+    return text
+
+
+def parse_numeric_answer(text: str) -> int | float | str:
     """
     Parse a bare `sign? value` (numeric.md's grammar for a numeric
-    body's value, with no tolerance terms) -- what a string `answer`
-    (numeric.md, "Answer representation") must look like.
+    body's value, with no tolerance terms) into the representation a
+    numeric body's value gets (numeric.md, "Answer representation"; see
+    `_answer_value`). The importers use it, so an imported answer reads
+    the same as one written in Markdown.
 
     Raises:
         ParseError: `text` does not match the grammar, or is a fraction
@@ -117,12 +153,8 @@ def parse_numeric_value(text: str) -> float:
     m = VALUE_RE.match(text.strip())
     if not m:
         raise ParseError(f"malformed numeric value: {text!r}")
+    value = m.group("value")
+    if "/" in value and int(value.split("/")[1]) == 0:
+        raise ParseError(f"zero denominator in numeric value: {text!r}")
+    return _answer_value(m.group("sign") or "", value)
 
-    sign = -1 if m.group("sign") == "-" else 1
-    value_str = m.group("value")
-    if "/" in value_str:
-        num, den = value_str.split("/")
-        if int(den) == 0:
-            raise ParseError(f"zero denominator in numeric value: {text!r}")
-        return sign * (int(num) / int(den))
-    return sign * float(value_str)

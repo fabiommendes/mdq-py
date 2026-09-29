@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib
 from typing import Any, ClassVar, Literal
 
+from .. import _parser
+from ..errors import ParseError
 from ..models import Question
 from ..types import QuestionType
 
@@ -23,6 +25,22 @@ CONVERSION_REGISTRY: dict[str, "ConversionBase | str"] = {
 #: share no leading paragraph. MDQ requires a stem with a visible character
 #: (docs/question-types/base.md, "Additional Rules").
 TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
+
+
+def mdq_numeric_answer(text: str) -> int | float | str:
+    """
+    Return a numeric `answer` for the number an external format wrote as
+    `text`, in the representation the Markdown parser would give it
+    (numeric.md, "Answer representation"): `"42"` is `42`, `"2.50"` is
+    `"2.50"`. Text outside MDQ's grammar (`"1e-5"`) becomes a `float`.
+
+    Raises:
+        ValueError: `text` is not a number at all.
+    """
+    try:
+        return _parser.parse_numeric_answer(text)
+    except ParseError:
+        return float(text)
 
 
 class ConversionBase[Q]:

@@ -6,10 +6,11 @@ value/tolerance-matching helpers a numeric fill-in blank
 
 from __future__ import annotations
 
+from decimal import Decimal
 from fractions import Fraction
 from typing import Annotated, Any, Iterable, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, StrictFloat, StrictInt, field_validator
 from pydantic_core import PydanticCustomError
 
 from .. import _parser, types as t
@@ -26,19 +27,25 @@ __all__ = ["Tolerance", "NumericQuestion"]
 #: or brackets. Mirrors the `unit` pattern in `schema/numeric.yaml`.
 _UNIT_PATTERN = r"^[^\s()\[\]]+$"
 
+#: numeric.md, "Answer representation": a number, or a string in the
+#: `sign? value` grammar that keeps a value no float holds exactly
+#: ("1/3", "2.50", "3000000000"). Strict, so an `int` stays an `int`
+#: (it is not widened to a `float`) and a `bool` is not a number.
+NumericAnswer = StrictInt | StrictFloat | str
 
-def _validate_numeric_answer(value: float | str) -> float | str:
+
+def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
     """
     numeric.md, "Answer representation": a string `answer` MUST be a
     valid `sign? value` (an `INTEGER`, `DECIMAL`, or a fraction with a
     nonzero denominator) -- the same grammar a numeric body's value
     follows. A JSON/YAML number needs no check; it is already one.
 
-    Reuses `mdq._parser.parse_numeric_value` instead of a second regex.
+    Reuses `mdq._parser.parse_numeric_answer` instead of a second regex.
     """
     if isinstance(value, str):
         try:
-            _parser.parse_numeric_value(value)
+            _parser.parse_numeric_answer(value)
         except ParseError as exc:
             raise PydanticCustomError(
                 "malformed-numeric-answer",
@@ -55,9 +62,8 @@ class Tolerance(MdqModel):
 
 
 class NumericQuestion(BaseQuestion[t.NumericResponse]):
-    #: The correct value. A `str` carries an exact rational ("1/3"),
-    #: which no float can represent.
-    answer: float | str
+    #: The correct value. See `NumericAnswer`.
+    answer: NumericAnswer
     type: Literal["numeric"] = "numeric"
     unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
     domain: NumericDomain | None = None
@@ -66,7 +72,7 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
 
     @field_validator("answer")
     @classmethod
-    def check_answer_grammar(cls, value: float | str) -> float | str:
+    def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
         return _validate_numeric_answer(value)
 
     def lint(self) -> list[Diagnostic]:
@@ -115,53 +121,57 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
 # Utilities
 #
 
-def numeric_value(value: float | int | str | Fraction) -> float:
+def numeric_value(value: NumericAnswer | Fraction) -> Fraction:
     """
-    Convert a numeric value to a float.
+    Convert a numeric answer, response or tolerance to an exact rational.
 
-    Args:
-        value: a number, or a decimal/rational string (e.g. "3.14", "1/3").
+    A string is read as the decimal or fraction it spells ("3.14",
+    "1/3"). A float is read as its shortest repr, i.e. the decimal it
+    was written as: `0.1` is 1/10, not the nearest binary fraction.
 
     Raises:
-        ValueError: `value` isn't a valid number.
+        ValueError: `value` isn't a valid finite number.
     """
-    if isinstance(value, str):
-        value = Fraction(value)
-    return float(value)
+    if isinstance(value, float):
+        return Fraction(repr(value))
+    return Fraction(value)
 
 
 def numeric_matches(
-    answer: float | str, response: t.NumericResponse, tolerance: Tolerance | None
+    answer: NumericAnswer, response: t.NumericResponse, tolerance: Tolerance | None
 ) -> bool:
     """
     Report whether `response` is within `answer`'s tolerance.
 
     With neither tolerance set, the match must be exact. With both set,
-    either one passing is enough.
+    either one passing is enough. The comparison is exact (see
+    `numeric_value`), so a string answer keeps the precision it was
+    written with.
 
     Raises:
         ResponseError: `response` isn't a valid number.
     """
     try:
-        target = numeric_value(answer)
         value = numeric_value(response)
     except (ValueError, ZeroDivisionError) as exc:
         raise ResponseError(f"{response!r} is not a valid numeric response") from exc
+    target = numeric_value(answer)
+    distance = abs(value - target)
 
     if tolerance is None or (tolerance.absolute is None and tolerance.relative is None):
-        return value == target
-    if tolerance.absolute is not None and abs(value - target) <= tolerance.absolute:
+        return distance == 0
+    if tolerance.absolute is not None and distance <= numeric_value(tolerance.absolute):
         return True
     if (
         tolerance.relative is not None
-        and abs(value - target) <= abs(target) * tolerance.relative
+        and distance <= abs(target) * numeric_value(tolerance.relative)
     ):
         return True
     return False
 
 
 def render_numeric_tag(
-    answer: float | str,
+    answer: NumericAnswer,
     *,
     tag: str = "[numeric]",
     unit: str | None = None,
@@ -171,12 +181,26 @@ def render_numeric_tag(
     if unit is not None:
         tag = f"{tag[:-1]}({unit})]"
 
-    terms = [str(answer)]
+    terms = [answer if isinstance(answer, str) else _format_number(answer)]
     if tolerance is not None:
         if tolerance.absolute is not None:
-            terms.append(f"+- {tolerance.absolute}")
+            terms.append(f"+- {_format_number(tolerance.absolute)}")
         if tolerance.relative is not None:
-            terms.append(f"+- {tolerance.relative * 100}%")
+            percent = Decimal(repr(tolerance.relative)) * 100
+            terms.append(f"+- {_format_number(float(percent))}%")
     return f"{tag}: {' '.join(terms)}"
 
 
+def _format_number(value: int | float) -> str:
+    """
+    Write a number in the `INTEGER`/`DECIMAL` grammar of numeric.md:
+    plain notation, never an exponent (`1e-05` is `0.00001`). A float
+    keeps its `.0` when whole, so it reads back as a decimal.
+    """
+    if isinstance(value, int):
+        return str(value)
+    text = repr(value)
+    if "e" not in text:
+        return text
+    text = format(Decimal(text), "f")
+    return text if "." in text else f"{text}.0"

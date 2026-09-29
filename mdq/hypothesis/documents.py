@@ -116,8 +116,56 @@ def numeric_questions() -> st.SearchStrategy[models.Question]:
     """
     return st.builds(
         models.NumericQuestion,
+        answer=numeric_answers(),
         **_base_question_kwargs(),
     )
+
+
+_INT32_MIN = -(2**31)
+_INT32_MAX = 2**31 - 1
+
+
+def numeric_answers() -> st.SearchStrategy[int | float | str]:
+    """
+    Return a strategy for generating a numeric `answer` in the
+    representation the parser gives it (numeric.md, "Answer
+    representation"): an `int` in the 32-bit signed range, a string for
+    a larger integer or for a fraction, a non-whole float, or a string
+    for a decimal that a float cannot reproduce digit by digit.
+
+    Rendering such an answer and parsing it back gives the same value
+    in the same representation.
+    """
+    signs = st.sampled_from(["", "-"])
+    naturals = st.integers(min_value=0, max_value=10**30)
+    digits = st.text(alphabet="0123456789", min_size=1, max_size=25)
+    small_ints = st.integers(min_value=_INT32_MIN, max_value=_INT32_MAX)
+    large_ints = (
+        st.integers(max_value=_INT32_MIN - 1) | st.integers(min_value=_INT32_MAX + 1)
+    ).map(str)
+    fractions = st.builds(
+        lambda sign, num, den: f"{sign}{num}/{den}",
+        signs,
+        naturals,
+        st.integers(min_value=1, max_value=10**30),
+    )
+    floats = st.floats(
+        min_value=-1e15, max_value=1e15, allow_nan=False, allow_infinity=False
+    ).filter(lambda x: not x.is_integer())
+    # A trailing zero keeps a significant digit a float drops, and 18 or
+    # more significant digits ending in a nonzero digit are more than the
+    # shortest repr of any float has.
+    trailing_zero = st.builds(
+        lambda sign, whole, frac: f"{sign}{whole}.{frac}0", signs, naturals, digits
+    )
+    long_decimals = st.builds(
+        lambda sign, whole, frac, last: f"{sign}{whole}.{frac}{last}",
+        signs,
+        st.integers(min_value=1, max_value=10**30),
+        st.text(alphabet="0123456789", min_size=18, max_size=30),
+        st.sampled_from("123456789"),
+    )
+    return small_ints | large_ints | fractions | floats | trailing_zero | long_decimals
 
 
 def short_answer_questions() -> st.SearchStrategy[models.Question]:

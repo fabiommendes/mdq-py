@@ -29,7 +29,14 @@ from ._base import (
     _validate_mdq_regex,
 )
 from ._choice import ScoredChoice, _with_choice_ids
-from ._numeric import _UNIT_PATTERN, Tolerance, _validate_numeric_answer, numeric_matches, render_numeric_tag
+from ._numeric import (
+    _UNIT_PATTERN,
+    NumericAnswer,
+    Tolerance,
+    _validate_numeric_answer,
+    numeric_matches,
+    render_numeric_tag,
+)
 from ._score import QuestionScore
 from ._text import AnswerPattern, render_pattern_block, short_answer_matches
 
@@ -73,7 +80,7 @@ class ShortAnswerBlank(MdqModel):
 class NumericBlank(MdqModel):
     id: str
     type: Literal["numeric"] = "numeric"
-    answer: float | str
+    answer: NumericAnswer
     unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
     domain: NumericDomain | None = None
     decimal_places: Annotated[int | None, Field(ge=0)] = None
@@ -81,7 +88,7 @@ class NumericBlank(MdqModel):
 
     @field_validator("answer")
     @classmethod
-    def check_answer_grammar(cls, value: float | str) -> float | str:
+    def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
         return _validate_numeric_answer(value)
 
 

@@ -39,7 +39,7 @@ Implements the unreleased MDQ specification.
   (`mdq._parser._question.UNIT_RE`), not Python's Unicode-aware `\w`,
   admitting units like `µm`, `°C`, and `km/h`.
 - A numeric question's/blank's string `answer` is now checked against the
-  same `sign? value` grammar (`mdq._parser.parse_numeric_value`); a
+  same `sign? value` grammar (`mdq._parser.parse_numeric_answer`); a
   malformed one, or a fraction with a zero denominator, is the new
   `malformed-numeric-answer` model error.
 - A fill-in choice blank now gets the choice lint rules of multiple choice:
@@ -48,6 +48,24 @@ Implements the unreleased MDQ specification.
 - The models reject a numeric question's/blank's `unit` that does not match
   `^[^\s()\[\]]+$`, like the schema and the parser. The Moodle XML importer
   removes whitespace and `()[]` from a Moodle unit to make it valid.
+- A numeric body's value follows numeric.md's new "Answer representation":
+  a fraction is a string (`"1/3"`), an integer is an `int` inside the
+  32-bit signed range and a string outside it, and a decimal is a `float`
+  only if the float gives back the written digits (`"2.50"` and
+  `"3.14159265358979323846"` stay strings). Before, every value became a
+  float. `domain` and `decimalPlaces` are unchanged.
+- `NumericQuestion.answer` and `NumericBlank.answer` keep an `int` as an
+  `int` (it was widened to a `float`) and reject a `bool`
+  (`NumericAnswer`).
+- Numeric scoring is exact: it compares `Fraction`s, and reads a float as
+  the decimal of its shortest repr. A `"1/3"` answer no longer matches the
+  float `0.3333333333333333` without a tolerance, and `0.3 +- 0.1`
+  accepts `0.4`.
+- The GIFT and Moodle XML importers give an answer the same
+  representation as the parser (`mdq._parser.parse_numeric_answer`), so
+  `42` imports as an `int`.
+- `mdq.hypothesis.documents.numeric_questions` draws a valid `answer`
+  from the new `numeric_answers` strategy.
 
 ### Fixed
 
@@ -70,3 +88,9 @@ Implements the unreleased MDQ specification.
   tolerance (`0 +- 0.01` is decimal). `domain-mismatch` uses the same rule,
   and accepts `fraction` or `decimal` for a float answer that is not whole,
   since a float cannot show how it was written.
+- Rendering a numeric answer or tolerance never writes an exponent
+  (`1e-05` is `0.00001`), and a relative tolerance has no float noise
+  (`0.07` is `7.0%`, not `7.000000000000001%`). An `int` answer renders
+  without `.0`.
+- `[numeric]: 2.0` and `[numeric]: 4/2` no longer get a false
+  `domain-mismatch`.

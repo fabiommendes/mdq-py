@@ -466,7 +466,7 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value. Written directly (not parsed from Markdown), it MAY instead be a string holding an exact fraction or decimal in the same grammar as a numeric body's value (docs/question-types/numeric.md, \"Answer representation\"), e.g. \"1/3\" or \"-0.25\" -- a fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\" or \"390000000000\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"
@@ -692,7 +692,7 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value. Written directly (not parsed from Markdown), it MAY instead be a string holding an exact fraction or decimal in the same grammar as a numeric body's value (docs/question-types/numeric.md, \"Answer representation\"), e.g. \"1/3\" or \"-0.25\" -- a fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\" or \"390000000000\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"

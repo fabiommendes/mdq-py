@@ -25,7 +25,7 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import EssayInput
-from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase
+from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase, mdq_numeric_answer
 from ._string_parser import StringParser
 
 __all__ = [
@@ -440,7 +440,7 @@ class MoodleXmlDecoder:
         tolerance = Tolerance(absolute=answer.tolerance) if answer.tolerance else None
         return NumericQuestion(
             stem=block.questiontext,
-            answer=float(answer.text),
+            answer=mdq_numeric_answer(answer.text),
             unit=_mdq_unit(block.unit),
             tolerance=tolerance,
             title=block.name,
@@ -492,7 +492,7 @@ class MoodleXmlDecoder:
             return ShortAnswerBlank(id=blank_id, one_of=[a.text for a in cloze.answers])
         answer = cloze.answers[0]
         tolerance = Tolerance(absolute=answer.tolerance) if answer.tolerance else None
-        return NumericBlank(id=blank_id, answer=float(answer.text), tolerance=tolerance)
+        return NumericBlank(id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance)
 
     def true_false_from_blocks(self, blocks: list[MoodleXmlBlock]) -> TrueFalseQuestion:
         texts = [b.questiontext for b in blocks]

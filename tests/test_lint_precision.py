@@ -208,9 +208,9 @@ def test_parser_numeric_blank_domain_uses_the_absolute_tolerance() -> None:
 
 @pytest.mark.parametrize("domain", ["fraction", "decimal"])
 def test_a_float_answer_can_be_a_fraction_or_a_decimal(domain: str) -> None:
-    """numeric.md, "Answer representation": a parsed `[numeric]: 3/4` is
-    `answer: 0.75` with `domain: fraction`. A float cannot tell a fraction
-    from a decimal, so neither declared domain contradicts it."""
+    """numeric.md, "Answer representation": a JSON/YAML/dict document may
+    write the fraction 3/4 as `answer: 0.75`. A float cannot tell a
+    fraction from a decimal, so neither declared domain contradicts it."""
     doc = _numeric(answer=0.75, domain=domain, tolerance={"absolute": 1})
     assert _paths(doc, "domain-mismatch") == []
 

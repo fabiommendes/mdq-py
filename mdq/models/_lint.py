@@ -883,15 +883,19 @@ _DOMAIN_RANK: dict[str, int] = {"integer": 0, "fraction": 1, "decimal": 2}
 
 
 def _accepted_numeric_domains(
-    answer: float | str, tolerance: "_numeric.Tolerance | None"
+    answer: int | float | str, tolerance: "_numeric.Tolerance | None"
 ) -> set[str]:
     """
     numeric.md, "Number type/domain": the declared domains that do not
     contradict the answer. That is the higher of the answer's domain and
-    the absolute tolerance's (integer < fraction < decimal). A non-whole
-    float answer cannot tell a fraction from a decimal (the parser
-    stores `3/4` as `0.75`), so it accepts both, unless a decimal
-    tolerance makes it decimal.
+    the absolute tolerance's (integer < fraction < decimal).
+
+    A string answer shows how it was written. A number does not: the
+    parser only turns a decimal into a float, but a JSON/YAML/dict
+    document may write any value as a number (numeric.md, "Answer
+    representation"), so a non-whole float may stand for a fraction
+    (`0.25` for `1/4`) as well as a decimal. It accepts both, unless a
+    decimal tolerance makes it decimal.
     """
     own: set[str]
     if isinstance(answer, str):
@@ -908,14 +912,15 @@ def _accepted_numeric_domains(
     return own
 
 
-def _infer_numeric_domain(answer: float | str) -> "NumericDomain":
+def _infer_numeric_domain(answer: int | float | str) -> "NumericDomain":
     """
     numeric.md, "Number type/domain": infer the domain an `answer` is
     written in, ranking integer < fraction < decimal. A `str` answer
     holds a `/` (a fraction) or a `.` (a decimal) or neither (an
-    integer); a `float`/`int` answer is an integer when it has no
-    fractional part, decimal otherwise -- it can never be a fraction,
-    since JSON/YAML has no rational-number literal.
+    integer); a number is an integer when it has no fractional part,
+    decimal otherwise. The parser keeps a whole decimal such as `2.0`
+    as a string, so a whole number here was not written as a decimal
+    in Markdown.
     """
     if isinstance(answer, str):
         text = answer.strip()
@@ -929,7 +934,7 @@ def _infer_numeric_domain(answer: float | str) -> "NumericDomain":
 
 def check_numeric(
     *,
-    answer: float | str,
+    answer: int | float | str,
     domain: "NumericDomain | None",
     decimal_places: int | None,
     tolerance: "_numeric.Tolerance | None",

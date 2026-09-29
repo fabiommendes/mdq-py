@@ -205,7 +205,9 @@ class NumericQuestionDict(QuestionBaseDict, total=False):
     """schema/numeric.yaml"""
 
     type: Required[Literal["numeric"]]
-    answer: Required[float]
+    #: numeric.md, "Answer representation": a string keeps a value no
+    #: float holds exactly ("1/3", "2.50", "3000000000").
+    answer: Required[int | float | str]
     unit: str
     domain: NumericDomain
     decimalPlaces: int
@@ -287,7 +289,9 @@ class NumericBlankDict(TypedDict, total=False):
 
     id: Required[str]
     type: Required[Literal["numeric"]]
-    answer: Required[float]
+    #: numeric.md, "Answer representation": a string keeps a value no
+    #: float holds exactly ("1/3", "2.50", "3000000000").
+    answer: Required[int | float | str]
     unit: str
     domain: NumericDomain
     decimalPlaces: int
