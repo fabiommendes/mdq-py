@@ -761,19 +761,7 @@ def check_short_answer(
                 )
             )
 
-        if regex.startswith("^") or regex.endswith("$"):
-            warnings.append(
-                Diagnostic(
-                    severity="info",
-                    code="redundant-regex-anchor",
-                    path=path + ("regex",),
-                    message=(
-                        "matching is a full match, so a leading '^' or "
-                        "trailing '$' is redundant"
-                    ),
-                )
-            )
-
+        warnings.extend(_check_redundant_regex_anchor(regex, path + ("regex",)))
         warnings.extend(_check_ignored_regex_flags(regex, path + ("regex",)))
 
     if not open_ended and regex is None and not one_of and not accept:
@@ -803,6 +791,7 @@ def check_short_answer(
                     ),
                 )
             )
+        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, path + ("accept", index)))
         warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("accept", index)))
 
     reject_list = reject or []
@@ -820,9 +809,46 @@ def check_short_answer(
                     ),
                 )
             )
+        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, path + ("reject", index)))
         warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("reject", index)))
 
     return warnings
+
+
+def _check_redundant_regex_anchor(
+    pattern: str, path: tuple[Union[str, int], ...]
+) -> list[Diagnostic]:
+    """
+    short-answer.md, "Regex flags": a leading `^` is implicit unless the
+    `f` flag is set, and a trailing `$` is implicit unless `f` or `b` is
+    set. A `$` preceded by an odd number of backslashes is a literal.
+    Only a `/`-delimited entry is a regex; the `regex` field may be raw.
+    """
+    is_field = path[-1] == "regex"
+    if not is_field and not pattern.strip().startswith("/"):
+        return []
+    try:
+        body, raw_flags = parse_regex(pattern)
+    except InvalidRegexError:
+        return []
+    leading = body.startswith("^") and "f" not in raw_flags
+    trailing = False
+    if body.endswith("$") and not {"f", "b"} & set(raw_flags):
+        backslashes = len(body) - 1 - len(body[:-1].rstrip("\\"))
+        trailing = backslashes % 2 == 0
+    if not (leading or trailing):
+        return []
+    return [
+        Diagnostic(
+            severity="info",
+            code="redundant-regex-anchor",
+            path=path,
+            message=(
+                "matching is already anchored here, so a leading '^' or "
+                "trailing '$' is redundant"
+            ),
+        )
+    ]
 
 
 def _check_ignored_regex_flags(
@@ -851,6 +877,35 @@ def _check_ignored_regex_flags(
             message=f"flag(s) {flags_text} are accepted but have no effect on matching",
         )
     ]
+
+
+_DOMAIN_RANK: dict[str, int] = {"integer": 0, "fraction": 1, "decimal": 2}
+
+
+def _accepted_numeric_domains(
+    answer: float | str, tolerance: "_numeric.Tolerance | None"
+) -> set[str]:
+    """
+    numeric.md, "Number type/domain": the declared domains that do not
+    contradict the answer. That is the higher of the answer's domain and
+    the absolute tolerance's (integer < fraction < decimal). A non-whole
+    float answer cannot tell a fraction from a decimal (the parser
+    stores `3/4` as `0.75`), so it accepts both, unless a decimal
+    tolerance makes it decimal.
+    """
+    own: set[str]
+    if isinstance(answer, str):
+        own = {_infer_numeric_domain(answer)}
+    elif _infer_numeric_domain(answer) == "decimal":
+        own = {"fraction", "decimal"}
+    else:
+        own = {"integer"}
+    if tolerance is None or tolerance.absolute is None:
+        return own
+    tolerance_domain = _infer_numeric_domain(tolerance.absolute)
+    if _DOMAIN_RANK[tolerance_domain] > min(_DOMAIN_RANK[d] for d in own):
+        return {tolerance_domain}
+    return own
 
 
 def _infer_numeric_domain(answer: float | str) -> "NumericDomain":
@@ -888,6 +943,7 @@ def check_numeric(
     """
     warnings: list[Diagnostic] = []
     inferred_domain = _infer_numeric_domain(answer)
+    accepted_domains = _accepted_numeric_domains(answer, tolerance)
     # A string answer is already grammar-validated, so `Fraction` accepts it.
     value: Fraction | float = Fraction(answer) if isinstance(answer, str) else answer
 
@@ -904,7 +960,7 @@ def check_numeric(
             )
         )
 
-    if domain is not None and domain != inferred_domain:
+    if domain is not None and domain not in accepted_domains:
         warnings.append(
             Diagnostic(
                 severity="info",
@@ -912,7 +968,7 @@ def check_numeric(
                 path=path + ("domain",),
                 message=(
                     f"domain is {domain!r}, but the answer {answer!r} is "
-                    f"written as a {inferred_domain!r} value"
+                    f"written as a {' or '.join(sorted(accepted_domains))} value"
                 ),
             )
         )
@@ -1058,13 +1114,14 @@ def check_ordering_duplicate_alternatives(
 ) -> list[Diagnostic]:
     """
     ordering.md#acceptedrejected-answers: a question SHOULD NOT declare
-    two `accept`/`reject` sections whose lines are the same once fully
-    normalized -- every entry of `normalizations`, plus whatever
-    `indentation` implies.
+    two `accept` sections, or two `reject` sections, whose lines are the
+    same once fully normalized -- every entry of `normalizations`, plus
+    whatever `indentation` implies. An accept/reject pair is a model
+    error (`accept-reject-overlap`) and never reaches this check.
     """
     warnings: list[Diagnostic] = []
-    seen: dict[tuple, tuple[str, int]] = {}
     for section in ("accept", "reject"):
+        seen: dict[tuple, tuple[str, int]] = {}
         for index, alt in enumerate(getattr(question, section)):
             key = question.comparison_key(alt.lines)
             first = seen.get(key)

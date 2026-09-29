@@ -86,14 +86,20 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
         result = {"answer": sign * int(value_str), "domain": "integer"}
 
     tolerance: ToleranceDict = {}
+    absolute_is_decimal = False
     for tol_match in TOL_TERM_RE.finditer(m.group("tolerances")):
         num = float(tol_match.group("num"))
         if tol_match.group("pct"):
             tolerance["relative"] = num / 100
         else:
             tolerance["absolute"] = num
+            absolute_is_decimal = "." in tol_match.group("num")
     if tolerance:
         result["tolerance"] = tolerance
+    # numeric.md, "Number type/domain": an absolute tolerance written as a
+    # decimal makes the domain decimal, whatever the value's own form.
+    if absolute_is_decimal:
+        result["domain"] = "decimal"
 
     return result
 

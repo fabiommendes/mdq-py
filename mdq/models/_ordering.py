@@ -103,15 +103,15 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     def check_accept_and_reject_disjoint(self) -> Self:
         """
         A question MUST NOT declare the same lines as both accepted and
-        rejected (ordering.md#additional-rules).
+        rejected, once fully normalized (ordering.md#additional-rules).
 
         Raises:
             PydanticCustomError: `accept-reject-overlap` -- some `accept`
                 entry holds the same lines as some `reject` entry.
         """
-        reject_lines = {tuple(alt.lines) for alt in self.reject}
+        reject_keys = {self.comparison_key(alt.lines) for alt in self.reject}
         for alt in self.accept:
-            if tuple(alt.lines) in reject_lines:
+            if self.comparison_key(alt.lines) in reject_keys:
                 raise PydanticCustomError(
                     "accept-reject-overlap",
                     "the same lines must not be declared in both accept and reject",

@@ -63,3 +63,10 @@ Implements the unreleased MDQ specification.
   as blank.
 - The `mdq.hypothesis` indented code block strategy no longer generates a
   line of only spaces or tabs, which is a blank line and not code.
+- `accept-reject-overlap` compares ordering lines after normalization.
+- `redundant-regex-anchor` respects the `f`/`b` flags, ignores an escaped
+  `\$`, and also checks delimited `accept`/`reject` patterns.
+- The parser derives a numeric `domain` from the value and the absolute
+  tolerance (`0 +- 0.01` is decimal). `domain-mismatch` uses the same rule,
+  and accepts `fraction` or `decimal` for a float answer that is not whole,
+  since a float cannot show how it was written.
