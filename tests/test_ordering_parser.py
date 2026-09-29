@@ -274,8 +274,10 @@ def test_declared_content_and_highlight_override_the_body() -> None:
 #
 def test_ordering_tag_followed_by_a_paragraph_is_a_parse_error() -> None:
     """An `[ordering]` tag must be followed by a code block or a `ul`."""
-    source = "[ordering]\nJust a paragraph, not a block.\n"
-    with pytest.raises(ParseError):
+    # The blank line matters: without it, the tag and the text are one
+    # paragraph, the tag is never recognized, and the error is a different one.
+    source = "[ordering]\n\nJust a paragraph, not a block.\n"
+    with pytest.raises(ParseError, match="must be followed by a code block or a list"):
         parse_question("Order.\n\n" + source)
 
 
