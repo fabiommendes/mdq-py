@@ -27,12 +27,24 @@ Implements the unreleased MDQ specification.
   commands.
 - `mdq[hypothesis]` extra with Hypothesis strategies for generating
   questions and exams (`mdq.hypothesis`).
+- Lint code `non-ascii-whitespace` for Unicode spaces outside code. `load`
+  reports it also when the document fails to parse.
 
 ### Changed
 
 - `.md` is an MDQ extension, like `.mdq.md` and `.mdq`. `load`, `parse` and
   the CLI read a `Path` ending in `.md` as MDQ Markdown, and `FileLoader`
   resolves an include to `<id>.md` if there is no `<id>.mdq.md`.
+- The parser accepts only spaces and tabs where the grammar has `ws`, and
+  splits lines only at `\r\n`, `\r` and `\n`. Other Unicode spaces are
+  text: `[short-answer]:` followed by U+00A0 and `Brasília` gives the
+  answer U+00A0 `Brasília`.
+- A leading byte order mark is removed before parsing.
+- A `unit` excludes `UNICODE_SPACE` instead of Python's `\s`, and an
+  `include-all` query tag excludes it too. A query with another Unicode
+  space between tokens does not follow the query language.
+- A short-answer pattern is a regex if it starts with `/` after stripping
+  spaces, tabs and line endings. Before, every Unicode space was stripped.
 - A numeric value, a fraction's numerator/denominator, and both tolerances
   no longer accept a leading zero (`007`, `00.5`, `01/2`): the parser now
   follows numeric.md's `INTEGER`/`DECIMAL` grammar instead of a bare
@@ -89,6 +101,11 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- A line with U+0085, U+2028 or another character that `str.splitlines()`
+  treats as a line break no longer shifts the line numbers of the rest of
+  the document, which could drop choices or fail the parse.
+- `[ short-answer ]:` and `[short-answer / accept]:` are no longer read as
+  tags. base.md does not allow whitespace between the brackets.
 - `answer-outside-domain` and `relative-tolerance-around-zero` now judge a
   string `answer` (`"3/2"`, `"0"`) by its value. Before, they only checked a
   number.

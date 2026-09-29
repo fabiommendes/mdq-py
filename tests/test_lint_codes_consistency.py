@@ -89,9 +89,12 @@ def test_corpus_is_not_empty() -> None:
 #: Codes only the markdown parser can produce. A `.mdq.md` example and its
 #: `.yaml` sibling must match the same `.lint.json`, and the YAML side never
 #: produces a parser warning, so the corpus cannot hold an example for
-#: these. `tests/test_unknown_frontmatter_keys.py` and
-#: `tests/test_include_all.py` cover them instead.
-_PARSER_ONLY_CODES = frozenset({"unknown-frontmatter-key", "separator-before-include"})
+#: these. `tests/test_unknown_frontmatter_keys.py`,
+#: `tests/test_include_all.py` and `tests/test_whitespace.py` cover them
+#: instead.
+_PARSER_ONLY_CODES = frozenset(
+    {"unknown-frontmatter-key", "separator-before-include", "non-ascii-whitespace"}
+)
 
 #: Codes only `Exam.resolve` produces, never `load`. The corpus test cannot
 #: see them. `tests/test_include_all.py` covers them instead.

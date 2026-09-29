@@ -20,6 +20,7 @@ from typing import Any, Mapping
 import yaml
 
 from .._diagnostics import Diagnostic
+from .._markdown import split_lines, strip_bom
 
 __all__ = [
     "COMMON_QUESTION_KEYS",
@@ -47,13 +48,15 @@ def _split_frontmatter(text: str) -> tuple[str | None, str]:
     """
     Split source text into (raw frontmatter body, remaining document text).
 
-    Returns (None, text) if there is no frontmatter block at all.
+    Returns (None, text) if there is no frontmatter block at all. A byte
+    order mark at the start of `text` is removed in both cases.
     """
 
+    text = strip_bom(text)
     if not text.startswith("---"):
         return None, text
 
-    lines = text.splitlines(keepends=True)
+    lines = split_lines(text, keepends=True)
     if lines[0].rstrip("\r\n") != "---":
         return None, text
 
@@ -74,9 +77,10 @@ def _extract_comment(frontmatter_text: str) -> str | None:
     in docs/question-types/generic.md. A blank line breaks it.
     """
 
-    lines = frontmatter_text.splitlines()
+    lines = split_lines(frontmatter_text)
     i = 0
-    while i < len(lines) and lines[i].strip() == "":
+    # base.md, "Frontmatter": a blank line holds only spaces and tabs.
+    while i < len(lines) and lines[i].strip(" \t") == "":
         i += 1
 
     comment_lines = []

@@ -270,7 +270,9 @@ def _load_mdq_text(
     if mismatch is not None:
         return Loaded(None, [mismatch])
 
-    collected: list[Diagnostic] = []
+    # Reported even when parsing fails: a Unicode space before a tag is a
+    # common reason for the failure.
+    collected: list[Diagnostic] = _parser.find_unicode_spaces(text)
     try:
         if is_exam_doc:
             data: dict[str, Any] = dict(
@@ -279,7 +281,7 @@ def _load_mdq_text(
         else:
             data = dict(_parser.parse_question(text, warnings=collected))
     except MdqError as exc:
-        return Loaded(None, [_parse_error(exc)])
+        return Loaded(None, [*collected, _parse_error(exc)])
 
     if is_exam_doc:
         return _load_exam(data, collected, ids=ids)

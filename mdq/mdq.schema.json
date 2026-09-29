@@ -479,8 +479,8 @@
             },
             "unit": {
               "type": "string",
-              "description": "The unit (e.g., kg, m, lm, etc) of the expected answer.",
-              "pattern": "^[^\\s()\\[\\]]+$"
+              "description": "The unit (e.g., kg, m, lm, etc) of the expected answer. Any character except the brackets and UNICODE_SPACE (docs/references/grammar.md).",
+              "pattern": "^[^()\\[\\]\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$"
             },
             "domain": {
               "enum": [
@@ -705,8 +705,8 @@
             },
             "unit": {
               "type": "string",
-              "description": "The unit (e.g., kg, m, lm, etc) of the expected answer.",
-              "pattern": "^[^\\s()\\[\\]]+$"
+              "description": "The unit (e.g., kg, m, lm, etc) of the expected answer. Any character except the brackets and UNICODE_SPACE (docs/references/grammar.md).",
+              "pattern": "^[^()\\[\\]\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$"
             },
             "domain": {
               "enum": [

@@ -23,7 +23,27 @@ from markdown_it.token import Token
 __all__ = [
     "md",
     "find_misplaced_blank_markers",
+    "UNICODE_SPACE",
+    "split_lines",
+    "strip_bom",
 ]
+
+#: The `UNICODE_SPACE` class of docs/references/grammar.md: the 25 code
+#: points of the Unicode `White_Space` property. Python `\s` also matches
+#: U+001C to U+001F, and JavaScript `\s` matches U+FEFF instead of U+0085,
+#: so the grammar never uses `\s`. Written without the brackets, to be
+#: embedded in other classes.
+UNICODE_SPACE = (
+    r"\t\n\v\f\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000"
+)
+
+#: One line and its line ending. Only `\r\n`, `\r` and `\n` end a line,
+#: as in CommonMark and markdown-it. `str.splitlines()` also splits on
+#: U+000B, U+000C, U+001C to U+001E, U+0085, U+2028 and U+2029, and so
+#: would disagree with the line numbers in markdown-it's `Token.map`.
+_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+
+BOM = "\ufeff"
 
 md = MarkdownIt("gfm-like")
 
@@ -88,3 +108,44 @@ def _misplaced_in_inline(children: list[Token], in_paragraph: bool) -> list[str]
                 match.group(1) for match in _BLANK_MARKER_RE.finditer(token.content)
             )
     return misplaced
+
+
+def split_lines(text: str, /, *, keepends: bool = False) -> list[str]:
+    """
+    Split `text` into lines at `\\r\\n`, `\\r` and `\\n` only.
+
+    Use this instead of `str.splitlines()`, which also splits on other
+    characters (see `_LINE_RE`). Like `str.splitlines()`, a line ending at
+    the end of `text` does not start one more, empty line.
+
+    Args:
+        text: The text to split.
+        keepends: Keep the line ending at the end of each line.
+
+    Returns:
+        The lines of `text`, in order.
+
+    Example:
+        >>> split_lines("a\\r\\nb\\x85c\\rd\\n")
+        ['a', 'b\\x85c', 'd']
+        >>> split_lines("a\\n\\nb", keepends=True)
+        ['a\\n', '\\n', 'b']
+    """
+    lines = _LINE_RE.findall(text)
+    if keepends:
+        return lines
+    return [line.rstrip("\r\n") for line in lines]
+
+
+def strip_bom(text: str, /) -> str:
+    """
+    Remove the byte order mark (U+FEFF) at the start of `text`, if any.
+
+    docs/references/grammar.md: implementations remove it before they
+    parse a file. A U+FEFF anywhere else is text.
+
+    Example:
+        >>> strip_bom("\\ufeff# Prova")
+        '# Prova'
+    """
+    return text.removeprefix(BOM)

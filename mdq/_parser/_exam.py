@@ -18,7 +18,7 @@ from typing import Any, cast
 import yaml
 
 from .. import _schedule
-from .._markdown import md
+from .._markdown import md, split_lines
 from .._diagnostics import Diagnostic
 from ..errors import MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
@@ -123,7 +123,7 @@ def parse_exam(
 
     doc: dict[str, Any] = {"type": "exam"}
 
-    lines = body.splitlines()
+    lines = split_lines(body)
     heading: str | None = None
     title_index = 0
     code_lines = _code_line_indices(lines)
@@ -139,7 +139,7 @@ def parse_exam(
     slug_match = SLUG_PREFIX_RE.match(heading)
     if slug_match:
         doc["id"] = slug_match.group("slug")
-        heading = heading[slug_match.end() :].strip()
+        heading = heading[slug_match.end() :].strip(" \t")
     if heading:
         doc["title"] = heading
 
@@ -198,7 +198,7 @@ def is_exam(text: str) -> bool:
     """
 
     _, body = _split_frontmatter(text)
-    lines = body.splitlines()
+    lines = split_lines(body)
     code_lines = _code_line_indices(lines)
     return any(i not in code_lines and H1_RE.match(line) for i, line in enumerate(lines))
 
@@ -280,9 +280,9 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
         if index in code_lines:
             index += 1
             continue
-        line = lines[index].rstrip()
-        stripped = line.strip()
-        blank_before = index == 0 or not lines[index - 1].strip()
+        line = lines[index].rstrip(" \t")
+        stripped = line.strip(" \t")
+        blank_before = index == 0 or not lines[index - 1].strip(" \t")
 
         if not body_seen and (
             _matches_tag(stripped) or BRACKET_ITEM_RE.match(stripped)
@@ -298,7 +298,7 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
             continue
 
         if line == "---" and blank_before:
-            adjacent = all(not gap.strip() for gap in lines[boundary:index])
+            adjacent = all(not gap.strip(" \t") for gap in lines[boundary:index])
             is_own_frontmatter = boundary_is_separator and adjacent
             is_new_start = not is_own_frontmatter and (
                 not starts or adjacent or body_seen
@@ -313,7 +313,7 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
                         j
                         for j in range(index + 1, len(lines))
                         if j not in code_lines
-                        and lines[j].rstrip() == "---"
+                        and lines[j].rstrip(" \t") == "---"
                         and _looks_like_frontmatter(lines[index + 1 : j])
                     ),
                     None,
@@ -366,7 +366,7 @@ def _looks_like_frontmatter(lines: list[str]) -> bool:
 
 
 def _clean_block(text: str) -> str | None:
-    stripped = text.strip()
+    stripped = text.strip(" \t\n")
     return stripped or None
 
 
@@ -390,7 +390,7 @@ def _parse_exam_block(
     """
 
     # Drop a leading `===`; what follows is ordinary question source.
-    has_separator = bool(lines) and lines[0].rstrip() == SEPARATOR
+    has_separator = bool(lines) and lines[0].rstrip(" \t") == SEPARATOR
     if has_separator:
         lines = lines[1:]
 

@@ -15,6 +15,7 @@ from pydantic_core import PydanticCustomError
 
 from .. import _parser, types as t
 from .._diagnostics import Diagnostic
+from .._markdown import UNICODE_SPACE
 from ..errors import ParseError, ResponseError
 from ..types import NumericDomain
 from . import _lint
@@ -23,9 +24,10 @@ from ._score import QuestionScore
 
 __all__ = ["Tolerance", "NumericQuestion"]
 
-#: numeric.md, "Unit conversion": non-empty, no whitespace, no parentheses
-#: or brackets. Mirrors the `unit` pattern in `schema/numeric.yaml`.
-_UNIT_PATTERN = r"^[^\s()\[\]]+$"
+#: The `UNIT` terminal of docs/references/grammar.md: non-empty, no
+#: `UNICODE_SPACE`, no parentheses or brackets. Mirrors the `unit`
+#: pattern in `schema/numeric.yaml`.
+_UNIT_PATTERN = rf"^[^()\[\]{UNICODE_SPACE}]+$"
 
 #: numeric.md, "Answer representation": a number, or a string in the
 #: `sign? value` grammar that keeps a value no float holds exactly

@@ -58,7 +58,9 @@ class AnswerPattern(MdqModel):
         stays at this model's own root, so the diagnostic points at the
         list entry (`accept[0]`), not `accept[0].pattern`.
         """
-        if self.pattern.strip().startswith("/"):
+        # short-answer.md, "Pattern lines": the pattern is a regex if it
+        # starts with `/` after stripping spaces and tabs.
+        if self.pattern.strip(" \t\r\n").startswith("/"):
             try:
                 RegexPattern(self.pattern)
             except InvalidRegexError as exc:
@@ -83,7 +85,7 @@ class AnswerPattern(MdqModel):
         first would make a case-sensitive regex impossible, and neither
         it nor the backtick/`*` forms consult `diacritics` at all.
         """
-        pattern = self.pattern.strip()
+        pattern = self.pattern.strip(" \t\r\n")
         if pattern == "*":
             return True
         if pattern.startswith("/"):

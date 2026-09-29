@@ -15,6 +15,8 @@ list items, shared by multiple-choice/-selection/true-false/fill-in),
 the recursive-descent parser for one question document. `_exam` builds
 on `_question` (it calls `parse_question` for each inline question
 block) for the exam-level `===`/`---` block-splitting grammar.
+`_spaces` reads the source of either one for the `non-ascii-whitespace`
+lint (`find_unicode_spaces`).
 
 `reconstruct_blocks` and `find_forbidden_elements` are exposed here too,
 even though they read like `mdq.models` helpers: both replay a
@@ -31,6 +33,7 @@ from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
 from ._frontmatter import COMMON_QUESTION_KEYS
 from ._numeric import parse_numeric_answer
 from ._question import find_forbidden_elements, parse_question, reconstruct_blocks
+from ._spaces import find_unicode_spaces
 
 __all__ = [
     "parse_question",
@@ -44,4 +47,5 @@ __all__ = [
     "reconstruct_blocks",
     "find_forbidden_elements",
     "parse_numeric_answer",
+    "find_unicode_spaces",
 ]

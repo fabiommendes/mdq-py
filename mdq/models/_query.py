@@ -25,6 +25,7 @@ from typing import Protocol
 from dataclasses import dataclass
 from typing import NoReturn
 
+from .._markdown import UNICODE_SPACE
 from ..errors import MdqError
 
 __all__ = [
@@ -38,9 +39,14 @@ __all__ = [
 KEYWORDS = frozenset({"AND", "OR", "NOT", "EXCEPT"})
 _PUNCTUATION = frozenset("(),")
 
-#: A token is a parenthesis, a comma, or a run of anything else that is
-#: not whitespace.
-_TOKEN_RE = re.compile(r"[(),]|[^\s(),]+")
+#: A token is a parenthesis, a comma, or a run of anything that is not
+#: a `UNICODE_SPACE` (docs/exam.md, `TAG`). Between tokens, the query
+#: ignores Lark's `WS` only: space, tab, form feed, carriage return and
+#: line feed. Any other character is `invalid` and fails the parse.
+_TOKEN_RE = re.compile(
+    rf"(?P<ws>[ \t\f\r\n]+)|(?P<token>[(),]|[^(),{UNICODE_SPACE}]+)|(?P<invalid>.)",
+    re.DOTALL,
+)
 
 
 class QuerySyntaxError(MdqError):
@@ -184,8 +190,17 @@ def is_standard_query(text: str) -> bool:
 class _Parser:
     def __init__(self, text: str) -> None:
         self.text = text
-        self.tokens = _TOKEN_RE.findall(text)
+        self.tokens = self._tokenize(text)
         self.position = 0
+
+    def _tokenize(self, text: str) -> list[str]:
+        tokens = []
+        for match in _TOKEN_RE.finditer(text):
+            if match.group("invalid") is not None:
+                self._fail(f"unexpected character U+{ord(match.group('invalid')):04X}")
+            if match.group("token") is not None:
+                tokens.append(match.group("token"))
+        return tokens
 
     def parse(self) -> Query:
         expr = self._logic()

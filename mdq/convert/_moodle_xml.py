@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Literal
 
+from .._markdown import UNICODE_SPACE
 from ..models import (
     Blank,
     BooleanChoice,
@@ -643,8 +644,8 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
 
 
 def _mdq_unit(unit: str | None) -> str | None:
-    """Strip whitespace and `()[]` from a Moodle unit (numeric.md, "Unit conversion")."""
-    return re.sub(r"[\s()\[\]]", "", unit or "") or None
+    """Remove the characters that the MDQ `UNIT` terminal excludes from a Moodle unit."""
+    return re.sub(rf"[()\[\]{UNICODE_SPACE}]", "", unit or "") or None
 
 
 def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:

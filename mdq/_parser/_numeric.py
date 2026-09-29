@@ -29,9 +29,9 @@ _TOLERANCE_NUM = rf"(?:{_DECIMAL}|{_INTEGER})"
 
 NUM_VALUE_RE = re.compile(
     rf"^(?P<sign>[+-])?(?P<value>{_VALUE})"
-    rf"(?P<tolerances>(?:\s*\+-\s*{_TOLERANCE_NUM}%?)*)\s*$"
+    rf"(?P<tolerances>(?:[ \t]*\+-[ \t]*{_TOLERANCE_NUM}%?)*)[ \t]*$"
 )
-TOL_TERM_RE = re.compile(rf"\+-\s*(?P<num>{_TOLERANCE_NUM})(?P<pct>%)?")
+TOL_TERM_RE = re.compile(rf"\+-[ \t]*(?P<num>{_TOLERANCE_NUM})(?P<pct>%)?")
 
 #: The bare `sign? value` grammar (numeric.md) -- no tolerance terms.
 #: Used to validate an `answer` written as a `str` (`mdq.models.
@@ -68,7 +68,7 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     first).
     """
 
-    m = NUM_VALUE_RE.match(expr.strip())
+    m = NUM_VALUE_RE.match(expr.strip(" \t"))
     if not m:
         raise ParseError(f"malformed numeric body: {expr!r}")
 
@@ -150,7 +150,7 @@ def parse_numeric_answer(text: str) -> int | float | str:
         ParseError: `text` does not match the grammar, or is a fraction
             with a zero denominator.
     """
-    m = VALUE_RE.match(text.strip())
+    m = VALUE_RE.match(text.strip(" \t"))
     if not m:
         raise ParseError(f"malformed numeric value: {text!r}")
     value = m.group("value")

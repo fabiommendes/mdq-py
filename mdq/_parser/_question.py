@@ -43,7 +43,7 @@ from typing import Any, cast
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
-from .._markdown import md
+from .._markdown import UNICODE_SPACE, md, split_lines
 from ..errors import ConflictingAnswerKey, IncompleteQuestion, MissingField, ParseError
 from ..types import (
     BlankDict,
@@ -98,20 +98,20 @@ __all__ = ["parse_question", "reconstruct_blocks", "find_forbidden_elements"]
 # Body-start detection.
 ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
 SHORT_ANSWER_RE = re.compile(
-    r"^\[\s*short-answer\s*(?:/\s*(?P<variant>accept|reject)\s*)?\]\s*:"
-    r"\s*(?P<rest>.*)$"
+    r"^\[short-answer(?:/(?P<variant>accept|reject))?\][ \t]*:[ \t]*(?P<rest>.*)$"
 )
-#: numeric.md, "Unit conversion": a unit may hold any character except
-#: whitespace and the brackets `(`, `)`, `[`, `]` -- a portable class
-#: (`\w` is ASCII-only under JSON Schema's ECMA-262 regex, but Unicode in
-#: Python) that admits `µm`, `°C`, `km/h`, `Ω`.
-UNIT_RE = r"[^\s()\[\]]+"
-NUMERIC_TAG_RE = re.compile(rf"^\[numeric(?:\((?P<unit>{UNIT_RE})\))?\]:\s*(?P<rest>.*)$")
+#: The `UNIT` terminal of docs/references/grammar.md: any character
+#: except a `UNICODE_SPACE` and the brackets `(`, `)`, `[`, `]`. It admits
+#: `µm`, `°C`, `km/h`, `Ω`.
+UNIT_RE = rf"[^()\[\]{UNICODE_SPACE}]+"
+NUMERIC_TAG_RE = re.compile(
+    rf"^\[numeric(?:\((?P<unit>{UNIT_RE})\))?\]:[ \t]*(?P<rest>.*)$"
+)
 # A blank definition tag. Deliberately permissive in `kind`: an
 # unrecognized suffix must reach BLANK_KIND_RE and raise a real error,
 # not fail to match and get swallowed by the epilogue.
 BLANK_RE = re.compile(
-    rf"^\[\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>[^\]]+))?\]:\s*(?P<rest>.*)$"
+    rf"^\[\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>[^\]]+))?\]:[ \t]*(?P<rest>.*)$"
 )
 # Validates that suffix. Units attach to `numeric` and to nothing else,
 # and the accept/reject sublists to `short-answer` and nothing else --
@@ -123,8 +123,11 @@ BLANK_KIND_RE = re.compile(
     r"|(?P<short>short-answer)(?:/(?P<variant>accept|reject))?"
     r")$"
 )
-BRACKET_ITEM_RE = re.compile(r"^[*+-]\s*\[")
+BRACKET_ITEM_RE = re.compile(r"^[*+-][ \t]*\[")
 ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
+# The markers around the text of an ATX heading.
+ATX_OPENING_RE = re.compile(r"^[ \t]*#{1,6}")
+ATX_CLOSING_RE = re.compile(r"(?:[ \t]+#+)?[ \t]*$")
 ORDERING_TAG_RE = re.compile(r"^\[ordering\]$")
 
 
@@ -229,7 +232,7 @@ class MDQParser:
 
         tokens = md.parse(body_text)
         self.children = list(Node(tokens).children)
-        self.lines = body_text.splitlines()
+        self.lines = split_lines(body_text)
 
     #
     # Cursor primitives
@@ -288,6 +291,23 @@ class MDQParser:
         start, end = node.map
         return self.lines[start:end]
 
+    def inline_source(self, node: Node) -> str | None:
+        """
+        The source text of a paragraph or an ATX heading, before
+        markdown-it trims it.
+
+        Only the text of the block itself: the `#` markers and the closing
+        sequence of a heading are removed. `None` for other blocks.
+        """
+        lines = self.raw_lines(node)
+        if not lines:
+            return None
+        if node.type == "paragraph":
+            return "\n".join(lines)
+        if node.type == "heading" and node.markup.startswith("#"):
+            return ATX_CLOSING_RE.sub("", ATX_OPENING_RE.sub("", lines[0]))
+        return None
+
     def raw_text(self, node: Node) -> str:
         """
         Reconstruct a block's text like the original source.
@@ -300,7 +320,11 @@ class MDQParser:
         """
 
         if node.children and node.children[0].type == "inline":
-            return node.children[0].content.replace("\n", " ")
+            content = node.children[0].content
+            source = self.inline_source(node)
+            if source is not None:
+                content = _restore_trimmed(content, source)
+            return content.replace("\n", " ")
         lines = self.raw_lines(node)
         # markdown-it's `.map` for a list (bullet or ordered) that is not
         # the last block in the document extends one line past the list's
@@ -456,19 +480,19 @@ class MDQParser:
         self, item_lines: list[str], value: str, explicit_id: str | None, rest: str
     ) -> RawChoice:
         """Split an item's continuation lines into text, `>` feedback and `!` comments."""
-        text_lines = [rest] if rest.strip() else []
+        text_lines = [rest] if rest.strip(" \t") else []
         feedback_lines: list[str] = []
         comment_lines: list[str] = []
         mode = "text"
 
         for line in item_lines[1:]:
-            stripped = line.strip()
+            stripped = line.strip(" \t")
             if stripped.startswith(">"):
                 mode = "feedback"
-                feedback_lines.append(stripped[1:].strip())
+                feedback_lines.append(stripped[1:].strip(" \t"))
             elif stripped.startswith("!"):
                 mode = "comment"
-                comment_lines.append(stripped[1:].strip())
+                comment_lines.append(stripped[1:].strip(" \t"))
             elif mode == "text":
                 text_lines.append(stripped)
             elif mode == "feedback":
@@ -680,7 +704,7 @@ class MDQParser:
             self.parse_short_answer_pattern_blocks(tag_text)
             return
 
-        rest = m.group("rest").strip()
+        rest = m.group("rest").strip(" \t")
 
         value: str | None = None
         values: list[str] | None = None
@@ -774,7 +798,7 @@ class MDQParser:
                     f"'{variant}' is declared both in the frontmatter and as "
                     f"a [short-answer/{variant}] body block"
                 )
-            if m.group("rest").strip():
+            if m.group("rest").strip(" \t"):
                 raise ParseError(
                     f"[short-answer/{variant}] takes a list, not inline text"
                 )
@@ -850,7 +874,7 @@ class MDQParser:
                 break
             blank_id = m.group("id")
             kind = m.group("kind")
-            rest = m.group("rest").strip()
+            rest = m.group("rest").strip(" \t")
 
             unit = variant = None
             if kind is None:
@@ -1162,8 +1186,33 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     return [(node.type, reader.raw_text(node)) for node in reader.children]
 
 
+def _restore_trimmed(content: str, source: str) -> str:
+    """
+    Put back the Unicode spaces that markdown-it trimmed from `content`.
+
+    markdown-it trims a paragraph or a heading with `str.strip()`, which
+    also removes Unicode spaces such as U+00A0. CommonMark and
+    docs/references/grammar.md trim only spaces, tabs and line endings,
+    so these characters are text and stay in the block.
+
+    Args:
+        content: The trimmed text that markdown-it gives for the block.
+        source: The source text of the same block.
+
+    Returns:
+        `content`, with the Unicode spaces at the start and at the end of
+        `source` put back.
+    """
+    inner = source.strip(" \t\r\n")
+    if not inner.strip():
+        return inner
+    lead = inner[: len(inner) - len(inner.lstrip())]
+    trail = inner[len(inner.rstrip()) :]
+    return lead + content + trail
+
+
 def _starts_with_bracket(text: str) -> bool:
-    return text.lstrip().startswith("[")
+    return text.lstrip(" \t").startswith("[")
 
 
 def find_forbidden_elements(
@@ -1214,7 +1263,7 @@ def find_forbidden_elements(
 
         if node.type == "paragraph":
             text = reader.raw_text(node)
-            stripped = text.lstrip()
+            stripped = text.lstrip(" \t")
             if not stripped.startswith("["):
                 continue
             if stripped.startswith("[^"):

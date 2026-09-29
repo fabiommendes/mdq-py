@@ -53,10 +53,10 @@ def ordering_line_indent(line: str) -> RawLine:
     """
     A code line's `(indent, text)`, tabs expanded to 4 spaces.
 
-    A blank line (whitespace only) carries no indentation of its own,
+    A blank line (spaces and tabs only) carries no indentation of its own,
     regardless of any accidental leading whitespace.
     """
-    if not line.strip():
+    if not line.strip(" \t"):
         return 0, ""
     expanded = line.expandtabs(4)
     stripped = expanded.lstrip(" ")
@@ -92,13 +92,13 @@ def join_prefixed_lines(lines: list[str], prefix: str) -> str:
     """Strip a `>`/`!` prefix from each raw line and join the rest with spaces."""
     parts = []
     for line in lines:
-        stripped = line.strip()
+        stripped = line.strip(" \t")
         if stripped.startswith(prefix):
-            stripped = stripped[len(prefix) :].strip()
+            stripped = stripped[len(prefix) :].strip(" \t")
         parts.append(stripped)
     return " ".join(p for p in parts if p)
 
 
 def is_comment_block(lines: list[str]) -> bool:
     """Whether every raw line of a paragraph is a `!`-prefixed comment line."""
-    return bool(lines) and all(line.strip().startswith("!") for line in lines)
+    return bool(lines) and all(line.strip(" \t").startswith("!") for line in lines)

@@ -22,14 +22,19 @@ from ..types import PatternDict
 
 __all__ = ["RawChoice", "SLUG_BODY_RE", "SLUG_PREFIX_RE"]
 
+# The grammar's `ws` is only spaces and tabs (docs/references/grammar.md):
+# every `[ \t]` below is `ws`, and every `strip(" \t")` in this package
+# trims `ws`. Any other Unicode space is text.
+
 # Slugs and choice ids.
 SLUG_BODY_RE = r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
-SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]\s*")
-CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]\s*")
+SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\][ \t]*")
+CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\][ \t]*")
 
-ITEM_MARKER_RE = re.compile(r"^[*+-]\s+\[(?P<value>[^\]]*)\]\s?(?P<rest>.*)$")
+ITEM_MARKER_RE = re.compile(r"^[*+-][ \t]+\[(?P<value>[^\]]*)\][ \t]?(?P<rest>.*)$")
 PERCENT_RE = re.compile(r"^[+-]?[0-9]+(?:\.[0-9]+)?%$")
-PLAIN_ITEM_RE = re.compile(r"^[*+-]\s+(?P<rest>.*)$")
+PLAIN_ITEM_RE = re.compile(r"^[*+-][ \t]+(?P<rest>.*)$")
+LIST_ITEM_START_RE = re.compile(r"^[*+-][ \t]")
 
 # True/false marker classification, per
 # docs/question-types/true-false.md#body. Only FALSE letters mean false;
@@ -66,7 +71,7 @@ def parse_marker(line: str) -> ParsedMarker:
     if not m:
         raise ParseError(f"malformed choice item: {line!r}")
 
-    value = m.group("value").strip()
+    value = m.group("value").strip(" \t")
     rest = m.group("rest")
 
     id = None
@@ -82,14 +87,14 @@ def _strip_list_marker(line: str) -> str:
     """Strip a plain (non-bracket) list item's `* `/`- ` marker."""
 
     m = PLAIN_ITEM_RE.match(line)
-    return m.group("rest").strip() if m else line.strip()
+    return m.group("rest").strip(" \t") if m else line.strip(" \t")
 
 
 def _split_list_items(item_lines: list[str]) -> list[list[str]]:
     items: list[list[str]] = []
     current: list[str] = []
     for line in item_lines:
-        if re.match(r"^[*+-]\s", line):
+        if LIST_ITEM_START_RE.match(line):
             current = [line]
             items.append(current)
         else:
@@ -144,7 +149,7 @@ def _score_from_value(value: str) -> float | int:
 
 def _pattern_entry(item: RawChoice) -> str | PatternDict:
     """Return one accept/reject entry, bare when it has no feedback or comment."""
-    pattern = item.text.strip()
+    pattern = item.text.strip(" \t")
     if not pattern:
         raise ParseError("a short-answer pattern line cannot be empty")
     if not item.feedback and not item.comment:
