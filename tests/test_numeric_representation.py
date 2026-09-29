@@ -144,11 +144,11 @@ def test_integer_beyond_int32_is_not_missing_a_tolerance() -> None:
     assert "missing-tolerance" not in _codes("390000000000")
 
 
-def test_dict_document_may_write_a_fraction_as_a_float() -> None:
-    # numeric.md: a JSON/YAML/dict document chooses freely between a
-    # number and a string, so `0.25` may stand for the fraction 1/4.
+def test_dict_document_fraction_as_a_float_is_a_mismatch() -> None:
+    # numeric.md: with `domain: fraction`, a JSON/YAML/dict answer SHOULD
+    # be a fraction string or an integer; `0.25` is a decimal.
     doc = {"type": "numeric", "stem": "x", "answer": 0.25, "domain": "fraction"}
-    assert "domain-mismatch" not in _codes(doc)
+    assert "domain-mismatch" in _codes(doc)
 
 
 def test_dict_document_string_decimal_is_not_a_fraction() -> None:

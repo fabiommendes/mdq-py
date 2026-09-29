@@ -890,26 +890,39 @@ def _accepted_numeric_domains(
     contradict the answer. That is the higher of the answer's domain and
     the absolute tolerance's (integer < fraction < decimal).
 
-    A string answer shows how it was written. A number does not: the
-    parser only turns a decimal into a float, but a JSON/YAML/dict
-    document may write any value as a number (numeric.md, "Answer
-    representation"), so a non-whole float may stand for a fraction
-    (`0.25` for `1/4`) as well as a decimal. It accepts both, unless a
-    decimal tolerance makes it decimal.
+    An integer answer also agrees with `fraction` (numeric.md, "Answer
+    representation": with `domain: fraction`, the answer is a fraction
+    string or an integer). A number that is not whole is a decimal only.
     """
-    own: set[str]
-    if isinstance(answer, str):
-        own = {_infer_numeric_domain(answer)}
-    elif _infer_numeric_domain(answer) == "decimal":
-        own = {"fraction", "decimal"}
-    else:
-        own = {"integer"}
+    own: set[str] = {_infer_numeric_domain(answer)}
+    if own == {"integer"}:
+        own.add("fraction")
     if tolerance is None or tolerance.absolute is None:
         return own
     tolerance_domain = _infer_numeric_domain(tolerance.absolute)
     if _DOMAIN_RANK[tolerance_domain] > min(_DOMAIN_RANK[d] for d in own):
         return {tolerance_domain}
     return own
+
+
+def _effective_numeric_domain(
+    answer: int | float | str,
+    domain: "NumericDomain | None",
+    tolerance: "_numeric.Tolerance | None",
+) -> "NumericDomain":
+    """
+    The declared `domain`, else the one inferred from the answer and the
+    absolute tolerance (numeric.md, "Number type/domain": the wider of
+    the two).
+    """
+    if domain is not None:
+        return domain
+    inferred = _infer_numeric_domain(answer)
+    if tolerance is not None and tolerance.absolute is not None:
+        tolerance_domain = _infer_numeric_domain(tolerance.absolute)
+        if _DOMAIN_RANK[tolerance_domain] > _DOMAIN_RANK[inferred]:
+            return tolerance_domain
+    return inferred
 
 
 def _infer_numeric_domain(answer: int | float | str) -> "NumericDomain":
@@ -1022,13 +1035,18 @@ def check_numeric(
                 )
             )
 
-    if decimal_places is not None and domain in ("integer", "fraction"):
+    effective_domain = _effective_numeric_domain(answer, domain, tolerance)
+    if decimal_places is not None and effective_domain != "decimal":
+        source = "" if domain is not None else " (inferred from the answer)"
         warnings.append(
             Diagnostic(
                 severity="info",
                 code="ignored-decimal-places",
                 path=path + ("decimalPlaces",),
-                message=f"'decimalPlaces' is ignored when domain is {domain!r}",
+                message=(
+                    f"'decimalPlaces' is ignored when domain is "
+                    f"{effective_domain!r}{source}"
+                ),
             )
         )
 

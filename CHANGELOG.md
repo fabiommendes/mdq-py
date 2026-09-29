@@ -98,6 +98,11 @@ Implements the unreleased MDQ specification.
 - The Moodle XML exporter raises `ValueError` for a fill-in blank with no
   answer worth 100% (for example a choice blank whose best choice scores
   0.5). Moodle rejects such an embedded answer (`fractionsnomax`).
+- `domain-mismatch`: an integer answer also agrees with `domain:
+  fraction`, and a float that is not whole agrees with `decimal` only
+  (before, also with `fraction`).
+- `ignored-decimal-places` fires when the declared or inferred domain is
+  not `decimal`. Before, it needed a declared `integer`/`fraction`.
 
 ### Fixed
 

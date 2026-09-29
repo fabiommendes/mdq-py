@@ -206,13 +206,14 @@ def test_parser_numeric_blank_domain_uses_the_absolute_tolerance() -> None:
     assert loaded.document.blanks[0].domain == "decimal"
 
 
-@pytest.mark.parametrize("domain", ["fraction", "decimal"])
-def test_a_float_answer_can_be_a_fraction_or_a_decimal(domain: str) -> None:
-    """numeric.md, "Answer representation": a JSON/YAML/dict document may
-    write the fraction 3/4 as `answer: 0.75`. A float cannot tell a
-    fraction from a decimal, so neither declared domain contradicts it."""
-    doc = _numeric(answer=0.75, domain=domain, tolerance={"absolute": 1})
-    assert _paths(doc, "domain-mismatch") == []
+def test_a_float_answer_is_a_decimal_not_a_fraction() -> None:
+    """numeric.md, "Answer representation": with `domain: fraction`, the
+    answer is a fraction string or an integer. A float that is not whole
+    is a decimal only (see also test_numeric_domain_rules.py)."""
+    assert _paths(_numeric(answer=0.75, domain="decimal", tolerance={"absolute": 1}), "domain-mismatch") == []
+    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "domain-mismatch") == [
+        ("domain",)
+    ]
 
 
 def test_a_float_answer_with_a_decimal_tolerance_is_not_a_fraction() -> None:
