@@ -29,6 +29,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from .. import _parser, _schedule
 from .._diagnostics import Diagnostic
@@ -62,18 +63,37 @@ __all__ = [
 ]
 
 
+def _validate_start(value: Any) -> date | datetime:
+    """exam.md, "Duration and Start Time": `start` MUST be ISO 8601 (`malformed-start`)."""
+    try:
+        return _schedule.parse_start(value)
+    except ValueError as exc:
+        raise PydanticCustomError("malformed-start", str(exc)) from exc
+
+
+def _validate_duration(value: Any) -> timedelta:
+    """
+    exam.md, "Duration and Start Time": `duration` MUST be a positive duration with
+    fixed-length units (`invalid-duration`).
+    """
+    try:
+        return _schedule.parse_duration(value)
+    except ValueError as exc:
+        raise PydanticCustomError("invalid-duration", str(exc)) from exc
+
+
 #: When an exam begins: a date, or a date-time that may carry a UTC
 #: offset. Serialized in canonical ISO 8601 form.
 ExamStart = Annotated[
     datetime | date,
-    BeforeValidator(_schedule.parse_start),
+    BeforeValidator(_validate_start),
     PlainSerializer(_schedule.format_start),
 ]
 
 #: How long an exam lasts. Serialized as a canonical ISO 8601 duration.
 ExamDuration = Annotated[
     timedelta,
-    BeforeValidator(_schedule.parse_duration),
+    BeforeValidator(_validate_duration),
     PlainSerializer(_schedule.format_duration),
 ]
 

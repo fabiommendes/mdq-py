@@ -17,10 +17,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Literal, Mapping, TypeVar, overload
+from typing import Any, Generic, Literal, Mapping, TypeVar, get_args, overload
 
 import yaml
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core.core_schema import ErrorType
 
 from . import _parser, models
 from ._diagnostics import RANK, Diagnostic, Severity
@@ -383,11 +384,22 @@ def _strip_discriminator_tags(
     return tuple(path)
 
 
+#: pydantic's own error types (`missing`, `extra_forbidden`,
+#: `value_error`, ...). docs/lint-codes.md, "Load errors", reports all of
+#: them as one code, `schema-error`. A named MDQ rule raises a
+#: `PydanticCustomError` with its own type, which is kept as the code.
+_PYDANTIC_ERROR_TYPES: frozenset[str] = frozenset(get_args(ErrorType))
+
+
+def _pydantic_error_code(error_type: str) -> str:
+    return "schema-error" if error_type in _PYDANTIC_ERROR_TYPES else error_type
+
+
 def _pydantic_diagnostics(exc: PydanticValidationError, data: Any) -> list[Diagnostic]:
     return [
         Diagnostic(
             severity="error",
-            code=str(error["type"]),
+            code=_pydantic_error_code(str(error["type"])),
             message=error["msg"],
             path=_strip_discriminator_tags(tuple(error["loc"]), data),
         )

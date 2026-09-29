@@ -14,13 +14,9 @@ are parsed from the same simple "| `code` | ..." row shape.
 
 The corpus side deliberately does NOT scan plain `examples/invalid/`
 (only `examples/valid/` and `examples/invalid/model-only/`):
-`examples/invalid/` exists to fail JSON Schema, so `load` reports it
-through pydantic's own generic error `type`s (`missing`,
-`string_too_short`, `value_error`, ...) before any lint code or named
-model-error code ever runs -- `docs/lint-codes.md`'s own module
-docstring excludes exactly this category ("a parse failure, a pydantic
-validation error, ... which are not lint rules and are not listed
-here"). `examples/invalid/model-only/` is schema-*valid* by
+`examples/invalid/` exists to fail JSON Schema, so `load` often reports
+it as the generic `schema-error` (docs/lint-codes.md, "Load errors")
+rather than a named code. `examples/invalid/model-only/` is schema-*valid* by
 construction (see `mdq/testing.py`), so every `error` it produces is a
 genuine named model-error code, not schema noise.
 

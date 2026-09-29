@@ -10,6 +10,7 @@ into another question family.
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Annotated, Any, Iterable, Literal, Self, Sequence
 
 from pydantic import Field, field_validator, model_validator
@@ -76,18 +77,27 @@ class Statement(MdqModel):
     id: str | None = None
     text: str
     correct: bool = False
-    marker: Annotated[str | None, Field(default=None, min_length=1, max_length=1)] = None
+    marker: str | None = None
     feedback: str | None = None
     comment: str | None = None
 
     @field_validator("marker")
     @classmethod
-    def check_marker_is_not_reserved(cls, value: str | None) -> str | None:
+    def check_marker(cls, value: str | None) -> str | None:
         """
-        true-false.md: `X`/`x` marks a selected multiple-selection
-        choice and never means true or false (`reserved-true-false-marker`).
+        true-false.md, "Additional Rules": a marker is a single letter,
+        one code point in `\\p{L}` (`malformed-true-false-marker`). `X`/`x`
+        marks a selected multiple-selection choice and never means true
+        or false (`reserved-true-false-marker`).
         """
-        if value is not None and value.upper() == "X":
+        if value is None:
+            return value
+        if len(value) != 1 or not unicodedata.category(value).startswith("L"):
+            raise PydanticCustomError(
+                "malformed-true-false-marker",
+                f"{value!r} is not a true/false marker: a marker is a single letter",
+            )
+        if value.upper() == "X":
             raise PydanticCustomError(
                 "reserved-true-false-marker",
                 f"{value!r} marks a selected multiple-selection choice "

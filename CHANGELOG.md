@@ -105,6 +105,15 @@ Implements the unreleased MDQ specification.
   (before, also with `fraction`).
 - `ignored-decimal-places` fires when the declared or inferred domain is
   not `decimal`. Before, it needed a declared `integer`/`fraction`.
+- `load` reports every built-in pydantic error type (`missing`,
+  `extra_forbidden`, `value_error`, ...) as `schema-error`, with the same
+  path and message. A named MDQ error keeps its code.
+- An exam `start` that is not ISO 8601 is the `malformed-start` error, and
+  a `duration` that is not a positive duration is `invalid-duration`
+  (before, `value_error`).
+- A true-false `marker` that is not a single letter is the
+  `malformed-true-false-marker` error (before, `string_too_short`,
+  `string_too_long`, or no error for a non-letter such as `1`).
 
 ### Fixed
 

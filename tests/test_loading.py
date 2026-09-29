@@ -513,7 +513,7 @@ def test_pydantic_missing_field_becomes_one_error_diagnostic() -> None:
     assert len(loaded.diagnostics) == 1
     diagnostic = loaded.diagnostics[0]
     assert diagnostic.severity == "error"
-    assert diagnostic.code == "missing"
+    assert diagnostic.code == "schema-error"
     assert diagnostic.path[-1] == "stem"
 
 
@@ -524,7 +524,7 @@ def test_pydantic_multiple_errors_become_one_diagnostic_each() -> None:
     paths = {d.path[-1] for d in loaded.diagnostics}
     assert paths == {"stem", "choices"}
     assert all(d.severity == "error" for d in loaded.diagnostics)
-    assert all(d.code == "missing" for d in loaded.diagnostics)
+    assert all(d.code == "schema-error" for d in loaded.diagnostics)
 
 
 def test_pydantic_only_rule_ordering_overlap_is_reported_as_an_error() -> None:
