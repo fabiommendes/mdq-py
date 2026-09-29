@@ -34,7 +34,7 @@ from __future__ import annotations
 import re
 
 from mdq import load
-from _corpus import INVALID_MODEL_ONLY_PARSED, MDQ_ROOT, VALID_PARSED
+from _corpus import INVALID_MODEL_ONLY_PARSED, INVALID_PARSED, MDQ_ROOT, VALID_PARSED
 
 _LINT_CODES_MD = MDQ_ROOT / "docs" / "lint-codes.md"
 _ROW_RE = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|")
@@ -89,14 +89,19 @@ def test_corpus_is_not_empty() -> None:
 #: Codes only the markdown parser can produce. A `.mdq.md` example and its
 #: `.yaml` sibling must match the same `.lint.json`, and the YAML side never
 #: produces a parser warning, so the corpus cannot hold an example for
-#: these. `tests/test_unknown_frontmatter_keys.py` covers them instead.
-_PARSER_ONLY_CODES = frozenset({"unknown-frontmatter-key"})
+#: these. `tests/test_unknown_frontmatter_keys.py` and
+#: `tests/test_include_all.py` cover them instead.
+_PARSER_ONLY_CODES = frozenset({"unknown-frontmatter-key", "separator-before-include"})
+
+#: Codes only `Exam.resolve` produces, never `load`. The corpus test cannot
+#: see them. `tests/test_include_all.py` covers them instead.
+_RESOLVE_ONLY_CODES = frozenset({"empty-include-all"})
 
 
 def test_every_documented_warning_or_info_code_is_produced_by_the_corpus() -> None:
     documented, _ = _documented_codes()
     produced = _produced_warning_or_info_codes()
-    missing = documented - produced - _PARSER_ONLY_CODES
+    missing = documented - produced - _PARSER_ONLY_CODES - _RESOLVE_ONLY_CODES
     assert not missing, (
         f"docs/lint-codes.md documents these warning/info codes, but no "
         f"example under examples/valid/ produces them: {sorted(missing)}"
@@ -104,13 +109,19 @@ def test_every_documented_warning_or_info_code_is_produced_by_the_corpus() -> No
 
 
 def test_every_documented_error_code_is_produced_by_the_corpus() -> None:
+    # A rule that the schema also enforces (a malformed `uuid`, an extra
+    # field in an include block) has its example in `examples/invalid/`,
+    # not in `model-only/`. `load` still reports the documented code for it.
     _, documented_errors = _documented_codes()
     produced_errors = _produced_error_codes()
+    for path in INVALID_PARSED:
+        loaded = load(path)
+        produced_errors.update(d.code for d in loaded.diagnostics if d.severity == "error")
     missing = documented_errors - produced_errors
     assert not missing, (
         f"docs/lint-codes.md's Errors table documents these codes, but no "
-        f"example under examples/invalid/model-only/ produces them as an "
-        f"`error` diagnostic: {sorted(missing)}"
+        f"example under examples/invalid/ produces them as an `error` "
+        f"diagnostic: {sorted(missing)}"
     )
 
 

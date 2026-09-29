@@ -555,24 +555,21 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 
 
 def test_default_level_lint_rules_are_warnings() -> None:
-    # Two choices with a score >= 1: only one can be selected
-    # (dev/specs/to-do/rule-conformance.md, section A -- this rule's
-    # sibling, `multiple-choice-no-correct-choice`, moved to `info`,
-    # but this one stays a `warning`).
+    # A whitespace-only tag stays a `warning`
+    # (dev/specs/to-do/rule-conformance.md, section A --
+    # `multiple-choice-many-correct-choices`, formerly this test's
+    # example, moved to `info`: a question MAY mark any number of
+    # choices as correct, see docs/lint-codes.md).
     data = {
-        "type": "multiple-choice",
+        "type": "essay",
+        "input": "text",
         "stem": "Qual das opções é a capital do Brasil?",
-        "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 1},
-            {"id": "b", "text": "Brasília", "score": 1},
-        ],
+        "tags": ["   "],
     }
     loaded = load(data)
     assert loaded
-    assert "multiple-choice-many-correct-choices" in _codes(loaded.diagnostics)
-    matching = [
-        d for d in loaded.diagnostics if d.code == "multiple-choice-many-correct-choices"
-    ]
+    assert "blank-tag" in _codes(loaded.diagnostics)
+    matching = [d for d in loaded.diagnostics if d.code == "blank-tag"]
     assert matching[0].severity == "warning"
 
 

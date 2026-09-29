@@ -37,7 +37,7 @@ CODES = {
     "separator-before-include",
     "undeclared-id-after-include-all",
     "unresolved-include-all",
-    "unknown-frontmatter-key",
+    "unknown-include-field",
 }
 
 
@@ -173,9 +173,18 @@ def test_load_keeps_include_all_unresolved() -> None:
     assert document.to_dict()["questions"] == [{"include-all": "biome", "max": 2}]
 
 
-def test_unknown_key_in_include_all_block_warns() -> None:
+def test_unknown_key_in_include_all_block_is_an_error() -> None:
+    """
+    exam.md, "No other field is allowed": an include-all block accepts
+    only `include-all` and `max`. An extra key used to be dropped with an
+    `unknown-frontmatter-key` warning; it is now `unknown-include-field`,
+    raised by `mdq.models.IncludeAll` -- the same code the dict/YAML path
+    raises for the same mistake.
+    """
     text = exam("---\ninclude-all: biome\ncount: 2\n---")
-    assert "unknown-frontmatter-key" in codes(text)
+    loaded = load(text)
+    assert loaded.document is None
+    assert "unknown-include-field" in [d.code for d in loaded.diagnostics]
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "two", "true"])

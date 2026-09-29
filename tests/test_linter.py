@@ -232,9 +232,13 @@ def test_well_formed_uuid_does_not_warn() -> None:
     assert _rules(load(doc).diagnostics) == set()
 
 
-def test_malformed_uuid_is_left_to_the_schema() -> None:
-    """A UUID of the wrong shape is a schema `pattern` failure; the
-    linter must not pile a second, confusing message on top of it."""
+def test_malformed_uuid_is_a_model_error() -> None:
+    """
+    A UUID of the wrong shape used to be left to the schema, with the
+    linter reporting nothing. `uuid` MUST be well-formed now
+    (base.md, "Additional Rules"), so this is a `malformed-uuid` model
+    error instead -- see `tests/test_model_rule_errors.py`.
+    """
     doc = {
         "type": "essay",
         "id": "q",
@@ -244,7 +248,9 @@ def test_malformed_uuid_is_left_to_the_schema() -> None:
         "answerKey": "y",
         "uuid": "nope",
     }
-    assert _rules(load(doc).diagnostics) == set()
+    loaded = load(doc)
+    assert loaded.document is None
+    assert "malformed-uuid" in _rules(loaded.diagnostics)
 
 
 def test_tag_containing_a_comma_warns() -> None:
@@ -398,12 +404,21 @@ def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
 
 @pytest.mark.parametrize("marker", ["N", "D", "W", "n"])
 def test_provisional_marker_warns(marker: str) -> None:
-    """true-false.md: PROVISIONAL letters read as true today, but a later
-    revision may reassign them, so implementations SHOULD warn."""
+    """
+    true-false.md: PROVISIONAL letters read as true today, but a later
+    revision may reassign them, so implementations SHOULD warn.
+
+    PROVISIONAL letters also represent true (true-false.md, "Body"), so
+    `correct` must be `true` here -- `false` would instead be
+    `true-false-marker-disagrees-with-correct`, a model error.
+    """
     doc = {
         "type": "true-false",
         "stem": "x",
-        "choices": [{"text": "A", "marker": marker}, {"text": "B", "marker": "F"}],
+        "choices": [
+            {"text": "A", "marker": marker, "correct": True},
+            {"text": "B", "marker": "F"},
+        ],
     }
     assert "provisional-true-false-marker" in _rules(load(doc).diagnostics)
 

@@ -95,8 +95,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Url-friendly slug identifying the exam, written either in the H1 (`# [slug] Title`) or in the frontmatter. A number written in the frontmatter is read as its decimal string form.",
-          "pattern": "^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$",
+          "description": "Identifier of the exam, written either in the H1 (`# [slug] Title`) or in the frontmatter. It SHOULD be url-safe; an id that is not gets the `unsafe-id` lint warning and can only be written in the frontmatter. A number written in the frontmatter is read as its decimal string form.",
+          "minLength": 1,
           "examples": [
             "midterm",
             "cs101-final"
@@ -270,7 +270,7 @@
             "include": {
               "type": "string",
               "description": "The id of the question to pull in.",
-              "pattern": "^.*(/?([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*))+$",
+              "minLength": 1,
               "examples": [
                 "recursion-01"
               ]
@@ -895,8 +895,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Url-friendly identifier for the question. Used to reference the question from exams, results, and cross-links. When omitted, an id may be derived from the question's position or title.",
-          "pattern": "^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$",
+          "description": "Identifier for the question. Used to reference the question from exams, results, and cross-links. It SHOULD be url-safe; an id that is not gets the `unsafe-id` lint warning. When omitted, an id may be derived from the question's position or title.",
+          "minLength": 1,
           "examples": [
             "q1",
             "rgb-question",

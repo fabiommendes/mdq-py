@@ -20,7 +20,13 @@ from .._diagnostics import Diagnostic
 from ..errors import ResponseError
 from ..types import GradingStrategy
 from . import _lint, _render, _slugify
-from ._base import MdqModel, BaseQuestion, _check_unique_choices, _raise_unique_id_error
+from ._base import (
+    MdqModel,
+    BaseQuestion,
+    _check_choices_have_text,
+    _check_unique_choices,
+    _raise_unique_id_error,
+)
 from ._score import QuestionScore
 
 __all__ = [
@@ -132,9 +138,11 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
         """
-        multiple-choice.md, "Choices": ids and texts must each be
-        unique (`duplicate-choice-id`, `duplicate-choice-text`).
+        multiple-choice.md, "Choices": no choice's `text` may be empty
+        (`blank-choice-text`), and ids and texts must each be unique
+        (`duplicate-choice-id`, `duplicate-choice-text`).
         """
+        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -145,7 +153,6 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choices(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
@@ -216,10 +223,12 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
         """
-        multiple-choice.md, "Choices" (shared by multiple-selection): ids
-        and texts must each be unique (`duplicate-choice-id`,
+        multiple-choice.md, "Choices" (shared by multiple-selection): no
+        choice's `text` may be empty (`blank-choice-text`), and ids and
+        texts must each be unique (`duplicate-choice-id`,
         `duplicate-choice-text`).
         """
+        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -230,7 +239,6 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choices(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
@@ -290,32 +298,37 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
         """
-        multiple-choice.md, "Choices" (shared by true-false): ids and
-        texts must each be unique (`duplicate-choice-id`,
-        `duplicate-choice-text`).
+        multiple-choice.md, "Choices" (shared by true-false): no choice's
+        `text` may be empty (`blank-choice-text`), and ids and texts must
+        each be unique (`duplicate-choice-id`, `duplicate-choice-text`).
         """
+        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
     @model_validator(mode="after")
     def check_markers_agree_with_correct(self) -> Self:
         """
-        true-false.md:210: a marker's category (TRUE/FALSE/PROVISIONAL,
-        see `mdq._lint.TRUE_MARKERS`/`FALSE_MARKERS`) must agree with
-        `correct` -- a FALSE-category marker paired with `correct: true`,
-        or a TRUE-category one paired with `correct: false`, is a direct
-        contradiction. A PROVISIONAL marker (which SHOULD warn instead,
-        see `mdq._lint.check_true_false_markers`) always agrees, since
-        it reads as true either way.
+        true-false.md:64-66,210: a marker's category (TRUE/FALSE/
+        PROVISIONAL, see `mdq._lint.TRUE_MARKERS`/`FALSE_MARKERS`) must
+        agree with `correct`. A FALSE-category marker disagrees with
+        `correct: true`; a TRUE- or PROVISIONAL-category marker --
+        PROVISIONAL letters also represent true, per the spec's "Body"
+        section -- disagrees with `correct: false`. A PROVISIONAL marker
+        paired with `correct: true` still SHOULD warn, since a future
+        revision may reassign it (`mdq._lint.check_true_false_markers`).
+        The reserved `X`/`x` marker is rejected at the field level, so it
+        never reaches here.
         """
         for index, choice in enumerate(self.choices):
             marker = choice.marker
             if marker is None:
                 continue
             upper = marker.upper()
-            disagrees = (upper in _lint.TRUE_MARKERS and not choice.correct) or (
-                upper in _lint.FALSE_MARKERS and choice.correct
-            )
+            # FALSE-category means false; everything else (TRUE or
+            # PROVISIONAL) reads as true.
+            expected_correct = upper not in _lint.FALSE_MARKERS
+            disagrees = choice.correct != expected_correct
             if disagrees:
                 _raise_unique_id_error(
                     type(self).__name__,
@@ -336,7 +349,6 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choices(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))

@@ -63,16 +63,12 @@ EXAM_PASSTHROUGH_KEYS = (
 #: exam` (docs/exam.md) -- but is accepted, not flagged as a mistake.
 EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {"tags", "start", "duration", "type"}
 
-#: Frontmatter keys a `===`/`---`-delimited block's own YAML accepts when
-#: it names an `include:` rather than an inline question (docs/exam.md,
-#: "Question block"): nothing else, since an include only has an identity
-#: to name. A block with no `include:` is an inline question instead, and
-#: its frontmatter is checked against `COMMON_QUESTION_KEYS`/
-#: `TYPE_QUESTION_KEYS` like any other question's, by `parse_question`.
-EXAM_BLOCK_FRONTMATTER_KEYS = frozenset({"include"})
-
-#: The same, for a block that holds an `include-all:` query instead.
-EXAM_INCLUDE_ALL_KEYS = frozenset({"include-all", "max"})
+#: A block with no `include:`/`include-all:` is an inline question
+#: instead, and its frontmatter is checked against `COMMON_QUESTION_KEYS`/
+#: `TYPE_QUESTION_KEYS` like any other question's, by `parse_question`. An
+#: include/include-all block's own frontmatter is passed through
+#: verbatim instead (see `_parse_exam_block`): an extra field there is a
+#: model error (`unknown-include-field`), not a dropped-and-warned key.
 
 
 def parse_exam(
@@ -391,26 +387,20 @@ def _parse_exam_block(
         )
 
     if "include-all" in front:
-        if warnings is not None:
-            warnings.extend(
-                _unknown_frontmatter_warnings(
-                    front, EXAM_INCLUDE_ALL_KEYS, ("questions", index)
-                )
-            )
-        entry = IncludeAllDict({"include-all": str(front["include-all"])})
-        if "max" in front:
-            entry["max"] = front["max"]
-        return entry
+        # Every key the block's frontmatter wrote is kept, not just the
+        # known ones: an extra field is now an `unknown-include-field`
+        # model error (exam.md, "No other field is allowed"), raised by
+        # `mdq.models.IncludeAll` once this reaches it -- the same error
+        # the dict/YAML path raises directly, so dropping the key here
+        # instead would let the Markdown path silently lose it.
+        entry: dict[str, Any] = dict(front)
+        entry["include-all"] = str(front["include-all"])
+        return cast(IncludeAllDict, entry)
 
     if "include" in front:
-        target = str(front["include"])
-        if warnings is not None:
-            warnings.extend(
-                _unknown_frontmatter_warnings(
-                    front, EXAM_BLOCK_FRONTMATTER_KEYS, ("questions", index)
-                )
-            )
-        return IncludeDict(include=target)
+        entry = dict(front)
+        entry["include"] = str(front["include"])
+        return cast(IncludeDict, entry)
 
     block_warnings: list[Diagnostic] = []
     parsed_question: dict[str, Any] = dict(

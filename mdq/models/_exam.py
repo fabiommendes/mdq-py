@@ -26,6 +26,7 @@ from pydantic import (
     PlainSerializer,
     RootModel,
     Tag,
+    field_validator,
     model_validator,
 )
 
@@ -35,7 +36,13 @@ from ..errors import UnresolvedInclude
 from .._banks import QuestionBank
 from ..types import ExamGrading, PenaltyPolicy
 from . import _lint, _render
-from ._base import BaseQuestion, MdqModel, _raise_unique_id_error
+from ._base import (
+    BaseQuestion,
+    MdqModel,
+    _raise_unique_id_error,
+    _validate_locale,
+    _validate_uuid,
+)
 from ._choice import MultipleChoiceQuestion, MultipleSelectionQuestion, TrueFalseQuestion
 from ._fill_in import FillInQuestion
 from ._numeric import NumericQuestion
@@ -100,13 +107,46 @@ class QuestionRoot(RootModel):
 #
 # Exams
 #
+def _check_no_extra_include_fields(model: MdqModel) -> None:
+    """
+    exam.md, "Question and include blocks": an include block holds
+    exactly one of `include`/`include-all` (plus `max` for the latter).
+    No other field is allowed, in the Markdown path (where
+    `mdq._parser._exam` keeps whatever the block's frontmatter wrote,
+    instead of dropping it) or the dict/YAML one (which lands here
+    directly) -- both report the same `unknown-include-field` error.
+    """
+    extra = model.model_extra or {}
+    if not extra:
+        return
+    key = next(iter(extra))
+    _raise_unique_id_error(
+        type(model).__name__,
+        "unknown-include-field",
+        f"{key!r} is not a field an include block accepts",
+        (key,),
+        extra[key],
+    )
+
+
 class Include(MdqModel):
     """
     A reference to one question stored outside the exam, by its id --
     schema/exam.yaml#/$defs/Include.
     """
 
+    #: `extra="allow"` (instead of the base `"forbid"`) lets an unknown
+    #: field reach `check_no_extra_fields` below, so it can be reported
+    #: as `unknown-include-field` rather than pydantic's generic
+    #: `extra_forbidden`.
+    model_config = MdqModel.model_config | {"extra": "allow"}
+
     include: str
+
+    @model_validator(mode="after")
+    def check_no_extra_fields(self) -> Self:
+        _check_no_extra_include_fields(self)
+        return self
 
 
 class IncludeAll(MdqModel):
@@ -115,8 +155,15 @@ class IncludeAll(MdqModel):
     schema/exam.yaml#/$defs/IncludeAll.
     """
 
+    model_config = MdqModel.model_config | {"extra": "allow"}
+
     include_all: Annotated[str, Field(alias="include-all", min_length=1)]
     max: Annotated[int | None, Field(default=None, ge=1, strict=True)] = None
+
+    @model_validator(mode="after")
+    def check_no_extra_fields(self) -> Self:
+        _check_no_extra_include_fields(self)
+        return self
 
 
 def _entry_kind(value: Any) -> str:
@@ -181,6 +228,18 @@ class Exam(MdqModel):
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[ExamEntry]
+
+    @field_validator("locale")
+    @classmethod
+    def check_locale_is_well_formed(cls, value: str | None) -> str | None:
+        """exam.md's "Additional Rules" imports the base `locale` rule (`malformed-locale`)."""
+        return _validate_locale(value)
+
+    @field_validator("uuid")
+    @classmethod
+    def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
+        """exam.md's "Additional Rules" imports the base `uuid` rule (`malformed-uuid`)."""
+        return _validate_uuid(value)
 
     @model_validator(mode="after")
     def check_questions_have_unique_ids(self) -> Self:
@@ -364,8 +423,18 @@ class Exam(MdqModel):
         Run the exam-level lint rules, then each question's own `lint()`,
         with `("questions", i)` prepended to that question's diagnostics
         (dev/specs/to-do/lint-on-models.md).
+
+        exam.md, "Additional Rules" imports the base rules for `id`,
+        `uuid`, `locale` and `title` (base.md, "Additional Rules") into
+        the exam frontmatter -- `author`, `tags` and the rest are not
+        listed there, so they stay question-only.
         """
         diagnostics = _lint.check_exam_without_questions(self.questions, ("questions",))
+        diagnostics.extend(_lint.check_id_is_url_safe(self.id))
+        diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
+        diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
+        diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
+        diagnostics.extend(_lint.check_blank_text_field(self.title, "title"))
         after_include_all = False
         for index, entry in enumerate(self.questions):
             path: tuple[str | int, ...] = ("questions", index)

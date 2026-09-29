@@ -149,6 +149,25 @@ def _raise_unique_id_error(
     raise pydantic_core.ValidationError.from_exception_data(model_name, [error])
 
 
+def _check_choices_have_text(model_name: str, choices: Sequence[Any]) -> None:
+    """
+    multiple-choice.md, "Choices": a choice's `text` MUST NOT be empty --
+    shared by multiple-choice, multiple-selection, true-false, and a
+    fill-in choice blank. `blank-choice-comment`/`blank-choice-feedback`
+    stay `warning`-level lint checks (`mdq.models._lint`); a blank
+    `text` is critical enough to stop the document from loading instead.
+    """
+    for index, choice in enumerate(choices):
+        if choice.text.strip() == "":
+            _raise_unique_id_error(
+                model_name,
+                "blank-choice-text",
+                f"choices[{index}] text has no visible characters",
+                ("choices", index, "text"),
+                choice.text,
+            )
+
+
 def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
     """
     Enforce `duplicate-choice-id` and `duplicate-choice-text` over one
@@ -196,12 +215,40 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
 # id does above.
 #
 
-#: generic.md [^4]: `locale` must be a BCP 47 language tag. This is the
-#: common `language[-Script][-REGION]` shape, which is what questions
-#: actually use; a tag with private-use or extension subtags is rarer
-#: than a language *name* written where a tag belongs, which is what
-#: this catches.
-_BCP47_RE = re.compile(r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$")
+#: generic.md [^4]: `locale` MUST be a BCP 47 (RFC 5646) language tag.
+#: Case-insensitive -- `en-us` and `en-US` are the same tag -- and covers
+#: the `langtag` production: language (2-3 letters, with up to two
+#: extlang subtags), optional script/region, then any number of variant,
+#: extension and private-use subtags, plus the `privateuse`-only form
+#: (`x-...`). Deliberately excludes the reserved 4-8 letter primary
+#: language subtag: it is unused in practice, and admitting it would
+#: also admit an ordinary language *name* written where a tag belongs
+#: (`brasil`), which is exactly the mistake this regex exists to catch.
+#: Grandfathered tags (`i-klingon`, `sgn-BE-fr`) are rare enough to skip.
+_BCP47_RE = re.compile(
+    r"""
+    ^[a-zA-Z]{2,3}(?:-[a-zA-Z]{3}){0,2}              # language, optional extlang
+    (?:-[a-zA-Z]{4})?                                # script
+    (?:-(?:[a-zA-Z]{2}|[0-9]{3}))?                   # region
+    (?:-(?:[a-zA-Z0-9]{5,8}|[0-9][a-zA-Z0-9]{3}))*   # variant
+    (?:-[a-wyzA-WYZ0-9](?:-[a-zA-Z0-9]{2,8})+)*      # extension
+    (?:-[xX](?:-[a-zA-Z0-9]{1,8})+)?                 # private use
+    $
+    |
+    ^[xX](?:-[a-zA-Z0-9]{1,8})+$                     # private-use-only tag
+    """,
+    re.VERBOSE,
+)
+
+#: generic.md [^3]: `uuid` MUST be shaped like
+#: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. The two meaningful nibbles
+#: (version, variant) are only a `warning` when unusual -- see
+#: `mdq.models._lint.check_uuid_version_and_variant` -- this only checks
+#: the overall shape.
+_UUID_SHAPE_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 #: `[^blank-id]` markers, as written in a fill-in stem.
 _BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
@@ -214,6 +261,17 @@ def _validate_locale(value: str | None) -> str | None:
             "malformed-locale",
             f"{value!r} is not a BCP 47 language tag; expected a form "
             f"like 'en', 'pt-BR', or 'zh-Hans-CN'",
+        )
+    return value
+
+
+def _validate_uuid(value: str | None) -> str | None:
+    """generic.md [^3]: raise `malformed-uuid` for a value that isn't UUID-shaped."""
+    if value is not None and not _UUID_SHAPE_RE.match(value):
+        raise PydanticCustomError(
+            "malformed-uuid",
+            f"{value!r} is not a valid UUID; expected the form "
+            f"xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx",
         )
     return value
 
@@ -266,6 +324,11 @@ class BaseQuestion[R](MdqModel):
     @classmethod
     def check_locale_is_well_formed(cls, value: str | None) -> str | None:
         return _validate_locale(value)
+
+    @field_validator("uuid")
+    @classmethod
+    def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
+        return _validate_uuid(value)
 
     @field_validator("preamble")
     @classmethod
@@ -384,6 +447,7 @@ class BaseQuestion[R](MdqModel):
         id = self.id
         skip_frontmatter = (
             frontmatter.keys() == {"id"}
+            and re.fullmatch(_parser.SLUG_BODY_RE, str(self.id)) is not None
             and can_inline_id(self.preamble, self.stem)
             and not self.comment
         )

@@ -339,32 +339,6 @@ def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
 # ----------------------------------------------------------------------
 
 
-def check_choices(
-    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
-    path: tuple[Union[str, int], ...],
-) -> list[Diagnostic]:
-    """
-    multiple-choice.md, "Choices": no choice text may be empty.
-
-    Uniqueness of choice ids and texts is enforced by the model layer
-    (`duplicate-choice-id`, `duplicate-choice-text` --
-    dev/specs/to-do/unique-ids.md), not here. `path` names where the
-    choices live: a question's own `choices`, or one fill-in blank's.
-    """
-    warnings: list[Diagnostic] = []
-    for index, choice in enumerate(choices):
-        if choice.text.strip() == "":
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="blank-choice-text",
-                    path=path + (index, "text"),
-                    message="choice text has no visible characters",
-                )
-            )
-    return warnings
-
-
 def check_choice_feedback_and_comment(
     choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
     path: tuple[Union[str, int], ...],
@@ -464,8 +438,14 @@ def check_multiple_choice_answers(
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
-    multiple-choice.md: exactly one choice should carry full credit --
-    the student picks a single radio button.
+    multiple-choice.md: a question MAY mark any number of choices as
+    correct, and typically marks exactly one -- more than one is unusual
+    enough to flag (`multiple-choice-many-correct-choices`, `info`), but
+    not a mistake. No correct choice at all more likely is one.
+
+    Also used, via `mdq.models._fill_in.FillInQuestion.lint`, for a
+    fill-in choice blank -- graded like multiple-choice, so the same
+    rules apply (fill-in.md, "Additional Rules").
     """
     correct = [index for index, choice in enumerate(choices) if (choice.score or 0) >= 1]
 
@@ -484,12 +464,13 @@ def check_multiple_choice_answers(
         listed = ", ".join(str(index) for index in correct)
         warnings.append(
             Diagnostic(
-                severity="warning",
+                severity="info",
                 code="multiple-choice-many-correct-choices",
                 path=path,
                 message=(
-                    f"choices {listed} all have a score >= 1, but only one "
-                    f"can be selected; use multiple-selection instead"
+                    f"choices {listed} all have a score >= 1; a question MAY "
+                    f"mark any number of choices as correct, but the student "
+                    f"still picks a single one"
                 ),
             )
         )

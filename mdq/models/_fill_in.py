@@ -23,6 +23,7 @@ from ._base import (
     MdqModel,
     BaseQuestion,
     _BLANK_MARKER_RE,
+    _check_choices_have_text,
     _check_unique_choices,
     _raise_unique_id_error,
     _validate_mdq_regex,
@@ -44,9 +45,11 @@ class ChoiceBlank(MdqModel):
     def check_choices_are_unique(self) -> Self:
         """
         multiple-choice.md, "Choices" (shared by a fill-in choice
-        blank): ids and texts must each be unique (`duplicate-choice-id`,
+        blank): no choice's `text` may be empty (`blank-choice-text`),
+        and ids and texts must each be unique (`duplicate-choice-id`,
         `duplicate-choice-text`).
         """
+        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -205,7 +208,6 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         for index, blank in enumerate(self.blanks):
             path: tuple[str | int, ...] = ("blanks", index)
             if isinstance(blank, ChoiceBlank):
-                diagnostics.extend(_lint.check_choices(blank.choices, path + ("choices",)))
                 diagnostics.extend(
                     _lint.check_multiple_choice_answers(blank.choices, path + ("choices",))
                 )

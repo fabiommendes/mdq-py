@@ -142,6 +142,14 @@ def test_ordering_lint_matches_load_diagnostics_for_reject_without_feedback() ->
 
 
 def test_fill_in_lint_matches_load_diagnostics() -> None:
+    """
+    A choice blank is graded like multiple-choice, so it runs
+    `multiple-choice-no-correct-choice` exactly as a standalone
+    multiple-choice question would -- see
+    `dev/specs/to-do/lint-codes-corrections.md`. (A blank `text`, like
+    `Amazônia`, is a `blank-choice-text` model error now, not a lint
+    rule -- see `tests/test_model_rule_errors.py`.)
+    """
     doc = {
         "type": "fill-in",
         "stem": "O maior bioma brasileiro é a [^bioma].",
@@ -150,7 +158,7 @@ def test_fill_in_lint_matches_load_diagnostics() -> None:
                 "id": "bioma",
                 "type": "multiple-choice",
                 "choices": [
-                    {"id": "a", "text": " ", "score": 1},
+                    {"id": "a", "text": "Amazônia", "score": 0},
                     {"id": "b", "text": "Cerrado", "score": 0},
                 ],
             },
@@ -159,7 +167,7 @@ def test_fill_in_lint_matches_load_diagnostics() -> None:
     loaded = load(doc)
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    assert "blank-choice-text" in _codes(loaded.document.lint())
+    assert "multiple-choice-no-correct-choice" in _codes(loaded.document.lint())
 
 
 # ---------------------------------------------------------------------
