@@ -353,8 +353,22 @@ def _parse_error(exc: MdqError) -> Diagnostic:
 # ---------------------------------------------------------------------
 
 
+#: The tags of `models.ExamEntry`, the union of an exam's `questions`.
+_EXAM_ENTRY_TAGS = frozenset({"question", "include", "include-all"})
+
+
+def _is_exam_entry_tag(loc: tuple[str | int, ...], index: int) -> bool:
+    """`loc[index]` is the `ExamEntry` tag pydantic puts after `questions.N`."""
+    return (
+        index == 2
+        and loc[0] == "questions"
+        and isinstance(loc[1], int)
+        and loc[index] in _EXAM_ENTRY_TAGS
+    )
+
+
 def _strip_discriminator_tags(
-    loc: tuple[str | int, ...], data: Any
+    loc: tuple[str | int, ...], data: Any, *, exam_entries: bool = False
 ) -> tuple[str | int, ...]:
     """
     Drop the segments pydantic inserts into `loc` for a discriminated
@@ -366,15 +380,22 @@ def _strip_discriminator_tags(
     `type` equals the segment and which has no key of that name. Walking
     `data` keeps real keys that happen to look like a tag, such as the
     question types used as keys of an exam's `grading`.
+
+    With `exam_entries`, the `ExamEntry` tag right after `questions.N`
+    (`question`, `include`, `include-all`) is dropped too. It cannot be
+    told apart by walking `data`, since an include block has a key of
+    the same name.
     """
     path: list[str | int] = []
     node = data
-    for segment in loc:
+    for index, segment in enumerate(loc):
         if (
             isinstance(node, dict)
             and segment not in node
             and node.get("type") == segment
         ):
+            continue
+        if exam_entries and _is_exam_entry_tag(loc, index):
             continue
         path.append(segment)
         try:
@@ -395,13 +416,15 @@ def _pydantic_error_code(error_type: str) -> str:
     return "schema-error" if error_type in _PYDANTIC_ERROR_TYPES else error_type
 
 
-def _pydantic_diagnostics(exc: PydanticValidationError, data: Any) -> list[Diagnostic]:
+def _pydantic_diagnostics(
+    exc: PydanticValidationError, data: Any, *, exam: bool = False
+) -> list[Diagnostic]:
     return [
         Diagnostic(
             severity="error",
             code=_pydantic_error_code(str(error["type"])),
             message=error["msg"],
-            path=_strip_discriminator_tags(tuple(error["loc"]), data),
+            path=_strip_discriminator_tags(tuple(error["loc"]), data, exam_entries=exam),
         )
         for error in exc.errors()
     ]
@@ -433,7 +456,7 @@ def _load_exam(
     try:
         exam = models.Exam.model_validate(data)
     except PydanticValidationError as exc:
-        diagnostics.extend(_pydantic_diagnostics(exc, data))
+        diagnostics.extend(_pydantic_diagnostics(exc, data, exam=True))
         return Loaded(None, diagnostics)
 
     diagnostics.extend(exam.lint())

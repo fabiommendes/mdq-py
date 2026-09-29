@@ -355,8 +355,10 @@ class MDQParser:
     def apply_common_frontmatter(self) -> None:
         front = self.frontmatter
         doc = self.state
+        # Unconverted: `id: 2024` is not a string, and the model reports it
+        # (base.md, "Frontmatter"). A null `id` is absent.
         if front.get("id") is not None:
-            doc["id"] = str(front["id"])
+            doc["id"] = front["id"]
         if "uuid" in front:
             doc["uuid"] = front["uuid"]
         if "title" in front:

@@ -114,9 +114,16 @@ Implements the unreleased MDQ specification.
 - A true-false `marker` that is not a single letter is the
   `malformed-true-false-marker` error (before, `string_too_short`,
   `string_too_long`, or no error for a non-letter such as `1`).
+- The parser no longer converts a non-string `id` (question or exam),
+  `include` or `include-all` with `str()`: `id: 2024` and `include: yes`
+  are `schema-error`s. A null exam `id` is absent (it was `"None"`).
 
 ### Fixed
 
+- The path of an error inside an exam's `questions` no longer holds the
+  entry kind (`questions.0.question.essay.stem` is now
+  `questions.0.stem`; `questions.0.include.include` is
+  `questions.0.include`).
 - A line with U+0085, U+2028 or another character that `str.splitlines()`
   treats as a line break no longer shifts the line numbers of the rest of
   the document, which could drop choices or fail the parse.

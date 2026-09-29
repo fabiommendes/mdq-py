@@ -144,9 +144,11 @@ def parse_exam(
         doc["title"] = heading
 
     # The frontmatter wins over the H1 for both fields it can also carry.
+    # Values pass through unconverted: `id: 2024` is not a string, and the
+    # model reports it (exam.md, "Frontmatter"). A null `id` is absent.
     for key in EXAM_PASSTHROUGH_KEYS:
-        if key in front:
-            doc[key] = str(front[key]) if key == "id" else front[key]
+        if key in front and not (key == "id" and front[key] is None):
+            doc[key] = front[key]
     if "tags" in front:
         doc["tags"] = _normalize_tags(front["tags"])
     if "start" in front:
@@ -416,14 +418,12 @@ def _parse_exam_block(
         # `mdq.models.IncludeAll` once this reaches it -- the same error
         # the dict/YAML path raises directly, so dropping the key here
         # instead would let the Markdown path silently lose it.
-        entry: dict[str, Any] = dict(front)
-        entry["include-all"] = str(front["include-all"])
-        return cast(IncludeAllDict, entry)
+        # `include-all`/`include` take only a string: a number or boolean
+        # passes through unconverted, and the model reports it.
+        return cast(IncludeAllDict, dict(front))
 
     if "include" in front:
-        entry = dict(front)
-        entry["include"] = str(front["include"])
-        return cast(IncludeDict, entry)
+        return cast(IncludeDict, dict(front))
 
     block_warnings: list[Diagnostic] = []
     parsed_question: dict[str, Any] = dict(

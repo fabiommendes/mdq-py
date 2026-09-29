@@ -72,6 +72,11 @@ INVALID_PARSED = [
 ]
 VALID_PARSED = collect_files(VALID_DIR)
 VALID_SOURCES = collect_sources(VALID_DIR)
+
+#: Surface-syntax documents `load` must reject. Each has a `.lint.json`
+#: listing every diagnostic `load` reports for it (errors included); a
+#: `.yaml` sibling, when present, must report the same ones.
+INVALID_SOURCES = collect_sources(INVALID_DIR)
 VALID_QUESTIONS = [
     source for source in VALID_SOURCES if not source.is_relative_to(VALID_EXAMS_DIR)
 ]
