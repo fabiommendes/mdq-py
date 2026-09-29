@@ -325,3 +325,17 @@ def test_exam_separator_immediately_followed_by_frontmatter_is_one_question() ->
     )
     assert exam["questions"][1]["stem"] == "Descreva a fotossíntese."
     assert load(exam)
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "[numeric]: ٣",  # Arabic-Indic digit three
+        "[numeric]: 3 +- ٠.5",
+    ],
+)
+def test_numeric_answer_accepts_only_ascii_digits(tag: str) -> None:
+    # numeric.md grammar: INTEGER and DECIMAL use [0-9], not Unicode digits.
+    loaded = load(f"Quantos estados tem a região Sul do Brasil?\n\n{tag}\n", format="mdq")
+    assert loaded.document is None
+    assert [d.severity for d in loaded.diagnostics] == ["error"]

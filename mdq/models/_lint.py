@@ -101,7 +101,7 @@ _LOOKALIKE_LANGUAGE_SUBTAGS = {
 _NON_PARAGRAPH_STEM = (
     (re.compile(r"^#{1,6}\s"), "a heading"),
     (re.compile(r"^\s*[-*+]\s"), "a list"),
-    (re.compile(r"^\s*\d+[.)]\s"), "an ordered list"),
+    (re.compile(r"^\s*[0-9]+[.)]\s"), "an ordered list"),
     (re.compile(r"^\s*>\s"), "a blockquote"),
     (re.compile(r"^\s*\|"), "a table"),
     (re.compile(r"^\s*(```|~~~)"), "a code fence"),

@@ -28,7 +28,7 @@ SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]\s*")
 CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]\s*")
 
 ITEM_MARKER_RE = re.compile(r"^[*+-]\s+\[(?P<value>[^\]]*)\]\s?(?P<rest>.*)$")
-PERCENT_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?%$")
+PERCENT_RE = re.compile(r"^[+-]?[0-9]+(?:\.[0-9]+)?%$")
 PLAIN_ITEM_RE = re.compile(r"^[*+-]\s+(?P<rest>.*)$")
 
 # True/false marker classification, per

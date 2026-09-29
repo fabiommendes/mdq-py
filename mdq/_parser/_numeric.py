@@ -15,10 +15,10 @@ from ..errors import ParseError
 from ..types import NumericDomain, ToleranceDict
 
 NUM_VALUE_RE = re.compile(
-    r"^(?P<sign>[+-])?(?P<value>\d+/\d+|\d+\.\d+|\d+)"
-    r"(?P<tolerances>(?:\s*\+-\s*\d+(?:\.\d+)?%?)*)\s*$"
+    r"^(?P<sign>[+-])?(?P<value>[0-9]+/[0-9]+|[0-9]+\.[0-9]+|[0-9]+)"
+    r"(?P<tolerances>(?:\s*\+-\s*[0-9]+(?:\.[0-9]+)?%?)*)\s*$"
 )
-TOL_TERM_RE = re.compile(r"\+-\s*(?P<num>\d+(?:\.\d+)?)(?P<pct>%)?")
+TOL_TERM_RE = re.compile(r"\+-\s*(?P<num>[0-9]+(?:\.[0-9]+)?)(?P<pct>%)?")
 
 
 class _NumericExpr(TypedDict, total=False):
