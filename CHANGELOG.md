@@ -27,3 +27,18 @@ Implements the unreleased MDQ specification.
   commands.
 - `mdq[hypothesis]` extra with Hypothesis strategies for generating
   questions and exams (`mdq.hypothesis`).
+
+### Changed
+
+- A numeric value, a fraction's numerator/denominator, and both tolerances
+  no longer accept a leading zero (`007`, `00.5`, `01/2`): the parser now
+  follows numeric.md's `INTEGER`/`DECIMAL` grammar instead of a bare
+  `[0-9]+`.
+- A numeric question's/blank's `unit` regex now matches any character
+  except whitespace and the brackets `(`, `)`, `[`, `]`
+  (`mdq._parser._question.UNIT_RE`), not Python's Unicode-aware `\w`,
+  admitting units like `µm`, `°C`, and `km/h`.
+- A numeric question's/blank's string `answer` is now checked against the
+  same `sign? value` grammar (`mdq._parser.parse_numeric_value`); a
+  malformed one, or a fraction with a zero denominator, is the new
+  `malformed-numeric-answer` model error.

@@ -101,7 +101,12 @@ SHORT_ANSWER_RE = re.compile(
     r"^\[\s*short-answer\s*(?:/\s*(?P<variant>accept|reject)\s*)?\]\s*:"
     r"\s*(?P<rest>.*)$"
 )
-NUMERIC_TAG_RE = re.compile(r"^\[numeric(?:\((?P<unit>[\w.\-]+)\))?\]:\s*(?P<rest>.*)$")
+#: numeric.md, "Unit conversion": a unit may hold any character except
+#: whitespace and the brackets `(`, `)`, `[`, `]` -- a portable class
+#: (`\w` is ASCII-only under JSON Schema's ECMA-262 regex, but Unicode in
+#: Python) that admits `µm`, `°C`, `km/h`, `Ω`.
+UNIT_RE = r"[^\s()\[\]]+"
+NUMERIC_TAG_RE = re.compile(rf"^\[numeric(?:\((?P<unit>{UNIT_RE})\))?\]:\s*(?P<rest>.*)$")
 # A blank definition tag. Deliberately permissive in `kind`: an
 # unrecognized suffix must reach BLANK_KIND_RE and raise a real error,
 # not fail to match and get swallowed by the epilogue.
@@ -113,8 +118,8 @@ BLANK_RE = re.compile(
 # both restrictions are enforced by this alternation's shape rather than
 # by a follow-up check (fill-in.md#blank-definitions).
 BLANK_KIND_RE = re.compile(
-    r"^(?:"
-    r"(?P<numeric>numeric)(?:\((?P<unit>[\w.\-]+)\))?"
+    rf"^(?:"
+    rf"(?P<numeric>numeric)(?:\((?P<unit>{UNIT_RE})\))?"
     r"|(?P<short>short-answer)(?:/(?P<variant>accept|reject))?"
     r")$"
 )

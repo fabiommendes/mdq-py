@@ -353,3 +353,47 @@ def test_numeric_zero_denominator_is_a_parse_error(body: str) -> None:
     assert loaded.document is None
     assert [(d.severity, d.code) for d in loaded.diagnostics] == [("error", "parse-error")]
     assert "zero denominator" in loaded.diagnostics[0].message
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Leading zero in the value itself.
+        "Quantos estados tem o Brasil?\n\n[numeric]: 026\n",
+        # Leading zero in a decimal's integer part.
+        "Qual é o valor de pi?\n\n[numeric]: 03.14\n",
+        # Leading zero in a fraction's numerator.
+        "Qual fração representa um terço?\n\n[numeric]: 01/3\n",
+        # Leading zero in a fraction's denominator.
+        "Qual fração representa um terço?\n\n[numeric]: 1/03\n",
+        # Leading zero in an absolute tolerance.
+        "Qual é o valor de pi?\n\n[numeric]: 3.14 +- 00.1\n",
+        # Leading zero in a relative tolerance.
+        "Qual é o valor de pi?\n\n[numeric]: 3.14 +- 05%\n",
+        # Same rule for a numeric fill-in blank.
+        "O Brasil tem [^estados] estados.\n\n[^estados/numeric]: 026\n",
+    ],
+)
+def test_numeric_leading_zero_is_a_parse_error(body: str) -> None:
+    # numeric.md grammar: INTEGER is `[1-9][0-9]*|0`, DECIMAL is
+    # `([1-9][0-9]*|0)[.][0-9]+` -- neither admits a leading zero.
+    loaded = load(body, format="mdq")
+    assert loaded.document is None
+    assert [(d.severity, d.code) for d in loaded.diagnostics] == [("error", "parse-error")]
+
+
+def test_numeric_unit_with_slash_does_not_break_fill_in_blank_syntax() -> None:
+    # The `/` that separates a blank's id from its kind
+    # (`[^speed/numeric(...)]`) is the first one after the id; a `/`
+    # inside the unit's own parentheses is part of the unit, not a
+    # second separator (numeric.md, "Unit conversion").
+    body = (
+        "O jaguar consegue correr a até [^speed] em disparadas curtas.\n\n"
+        "[^speed/numeric(km/h)]: 80 +- 5\n"
+    )
+    loaded = load(body, format="mdq")
+    assert loaded.document is not None
+    assert not any(d.severity == "error" for d in loaded.diagnostics)
+    blank = loaded.document.blanks[0]
+    assert blank.unit == "km/h"
+    assert blank.answer == 80

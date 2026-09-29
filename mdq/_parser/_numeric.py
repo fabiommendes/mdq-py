@@ -14,11 +14,30 @@ from typing import Required, TypedDict
 from ..errors import ParseError
 from ..types import NumericDomain, ToleranceDict
 
+#: numeric.md's `INTEGER`/`DECIMAL` terminals: no leading zeros (`007`,
+#: `00.5` are not valid), a lone `0` is the one way to write zero. Shared
+#: by the value, a fraction's numerator/denominator, and both
+#: tolerances -- the grammar names one `INTEGER`/`DECIMAL` for all of
+#: them.
+_INTEGER = r"(?:0|[1-9][0-9]*)"
+_DECIMAL = rf"{_INTEGER}\.[0-9]+"
+_FRACTION = rf"{_INTEGER}/{_INTEGER}"
+_VALUE = rf"(?:{_FRACTION}|{_DECIMAL}|{_INTEGER})"
+_TOLERANCE_NUM = rf"(?:{_DECIMAL}|{_INTEGER})"
+
 NUM_VALUE_RE = re.compile(
-    r"^(?P<sign>[+-])?(?P<value>[0-9]+/[0-9]+|[0-9]+\.[0-9]+|[0-9]+)"
-    r"(?P<tolerances>(?:\s*\+-\s*[0-9]+(?:\.[0-9]+)?%?)*)\s*$"
+    rf"^(?P<sign>[+-])?(?P<value>{_VALUE})"
+    rf"(?P<tolerances>(?:\s*\+-\s*{_TOLERANCE_NUM}%?)*)\s*$"
 )
-TOL_TERM_RE = re.compile(r"\+-\s*(?P<num>[0-9]+(?:\.[0-9]+)?)(?P<pct>%)?")
+TOL_TERM_RE = re.compile(rf"\+-\s*(?P<num>{_TOLERANCE_NUM})(?P<pct>%)?")
+
+#: The bare `sign? value` grammar (numeric.md) -- no tolerance terms.
+#: Used to validate an `answer` written as a `str` directly in a
+#: dict/YAML/JSON document (`mdq.models._numeric`, `mdq.models.
+#: _fill_in`); the Markdown surface syntax never produces this shape on
+#: its own, since `_parse_numeric_expression` below always turns a body
+#: fraction into a `float`.
+VALUE_RE = re.compile(rf"^(?P<sign>[+-])?(?P<value>{_VALUE})$")
 
 
 class _NumericExpr(TypedDict, total=False):
@@ -77,3 +96,27 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
         result["tolerance"] = tolerance
 
     return result
+
+
+def parse_numeric_value(text: str) -> float:
+    """
+    Parse a bare `sign? value` (numeric.md's grammar for a numeric
+    body's value, with no tolerance terms) -- what a string `answer`
+    (numeric.md, "Answer representation") must look like.
+
+    Raises:
+        ParseError: `text` does not match the grammar, or is a fraction
+            with a zero denominator.
+    """
+    m = VALUE_RE.match(text.strip())
+    if not m:
+        raise ParseError(f"malformed numeric value: {text!r}")
+
+    sign = -1 if m.group("sign") == "-" else 1
+    value_str = m.group("value")
+    if "/" in value_str:
+        num, den = value_str.split("/")
+        if int(den) == 0:
+            raise ParseError(f"zero denominator in numeric value: {text!r}")
+        return sign * (int(num) / int(den))
+    return sign * float(value_str)

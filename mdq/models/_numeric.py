@@ -9,17 +9,38 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import Any, Iterable, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_core import PydanticCustomError
 
-from .. import types as t
+from .. import _parser, types as t
 from .._diagnostics import Diagnostic
-from ..errors import ResponseError
+from ..errors import ParseError, ResponseError
 from ..types import NumericDomain
 from . import _lint
 from ._base import BaseQuestion, MdqModel
 from ._score import QuestionScore
 
 __all__ = ["Tolerance", "NumericQuestion"]
+
+
+def _validate_numeric_answer(value: float | str) -> float | str:
+    """
+    numeric.md, "Answer representation": a string `answer` MUST be a
+    valid `sign? value` (an `INTEGER`, `DECIMAL`, or a fraction with a
+    nonzero denominator) -- the same grammar a numeric body's value
+    follows. A JSON/YAML number needs no check; it is already one.
+
+    Reuses `mdq._parser.parse_numeric_value` instead of a second regex.
+    """
+    if isinstance(value, str):
+        try:
+            _parser.parse_numeric_value(value)
+        except ParseError as exc:
+            raise PydanticCustomError(
+                "malformed-numeric-answer",
+                f"{value!r} is not a valid numeric answer: {exc}",
+            ) from exc
+    return value
 
 
 class Tolerance(MdqModel):
@@ -38,6 +59,11 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     domain: NumericDomain | None = None
     decimal_places: int | None = Field(default=None, ge=0)
     tolerance: Tolerance | None = None
+
+    @field_validator("answer")
+    @classmethod
+    def check_answer_grammar(cls, value: float | str) -> float | str:
+        return _validate_numeric_answer(value)
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""

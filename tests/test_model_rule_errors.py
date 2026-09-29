@@ -364,3 +364,44 @@ def test_ordering_disjoint_accept_and_reject_does_not_error() -> None:
     loaded = load(doc)
     assert loaded.document is not None
     assert "accept-reject-overlap" not in _codes(loaded.diagnostics)
+
+
+# ---------------------------------------------------------------------
+# malformed-numeric-answer
+# ---------------------------------------------------------------------
+
+
+def test_malformed_numeric_answer_is_a_model_error() -> None:
+    doc = {
+        "type": "numeric",
+        "stem": "Que fração do território do Brasil fica no bioma Amazônia?",
+        "answer": "1/0",
+    }
+    loaded = load(doc)
+    assert loaded.document is None
+    diagnostic = _assert_one_error(loaded.diagnostics, "malformed-numeric-answer")
+    assert diagnostic.path == ("answer",)
+
+
+def test_malformed_numeric_answer_in_fill_in_blank_is_a_model_error() -> None:
+    doc = {
+        "type": "fill-in",
+        "stem": "O Rio Amazonas percorre cerca de [^length] até o Atlântico.",
+        "blanks": [{"id": "length", "type": "numeric", "answer": "007"}],
+    }
+    loaded = load(doc)
+    assert loaded.document is None
+    diagnostic = _assert_one_error(loaded.diagnostics, "malformed-numeric-answer")
+    assert diagnostic.path == ("blanks", 0, "answer")
+
+
+@pytest.mark.parametrize("answer", ["1/3", "-0.25", "42", "0", 3.14, 42, -7])
+def test_well_formed_numeric_answer_does_not_error(answer: float | str) -> None:
+    doc = {
+        "type": "numeric",
+        "stem": "Que fração do território do Brasil fica no bioma Amazônia?",
+        "answer": answer,
+    }
+    loaded = load(doc)
+    assert loaded.document is not None
+    assert "malformed-numeric-answer" not in _codes(loaded.diagnostics)
