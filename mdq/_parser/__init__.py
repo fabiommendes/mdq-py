@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from ._choices import SLUG_BODY_RE, SLUG_PREFIX_RE
 from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
-from ._frontmatter import COMMON_QUESTION_KEYS
+from ._frontmatter import COMMON_QUESTION_KEYS, load_yaml
 from ._numeric import parse_numeric_answer
 from ._question import find_forbidden_elements, parse_question, reconstruct_blocks
 from ._spaces import find_unicode_spaces
@@ -48,4 +48,5 @@ __all__ = [
     "find_forbidden_elements",
     "parse_numeric_answer",
     "find_unicode_spaces",
+    "load_yaml",
 ]

@@ -239,7 +239,7 @@ def _load_text(
         return _load_mdq_text(text, kind=kind, ids=ids)
     if fmt in ("yaml", "yml"):
         try:
-            data = yaml.safe_load(text)
+            data = _parser.load_yaml(text)
         except yaml.YAMLError as exc:
             return Loaded(None, [_syntax_error("yaml-syntax-error", exc)])
         return _load_data(
@@ -247,13 +247,23 @@ def _load_text(
         )
     if fmt == "json":
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError as exc:
+            data = json.loads(text, object_pairs_hook=_json_object)
+        except ValueError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
         return _load_data(
             data if isinstance(data, dict) else {}, kind=kind, ids=ids
         )
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
+
+
+def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """A JSON object that repeats a key is an error, as in YAML."""
+    data: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in data:
+            raise ValueError(f"duplicate key {key!r} in a JSON object")
+        data[key] = value
+    return data
 
 
 def _syntax_error(code: str, exc: Exception) -> Diagnostic:

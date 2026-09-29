@@ -21,6 +21,7 @@ import yaml
 
 from .._diagnostics import Diagnostic
 from .._markdown import split_lines, strip_bom
+from ..errors import ParseError
 
 __all__ = [
     "COMMON_QUESTION_KEYS",
@@ -96,7 +97,12 @@ def _extract_comment(frontmatter_text: str) -> str | None:
 
 class _FrontmatterLoader(yaml.SafeLoader):
     """
-    `yaml.SafeLoader`, minus YAML 1.1's base-60 int/float resolution.
+    `yaml.SafeLoader`, minus YAML 1.1's base-60 int/float resolution, and
+    with no duplicate keys.
+
+    A key written twice in one mapping is an error (base.md,
+    "Frontmatter"), not last-value-wins as in PyYAML. Keys a `<<` merge
+    brings in may be overridden, as YAML intends.
 
     PyYAML's `SafeLoader` reads an unquoted `1:30` as the sexagesimal
     integer `90` (`1*60 + 30`) -- a YAML 1.1 rule that YAML 1.2 dropped.
@@ -106,6 +112,26 @@ class _FrontmatterLoader(yaml.SafeLoader):
     and only replaces `int`/`float`'s regex with one that drops the
     `H:MM[:SS]` alternative.
     """
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen: set[Any] = set()
+        for key_node, _ in node.value:
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in seen
+                seen.add(key)
+            except TypeError:  # an unhashable key; the base class reports it
+                continue
+            if duplicate:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+        return super().construct_mapping(node, deep=deep)
 
 
 #: `tag:yaml.org,2002:int`'s pattern, minus the sexagesimal alternative.
@@ -139,8 +165,32 @@ _FrontmatterLoader.yaml_implicit_resolvers = {
 }
 
 
+class YamlSyntaxError(ParseError):
+    """The frontmatter is not valid YAML, or repeats a key."""
+
+    code = "yaml-syntax-error"
+
+
+def load_yaml(text: str) -> Any:
+    """
+    Load MDQ YAML: a Markdown frontmatter or a YAML document. See
+    `_FrontmatterLoader`.
+
+    Raises:
+        yaml.YAMLError: `text` is not valid YAML, or repeats a key.
+    """
+    return yaml.load(text, Loader=_FrontmatterLoader)
+
+
 def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
-    data = yaml.load(text, Loader=_FrontmatterLoader)
+    """
+    Raises:
+        YamlSyntaxError: the frontmatter is not valid YAML, or repeats a key.
+    """
+    try:
+        data = load_yaml(text)
+    except yaml.YAMLError as exc:
+        raise YamlSyntaxError(f"invalid YAML frontmatter: {exc}") from exc
     return data if isinstance(data, dict) else {}
 
 
@@ -216,11 +266,14 @@ def _question_frontmatter_warnings(
     return _unknown_frontmatter_warnings(front, known)
 
 
-def _normalize_tags(tags: Any) -> list[str]:
+def _normalize_tags(tags: Any) -> Any:
     """
     generic.md: `tags` is a list, or a single comma-delimited string that
-    is split into one. Exams and questions share the rule.
+    is split into one. Exams and questions share the rule. Any other
+    value is returned as it is, for the model to report.
     """
     if isinstance(tags, str):
         return [part.strip() for part in tags.split(",") if part.strip()]
-    return list(tags)
+    if isinstance(tags, list | tuple):
+        return list(tags)
+    return tags

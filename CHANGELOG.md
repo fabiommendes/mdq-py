@@ -117,9 +117,20 @@ Implements the unreleased MDQ specification.
 - The parser no longer converts a non-string `id` (question or exam),
   `include` or `include-all` with `str()`: `id: 2024` and `include: yes`
   are `schema-error`s. A null exam `id` is absent (it was `"None"`).
+- A repeated key in a YAML mapping is `yaml-syntax-error`, in Markdown
+  frontmatter (question, exam, exam block) and in a YAML document. A
+  repeated key in a JSON object is `json-syntax-error`. Before, the last
+  value won.
+- A YAML document is loaded like the frontmatter, so `duration: 1:30` is
+  the string `"1:30"`, not the base-60 integer 90.
 
 ### Fixed
 
+- Malformed YAML in a Markdown frontmatter is a `yaml-syntax-error`
+  diagnostic. Before, `load` raised PyYAML's exception.
+- A null `tags` in an exam frontmatter is absent, as in a question, and a
+  `tags` that is neither a list nor a string is a `schema-error`. Before,
+  both raised a `TypeError`.
 - The path of an error inside an exam's `questions` no longer holds the
   entry kind (`questions.0.question.essay.stem` is now
   `questions.0.stem`; `questions.0.include.include` is

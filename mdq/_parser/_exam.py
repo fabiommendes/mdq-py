@@ -149,7 +149,8 @@ def parse_exam(
     for key in EXAM_PASSTHROUGH_KEYS:
         if key in front and not (key == "id" and front[key] is None):
             doc[key] = front[key]
-    if "tags" in front:
+    # A null `tags` is absent, as in a question.
+    if front.get("tags") is not None:
         doc["tags"] = _normalize_tags(front["tags"])
     if "start" in front:
         try:
@@ -360,6 +361,9 @@ def _looks_like_frontmatter(lines: list[str]) -> bool:
     thematic breaks).
     """
 
+    # PyYAML's own loader keeps the last of two equal keys, so a block that
+    # repeats a key still counts as frontmatter here; loading it with
+    # `_load_frontmatter_yaml` then reports the repeated key.
     try:
         loaded = yaml.safe_load("\n".join(lines))
     except yaml.YAMLError:
