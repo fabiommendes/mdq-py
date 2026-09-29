@@ -841,14 +841,20 @@ def test_from_mdq_fill_in_multiple_blanks():
     question = FillInQuestion(
         stem="The ship used by Darwin was the [^ship], and Brazil has [^states] states.",
         blanks=[
-            ChoiceBlank(id="ship", choices=[ScoredChoice(text="Beagle", score=1.0)]),
+            ChoiceBlank(
+                id="ship",
+                choices=[
+                    ScoredChoice(text="Beagle", score=1.0),
+                    ScoredChoice(text="Bounty", score=0.0),
+                ],
+            ),
             NumericBlank(id="states", answer=26, tolerance=Tolerance(absolute=1)),
         ],
     )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks
     assert block.type == "multianswer"
-    assert "{1:MULTICHOICE:=Beagle}" in block.questiontext
+    assert "{1:MULTICHOICE:=Beagle~Bounty}" in block.questiontext
     assert "{1:NUMERICAL:=26:1}" in block.questiontext
 
 

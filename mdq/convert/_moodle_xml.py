@@ -327,6 +327,12 @@ class MoodleXmlEncoder:
                 )
             referenced.add(blank_id)
             cloze = self.cloze_from_blank(blank)
+            if cloze.kind == "MULTICHOICE" and len(cloze.answers) < 2:
+                # qtype_multianswer_validate_question: `notenoughanswers`.
+                raise ValueError(
+                    f"cannot convert to Moodle XML: choice blank {blank_id!r} needs "
+                    f"at least 2 choices, which Moodle requires in an embedded answer"
+                )
             if not any(answer.fraction == 100 for answer in cloze.answers):
                 # qtype_multianswer_validate_question rejects a subquestion
                 # with no answer worth exactly 100% (`fractionsnomax`).
