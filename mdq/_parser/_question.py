@@ -313,7 +313,9 @@ class MDQParser:
         # and for an indented code block, whose `.map` always ends on its
         # last indented line, even when either has a blank line before
         # the end of its own body.
-        while lines and not lines[-1].strip():
+        # CommonMark treats only spaces and tabs as blank, not Unicode
+        # whitespace such as NBSP.
+        while lines and not lines[-1].strip(" \t"):
             lines.pop()
         return "\n".join(lines)
 

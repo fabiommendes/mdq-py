@@ -18,6 +18,7 @@ from typing import Any, cast
 import yaml
 
 from .. import _schedule
+from .._markdown import md
 from .._diagnostics import Diagnostic
 from ..errors import MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
@@ -125,7 +126,10 @@ def parse_exam(
     lines = body.splitlines()
     heading: str | None = None
     title_index = 0
+    code_lines = _code_line_indices(lines)
     for title_index, line in enumerate(lines):
+        if title_index in code_lines:
+            continue
         if m := H1_RE.match(line):
             heading = m.group("rest")
             break
@@ -194,10 +198,24 @@ def is_exam(text: str) -> bool:
     """
 
     _, body = _split_frontmatter(text)
-    for line in body.splitlines():
-        if H1_RE.match(line):
-            return True
-    return False
+    lines = body.splitlines()
+    code_lines = _code_line_indices(lines)
+    return any(i not in code_lines and H1_RE.match(line) for i, line in enumerate(lines))
+
+
+def _code_line_indices(lines: list[str]) -> set[int]:
+    """
+    Indices of the lines inside a fenced or indented code block.
+
+    Code lines never count as MDQ structure (title, separator, fence, body
+    tag). Parses the joined lines with the parser's own markdown-it
+    config, so indices match `lines`.
+    """
+    covered: set[int] = set()
+    for token in md.parse("\n".join(lines)):
+        if token.type in ("fence", "code_block") and token.map:
+            covered.update(range(token.map[0], token.map[1]))
+    return covered
 
 
 def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
@@ -247,6 +265,7 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
     """
 
     starts: list[int] = []
+    code_lines = _code_line_indices(lines)
     index = 0
     #: Position right after the most recently accepted block boundary.
     boundary = 0
@@ -258,6 +277,9 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
     #: bracket-choice list item since its own frontmatter (if any) closed.
     body_seen = False
     while index < len(lines):
+        if index in code_lines:
+            index += 1
+            continue
         line = lines[index].rstrip()
         stripped = line.strip()
         blank_before = index == 0 or not lines[index - 1].strip()
@@ -290,7 +312,8 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
                     (
                         j
                         for j in range(index + 1, len(lines))
-                        if lines[j].rstrip() == "---"
+                        if j not in code_lines
+                        and lines[j].rstrip() == "---"
                         and _looks_like_frontmatter(lines[index + 1 : j])
                     ),
                     None,

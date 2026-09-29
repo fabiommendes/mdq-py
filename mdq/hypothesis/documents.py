@@ -398,10 +398,14 @@ def _md_indented_code_block() -> st.SearchStrategy[str]:
     just prefixed with four spaces, and CommonMark treats everything
     past the indent as literal text. Lines are kept non-blank, since a
     blank line inside one needs a following indented line to still
-    belong to the block -- simpler to just never generate one.
+    belong to the block -- simpler to just never generate one. The same
+    goes for a line of only spaces/tabs, which CommonMark reads as blank;
+    other Unicode whitespace (NBSP) is not blank and stays possible.
     """
-    line = st.text(alphabet=_LINE_ALPHABET, min_size=1, max_size=40).map(
-        lambda s: "    " + s
+    line = (
+        st.text(alphabet=_LINE_ALPHABET, min_size=1, max_size=40)
+        .filter(lambda s: s.strip(" \t") != "")
+        .map(lambda s: "    " + s)
     )
     return st.lists(line, min_size=1, max_size=4).map("\n".join)
 

@@ -54,3 +54,12 @@ Implements the unreleased MDQ specification.
 - `answer-outside-domain` and `relative-tolerance-around-zero` now judge a
   string `answer` (`"3/2"`, `"0"`) by its value. Before, they only checked a
   number.
+- A line inside a fenced or indented code block no longer acts as exam
+  structure. Before, a `# comment` line in a code block made a question
+  load as an exam, and `===` or `---` lines in a code block split or broke
+  an exam.
+- A trailing line of an indented code block that holds only Unicode
+  whitespace (such as NBSP) is kept. CommonMark only treats spaces and tabs
+  as blank.
+- The `mdq.hypothesis` indented code block strategy no longer generates a
+  line of only spaces or tabs, which is a blank line and not code.
