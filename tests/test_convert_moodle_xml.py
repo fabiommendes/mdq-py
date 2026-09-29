@@ -799,7 +799,10 @@ def test_from_mdq_numeric_relative_tolerance_is_scaled_by_answer():
 
 
 def test_from_mdq_numeric_rational_string_answer():
-    question = NumericQuestion(stem="What fraction is one third?", answer="1/3")
+    # Without a tolerance the export raises: see test_convert_moodle_grades.py.
+    question = NumericQuestion(
+        stem="What fraction is one third?", answer="1/3", tolerance=Tolerance(absolute=0.01)
+    )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks
     assert float(block.answers[0].text) == pytest.approx(1 / 3)

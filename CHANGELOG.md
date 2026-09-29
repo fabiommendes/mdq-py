@@ -66,6 +66,20 @@ Implements the unreleased MDQ specification.
   `42` imports as an `int`.
 - `mdq.hypothesis.documents.numeric_questions` draws a valid `answer`
   from the new `numeric_answers` strategy.
+- The Moodle XML and GIFT exporters accept only the grades Moodle lists
+  (`question_bank::fraction_options_full()`: 0, +-1, +-9/10, 5/6, 4/5,
+  3/4, 7/10, 2/3, 3/5, 1/2, 2/5, 1/3, 3/10, 1/4, 1/5, 1/6, 1/7, 1/8, 1/9,
+  1/10, 1/20) and write them as Moodle does (`83.33333`). Any other
+  choice score, or a multiple-selection question with more than 10
+  correct or incorrect choices, raises `ValueError`: Moodle would reject
+  the question or move the score. Embedded answers (Cloze) keep any
+  grade, since Moodle does not check them.
+- The Moodle XML and GIFT importers read a listed grade as its exact
+  value (`83.33333` is 5/6). Other grades are kept as written.
+- The Moodle XML and GIFT exporters raise `ValueError` for a numeric
+  answer that has no exact float (`"1/3"`, a long decimal, a large
+  integer) and no tolerance. With a tolerance, they write the nearest
+  float.
 
 ### Fixed
 

@@ -638,7 +638,10 @@ def test_from_mdq_numeric_no_tolerance_defaults_to_zero():
 
 
 def test_from_mdq_numeric_rational_string_answer():
-    question = NumericQuestion(stem="What fraction is one third?", answer="1/3")
+    # Without a tolerance the export raises: see test_convert_moodle_grades.py.
+    question = NumericQuestion(
+        stem="What fraction is one third?", answer="1/3", tolerance=Tolerance(absolute=0.01)
+    )
     gift = Gift().from_mdq(question)
     [block] = gift.blocks
     [opt] = block.answer.options

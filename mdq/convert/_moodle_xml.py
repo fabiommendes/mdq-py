@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from fractions import Fraction
 from typing import Literal
 
 from ..models import (
@@ -25,7 +24,14 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import EssayInput
-from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase, mdq_numeric_answer
+from ._base import (
+    TRUE_FALSE_FALLBACK_STEM,
+    ConversionBase,
+    float_answer,
+    mdq_numeric_answer,
+    moodle_percent,
+    score_from_moodle_percent,
+)
 from ._string_parser import StringParser
 
 __all__ = [
@@ -70,6 +76,9 @@ CREDIT_TAG_REGEX = re.compile(r"%(-?\d+(?:\.\d+)?)%")
 BLANK_MARKER_REGEX = re.compile(r"\[\^([^\]]+)\]")
 CLOZE_ESCAPE_REGEX = re.compile(r"[:=~{}#\\]")
 CLOZE_UNESCAPE_REGEX = re.compile(r"\\(.)")
+
+#: The format name in error messages.
+_FORMAT = "Moodle XML"
 
 
 class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
@@ -194,7 +203,11 @@ class MoodleXmlEncoder:
                     "cannot convert to Moodle XML: every choice must have a score"
                 )
             answers.append(
-                MoodleAnswer(text=choice.text, fraction=choice.score * 100, feedback=choice.feedback)
+                MoodleAnswer(
+                    text=choice.text,
+                    fraction=moodle_percent(choice.score, format=_FORMAT),
+                    feedback=choice.feedback,
+                )
             )
         return MoodleXmlBlock(
             type="multichoice",
@@ -214,9 +227,10 @@ class MoodleXmlEncoder:
         answers = []
         for choice in question.choices:
             if choice.correct:
-                fraction = 100.0 / n_correct if n_correct else 0.0
+                share = 1 / n_correct if n_correct else 0.0
             else:
-                fraction = -100.0 / n_incorrect if n_incorrect else 0.0
+                share = -1 / n_incorrect if n_incorrect else 0.0
+            fraction = moodle_percent(share, format=_FORMAT)
             answers.append(MoodleAnswer(text=choice.text, fraction=fraction, feedback=choice.feedback))
         return MoodleXmlBlock(
             type="multichoice",
@@ -256,7 +270,7 @@ class MoodleXmlEncoder:
         return blocks
 
     def block_from_numeric(self, question: NumericQuestion) -> MoodleXmlBlock:
-        value = numeric_value(question.answer)
+        value = float_answer(question.answer, question.tolerance, format=_FORMAT)
         tolerance = numeric_tolerance(value, question.tolerance)
         answers = [MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)]
         return MoodleXmlBlock(
@@ -345,7 +359,7 @@ class MoodleXmlEncoder:
                 kind="SHORTANSWER",
                 answers=[MoodleAnswer(text=text, fraction=100.0) for text in blank.one_of],
             )
-        value = numeric_value(blank.answer)
+        value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
         tolerance = numeric_tolerance(value, blank.tolerance)
         return MoodleCloze(
             kind="NUMERICAL",
@@ -397,7 +411,9 @@ class MoodleXmlDecoder:
         return MultipleChoiceQuestion(
             stem=block.questiontext,
             choices=[
-                ScoredChoice(text=a.text, score=a.fraction / 100, feedback=a.feedback)
+                ScoredChoice(
+                    text=a.text, score=score_from_moodle_percent(a.fraction), feedback=a.feedback
+                )
                 for a in block.answers
             ],
             shuffle=block.shuffle_answers,
@@ -484,7 +500,9 @@ class MoodleXmlDecoder:
             return ChoiceBlank(
                 id=blank_id,
                 choices=[
-                    ScoredChoice(text=a.text, score=a.fraction / 100, feedback=a.feedback)
+                    ScoredChoice(
+                    text=a.text, score=score_from_moodle_percent(a.fraction), feedback=a.feedback
+                )
                     for a in cloze.answers
                 ],
             )
@@ -902,13 +920,6 @@ def join_blocks(*parts: str | None) -> str:
     """Join non-empty, stripped parts with a blank line, as preamble/stem/epilogue do."""
     stripped = [part.strip() for part in parts if part]
     return "\n\n".join(part for part in stripped if part)
-
-
-def numeric_value(answer: float | str) -> float:
-    """Resolve an MDQ numeric `answer` (a rational string or a float) to a float."""
-    if isinstance(answer, str):
-        return float(Fraction(answer))
-    return float(answer)
 
 
 def numeric_tolerance(value: float, tolerance: Tolerance | None) -> float:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from fractions import Fraction
 from typing import Literal, NoReturn
 
 from ..models import (
@@ -21,7 +20,16 @@ from ..models import (
     Tolerance,
     TrueFalseQuestion,
 )
-from ._base import TRUE_FALSE_FALLBACK_STEM, ConversionBase, mdq_numeric_answer
+from ._base import (
+    TRUE_FALSE_FALLBACK_STEM,
+    ConversionBase,
+    float_answer,
+    format_moodle_percent,
+    mdq_numeric_answer,
+    moodle_grade,
+    moodle_score,
+    score_from_moodle_percent,
+)
 from ._string_parser import StringParser
 
 __all__ = [
@@ -217,7 +225,11 @@ class GiftEncoder:
             if choice.score is None:
                 raise ValueError("cannot convert to GIFT: every choice must have a score")
             options.append(
-                GiftOption(text=choice.text, credit=choice.score, feedback=choice.feedback)
+                GiftOption(
+                    text=choice.text,
+                    credit=moodle_score(choice.score, format="GIFT"),
+                    feedback=choice.feedback,
+                )
             )
         return GiftBlock(
             stem=join_blocks(question.preamble, question.stem),
@@ -245,7 +257,7 @@ class GiftEncoder:
         )
 
     def block_from_numeric(self, question: NumericQuestion) -> GiftBlock:
-        value = gift_numeric_value(question.answer)
+        value = float_answer(question.answer, question.tolerance, format="GIFT")
         tolerance = gift_numeric_tolerance(value, question.tolerance)
         return GiftBlock(
             stem=join_blocks(question.preamble, question.stem),
@@ -304,7 +316,7 @@ class GiftEncoder:
             choice_options = [
                 GiftOption(
                     text=choice.text,
-                    credit=choice.score or 0.0,
+                    credit=moodle_score(choice.score or 0.0, format="GIFT"),
                     feedback=choice.feedback,
                 )
                 for choice in blank.choices
@@ -319,7 +331,7 @@ class GiftEncoder:
                 options=[GiftOption(text=answer_text, credit=1.0) for answer_text in blank.one_of]
             )
         else:
-            value = gift_numeric_value(blank.answer)
+            value = float_answer(blank.answer, blank.tolerance, format="GIFT")
             tolerance = gift_numeric_tolerance(value, blank.tolerance)
             answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
 
@@ -581,7 +593,7 @@ class GiftParser(StringParser[GiftQuestion]):
             rest = entry[1:]
             match = CREDIT_TAG_REGEX.match(rest)
             if match:
-                credit = float(match.group(1)) / 100
+                credit = score_from_moodle_percent(float(match.group(1)))
                 rest = rest[match.end() :]
             hash_pos = find_unescaped(rest, "#")
             text_raw, feedback_raw = (
@@ -609,7 +621,7 @@ class GiftParser(StringParser[GiftQuestion]):
             credit = 1.0
             match = CREDIT_TAG_REGEX.match(rest)
             if match:
-                credit = float(match.group(1)) / 100
+                credit = score_from_moodle_percent(float(match.group(1)))
                 rest = rest[match.end() :]
             hash_pos = find_unescaped(rest, "#")
             spec_raw, feedback_raw = (
@@ -717,7 +729,14 @@ def render_gift_option_tail(option: GiftOption) -> str:
 
 
 def format_credit(credit: float) -> str:
-    """Render a 0..1 credit fraction as a GIFT percentage, e.g. `0.5` -> `"50"`."""
+    """
+    Render a 0..1 credit fraction as a GIFT percentage, e.g. `0.5` ->
+    `"50"`. A Moodle grade is written as Moodle writes it (5/6 is
+    `"83.33333"`).
+    """
+    grade = moodle_grade(credit)
+    if grade is not None:
+        return format_moodle_percent(grade)
     return format_num(credit * 100)
 
 
@@ -858,13 +877,6 @@ def join_blocks(*parts: str | None) -> str:
     """Join non-empty, stripped parts with a blank line, as preamble/stem/epilogue do."""
     stripped = [part.strip() for part in parts if part]
     return "\n\n".join(part for part in stripped if part)
-
-
-def gift_numeric_value(answer: float | str) -> float:
-    """Resolve an MDQ numeric `answer` (a rational string or a float) to a float."""
-    if isinstance(answer, str):
-        return float(Fraction(answer))
-    return float(answer)
 
 
 def gift_numeric_tolerance(value: float, tolerance: Tolerance | None) -> float:
