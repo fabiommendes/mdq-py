@@ -80,6 +80,9 @@ Implements the unreleased MDQ specification.
   answer that has no exact float (`"1/3"`, a long decimal, a large
   integer) and no tolerance. With a tolerance, they write the nearest
   float.
+- The Moodle XML exporter raises `ValueError` for a fill-in blank with no
+  answer worth 100% (for example a choice blank whose best choice scores
+  0.5). Moodle rejects such an embedded answer (`fractionsnomax`).
 
 ### Fixed
 

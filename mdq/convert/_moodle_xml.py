@@ -325,7 +325,15 @@ class MoodleXmlEncoder:
                     f"cannot convert to Moodle XML: stem references unknown blank {blank_id!r}"
                 )
             referenced.add(blank_id)
-            return render_cloze(self.cloze_from_blank(blank))
+            cloze = self.cloze_from_blank(blank)
+            if not any(answer.fraction == 100 for answer in cloze.answers):
+                # qtype_multianswer_validate_question rejects a subquestion
+                # with no answer worth exactly 100% (`fractionsnomax`).
+                raise ValueError(
+                    f"cannot convert to Moodle XML: blank {blank_id!r} has no "
+                    f"answer worth 100%, which Moodle requires in an embedded answer"
+                )
+            return render_cloze(cloze)
 
         questiontext = BLANK_MARKER_REGEX.sub(replace, question.stem)
         missing = [blank.id for blank in question.blanks if blank.id not in referenced]

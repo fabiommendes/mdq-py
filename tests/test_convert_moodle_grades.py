@@ -244,3 +244,39 @@ def test_exact_string_answer_is_exported_without_tolerance(
 ) -> None:
     source = export_question(_numeric(answer), format=format)
     assert text in source
+
+
+# ---------------------------------------------------------------------
+# Cloze: every subquestion needs an answer worth 100%
+# ---------------------------------------------------------------------
+# qtype_multianswer_validate_question (question/type/multianswer/
+# questiontype.php) rejects a subquestion none of whose non-empty
+# answers has a fraction of exactly 1 (`fractionsnomax`). Only a
+# multiple-response subquestion, which MDQ never exports, may instead
+# have any positive fraction.
+
+
+def _choice_blank_question(*scores: float | None) -> FillInQuestion:
+    texts = ["Amazônia", "Cerrado", "Caatinga"]
+    return FillInQuestion(
+        stem="O maior bioma do Brasil é a [^b].",
+        blanks=[
+            ChoiceBlank(
+                id="b",
+                choices=[ScoredChoice(text=t, score=s) for t, s in zip(texts, scores)],
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize("scores", [(0.5, 0.0), (0.0, 0.0), (None, None), (0.9, 0.5, -0.5)])
+def test_moodle_xml_cloze_choice_blank_needs_a_full_credit_choice(
+    scores: tuple[float | None, ...],
+) -> None:
+    with pytest.raises(ValueError, match="100%"):
+        export_question(_choice_blank_question(*scores), format="moodle-xml")
+
+
+def test_moodle_xml_cloze_choice_blank_with_a_full_credit_choice_exports() -> None:
+    source = export_question(_choice_blank_question(0.5, 1.0, None), format="moodle-xml")
+    assert "{1:MULTICHOICE:~%50%Amazônia=Cerrado~Caatinga}" in source
