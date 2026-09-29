@@ -717,10 +717,15 @@ class MDQParser:
             doc["oneOf"] = values
         elif value is not None:
             doc["oneOf"] = [value]
-        elif "oneOf" not in doc and "regex" not in doc and "openEnded" not in doc:
-            doc["openEnded"] = True
 
         self.parse_trailing_pattern_blocks()
+
+        # A bare block is open-ended only when nothing grades it: no
+        # pattern in the body, in a trailing block or in the frontmatter
+        # (short-answer.md, "Fully manual"). preAccept/preReject only
+        # validate the form of a response, so they do not count.
+        if not any(key in doc for key in ("oneOf", "regex", "accept", "reject", "openEnded")):
+            doc["openEnded"] = True
 
     def parse_trailing_pattern_blocks(self) -> None:
         """

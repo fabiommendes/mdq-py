@@ -397,3 +397,23 @@ def test_numeric_unit_with_slash_does_not_break_fill_in_blank_syntax() -> None:
     blank = loaded.document.blanks[0]
     assert blank.unit == "km/h"
     assert blank.answer == 80
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        "---\naccept: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
+        "---\nreject: [Rio de Janeiro]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
+        "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
+        "Qual é a capital do Brasil?\n\n[short-answer]:\n\n[short-answer/accept]:\n* Brasília\n",
+    ],
+)
+def test_bare_short_answer_with_patterns_is_not_open_ended(src: str) -> None:
+    # short-answer.md: only a question with no pattern at all is fully manual.
+    question = load(src, format="mdq").validate()
+    assert not question.to_dict().get("openEnded")
+
+
+def test_bare_short_answer_without_patterns_is_open_ended() -> None:
+    question = load("Descreva o bioma Cerrado.\n\n[short-answer]:\n", format="mdq").validate()
+    assert question.to_dict()["openEnded"] is True
