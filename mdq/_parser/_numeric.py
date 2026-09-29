@@ -54,6 +54,8 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     result: _NumericExpr
     if "/" in value_str:
         num, den = value_str.split("/")
+        if int(den) == 0:
+            raise ParseError(f"zero denominator in numeric body: {expr!r}")
         result = {"answer": sign * (int(num) / int(den)), "domain": "fraction"}
     elif "." in value_str:
         result = {

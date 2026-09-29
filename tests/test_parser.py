@@ -339,3 +339,17 @@ def test_numeric_answer_accepts_only_ascii_digits(tag: str) -> None:
     loaded = load(f"Quantos estados tem a região Sul do Brasil?\n\n{tag}\n", format="mdq")
     assert loaded.document is None
     assert [d.severity for d in loaded.diagnostics] == ["error"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Quanto é um dividido por zero?\n\n[numeric]: 1/0\n",
+        "O Brasil tem [^estados] estados.\n\n[^estados/numeric]: 26/0\n",
+    ],
+)
+def test_numeric_zero_denominator_is_a_parse_error(body: str) -> None:
+    loaded = load(body, format="mdq")
+    assert loaded.document is None
+    assert [(d.severity, d.code) for d in loaded.diagnostics] == [("error", "parse-error")]
+    assert "zero denominator" in loaded.diagnostics[0].message
