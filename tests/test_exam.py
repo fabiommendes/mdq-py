@@ -5,6 +5,8 @@ inheritance and numbering rules from docs/exam.md.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -235,6 +237,27 @@ def test_file_loader_searches_subdirectories() -> None:
     source = loader.load("recursion-01")
     assert isinstance(source, str)
     assert parse_any(source)["id"] == "recursion-01"
+
+
+def _write_question(path: Path, stem: str) -> None:
+    path.write_text(
+        f"---\ntags: [biomas]\n---\n\n{stem}\n\n* [T] Sim.\n* [F] Não.\n",
+        encoding="utf-8",
+    )
+
+
+def test_file_loader_reads_plain_md_files(tmp_path: Path) -> None:
+    _write_question(tmp_path / "pantanal.md", "Sobre o Pantanal:")
+    _write_question(tmp_path / "cerrado.mdq.md", "Sobre o Cerrado:")
+    loader = FileLoader(tmp_path)
+    assert "Pantanal" in loader.load("pantanal")
+    assert set(loader.tagged("biomas")) == {"pantanal", "cerrado"}
+
+
+def test_file_loader_prefers_mdq_md_over_md(tmp_path: Path) -> None:
+    _write_question(tmp_path / "caatinga.md", "Arquivo .md")
+    _write_question(tmp_path / "caatinga.mdq.md", "Arquivo .mdq.md")
+    assert "Arquivo .mdq.md" in FileLoader(tmp_path).load("caatinga")
 
 
 def test_file_loader_can_be_restricted_to_its_root() -> None:

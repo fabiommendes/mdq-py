@@ -70,7 +70,7 @@ def import_(
 def export(
     file: Path = typer.Argument(
         ...,
-        help="Path to an MDQ question document (.mdq.md or .mdq).",
+        help="Path to an MDQ question document (.mdq.md, .md or .mdq).",
     ),
     output: Annotated[
         Path | None,

@@ -30,6 +30,9 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- `.md` is an MDQ extension, like `.mdq.md` and `.mdq`. `load`, `parse` and
+  the CLI read a `Path` ending in `.md` as MDQ Markdown, and `FileLoader`
+  resolves an include to `<id>.md` if there is no `<id>.mdq.md`.
 - A numeric value, a fraction's numerator/denominator, and both tolerances
   no longer accept a leading zero (`007`, `00.5`, `01/2`): the parser now
   follows numeric.md's `INTEGER`/`DECIMAL` grammar instead of a bare

@@ -20,7 +20,7 @@ Level = Literal["default", "strict"]
 def validate(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question or exam document (.mdq.md, .mdq, .yaml, .yml, or .json).",
+        help="Path to a question or exam document (.mdq.md, .md, .mdq, .yaml, .yml, or .json).",
     ),
     level: Level = typer.Option(
         "default",

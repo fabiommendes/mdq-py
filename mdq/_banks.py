@@ -25,9 +25,11 @@ __all__ = [
     "DictLoader",
 ]
 
-#: Extensions a question document may use. A question and an exam share
-#: these -- they are told apart by their content, not by their name.
-SOURCE_SUFFIXES = (".mdq.md", ".mdq")
+#: Extensions a question document may use, in lookup order. A question
+#: and an exam share these -- they are told apart by their content, not
+#: by their name. `.mdq.md` comes before `.md` so that the id of
+#: `x.mdq.md` is `x`, not `x.mdq`.
+SOURCE_SUFFIXES = (".mdq.md", ".md", ".mdq")
 
 
 @runtime_checkable
@@ -99,10 +101,11 @@ class FileLoader(_IndexedBank):
     """
     Loads questions from a directory tree on the local filesystem.
 
-    An id resolves to `<root>/<id>.mdq.md` or `<root>/<id>.mdq`. When
-    `recursive` is set, the tree is searched for a file with that stem
-    anywhere beneath the root, which is how a bank organised into
-    per-topic subdirectories keeps working without qualifying every id.
+    An id resolves to `<root>/<id>.mdq.md`, `<root>/<id>.md` or
+    `<root>/<id>.mdq`, in this order. When `recursive` is set, the tree
+    is searched for a file with that stem anywhere beneath the root,
+    which is how a bank organised into per-topic subdirectories keeps
+    working without qualifying every id.
     A file that holds an exam, or that does not parse, is not a question
     of the bank.
     """

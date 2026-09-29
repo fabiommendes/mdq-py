@@ -8,7 +8,7 @@ disk; the commands themselves are not part of the Python API -- import
 mdq validate
 ------------
 
-Load a question or exam document (``.mdq.md``, ``.mdq``, ``.yaml``,
+Load a question or exam document (``.mdq.md``, ``.md``, ``.mdq``, ``.yaml``,
 ``.yml`` or ``.json``) and print one line per diagnostic: parse
 failures, schema violations and lint warnings/info. ``--level strict``
 also prints info-level diagnostics; the default level prints only

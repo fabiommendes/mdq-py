@@ -558,7 +558,7 @@ def _format_number(value: float) -> str:
 def show(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question or exam document (.mdq.md or .mdq), or - for stdin.",
+        help="Path to a question or exam document (.mdq.md, .md or .mdq), or - for stdin.",
     ),
     no_answer_key: bool = typer.Option(
         False,

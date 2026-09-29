@@ -39,8 +39,8 @@ __all__ = [
 D = TypeVar("D")
 
 #: `Path` suffixes that select each format, checked against the whole
-#: filename (not `Path.suffix`) since `.mdq.md` is a compound suffix.
-_MDQ_SUFFIXES = (".mdq.md", ".mdq")
+#: filename (not `Path.suffix`). `.md` also covers `.mdq.md`.
+_MDQ_SUFFIXES = (".md", ".mdq")
 _YAML_SUFFIXES = (".yaml", ".yml")
 _JSON_SUFFIXES = (".json",)
 

@@ -272,6 +272,17 @@ def test_cli_show_question() -> None:
     assert "Brasília" in result.output
 
 
+def test_cli_show_plain_md_extension(tmp_path: Path) -> None:
+    doc = tmp_path / "capital.md"
+    doc.write_text(
+        "Qual é a capital do Brasil?\n\n- [x] Brasília\n- [ ] Salvador\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["show", str(doc)])
+    assert result.exit_code == 0, result.output
+    assert "Brasília" in result.output
+
+
 def test_cli_show_missing_file(tmp_path: Path) -> None:
     missing = tmp_path / "does-not-exist.mdq.md"
     result = runner.invoke(app, ["show", str(missing)])
