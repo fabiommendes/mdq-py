@@ -30,7 +30,15 @@ from __future__ import annotations
 import re
 
 from mdq import load
-from _corpus import INVALID_MODEL_ONLY_PARSED, INVALID_PARSED, MDQ_ROOT, VALID_PARSED
+from _corpus import (
+    INVALID_MODEL_ONLY_PARSED,
+    INVALID_PARSED,
+    INVALID_SYNTAX,
+    INVALID_SOURCES,
+    MDQ_ROOT,
+    PARSER_ONLY_CODES,
+    VALID_PARSED,
+)
 
 _LINT_CODES_MD = MDQ_ROOT / "docs" / "lint-codes.md"
 _ROW_RE = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|")
@@ -88,9 +96,7 @@ def test_corpus_is_not_empty() -> None:
 #: these. `tests/test_unknown_frontmatter_keys.py`,
 #: `tests/test_include_all.py` and `tests/test_whitespace.py` cover them
 #: instead.
-_PARSER_ONLY_CODES = frozenset(
-    {"unknown-frontmatter-key", "separator-before-include", "non-ascii-whitespace"}
-)
+_PARSER_ONLY_CODES = PARSER_ONLY_CODES
 
 #: Codes only `Exam.resolve` produces, never `load`. The corpus test cannot
 #: see them. `tests/test_include_all.py` covers them instead.
@@ -113,7 +119,9 @@ def test_every_documented_error_code_is_produced_by_the_corpus() -> None:
     # not in `model-only/`. `load` still reports the documented code for it.
     _, documented_errors = _documented_codes()
     produced_errors = _produced_error_codes()
-    for path in INVALID_PARSED:
+    # A code only the Markdown parser reports (`foreign-choice-marker`) has
+    # its example as an `.mdq.md` source with no `.yaml` sibling.
+    for path in [*INVALID_PARSED, *INVALID_SYNTAX, *INVALID_SOURCES]:
         loaded = load(path)
         produced_errors.update(d.code for d in loaded.diagnostics if d.severity == "error")
     missing = documented_errors - produced_errors

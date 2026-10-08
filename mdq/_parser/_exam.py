@@ -57,6 +57,7 @@ EXAM_PASSTHROUGH_KEYS = (
     "meta",
     "penalty",
     "grading",
+    "shuffle",
 )
 
 #: Every frontmatter key an exam accepts. `type` has no effect of its own
@@ -116,7 +117,9 @@ def parse_exam(
     frontmatter_text, body = _split_frontmatter(text)
     front: dict[str, Any] = {}
     if frontmatter_text is not None:
-        front = _load_frontmatter_yaml(frontmatter_text)
+        # A null `title` is kept: the renderer writes it to keep a
+        # placeholder H1 out of the model.
+        front = _load_frontmatter_yaml(frontmatter_text, keep_null=("title",))
 
     if warnings is not None:
         warnings.extend(_unknown_frontmatter_warnings(front, EXAM_FRONTMATTER_KEYS))
@@ -155,19 +158,35 @@ def parse_exam(
     if "start" in front:
         try:
             doc["start"] = _schedule.format_start(_schedule.parse_start(front["start"]))
-        except ValueError as exc:
-            raise ParseError(f"exam start: {exc}") from exc
+        except ValueError:
+            # Kept as written: the model reports `malformed-start`.
+            doc["start"] = front["start"]
     if "duration" in front:
         try:
             doc["duration"] = _schedule.format_duration(
                 _schedule.parse_duration(front["duration"])
             )
-        except ValueError as exc:
-            raise ParseError(f"exam duration: {exc}") from exc
+        except ValueError:
+            # Kept as written: the model reports `invalid-duration`.
+            doc["duration"] = front["duration"]
 
-    instructions, blocks = _split_exam_blocks(lines[title_index + 1 :])
+    instructions, blocks, glued = _split_exam_blocks(lines[title_index + 1 :])
     if instructions:
         doc["instructions"] = instructions
+    if warnings is not None:
+        for block_index, field in glued.items():
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="setext-heading",
+                    path=("questions", block_index, field),
+                    message=(
+                        "a '---' line right after text is a setext heading, "
+                        "not a block boundary; put a blank line before the "
+                        "'---' that opens a block"
+                    ),
+                )
+            )
 
     questions: list[ExamEntryDict] = []
     for index, block in enumerate(blocks):
@@ -183,15 +202,17 @@ def is_exam(text: str) -> bool:
     """
     Report whether `text` is an exam rather than a single question.
 
-    An exam is recognized by its H1 title, which a question document can
-    never carry: generic.md lists H1 headings among the block elements a
-    question's preamble rejects.
+    An exam is recognized by its H1 title, which starts the document or
+    follows the frontmatter (exam.md, "The title"). An H1 anywhere else
+    does not make an exam: it is one of the block elements a question's
+    preamble rejects (base.md, "Forbidden elements").
 
     Args:
         text: MDQ source text, with or without YAML frontmatter.
 
     Returns:
-        True if `text` has a top-level (H1) heading, False otherwise.
+        True if the first non-blank line of `text` after its frontmatter
+        is a top-level (H1) heading, False otherwise.
 
     Example:
         >>> is_exam("# Sample Exam\\n\\nWhat is 2 + 2?")
@@ -201,9 +222,10 @@ def is_exam(text: str) -> bool:
     """
 
     _, body = _split_frontmatter(text)
-    lines = split_lines(body)
-    code_lines = _code_line_indices(lines)
-    return any(i not in code_lines and H1_RE.match(line) for i, line in enumerate(lines))
+    for line in split_lines(body):
+        if line.strip(" \t"):
+            return H1_RE.match(line) is not None
+    return False
 
 
 def _code_line_indices(lines: list[str]) -> set[int]:
@@ -221,9 +243,18 @@ def _code_line_indices(lines: list[str]) -> set[int]:
     return covered
 
 
-def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
+def _split_exam_blocks(
+    lines: list[str],
+) -> tuple[str | None, list[list[str]], dict[int, str]]:
     """
-    Split the text below the title into (instructions, question blocks).
+    Split the text below the title into (instructions, question blocks,
+    glued fences).
+
+    The third item maps a block index to the field (`preamble` or
+    `epilogue`) in which a `---` line sits right after a text line. Such
+    a line is a setext heading underline in CommonMark, not a fence
+    (exam.md, "Questions"), so the block it meant to open was swallowed;
+    `parse_exam` reports it as a `setext-heading` warning.
 
     A block starts at a `===` separator -- always, unconditionally -- or
     at a bare `---` frontmatter fence. Telling a fence-that-opens-a-new-
@@ -268,6 +299,7 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
     """
 
     starts: list[int] = []
+    glued: list[tuple[int, str]] = []
     code_lines = _code_line_indices(lines)
     index = 0
     #: Position right after the most recently accepted block boundary.
@@ -300,6 +332,9 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
             index += 1
             continue
 
+        if line == "---" and not blank_before and lines[index - 1].strip(" \t"):
+            glued.append((index, "epilogue" if body_seen else "preamble"))
+
         if line == "---" and blank_before:
             adjacent = all(not gap.strip(" \t") for gap in lines[boundary:index])
             is_own_frontmatter = boundary_is_separator and adjacent
@@ -317,7 +352,6 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
                         for j in range(index + 1, len(lines))
                         if j not in code_lines
                         and lines[j].rstrip(" \t") == "---"
-                        and _looks_like_frontmatter(lines[index + 1 : j])
                     ),
                     None,
                 )
@@ -340,12 +374,18 @@ def _split_exam_blocks(lines: list[str]) -> tuple[str | None, list[list[str]]]:
         index += 1
 
     if not starts:
-        return _clean_block("\n".join(lines)), []
+        return _clean_block("\n".join(lines)), [], {}
 
     instructions = _clean_block("\n".join(lines[: starts[0]]))
     bounds = starts + [len(lines)]
     blocks = [lines[bounds[i] : bounds[i + 1]] for i in range(len(starts))]
-    return instructions, blocks
+    glued_by_block: dict[int, str] = {}
+    for line_index, field in glued:
+        for block_index in range(len(starts)):
+            if bounds[block_index] <= line_index < bounds[block_index + 1]:
+                glued_by_block.setdefault(block_index, field)
+                break
+    return instructions, blocks, glued_by_block
 
 
 def _looks_like_frontmatter(lines: list[str]) -> bool:

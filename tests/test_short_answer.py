@@ -1,14 +1,14 @@
 """
 Short-answer accept/reject migration: the pattern mini-language,
 `mdq.models._text.normalize_text`, `ShortAnswerQuestion.score_response` /
-`effective_accept`, legacy `one_of`/`regex` desugaring, and the
+`effective_accept`, and the
 `[short-answer/accept]` / `[short-answer/reject]` parser support.
 
 Written against `docs/question-types/short-answer.md` and the interface
 contract pinned for this migration -- not against the implementation, which
 is being written in parallel from the same documents. Failures here are
 expected until that work lands; `tests/test_scoring.py`'s pre-existing
-short-answer tests cover the legacy `oneOf`/`regex` fields.
+short-answer tests cover the scoring paths.
 """
 
 from __future__ import annotations
@@ -38,10 +38,11 @@ def _parse(source: str) -> dict:
 # Pattern mini-language
 #
 @pytest.mark.parametrize("pattern", ["*", " * ", "\t*\n"], ids=["bare", "padded", "tab-newline"])
-def test_wildcard_matches_every_response_after_stripping(pattern: str) -> None:
-    question = models.ShortAnswerQuestion(stem="x", accept=[pattern])
-    assert question.score_response("anything at all").score == 1.0
-    assert question.score_response("").score == 1.0
+def test_asterisk_is_a_plain_literal_not_a_wildcard(pattern: str) -> None:
+    question = models.ShortAnswerQuestion(stem="x", accept=["*"])
+    assert question.score_response(pattern).score == 1.0
+    assert question.score_response("anything at all").score == 0.0
+    assert question.score_response("").score == 0.0
 
 
 def test_missing_delimiters_makes_a_regex_shaped_string_a_literal() -> None:
@@ -165,7 +166,7 @@ def test_accept_wins_over_reject_on_a_tie() -> None:
 
 def test_reject_never_lowers_a_score_accept_already_gave() -> None:
     question = models.ShortAnswerQuestion(
-        stem="Name a Brazilian biome.", accept=["*"], reject=["cerrado"]
+        stem="Name a Brazilian biome.", accept=["/.*/"], reject=["cerrado"]
     )
     assert question.score_response("cerrado").score == 1.0
 
@@ -174,13 +175,13 @@ def test_reject_never_lowers_a_score_accept_already_gave() -> None:
 # Feedback selection
 #
 def test_feedback_uses_first_accept_pattern_that_defines_feedback() -> None:
-    """The wildcard matches first but carries no feedback, so the message
+    """A catch-all regex matches first but carries no feedback, so the message
     must come from the next matching pattern that does define one --
     "first that matches" is not enough, it must also define feedback."""
     question = models.ShortAnswerQuestion(
         stem="Name the savanna biome of central Brazil.",
         accept=[
-            models.AnswerPattern(pattern="*"),
+            models.AnswerPattern(pattern="/.*/"),
             models.AnswerPattern(pattern="cerrado", feedback="Correct!"),
         ],
     )
@@ -189,7 +190,7 @@ def test_feedback_uses_first_accept_pattern_that_defines_feedback() -> None:
     assert result.feedback == ["Correct!"]
 
 
-def test_feedback_falls_back_to_the_trailing_wildcard_reject_item() -> None:
+def test_feedback_falls_back_to_incorrect_feedback() -> None:
     question = models.ShortAnswerQuestion(
         stem="What is the capital of Brazil?",
         accept=["Brasília"],
@@ -197,8 +198,8 @@ def test_feedback_falls_back_to_the_trailing_wildcard_reject_item() -> None:
             models.AnswerPattern(
                 pattern="Buenos Aires", feedback="That is Argentina's capital."
             ),
-            models.AnswerPattern(pattern="*", feedback="Sorry, that is not correct."),
         ],
+        incorrect_feedback="Sorry, that is not correct.",
     )
     result = question.score_response("Rio de Janeiro")
     assert result.score == 0.0
@@ -209,7 +210,7 @@ def test_feedback_is_empty_when_no_matching_pattern_defines_one() -> None:
     question = models.ShortAnswerQuestion(
         stem="What is the capital of Brazil?",
         accept=["Brasília"],
-        reject=[models.AnswerPattern(pattern="*")],
+        reject=[models.AnswerPattern(pattern="/Rio.*/")],
     )
     result = question.score_response("Rio de Janeiro")
     assert result.score == 0.0
@@ -231,14 +232,6 @@ def test_correct_response_draws_feedback_only_from_accept() -> None:
 #
 # NotAutoGradable
 #
-def test_open_ended_short_answer_is_not_auto_gradable() -> None:
-    question = models.ShortAnswerQuestion(
-        stem="Describe the geography of the Pantanal.", open_ended=True
-    )
-    with pytest.raises(NotAutoGradable):
-        question.score_response("It is a vast tropical wetland.")
-
-
 def test_short_answer_without_any_answer_key_is_not_auto_gradable() -> None:
     question = models.ShortAnswerQuestion(stem="Describe the Pantanal.")
     with pytest.raises(NotAutoGradable):
@@ -256,43 +249,34 @@ def test_reject_only_question_is_not_auto_gradable() -> None:
 
 
 #
-# Legacy desugaring
+# `accept` is the only answer list
 #
-def test_effective_accept_desugars_one_of() -> None:
+def test_effective_accept_returns_the_accept_list() -> None:
     question = models.ShortAnswerQuestion(
-        stem="Name a primary colour.", one_of=["red", "green", "blue"]
+        stem="Name a primary colour.", accept=["red", "green", "blue"]
     )
     assert [p.pattern for p in question.effective_accept()] == ["red", "green", "blue"]
     assert question.score_response("Green").score == 1.0
 
 
-def test_effective_accept_desugars_regex_without_i_flag() -> None:
-    """The legacy `regex` field desugars case-sensitive, unlike the old
-    behaviour that carried an implicit `i` flag for inexact questions."""
+def test_effective_accept_is_empty_without_accept() -> None:
+    question = models.ShortAnswerQuestion(stem="Describe the Cerrado.")
+    assert question.effective_accept() == []
+
+
+def test_regex_in_accept_is_case_sensitive_without_the_i_flag() -> None:
     question = models.ShortAnswerQuestion(
-        stem="Name a Brazilian biome.", regex="cerrado|amazonia"
+        stem="Name a Brazilian biome.", accept=["/cerrado|amazonia/"]
     )
     assert [p.pattern for p in question.effective_accept()] == ["/cerrado|amazonia/"]
     assert question.score_response("cerrado").score == 1.0
     assert question.score_response("Cerrado").score == 0.0
 
 
-def test_regex_wins_over_one_of_when_both_are_set() -> None:
-    question = models.ShortAnswerQuestion(
-        stem="Name a Brazilian biome.", one_of=["amazonia"], regex="cerrado"
-    )
-    assert [p.pattern for p in question.effective_accept()] == ["/cerrado/"]
-    assert question.score_response("amazonia").score == 0.0
-    assert question.score_response("cerrado").score == 1.0
-
-
-def test_explicit_accept_wins_over_legacy_fields() -> None:
-    question = models.ShortAnswerQuestion(
-        stem="Name a Brazilian biome.", one_of=["amazonia"], accept=["cerrado"]
-    )
-    assert [p.pattern for p in question.effective_accept()] == ["cerrado"]
-    assert question.score_response("amazonia").score == 0.0
-    assert question.score_response("cerrado").score == 1.0
+@pytest.mark.parametrize("field", ["one_of", "regex"])
+def test_short_answer_question_no_longer_has_one_of_or_regex(field: str) -> None:
+    assert field not in models.ShortAnswerQuestion.model_fields
+    assert field not in models.ShortAnswerBlank.model_fields
 
 
 #
@@ -333,7 +317,7 @@ _ACCEPT_REJECT_SOURCE = (
     "* Buenos Aires\n"
     "  > That is Argentina's capital.\n"
     "  ! Bare strings are normalized.\n"
-    "* *\n"
+    "* Rio de Janeiro\n"
     "  > Sorry, that is not correct.\n"
 )
 
@@ -349,7 +333,7 @@ def test_accept_and_reject_blocks_produce_pattern_arrays() -> None:
             "feedback": "That is Argentina's capital.",
             "comment": "Bare strings are normalized.",
         },
-        {"pattern": "*", "feedback": "Sorry, that is not correct."},
+        {"pattern": "Rio de Janeiro", "feedback": "Sorry, that is not correct."},
     ]
 
 
@@ -382,14 +366,15 @@ def test_accept_and_reject_blocks_may_appear_in_either_order(order: str) -> None
     assert document["reject"] == ["Rio de Janeiro"]
 
 
-def test_backtick_content_becomes_an_exact_one_of_entry() -> None:
+def test_backtick_content_becomes_an_exact_accept_entry() -> None:
     source = (
         "---\ntype: short-answer\n---\n\n"
         "Which function checks for NaN in Python?\n\n"
         "[short-answer]: `math.isnan`\n"
     )
     document = _parse(source)
-    assert document["oneOf"] == ["`math.isnan`"]
+    assert document["accept"] == ["`math.isnan`"]
+    assert "oneOf" not in document
     assert "exact" not in document
 
 
@@ -519,9 +504,12 @@ def test_backtick_exact_pattern_ignores_diacritics(diacritics: models.Diacritics
 
 
 @pytest.mark.parametrize("diacritics", ["fold", "keep"])
-def test_wildcard_pattern_ignores_diacritics(diacritics: models.Diacritics) -> None:
+def test_asterisk_pattern_is_a_literal_under_both_modes(
+    diacritics: models.Diacritics,
+) -> None:
     pattern = models.AnswerPattern(pattern="*")
-    assert pattern.matches("anything at all", diacritics=diacritics) is True
+    assert pattern.matches("*", diacritics=diacritics) is True
+    assert pattern.matches("anything at all", diacritics=diacritics) is False
 
 
 def test_short_answer_question_keeps_diacritics_when_scoring() -> None:
@@ -555,8 +543,8 @@ def test_short_answer_reject_feedback_uses_the_questions_diacritics_value() -> N
             models.AnswerPattern(
                 pattern="Brasilia", feedback="You forgot the accent on the i."
             ),
-            models.AnswerPattern(pattern="*", feedback="Sorry, that is not correct."),
         ],
+        incorrect_feedback="Sorry, that is not correct.",
     )
     result = question.score_response("Brasilia")
     assert result.score == 0.0
@@ -566,7 +554,7 @@ def test_short_answer_reject_feedback_uses_the_questions_diacritics_value() -> N
 def test_first_feedback_honours_the_diacritics_keyword() -> None:
     patterns = [
         models.AnswerPattern(pattern="Maceió", feedback="Exact match."),
-        models.AnswerPattern(pattern="*", feedback="Fallback."),
+        models.AnswerPattern(pattern="/Mac.*/i", feedback="Fallback."),
     ]
     assert _text.first_feedback(patterns, "Maceio", diacritics="keep") == ["Fallback."]
     assert _text.first_feedback(patterns, "Maceio", diacritics="fold") == ["Exact match."]

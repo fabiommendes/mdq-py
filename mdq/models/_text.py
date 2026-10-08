@@ -2,30 +2,35 @@
 Text-answer questions: `AnswerPattern` (the `accept`/`reject` entry
 shape), `ShortAnswerQuestion` and `EssayQuestion`.
 
-The pattern-matching helpers (`normalize_text`, `short_answer_matches`,
-`render_pattern_block`, `first_feedback`) are reused verbatim by a
+The pattern-matching helpers (`normalize_text`,
+`render_short_answer_patterns`, `first_feedback`) are reused verbatim by a
 short-answer fill-in blank in `mdq.models._fill_in`.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+from importlib import resources
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from .. import types as t
+from .._markdown import UNICODE_SPACE
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable
-from ..types import Diacritics, EssayInput
+from ..types import Automation, Diacritics, EssayInput, Unmatched
 from . import _lint
-from ._base import BaseQuestion, MdqModel, _raise_unique_id_error, _validate_mdq_regex
+from ._base import BaseQuestion, MdqModel, _raise_unique_id_error
 from ._regex import InvalidRegexError, RegexPattern
-from ._regex import normalize_text as strip_accents
 from ._score import QuestionScore
 
 __all__ = ["AnswerPattern", "ShortAnswerQuestion", "EssayQuestion"]
+
+
+PATTERN_STRING_RE = r"^(?:`[^`\n]+`[ \t]*|[^`\s][\s\S]*|\s+[^`\s][\s\S]*)$"
 
 
 class AnswerPattern(MdqModel):
@@ -36,9 +41,12 @@ class AnswerPattern(MdqModel):
     feedback and no comment, so both spellings load into this model.
     """
 
-    #: A regex when delimited by `/`, a lone `*` for the wildcard, and a
-    #: plain literal otherwise.
-    pattern: Annotated[str, Field(min_length=1, pattern=r"\S")]
+    #: A regex when delimited by `/`, an exact literal when enclosed in
+    #: backticks, and an inexact plain literal otherwise. The pattern
+    #: mirrors `patternString` in schema/short-answer.yaml: at least one
+    #: visible character, and a pattern that opens with a backtick is a
+    #: complete backtick-enclosed span (short-answer.md, "Content").
+    pattern: Annotated[str, Field(min_length=1, pattern=PATTERN_STRING_RE)]
     feedback: str | None = None
     comment: str | None = None
 
@@ -77,21 +85,22 @@ class AnswerPattern(MdqModel):
         """
         Report whether `response` satisfies this pattern.
 
-        A backtick-enclosed literal is compared verbatim (only its ends
-        trimmed); a bare literal is compared after normalization, which
+        A backtick-enclosed literal is compared code point for code point
+        after two steps, in order, on the response and on the pattern
+        content: NFC (not NFKC), then removal of `UNICODE_SPACE` code
+        points from both ends (patterns.md, "Exact literals"). `diacritics`
+        does not affect it; a bare literal is compared after normalization, which
         `diacritics` tunes: `"fold"` strips diacritics as it always did,
         `"keep"` leaves them so `Maceió` rejects `Maceio`; a regex sees
         the raw response and lets its own flags decide -- normalizing
         first would make a case-sensitive regex impossible, and neither
-        it nor the backtick/`*` forms consult `diacritics` at all.
+        it nor the backtick form consult `diacritics` at all.
         """
         pattern = self.pattern.strip(" \t\r\n")
-        if pattern == "*":
-            return True
         if pattern.startswith("/"):
             return RegexPattern(pattern).match(response)
         if pattern.startswith("`") and pattern.endswith("`") and len(pattern) >= 2:
-            return response.strip() == pattern[1:-1].strip()
+            return _exact_form(response) == _exact_form(pattern[1:-1])
         return normalize_text(response, diacritics=diacritics) == normalize_text(
             pattern, diacritics=diacritics
         )
@@ -101,9 +110,6 @@ class AnswerPattern(MdqModel):
 
 class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
     type: Literal["short-answer"] = "short-answer"
-    one_of: list[str] | None = None
-    regex: str | None = None
-
     #: Grading rules. `accept` decides the score and wins over `reject`
     #: when both match; `reject` only attaches feedback to answers known
     #: to be wrong.
@@ -115,116 +121,113 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
     pre_accept: list[AnswerPattern] | None = None
     pre_reject: list[AnswerPattern] | None = None
 
-    #: When true the question has no machine-checkable key and is graded
-    #: by hand, so `oneOf`, `regex`, `accept` and `reject` must all be
-    #: absent.
-    open_ended: bool = False
-
     #: How inexact literals treat diacritics, in every pattern list.
     diacritics: Diacritics = "fold"
 
-    @field_validator("regex")
-    @classmethod
-    def check_regex_compiles(cls, value: str | None) -> str | None:
-        return _validate_mdq_regex(value)
+    #: What becomes of a response that matches no pattern (short-answer.md,
+    #: "Grading"). `None` means the default, see `effective_unmatched`.
+    unmatched: Unmatched | None = None
 
-    @model_validator(mode="after")
-    def check_open_ended_has_no_answer_key(self) -> Self:
-        """
-        `openEnded` means there is nothing to grade against
-        (short-answer.md), so it contradicts any of the fields that
-        would otherwise supply one.
+    #: Feedback for an incorrect response that no pattern gave feedback to
+    #: (short-answer.md, "Feedback").
+    incorrect_feedback: str | None = None
 
-        Raises:
-            ValueError: `open_ended` is set alongside `one_of`, `regex`,
-                `accept` or `reject`.
+    @property
+    def effective_unmatched(self) -> Unmatched:
         """
-        if self.open_ended and (
-            self.one_of is not None
-            or self.regex is not None
-            or self.accept is not None
-            or self.reject is not None
-        ):
-            raise ValueError(
-                "openEnded has no answer key: it must not be combined with "
-                "oneOf, regex, accept or reject"
-            )
-        return self
+        `unmatched` as declared, or its default: `"incorrect"` when the
+        question has at least one `accept` pattern, `"manual"` otherwise.
+        """
+        return default_unmatched(self.unmatched, self.accept)
+
+    @property
+    def automation(self) -> Automation:
+        """See `BaseQuestion.automation` (short-answer.md, "Automation")."""
+        return short_answer_automation(
+            self.effective_unmatched, self.accept, self.reject
+        )
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
         diagnostics.extend(
             _lint.check_short_answer(
-                regex=self.regex,
-                one_of=self.one_of,
                 accept=self.accept,
                 reject=self.reject,
-                open_ended=self.open_ended,
+                pre_accept=self.pre_accept,
+                pre_reject=self.pre_reject,
                 path=(),
             )
+        )
+        diagnostics.extend(
+            _lint.check_no_correct_answer(
+                accept=self.accept,
+                unmatched=self.effective_unmatched,
+                path=("unmatched",),
+            )
+        )
+        diagnostics.extend(
+            _lint.check_blank_text_field(self.incorrect_feedback, "incorrectFeedback")
         )
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.open_ended:
-            data["openEnded"] = True
+        if self.unmatched is not None:
+            data["unmatched"] = self.unmatched
+        if self.incorrect_feedback is not None:
+            data["incorrectFeedback"] = self.incorrect_feedback
         if self.diacritics != "fold":
             data["diacritics"] = self.diacritics
+        # short-answer.md, frontmatter table: `preAccept`/`preReject` are
+        # frontmatter-only, so they have no body block.
+        if self.pre_accept is not None:
+            data["preAccept"] = [_pattern_entry(p) for p in self.pre_accept]
+        if self.pre_reject is not None:
+            data["preReject"] = [_pattern_entry(p) for p in self.pre_reject]
         return data
 
     def _render_body(self) -> Iterable[str]:
         yield ""
-        tag = "[short-answer]"
-        if self.accept is not None or self.reject is not None:
-            yield from render_pattern_block("accept", self.accept)
-            yield from render_pattern_block("reject", self.reject)
-        elif self.regex is not None:
-            yield f"{tag}: /{self.regex}/"
-        elif self.one_of is None:
-            yield f"{tag}:"
-        elif len(self.one_of) == 1:
-            yield f"{tag}: {self.one_of[0]}"
-        else:
-            yield f"{tag}:"
-            for answer in self.one_of:
-                yield f"* {answer}"
+        yield from render_short_answer_patterns(self.accept, self.reject)
 
     def effective_accept(self) -> list[AnswerPattern]:
-        """
-        Return the accept list grading uses, desugaring the legacy fields.
-
-        `accept` wins when set. Otherwise `regex` -- which still takes
-        precedence over `one_of` -- becomes a single delimited pattern.
-        """
-        if self.accept is not None:
-            return self.accept
-        if self.regex is not None:
-            return [AnswerPattern(pattern=f"/{self.regex}/")]
-        return [AnswerPattern(pattern=answer) for answer in self.one_of or []]
+        """Return the accept list grading uses: `accept`, or empty when unset."""
+        return self.accept or []
 
     def score_response(self, response: t.TextResponse) -> QuestionScore:
         """
-        Score 1 if `response` matches an accept pattern, else 0.
+        Score the response by the three rules of short-answer.md,
+        "Grading": an `accept` match scores 1, a `reject` match scores 0,
+        and otherwise `effective_unmatched` decides.
+
+        An incorrect response with no pattern feedback gets
+        `incorrect_feedback`, if set.
 
         Raises:
-            NotAutoGradable: the question has no answer key. A question
-                carrying only `reject` lands here too: with nothing to
-                accept it could never mark an answer correct.
+            NotAutoGradable: the response matches no pattern and
+                `effective_unmatched` is `"manual"`: it is pending.
         """
-        accept = self.effective_accept()
-        if self.open_ended or not accept:
-            raise NotAutoGradable(
-                "short-answer question has no machine-checkable answer key"
-            )
-        correct = any(
-            rule.matches(response, diacritics=self.diacritics) for rule in accept
+        outcome = settle_response(
+            self.accept,
+            self.reject,
+            response,
+            unmatched=self.effective_unmatched,
+            diacritics=self.diacritics,
         )
-        deciding = accept if correct else (self.reject or [])
+        if outcome == "pending":
+            raise NotAutoGradable(
+                "the response matches no pattern and 'unmatched' is 'manual'"
+            )
+        feedback = first_feedback(
+            (self.accept if outcome == "correct" else self.reject) or [],
+            response,
+            diacritics=self.diacritics,
+        )
+        if outcome == "incorrect" and not feedback and self.incorrect_feedback:
+            feedback = [self.incorrect_feedback]
         return QuestionScore(
-            score=1.0 if correct else 0.0,
-            feedback=first_feedback(deciding, response, diacritics=self.diacritics),
+            score=1.0 if outcome == "correct" else 0.0, feedback=feedback
         )
 
 
@@ -238,6 +241,11 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     #: A model answer for the human grading this. Carrying one does not
     #: make the question auto-gradable.
     answer_key: str | None = None
+
+    @property
+    def automation(self) -> Automation:
+        """Always `manual` (essay.md)."""
+        return "manual"
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
@@ -282,41 +290,171 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
 # Utilities
 #
 
+def _load_inexact_tables() -> tuple[
+    list[tuple[int, int]], dict[int, str], dict[int, str], dict[int, str]
+]:
+    """Load `inexact-tables.json` and build the translate tables once."""
+    raw = json.loads(
+        resources.files("mdq").joinpath("inexact-tables.json").read_text("utf-8")
+    )
+
+    def table(name: str) -> dict[int, str]:
+        return {ord(key): value for key, value in raw[name].items()}
+
+    ranges = [(first, last) for first, last in raw["ignorable"]]
+    return ranges, table("letters"), table("punctuation"), table("caseFolding")
+
+
+_IGNORABLE, _LETTERS, _PUNCTUATION, _CASE_FOLDING = _load_inexact_tables()
+_IGNORABLE_TABLE = {
+    cp: None for first, last in _IGNORABLE for cp in range(first, last + 1)
+}
+_SPACE_RUN = re.compile(f"[{UNICODE_SPACE}]+")
+_SPACE_ENDS = re.compile(f"^[{UNICODE_SPACE}]+|[{UNICODE_SPACE}]+$")
+
+
+def _trim_space(value: str) -> str:
+    """Remove `UNICODE_SPACE` code points from both ends of `value`."""
+    return _SPACE_ENDS.sub("", value)
+
+
+def default_unmatched(
+    unmatched: Unmatched | None, accept: list[AnswerPattern] | None
+) -> Unmatched:
+    """
+    The declared `unmatched`, or its default (short-answer.md, "Grading"):
+    `"incorrect"` with at least one `accept` pattern, `"manual"` without.
+    """
+    if unmatched is not None:
+        return unmatched
+    return "incorrect" if accept else "manual"
+
+
+def short_answer_automation(
+    unmatched: Unmatched,
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+) -> Automation:
+    """
+    The automation of a short answer (short-answer.md, "Automation").
+    `unmatched` is the effective value; `preAccept` and `preReject` do
+    not count.
+    """
+    if unmatched == "incorrect":
+        return "automatic"
+    return "semi-automatic" if accept or reject else "manual"
+
+
+def settle_response(
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+    response: str,
+    *,
+    unmatched: Unmatched,
+    diacritics: Diacritics = "fold",
+) -> Literal["correct", "incorrect", "pending"]:
+    """
+    Apply the three grading rules of short-answer.md in order: an `accept`
+    match is correct, a `reject` match is incorrect, and otherwise
+    `unmatched` decides (`"manual"` leaves the response pending).
+    """
+    if any(rule.matches(response, diacritics=diacritics) for rule in accept or []):
+        return "correct"
+    if any(rule.matches(response, diacritics=diacritics) for rule in reject or []):
+        return "incorrect"
+    return "incorrect" if unmatched == "incorrect" else "pending"
+
+
+def _pattern_entry(rule: AnswerPattern) -> str | dict[str, str]:
+    """
+    Return the document form of a pattern list entry: a plain string when
+    only the pattern is set, else a mapping with the keys that are set.
+    """
+    if rule.feedback is None and rule.comment is None:
+        return rule.pattern
+    entry = {"pattern": rule.pattern}
+    if rule.feedback is not None:
+        entry["feedback"] = rule.feedback
+    if rule.comment is not None:
+        entry["comment"] = rule.comment
+    return entry
+
+
+def _exact_form(value: str) -> str:
+    """NFC, then trim `UNICODE_SPACE` from both ends (patterns.md, "Exact literals")."""
+    return _trim_space(unicodedata.normalize("NFC", value))
+
+
 def normalize_text(value: str, *, diacritics: Diacritics = "fold") -> str:
     """
-    Fold case and collapse whitespace to single spaces, for the plain
-    literal comparison in `AnswerPattern.matches`.
+    Normalize `value` for the inexact literal comparison of
+    `AnswerPattern.matches` (patterns.md, "Inexact literals").
 
-    `diacritics="fold"` also strips diacritics (NFKC then accent
-    stripping); `"keep"` only applies NFKC, so an NFD and an NFC
-    spelling of the same accented text still compare equal.
+    Steps, in order: NFKC; remove the ignorable code points; if
+    `diacritics == "fold"`, NFD, remove `Mn`, NFC and replace the
+    `letters` table; replace the `punctuation` table; replace the
+    `caseFolding` table and NFC; collapse each run of `UNICODE_SPACE`
+    to one U+0020 and trim U+0020 from the ends. The tables come from
+    `inexact-tables.json`, not from `str.casefold()`.
     """
-    value = unicodedata.normalize("NFKC", value)
+    value = unicodedata.normalize("NFKC", value).translate(_IGNORABLE_TABLE)
     if diacritics == "fold":
-        value = strip_accents(value)
-    return re.sub(r"\s+", " ", value).casefold().strip()
+        value = unicodedata.normalize("NFD", value)
+        value = "".join(c for c in value if unicodedata.category(c) != "Mn")
+        value = unicodedata.normalize("NFC", value).translate(_LETTERS)
+    value = value.translate(_PUNCTUATION)
+    value = unicodedata.normalize("NFC", value.translate(_CASE_FOLDING))
+    return _SPACE_RUN.sub(" ", value).strip(" ")
 
 
-def render_pattern_block(
-    variant: str, patterns: list[AnswerPattern] | None, tag: str = "short-answer"
+def render_short_answer_patterns(
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+    tag: str = "short-answer",
 ) -> Iterable[str]:
     """
-    Render one `accept` or `reject` pattern block.
+    Render the answer key of a short answer.
 
-    `tag` names the owning construct: the default renders a standalone
-    question's `[short-answer/accept]`, while a fill-in blank passes
-    `^<id>/short-answer` to render `[^<id>/short-answer/accept]`.
+    `accept` is the `[<tag>]` block: a lone pattern with no feedback and
+    no comment, and no `reject`, goes on the tag line, anything else is a list below it.
+    `reject` is always a `[<tag>/reject]` list. `[<tag>/accept]` is never
+    written. A question with no `accept` renders an empty `[<tag>]:`, followed by
+    the reject block if any. `tag`
+    names the owning construct: a fill-in blank passes `^<id>/short-answer`.
     """
-    if patterns is None:
+    if accept is None:
+        # The grammar requires the accept block, even with no pattern.
+        yield f"[{tag}]:"
+        if reject is not None:
+            yield ""
+            yield from render_pattern_list(f"[{tag}/reject]:", reject)
         return
-    yield f"[{tag}/{variant}]:"
+    if accept is not None:
+        lone = (
+            len(accept) == 1
+            and accept[0].feedback is None
+            and accept[0].comment is None
+            and reject is None
+        )
+        if lone:
+            yield f"[{tag}]: {accept[0].pattern}"
+        else:
+            yield from render_pattern_list(f"[{tag}]:", accept)
+        if reject is not None:
+            yield ""
+    if reject is not None:
+        yield from render_pattern_list(f"[{tag}/reject]:", reject)
+
+
+def render_pattern_list(tag_line: str, patterns: list[AnswerPattern]) -> Iterable[str]:
+    """Render a tag line followed by its pattern list, with feedback and comments."""
+    yield tag_line
     for rule in patterns:
         yield f"* {rule.pattern}"
         if rule.feedback is not None:
             yield f"  > {rule.feedback}"
         if rule.comment is not None:
             yield f"  ! {rule.comment}"
-    yield ""
 
 
 def first_feedback(
@@ -333,28 +471,5 @@ def first_feedback(
         if rule.feedback is not None and rule.matches(response, diacritics=diacritics):
             return [rule.feedback]
     return []
-
-
-def short_answer_matches(
-    response: str,
-    *,
-    one_of: list[str] | None,
-    regex: str | None,
-    accept: list[AnswerPattern] | None = None,
-    diacritics: Diacritics = "fold",
-) -> bool:
-    """
-    Report whether `response` matches `accept`, `regex` or `one_of`.
-
-    `accept` wins over both legacy fields, and `regex` over `one_of`.
-    Matching is always a full match, never a search. `diacritics`
-    applies to the plain-literal patterns in `accept`/`one_of`.
-    """
-    if accept is None:
-        if regex is not None:
-            accept = [AnswerPattern(pattern=f"/{regex}/")]
-        else:
-            accept = [AnswerPattern(pattern=answer) for answer in one_of or []]
-    return any(rule.matches(response, diacritics=diacritics) for rule in accept)
 
 

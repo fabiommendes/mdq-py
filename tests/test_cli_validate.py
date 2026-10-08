@@ -59,8 +59,8 @@ WARNING_ONLY_MD = (
     "[essay]\n"
 )
 
-# A bare-ellipsis stem trips a strict-only rule (reported at "info").
-STRICT_ONLY_MD = "...\n\n[essay]\n"
+# A lookalike locale trips a strict-only rule (reported at "info").
+STRICT_ONLY_MD = "---\nlocale: cn\n---\n\nExplique.\n\n[essay]\n"
 
 
 def test_validate_accepts_a_markdown_file(tmp_path: Path) -> None:
@@ -122,14 +122,14 @@ def test_validate_default_level_does_not_show_info_diagnostics(tmp_path: Path) -
     path.write_text(STRICT_ONLY_MD, encoding="utf-8")
     result = runner.invoke(app, ["validate", str(path)])
     assert result.exit_code == 0, result.output
-    assert "unexpanded-stem-ellipsis" not in result.output
+    assert "locale-lookalike-language" not in result.output
 
 
 def test_validate_strict_level_shows_info_diagnostics(tmp_path: Path) -> None:
     path = tmp_path / "estrito.mdq.md"
     path.write_text(STRICT_ONLY_MD, encoding="utf-8")
     result = runner.invoke(app, ["validate", str(path), "--level", "strict"])
-    assert "unexpanded-stem-ellipsis" in result.output
+    assert "locale-lookalike-language" in result.output
 
 
 def test_validate_strict_level_still_exits_0_for_info_only_documents(

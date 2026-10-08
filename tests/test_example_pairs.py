@@ -13,13 +13,15 @@ parsed fields, and that the body's shape matches the parsed structure.
 
 from __future__ import annotations
 
+import json
+
 import re
 from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
+from mdq._parser import load_yaml
 from mdq import _schedule
 from mdq.types import QUESTION_TYPES
 from _corpus import VALID_SOURCES, parsed_sibling, relative_id
@@ -51,7 +53,7 @@ def _split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     for index in range(1, len(lines)):
         if lines[index].rstrip() == "---":
             block = "\n".join(lines[1:index])
-            loaded = yaml.safe_load(block) if block.strip() else None
+            loaded = load_yaml(block) if block.strip() else None
             return (loaded or {}), "\n".join(lines[index + 1 :])
     return {}, text
 
@@ -66,7 +68,7 @@ def _ids(paths: list[Path]) -> list[str]:
 
 def load_document(path: Path) -> Any:
     """The parsed sibling's own data, loaded straight off disk."""
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+    return load_yaml(path.read_text(encoding="utf-8"))
 
 
 def test_there_are_source_examples() -> None:
@@ -83,6 +85,16 @@ def test_source_has_a_parsed_sibling(source: Path) -> None:
     )
 
 
+def _is_pinned_unknown_key(source: Path, key: str) -> bool:
+    lint_json = source.with_name(source.name.removesuffix(".mdq.md") + ".lint.json")
+    if not lint_json.exists():
+        return False
+    return any(
+        entry["code"] == "unknown-frontmatter-key" and entry["path"] == [key]
+        for entry in json.loads(lint_json.read_text(encoding="utf-8"))
+    )
+
+
 @pytest.mark.parametrize("source", VALID_SOURCES, ids=_ids(VALID_SOURCES))
 def test_frontmatter_agrees_with_the_parsed_document(source: Path) -> None:
     """
@@ -95,6 +107,17 @@ def test_frontmatter_agrees_with_the_parsed_document(source: Path) -> None:
 
     for key, value in frontmatter.items():
         if key in _SHORTHAND_KEYS:
+            continue
+        # base.md, "Frontmatter": a null value is the same as an absent field.
+        if value is None:
+            continue
+        # fill-in.md, "Frontmatter": the `preAccept`/`preReject` maps are
+        # spread over the blanks they key, so the question has no such field.
+        if parsed.get("type") == "fill-in" and key in ("preAccept", "preReject"):
+            continue
+        # A key the parser does not know is dropped with
+        # `unknown-frontmatter-key`, which the source's `.lint.json` pins.
+        if _is_pinned_unknown_key(source, key):
             continue
         assert key in parsed, (
             f"{relative_id(source)} sets {key!r} in its frontmatter, but the "
@@ -122,8 +145,12 @@ def test_comma_delimited_tags_expand_to_the_parsed_list(source: Path) -> None:
         return
 
     tags = frontmatter["tags"]
+    # base.md: a comma-delimited string; empty entries (a trailing comma)
+    # are dropped.
     written = (
-        [part.strip() for part in tags.split(",")] if isinstance(tags, str) else tags
+        [part.strip() for part in tags.split(",") if part.strip()]
+        if isinstance(tags, str)
+        else tags
     )
     assert written == load_document(parsed_sibling(source)).get("tags"), (
         f"{relative_id(source)}: frontmatter tags do not expand to the parsed list"

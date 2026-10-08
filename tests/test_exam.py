@@ -58,6 +58,13 @@ def test_h1_after_frontmatter_still_marks_an_exam() -> None:
     assert is_exam("---\ncourse: CS101\n---\n\n# Exam\n")
 
 
+def test_h1_after_other_content_does_not_make_an_exam() -> None:
+    # exam.md, "The title": the H1 starts the document or follows the
+    # frontmatter. Anywhere else it is a forbidden element of a question.
+    assert not is_exam("Leia o texto.\n\n# Título\n\nExplique.\n\n[essay]\n")
+    assert not is_exam("---\nid: q1\n---\n\nLeia.\n\n# Título\n")
+
+
 def test_parse_dispatches_on_kind() -> None:
     assert parse_any(MINIMAL)["type"] == "exam"
     assert parse_any("Explain recursion.\n\n[essay]\n")["type"] == "essay"

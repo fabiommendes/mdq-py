@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from mdq import load
-from _corpus import VALID_PARSED, VALID_SOURCES, relative_id
+from _corpus import PARSER_ONLY_CODES, VALID_PARSED, VALID_SOURCES, relative_id
 
 # ---------------------------------------------------------------------
 # Shared helpers: computing / comparing a document's expected diagnostics
@@ -46,9 +46,15 @@ def _lint_json_path(doc_path: Path) -> Path:
 
 def _expected_diagnostics(doc_path: Path) -> list[dict]:
     lint_json = _lint_json_path(doc_path)
-    if not lint_json.exists():
-        return []
-    return json.loads(lint_json.read_text(encoding="utf-8"))
+    assert lint_json.exists(), (
+        f"{doc_path.name} has no {lint_json.name}; a clean document pins `[]`"
+    )
+    expected = json.loads(lint_json.read_text(encoding="utf-8"))
+    if doc_path.name.endswith(".mdq.md"):
+        return expected
+    # A parsed sibling has no source layout, so it never reports the
+    # parser-only codes its `.lint.json` pins for the Markdown source.
+    return [entry for entry in expected if entry["code"] not in PARSER_ONLY_CODES]
 
 
 def _actual_diagnostics(doc_path: Path) -> list[dict]:
@@ -177,12 +183,22 @@ def test_lint_json_match_must_be_exact_as_a_multiset() -> None:
     assert _multiset(a) != _multiset(b)
 
 
-def test_missing_lint_json_expects_zero_diagnostics(tmp_path: Path) -> None:
+def test_empty_lint_json_expects_zero_diagnostics(tmp_path: Path) -> None:
     doc = tmp_path / "coriolis.mdq.md"
     doc.write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
-    # No coriolis.lint.json next to it.
+    (tmp_path / "coriolis.lint.json").write_text("[]\n", encoding="utf-8")
     assert _expected_diagnostics(doc) == []
     _assert_matches_lint_json(doc)  # this document really produces none
+
+
+def test_missing_lint_json_is_a_mismatch_even_for_a_clean_document(
+    tmp_path: Path,
+) -> None:
+    doc = tmp_path / "coriolis.mdq.md"
+    doc.write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
+    # No coriolis.lint.json next to it: a clean document pins `[]`.
+    with pytest.raises(AssertionError):
+        _assert_matches_lint_json(doc)
 
 
 def test_missing_lint_json_with_real_diagnostics_is_a_mismatch(tmp_path: Path) -> None:
@@ -207,8 +223,8 @@ def test_md_and_yaml_siblings_are_checked_against_the_same_lint_json(
 
 
 # ---------------------------------------------------------------------
-# The real corpus: every valid example either matches its `.lint.json`
-# or produces no diagnostics (the "Done means" acceptance criterion).
+# The real corpus: every valid example has a `.lint.json` and matches it;
+# a clean document pins `[]`.
 # ---------------------------------------------------------------------
 
 
@@ -252,12 +268,22 @@ def test_snapshot_writes_a_missing_lint_json(tmp_path: Path) -> None:
     )
 
 
-def test_snapshot_never_writes_a_document_with_no_diagnostics(tmp_path: Path) -> None:
+def test_snapshot_writes_an_empty_lint_json_for_a_clean_document(tmp_path: Path) -> None:
     root = tmp_path
     (root / "coriolis.mdq.md").write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
     code = lint_snapshot.main(["--root", str(root)])
     assert code == 0
-    assert not (root / "coriolis.lint.json").exists()
+    assert json.loads((root / "coriolis.lint.json").read_text(encoding="utf-8")) == []
+
+
+def test_snapshot_does_not_treat_a_lint_json_as_a_document(tmp_path: Path) -> None:
+    root = _write_corpus(tmp_path)
+    (root / "capital.lint.json").write_text(
+        json.dumps(DUPLICATE_TEXT_LINT_JSON), encoding="utf-8"
+    )
+    code = lint_snapshot.main(["--root", str(root)])
+    assert code == 0
+    assert not (root / "capital.lint.lint.json").exists()
 
 
 def test_snapshot_never_overwrites_an_existing_file(tmp_path: Path) -> None:

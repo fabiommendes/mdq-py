@@ -94,12 +94,12 @@ class ResponseError(GradingError):
 
 class NotAutoGradable(GradingError):
     """
-    Raised when a score is asked of a manually-graded question.
-
-    Essays never carry a machine-checkable answer key, and neither do
-    `openEnded` short answers. An exam-level scorer routes these into a
-    pending set instead; the single-question entry point has no such
-    escape, so it refuses.
+    Raised when a score is asked of a pending response (responses.md,
+    "Pending"): one the question does not settle, such as any essay
+    response, or a response that matches no pattern under
+    `unmatched: manual`. An exam-level scorer reports these as pending
+    instead; the single-question entry point has no such escape, so it
+    refuses.
     """
 
 
@@ -119,6 +119,54 @@ class IncompleteQuestion(ParseError):
 
     def __init__(self, message: str | None = None):
         super().__init__(message or self._MESSAGE)
+
+
+class UndefinedBlank(ParseError):
+    """
+    fill-in.md, "Additional Rules": a key of the frontmatter `preAccept`
+    or `preReject` map is not the id of a declared blank. Carries the
+    `undefined-blank` code and the `path` of the key, `(key, blank_id)`,
+    so `mdq._loading._parse_error` reports it like the model does for a
+    stem marker.
+    """
+
+    code = "undefined-blank"
+    path: tuple[str | int, ...]
+
+    def __init__(self, blank_id: str, key: str, node: Node | None = None):
+        super().__init__(
+            f"{key} has a key {blank_id!r} but no blank with that id is defined",
+            node=node,
+        )
+        self.blank_id = blank_id
+        self.key = key
+        self.path = (key, blank_id)
+
+
+class ForeignChoiceMarker(ParseError):
+    """
+    base.md, "Type inference": a choice value is not in the `value` rule
+    of the question type, inferred or forced. Carries the
+    `foreign-choice-marker` code and the `path` of the choice, so
+    `mdq._loading._parse_error` reports where it is.
+    """
+
+    code = "foreign-choice-marker"
+    path: tuple[str | int, ...]
+
+    def __init__(
+        self,
+        value: str,
+        question_type: str,
+        path: tuple[str | int, ...],
+        node: Node | None = None,
+    ):
+        super().__init__(
+            f"[{value}] is not a {question_type} choice marker", node=node
+        )
+        self.value = value
+        self.question_type = question_type
+        self.path = path
 
 
 class ConflictingAnswerKey(ParseError):

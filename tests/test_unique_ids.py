@@ -155,7 +155,7 @@ def test_duplicate_blank_id_is_a_model_error() -> None:
         "type": "fill-in",
         "stem": "O maior planeta do sistema solar é [^planeta].",
         "blanks": [
-            {"id": "planeta", "type": "short-answer", "one_of": ["Júpiter"]},
+            {"id": "planeta", "type": "short-answer", "accept": ["Júpiter"]},
             {"id": "planeta", "type": "numeric", "answer": 95},
         ],
     }
@@ -170,7 +170,7 @@ def test_unique_blank_ids_do_not_error() -> None:
         "type": "fill-in",
         "stem": "O maior planeta do sistema solar é [^planeta], com [^luas] luas.",
         "blanks": [
-            {"id": "planeta", "type": "short-answer", "one_of": ["Júpiter"]},
+            {"id": "planeta", "type": "short-answer", "accept": ["Júpiter"]},
             {"id": "luas", "type": "numeric", "answer": 95},
         ],
     }
@@ -398,7 +398,7 @@ def test_unique_id_codes_are_never_reported_as_warnings() -> None:
                 "type": "fill-in",
                 "stem": "O maior planeta do sistema solar é [^planeta].",
                 "blanks": [
-                    {"id": "planeta", "type": "short-answer", "one_of": ["Júpiter"]},
+                    {"id": "planeta", "type": "short-answer", "accept": ["Júpiter"]},
                     {"id": "planeta", "type": "numeric", "answer": 95},
                 ],
             }

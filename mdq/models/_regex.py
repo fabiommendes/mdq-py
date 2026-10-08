@@ -139,7 +139,7 @@ def normalize_text(string: str) -> str:
 # Flag validation
 #
 MEANINGFUL_FLAGS = frozenset({"i", "n", "f", "b"})
-IGNORED_FLAGS = frozenset({"m", "g", "u", "y", "x"})
+IGNORED_FLAGS = frozenset({"m", "g", "s", "u", "v", "y", "d"})
 VALID_FLAGS = MEANINGFUL_FLAGS | IGNORED_FLAGS
 FLAG_ORDER = "bfin"
 

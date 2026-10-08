@@ -227,9 +227,9 @@ def test_with_ids_single_digit_choices_get_named_ids() -> None:
     doc = MultipleSelectionQuestion(
         stem="Quais destes números são primos?",
         choices=[
-            BooleanChoice(text="1"),
-            BooleanChoice(text="4"),
-            BooleanChoice(text="9"),
+            BooleanChoice(text="1", correct=False),
+            BooleanChoice(text="4", correct=False),
+            BooleanChoice(text="9", correct=False),
         ],
     )
     filled = doc.with_ids()
@@ -414,11 +414,9 @@ def test_with_ids_gives_the_same_result_for_markdown_and_yaml() -> None:
         "stem: Qual é a capital do Brasil?\n"
         "choices:\n"
         "  - text: Rio de Janeiro\n"
-        "    score: 0\n"
         "  - text: Brasília\n"
         "    score: 1\n"
         "  - text: São Paulo\n"
-        "    score: 0\n"
     )
     from_md = parse(md, kind="question", format="mdq")
     from_yaml = parse(yaml_text, kind="question", format="yaml")
@@ -587,6 +585,7 @@ def test_declared_id_colliding_with_next_implicit_id_is_an_error_from_yaml() -> 
         "    stem: Onde fica a Floresta Amazônica?\n"
         "    choices:\n"
         "      - text: Ásia\n"
+        "        correct: false\n"
         "      - text: América do Sul\n"
         "        correct: true\n"
     )
@@ -614,7 +613,7 @@ def test_declared_id_colliding_with_next_implicit_id_is_an_error_from_a_mapping(
                 "type": "multiple-selection",
                 "stem": "Onde fica a Floresta Amazônica?",
                 "choices": [
-                    {"text": "Ásia"},
+                    {"text": "Ásia", "correct": False},
                     {"text": "América do Sul", "correct": True},
                 ],
             },

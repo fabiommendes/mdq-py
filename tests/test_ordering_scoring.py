@@ -235,3 +235,64 @@ def test_manual_vs_incorrect_on_the_same_unmatched_response() -> None:
         manual.score_response(response)
 
     assert incorrect.score_response(response) == QuestionScore(score=0.0)
+
+
+#
+# ordering.md, "Indentation": `fixed` compares levels; only `dedent` flattens.
+#
+def _mean_question(**fields: object) -> OrderingQuestion:
+    return OrderingQuestion(
+        stem="Ordene.",
+        content="code",
+        lines=[
+            (0, "total = 0"),
+            (0, "for x in values:"),
+            (1, "total += x"),
+            (0, "mean = total / len(values)"),
+        ],
+        extra=[(1, "mean = total / len(values)")],
+        **fields,
+    )
+
+
+def test_fixed_grades_indentation_levels() -> None:
+    assert _mean_question().grades_indentation()
+    assert _mean_question(indentation="strict").grades_indentation()
+    assert not _mean_question(indentation="lenient").grades_indentation()
+    assert not _mean_question(normalizations=["dedent"]).grades_indentation()
+
+
+def test_fixed_distractor_differing_only_by_level_is_a_non_match() -> None:
+    question = _mean_question(unmatched="incorrect")
+    key = [[level, text] for level, text in question.lines]
+    assert question.score_response(key).score == 1.0
+    with_distractor = key[:3] + [[1, "mean = total / len(values)"]]
+    assert question.score_response(with_distractor).score == 0.0
+
+
+def test_explicit_dedent_under_fixed_flattens_levels() -> None:
+    question = _mean_question(unmatched="incorrect", normalizations=["dedent"])
+    with_distractor = [
+        [0, "total = 0"],
+        [0, "for x in values:"],
+        [1, "total += x"],
+        [1, "mean = total / len(values)"],
+    ]
+    assert question.score_response(with_distractor).score == 1.0
+
+
+def test_corpus_extra_distractors_rejects_the_level_only_distractor() -> None:
+    from pathlib import Path as _Path
+
+    import mdq as _mdq
+
+    path = (
+        _Path(__file__).resolve().parents[2]
+        / "examples/valid/ordering/extra-distractors.mdq.md"
+    )
+    question = _mdq.load(path).document
+    key = [[level, text] for level, text in question.lines]
+    assert question.score_response(key).score == 1.0
+    swapped = key[:-1] + [[1, key[-1][1]]]
+    with pytest.raises(NotAutoGradable):
+        question.score_response(swapped)

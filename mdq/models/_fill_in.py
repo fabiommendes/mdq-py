@@ -3,7 +3,7 @@ Fill-in-the-blank questions: the three blank shapes (`ChoiceBlank`,
 `ShortAnswerBlank`, `NumericBlank`) and `FillInQuestion` itself, which
 scores each blank with the same logic its standalone question type uses
 (`mdq.models._choice._with_choice_ids`, `mdq.models._text.
-short_answer_matches`/`render_pattern_block`, `mdq.models._numeric.
+render_short_answer_patterns`, `mdq.models._numeric.
 numeric_matches`/`render_numeric_tag`).
 """
 
@@ -16,35 +16,58 @@ from pydantic import Field, field_validator, model_validator
 
 from .. import _markdown, types as t
 from .._diagnostics import Diagnostic
-from ..errors import ResponseError
-from ..types import Diacritics, GradingStrategy, NumericDomain
+from ..errors import NotAutoGradable, ResponseError
+from ..types import (
+    Automation,
+    Diacritics,
+    GradingStrategy,
+    NumericDomain,
+    QuestionGrading,
+    QuestionShuffle,
+    Unmatched,
+)
 from . import _lint, _render
 from ._base import (
+    SlugId,
     MdqModel,
     BaseQuestion,
     _BLANK_MARKER_RE,
     _check_choices_have_text,
     _check_unique_choices,
     _raise_unique_id_error,
-    _validate_mdq_regex,
 )
-from ._choice import ScoredChoice, _with_choice_ids
+from ._choice import (
+    ScoredChoice,
+    _with_choice_ids,
+    effective_grading,
+    effective_shuffle,
+    write_shuffle_and_grading,
+)
 from ._numeric import (
     _UNIT_PATTERN,
     NumericAnswer,
     Tolerance,
+    infer_decimal_places,
     _validate_numeric_answer,
     numeric_matches,
     render_numeric_tag,
 )
 from ._score import QuestionScore
-from ._text import AnswerPattern, render_pattern_block, short_answer_matches
+from ._text import (
+    AnswerPattern,
+    _pattern_entry,
+    default_unmatched,
+    first_feedback,
+    render_short_answer_patterns,
+    settle_response,
+    short_answer_automation,
+)
 
 __all__ = ["ChoiceBlank", "ShortAnswerBlank", "NumericBlank", "Blank", "FillInQuestion"]
 
 
 class ChoiceBlank(MdqModel):
-    id: str
+    id: SlugId
     type: Literal["multiple-choice"] = "multiple-choice"
     choices: list[ScoredChoice]
 
@@ -62,23 +85,34 @@ class ChoiceBlank(MdqModel):
 
 
 class ShortAnswerBlank(MdqModel):
-    id: str
+    id: SlugId
     type: Literal["short-answer"] = "short-answer"
-    one_of: list[str] | None = None
-    regex: str | None = None
     accept: list[AnswerPattern] | None = None
     reject: list[AnswerPattern] | None = None
     pre_accept: list[AnswerPattern] | None = None
     pre_reject: list[AnswerPattern] | None = None
 
-    @field_validator("regex")
-    @classmethod
-    def check_regex_compiles(cls, value: str | None) -> str | None:
-        return _validate_mdq_regex(value)
+    def effective_unmatched(self, unmatched: Unmatched | None) -> Unmatched:
+        """
+        The `unmatched` of the fill-in question, or this blank's default
+        when the question declares none: `"incorrect"` when the blank has
+        at least one `accept` pattern, `"manual"` otherwise (fill-in.md,
+        "Frontmatter").
+        """
+        return default_unmatched(unmatched, self.accept)
+
+    def automation(self, unmatched: Unmatched | None) -> Automation:
+        """
+        The automation of this blank under the question's `unmatched`, by
+        the rules of a short answer question (fill-in.md, "Automation").
+        """
+        return short_answer_automation(
+            self.effective_unmatched(unmatched), self.accept, self.reject
+        )
 
 
 class NumericBlank(MdqModel):
-    id: str
+    id: SlugId
     type: Literal["numeric"] = "numeric"
     answer: NumericAnswer
     unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
@@ -90,6 +124,20 @@ class NumericBlank(MdqModel):
     @classmethod
     def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
         return _validate_numeric_answer(value)
+
+    @property
+    def effective_domain(self) -> NumericDomain:
+        """As `NumericQuestion.effective_domain`, for this blank."""
+        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
+
+    @property
+    def effective_decimal_places(self) -> int | None:
+        """As `NumericQuestion.effective_decimal_places`, for this blank."""
+        if self.decimal_places is not None:
+            return self.decimal_places
+        if self.effective_domain == "decimal":
+            return infer_decimal_places(self.answer, self.tolerance)
+        return None
 
 
 Blank = Annotated[
@@ -103,11 +151,43 @@ Blank = Annotated[
 class FillInQuestion(BaseQuestion[t.FillInResponse]):
     blanks: list[Blank]
     type: Literal["fill-in"] = "fill-in"
-    shuffle: bool | None = None
-    grading: GradingStrategy | None = None
+    shuffle: QuestionShuffle = "inherit"
+    grading: QuestionGrading = "inherit"
+
+    def effective_grading(self) -> GradingStrategy:
+        """The question's `grading`, with `inherit` read as `symmetric`."""
+        return effective_grading(self.grading)
+
+    def effective_shuffle(self) -> bool:
+        """The question's `shuffle`, with `inherit` read as `False`."""
+        return effective_shuffle(self.shuffle)
 
     #: How inexact literals treat diacritics, in every short answer blank.
     diacritics: Diacritics = "fold"
+
+    #: What becomes of a short answer blank's response that matches no
+    #: pattern, for every short answer blank (fill-in.md, "Frontmatter").
+    #: `None` leaves each blank to its own default.
+    unmatched: Unmatched | None = None
+
+    @property
+    def automation(self) -> Automation:
+        """
+        `automatic` if every blank is automatic, `manual` if every blank is
+        manual, `semi-automatic` otherwise (fill-in.md, "Automation").
+        Choice and numeric blanks are always automatic.
+        """
+        levels = {
+            blank.automation(self.unmatched)
+            if isinstance(blank, ShortAnswerBlank)
+            else "automatic"
+            for blank in self.blanks
+        }
+        if levels == {"automatic"}:
+            return "automatic"
+        if levels == {"manual"}:
+            return "manual"
+        return "semi-automatic"
 
     @model_validator(mode="after")
     def check_blanks_have_unique_ids(self) -> Self:
@@ -232,11 +312,17 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             elif isinstance(blank, ShortAnswerBlank):
                 diagnostics.extend(
                     _lint.check_short_answer(
-                        regex=blank.regex,
-                        one_of=blank.one_of,
                         accept=blank.accept,
                         reject=blank.reject,
-                        open_ended=False,
+                        pre_accept=blank.pre_accept,
+                        pre_reject=blank.pre_reject,
+                        path=path,
+                    )
+                )
+                diagnostics.extend(
+                    _lint.check_no_correct_answer(
+                        accept=blank.accept,
+                        unmatched=blank.effective_unmatched(self.unmatched),
                         path=path,
                     )
                 )
@@ -254,12 +340,21 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.shuffle is not None:
-            data["shuffle"] = self.shuffle
-        if self.grading is not None:
-            data["grading"] = self.grading
+        write_shuffle_and_grading(data, self.shuffle, self.grading)
         if self.diacritics != "fold":
             data["diacritics"] = self.diacritics
+        if self.unmatched is not None:
+            data["unmatched"] = self.unmatched
+        # fill-in.md, "Frontmatter": maps from blank id to pattern list.
+        for key, attr in (("preAccept", "pre_accept"), ("preReject", "pre_reject")):
+            lists = {
+                blank.id: [_pattern_entry(p) for p in patterns]
+                for blank in self.blanks
+                if isinstance(blank, ShortAnswerBlank)
+                and (patterns := getattr(blank, attr)) is not None
+            }
+            if lists:
+                data[key] = lists
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -268,25 +363,11 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             if isinstance(blank, ChoiceBlank):
                 yield f"[^{blank.id}]:"
                 for choice in blank.choices:
-                    score = choice.score
-                    if score == 1.0:
-                        mark = "*"
-                    elif score in (0.0, None):
-                        mark = " "
-                    else:
-                        mark = f"{score * 100}%"
+                    mark = _render.score_mark(choice.score)
                     yield from _render.yield_choice(choice, mark=mark)
             elif isinstance(blank, ShortAnswerBlank):
                 tag = f"^{blank.id}/short-answer"
-                if blank.regex is not None:
-                    yield f"[{tag}]: /{blank.regex}/"
-                elif blank.one_of:
-                    yield f"[{tag}]: {blank.one_of[0]}"
-                if blank.accept is not None or blank.reject is not None:
-                    if blank.regex is not None or blank.one_of:
-                        yield ""
-                    yield from render_pattern_block("accept", blank.accept, tag)
-                    yield from render_pattern_block("reject", blank.reject, tag)
+                yield from render_short_answer_patterns(blank.accept, blank.reject, tag)
             else:
                 yield render_numeric_tag(
                     blank.answer,
@@ -327,30 +408,48 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                     raise ResponseError(
                         f"Response {sub_response!r} to blank {blank.id!r} is not text"
                     )
-                correct = short_answer_matches(
+                outcome = settle_response(
+                    blank.accept,
+                    blank.reject,
                     sub_response,
-                    one_of=blank.one_of,
-                    regex=blank.regex,
-                    accept=blank.accept,
+                    unmatched=blank.effective_unmatched(self.unmatched),
                     diacritics=self.diacritics,
                 )
-                scores.append(1.0 if correct else 0.0)
+                if outcome == "pending":
+                    raise NotAutoGradable(
+                        f"the response to blank {blank.id!r} is pending: it matches "
+                        "no pattern and 'unmatched' is 'manual'"
+                    )
+                scores.append(1.0 if outcome == "correct" else 0.0)
+                feedback.extend(
+                    first_feedback(
+                        (blank.accept if outcome == "correct" else blank.reject) or [],
+                        sub_response,
+                        diacritics=self.diacritics,
+                    )
+                )
             else:
                 if sub_response is None:
                     scores.append(0.0)
                     continue
-                if not isinstance(sub_response, int | float | Fraction):
+                if not isinstance(sub_response, int | float | Fraction | str):
                     raise ResponseError(
                         f"Response {sub_response!r} to blank {blank.id!r} is not numeric"
                     )
-                correct = numeric_matches(blank.answer, sub_response, blank.tolerance)
+                correct = numeric_matches(
+                    blank.answer,
+                    sub_response,
+                    blank.tolerance,
+                    blank.effective_decimal_places,
+                    domain=blank.effective_domain,
+                )
                 scores.append(1.0 if correct else 0.0)
 
         mean = sum(scores) / len(scores)
 
-        if self.grading == "all-or-nothing":
+        if self.effective_grading() == "all-or-nothing":
             score = 1.0 if all(s == 1.0 for s in scores) else 0.0
-        elif self.grading == "partial":
+        elif self.effective_grading() == "partial":
             score = max(0.0, mean)
         else:
             score = mean

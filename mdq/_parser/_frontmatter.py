@@ -97,27 +97,23 @@ def _extract_comment(frontmatter_text: str) -> str | None:
 
 class _FrontmatterLoader(yaml.SafeLoader):
     """
-    `yaml.SafeLoader`, minus YAML 1.1's base-60 int/float resolution, and
-    with no duplicate keys.
+    `yaml.SafeLoader` with the implicit resolvers of the YAML 1.2 Core
+    schema (base.md, "Frontmatter") and with no duplicate keys.
 
     A key written twice in one mapping is an error (base.md,
-    "Frontmatter"), not last-value-wins as in PyYAML. Keys a `<<` merge
-    brings in may be overridden, as YAML intends.
+    "Frontmatter"), not last-value-wins as in PyYAML.
 
-    PyYAML's `SafeLoader` reads an unquoted `1:30` as the sexagesimal
-    integer `90` (`1*60 + 30`) -- a YAML 1.1 rule that YAML 1.2 dropped.
-    MDQ needs `1:30` to stay the string `"1:30"` so `HH:MM` durations
-    need no quoting in the frontmatter (see `mdq._schedule`), so this
-    loader keeps every other implicit resolver -- timestamps included --
-    and only replaces `int`/`float`'s regex with one that drops the
-    `H:MM[:SS]` alternative.
+    PyYAML implements YAML 1.1: `yes`/`on` are booleans, `1:30` is the
+    sexagesimal integer 90, `2026-03-10` is a date, `010` is octal. MDQ
+    documents follow the Core schema, where all of these are plain
+    strings or decimal numbers, so the resolvers are replaced wholesale
+    (`_CORE_RESOLVERS`) and the int constructor reads decimal, `0o` and
+    `0x` only (`_construct_core_int`).
     """
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
         seen: set[Any] = set()
         for key_node, _ in node.value:
-            if key_node.tag == "tag:yaml.org,2002:merge":
-                continue
             key = self.construct_object(key_node, deep=deep)
             try:
                 duplicate = key in seen
@@ -134,35 +130,75 @@ class _FrontmatterLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
-#: `tag:yaml.org,2002:int`'s pattern, minus the sexagesimal alternative.
-_INT_RE = re.compile(
-    r"""^(?:[-+]?0b[0-1_]+
-        |[-+]?0[0-7_]+
-        |[-+]?(?:0|[1-9][0-9_]*)
-        |[-+]?0x[0-9a-fA-F_]+)$""",
-    re.VERBOSE,
-)
+#: The implicit resolvers of the YAML 1.2 Core schema
+#: (https://yaml.org/spec/1.2.2/#103-core-schema), in place of PyYAML's
+#: YAML 1.1 ones: no `yes`/`no`/`on`/`off` booleans, no timestamps, no
+#: base-60 `1:30`, no `0b`/`_` numbers, no merge key. Each pattern is
+#: anchored by PyYAML; the first characters are the ones a match can start
+#: with.
+_CORE_RESOLVERS: list[tuple[str, re.Pattern[str], str]] = [
+    ("tag:yaml.org,2002:null", re.compile(r"^(?:~|null|Null|NULL|)$"), "~nN"),
+    ("tag:yaml.org,2002:bool", re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), "tTfF"),
+    (
+        "tag:yaml.org,2002:int",
+        re.compile(r"^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$"),
+        "-+0123456789",
+    ),
+    (
+        "tag:yaml.org,2002:float",
+        re.compile(
+            r"""^(?:[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?
+                |[-+]?\.(?:inf|Inf|INF)
+                |\.(?:nan|NaN|NAN))$""",
+            re.VERBOSE,
+        ),
+        "-+.0123456789",
+    ),
+]
 
-#: `tag:yaml.org,2002:float`'s pattern, minus the sexagesimal alternative.
-_FLOAT_RE = re.compile(
-    r"""^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?
-        |\.[0-9][0-9_]*(?:[eE][-+][0-9]+)?
-        |[-+]?\.(?:inf|Inf|INF)
-        |\.(?:nan|NaN|NAN))$""",
-    re.VERBOSE,
-)
 
-_FrontmatterLoader.yaml_implicit_resolvers = {
-    first_char: [
-        (tag, _INT_RE)
-        if tag == "tag:yaml.org,2002:int"
-        else (tag, _FLOAT_RE)
-        if tag == "tag:yaml.org,2002:float"
-        else (tag, regexp)
-        for tag, regexp in resolvers
-    ]
-    for first_char, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
-}
+
+def _core_resolver_table() -> dict[str | None, list[tuple[str, re.Pattern[str]]]]:
+    """PyYAML's `yaml_implicit_resolvers` table for `_CORE_RESOLVERS`."""
+    table: dict[str | None, list[tuple[str, re.Pattern[str]]]] = {}
+    for tag, regexp, first in _CORE_RESOLVERS:
+        for char in first:
+            table.setdefault(char, []).append((tag, regexp))
+    # The empty scalar resolves to null: PyYAML keys it under `None`.
+    table[None] = [(_CORE_RESOLVERS[0][0], _CORE_RESOLVERS[0][1])]
+    return table
+
+
+_FrontmatterLoader.yaml_implicit_resolvers = _core_resolver_table()
+
+
+class _FrontmatterDumper(yaml.SafeDumper):
+    """
+    `yaml.SafeDumper` with the Core schema resolvers, so that a string the
+    Core schema would read as something else (`"0e0"`, `"010"`, `"true"`)
+    is quoted, and one YAML 1.1 would (`yes`, `1:30`, a date) is not.
+    """
+
+
+_FrontmatterDumper.yaml_implicit_resolvers = _core_resolver_table()
+
+
+def _construct_core_int(loader: yaml.SafeLoader, node: yaml.Node) -> int:
+    """
+    YAML 1.2 Core integers: decimal, `0o` octal, `0x` hex. PyYAML's own
+    constructor reads a leading zero as YAML 1.1 octal (`010` is 8), and
+    `_` separators and base-60; the Core schema has none of these.
+    """
+    value = loader.construct_scalar(node)
+    assert isinstance(value, str)
+    if value.startswith("0o"):
+        return int(value[2:], 8)
+    if value.startswith("0x"):
+        return int(value[2:], 16)
+    return int(value, 10)
+
+
+_FrontmatterLoader.add_constructor("tag:yaml.org,2002:int", _construct_core_int)
 
 
 class YamlSyntaxError(ParseError):
@@ -182,8 +218,22 @@ def load_yaml(text: str) -> Any:
     return yaml.load(text, Loader=_FrontmatterLoader)
 
 
-def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
+def dump_yaml(data: Any) -> str:
     """
+    Dump `data` as YAML that `load_yaml` reads back unchanged: block style,
+    sorted keys, strings quoted exactly when the Core schema needs it.
+    """
+    return yaml.dump(data, Dumper=_FrontmatterDumper)
+
+
+def _load_frontmatter_yaml(
+    text: str, keep_null: tuple[str, ...] = ()
+) -> dict[str, Any]:
+    """
+    Load the frontmatter mapping. A key with a `null` value is the same
+    as an absent key (base.md, "Frontmatter"), so it is dropped, except
+    the keys in `keep_null`.
+
     Raises:
         YamlSyntaxError: the frontmatter is not valid YAML, or repeats a key.
     """
@@ -191,7 +241,9 @@ def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
         data = load_yaml(text)
     except yaml.YAMLError as exc:
         raise YamlSyntaxError(f"invalid YAML frontmatter: {exc}") from exc
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if v is not None or k in keep_null}
 
 
 def _unknown_frontmatter_warnings(
@@ -238,22 +290,28 @@ def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
 #: * multiple-choice/multiple-selection/true-false/fill-in `shuffle` and
 #:   `grading`: `MDQParser.apply_type_specific_frontmatter` (fill-in also
 #:   reads its own `shuffle` and `diacritics` directly in
-#:   `MDQParser.parse_fill_in_body`).
+#:   `MDQParser.parse_fill_in_body`). Fill-in `preAccept`/`preReject` are
+#:   maps from blank id to pattern list:
+#:   `MDQParser.distribute_blank_pattern_lists` moves them onto the blanks.
 #: * essay `input`/`highlight`: `MDQParser.parse_essay_body`.
 #: * ordering: `MDQParser.parse_ordering_body`.
-#: * short-answer `openEnded`/`regex`/`diacritics`/pattern lists:
+#: * short-answer `diacritics`/`unmatched`/`incorrectFeedback`/pattern lists:
 #:   `MDQParser.parse_short_answer_body` and `_copy_pattern_lists`.
 #: * numeric `domain`/`decimalPlaces`/`unit`: `MDQParser.parse_numeric_body`.
 TYPE_QUESTION_KEYS: dict[str, frozenset[str]] = {
     "multiple-choice": frozenset({"shuffle", "grading"}),
     "multiple-selection": frozenset({"shuffle", "grading"}),
     "true-false": frozenset({"shuffle", "grading"}),
-    "fill-in": frozenset({"shuffle", "grading", "diacritics"}),
+    "fill-in": frozenset(
+        {"shuffle", "grading", "diacritics", "unmatched", "preAccept", "preReject"}
+    ),
     "essay": frozenset({"input", "highlight"}),
     "ordering": frozenset(
         {"content", "highlight", "indentation", "unmatched", "normalizations"}
     ),
-    "short-answer": frozenset({"openEnded", "regex", "diacritics", *PATTERN_LIST_KEYS}),
+    "short-answer": frozenset(
+        {"diacritics", "unmatched", "incorrectFeedback", *PATTERN_LIST_KEYS}
+    ),
     "numeric": frozenset({"domain", "decimalPlaces", "unit"}),
 }
 

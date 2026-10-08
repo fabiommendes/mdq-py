@@ -25,14 +25,23 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from .. import _parser
 from .._diagnostics import Diagnostic
+from ..types import Automation
 from . import _lint, _render
-from ._regex import InvalidRegexError, RegexPattern
 
 if TYPE_CHECKING:
     from ._exam import Exam
     from ._score import QuestionScore
 
 __all__ = ["MdqModel", "BaseQuestion"]
+
+
+#: The `SLUG` terminal of docs/references/grammar.md, as the `id` of a
+#: choice or a blank: the schema's `pattern` on those fields.
+SLUG_PATTERN = r"^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$"
+
+#: A choice or blank `id`. Unlike a question `id`, which only SHOULD be
+#: url-safe (`unsafe-id`), this one is a `SLUG` by schema.
+SlugId = Annotated[str, Field(pattern=SLUG_PATTERN)]
 
 
 class MdqModel(BaseModel):
@@ -48,6 +57,18 @@ class MdqModel(BaseModel):
         populate_by_name=True,
         extra="forbid",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_null_fields(cls, data: Any) -> Any:
+        """
+        base.md, "Frontmatter": a `null` value in an optional field is the
+        same as an absent field, so the default applies. Only the fields
+        of this model are affected: the values of `meta` keep their nulls.
+        """
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items() if value is not None}
+        return data
 
     def __str__(self) -> str:
         """
@@ -215,19 +236,28 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
 # id does above.
 #
 
-#: generic.md [^4]: `locale` MUST be a BCP 47 (RFC 5646) language tag.
-#: Case-insensitive -- `en-us` and `en-US` are the same tag -- and covers
-#: the `langtag` production: language (2-3 letters, with up to two
-#: extlang subtags), optional script/region, then any number of variant,
-#: extension and private-use subtags, plus the `privateuse`-only form
-#: (`x-...`). Deliberately excludes the reserved 4-8 letter primary
-#: language subtag: it is unused in practice, and admitting it would
-#: also admit an ordinary language *name* written where a tag belongs
-#: (`brasil`), which is exactly the mistake this regex exists to catch.
-#: Grandfathered tags (`i-klingon`, `sgn-BE-fr`) are rare enough to skip.
+#: base.md [^4]: `locale` MUST be a well-formed BCP 47 (RFC 5646)
+#: language tag, by the grammar alone: the `langtag` production
+#: (language of 2-3 letters with up to two extlang subtags, or a 4-letter
+#: reserved or 5-8 letter registered primary subtag; then optional
+#: script and region, and any number of variant, extension and private
+#: use subtags), the `privateuse`-only form (`x-...`) and the
+#: grandfathered tags. Case-insensitive: `en-us` and `en-US` are the
+#: same tag. Whether a subtag is registered is not checked, so `brasil`
+#: passes; a host that needs validity brings its own registry.
+_GRANDFATHERED_TAGS = frozenset(
+    tag.lower()
+    for tag in (
+        "en-GB-oed", "i-ami", "i-bnn", "i-default", "i-enochian", "i-hak",
+        "i-klingon", "i-lux", "i-mingo", "i-navajo", "i-pwn", "i-tao",
+        "i-tay", "i-tsu", "sgn-BE-FR", "sgn-BE-NL", "sgn-CH-DE",
+        "art-lojban", "cel-gaulish", "no-bok", "no-nyn", "zh-guoyu",
+        "zh-hakka", "zh-min", "zh-min-nan", "zh-xiang",
+    )
+)
 _BCP47_RE = re.compile(
     r"""
-    ^[a-zA-Z]{2,3}(?:-[a-zA-Z]{3}){0,2}              # language, optional extlang
+    ^(?:[a-zA-Z]{2,3}(?:-[a-zA-Z]{3}){0,2}|[a-zA-Z]{4,8})  # language, optional extlang
     (?:-[a-zA-Z]{4})?                                # script
     (?:-(?:[a-zA-Z]{2}|[0-9]{3}))?                   # region
     (?:-(?:[a-zA-Z0-9]{5,8}|[0-9][a-zA-Z0-9]{3}))*   # variant
@@ -251,16 +281,18 @@ _UUID_SHAPE_RE = re.compile(
 )
 
 #: `[^blank-id]` markers, as written in a fill-in stem.
-_BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
+_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\]")
 
 
 def _validate_locale(value: str | None) -> str | None:
     """generic.md [^4]: raise `malformed-locale` for an ill-formed tag."""
-    if value is not None and not _BCP47_RE.match(value):
+    if value is None:
+        return value
+    if not _BCP47_RE.match(value) and value.lower() not in _GRANDFATHERED_TAGS:
         raise PydanticCustomError(
             "malformed-locale",
-            f"{value!r} is not a BCP 47 language tag; expected a form "
-            f"like 'en', 'pt-BR', or 'zh-Hans-CN'",
+            f"{value!r} is not a well-formed BCP 47 language tag; expected "
+            f"a form like 'en', 'pt-BR', or 'zh-Hans-CN'",
         )
     return value
 
@@ -286,18 +318,6 @@ def _validate_not_blank(value: str | None, field_name: str) -> str | None:
     return value
 
 
-def _validate_mdq_regex(value: str | None) -> str | None:
-    """short-answer.md: raise `invalid-regex` for a pattern that doesn't compile."""
-    if value is not None:
-        try:
-            RegexPattern(value)
-        except InvalidRegexError as exc:
-            raise PydanticCustomError(
-                "invalid-regex", f"regex does not compile: {exc}"
-            ) from exc
-    return value
-
-
 class BaseQuestion[R](MdqModel):
     """
     Fields every question type carries.
@@ -318,6 +338,14 @@ class BaseQuestion[R](MdqModel):
     locale: str | None = None
     meta: dict[str, object] | None = None
     tags: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def check_tags_are_unique(cls, value: list[str]) -> list[str]:
+        """`tags` is a set (schema `uniqueItems`): an entry must not repeat."""
+        if len(set(value)) != len(value):
+            raise ValueError("tags must not repeat an entry")
+        return value
     _exam: Annotated[weakref.ref[Exam] | None, Field(default=None, exclude=True)] = None
 
     @field_validator("locale")
@@ -417,7 +445,8 @@ class BaseQuestion[R](MdqModel):
     #: How much this question counts towards its exam. An exam entry may
     #: override it, and resolution applies that override here, so the
     #: value on a resolved question is always the winning one.
-    weight: Annotated[float, Field(ge=0)] = 1.0
+    #: A number by schema: `"2"` is a string and is never converted.
+    weight: Annotated[float, Field(ge=0, strict=True)] = 1.0
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         """
@@ -501,9 +530,25 @@ class BaseQuestion[R](MdqModel):
         self.tags = [tag.strip() for tag in self.tags if tag.strip()]
         self.author = opt.map(str.strip, self.author)
 
+    @property
+    def automation(self) -> Automation:
+        """
+        How many responses the question settles without the instructor
+        (base.md, "Automation"): `automatic`, `semi-automatic` or `manual`.
+
+        A derived property: never a field, never in the frontmatter or in
+        the YAML/JSON form. Choice, true/false and numeric questions are
+        `automatic`; the other types override this.
+        """
+        return "automatic"
+
     def score_response(self, response: R) -> QuestionScore:
         """
         Return the score for one response to this question.
+
+        Raises:
+            NotAutoGradable: the question does not settle this response
+                (responses.md, "Pending").
         """
         raise NotImplementedError("Subclasses must implement score_response()")
 
@@ -526,9 +571,14 @@ class BaseQuestion[R](MdqModel):
         diagnostics.extend(_lint.check_tags(self.tags))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
         diagnostics.extend(_lint.check_stem_is_a_paragraph(self.stem))
-        diagnostics.extend(_lint.check_stem_ellipsis_expanded(self.stem))
         diagnostics.extend(_lint.check_id_is_url_safe(self.id))
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
+        for field_name in ("preamble", "stem", "epilogue"):
+            diagnostics.extend(
+                _lint.check_unsafe_thematic_break(
+                    getattr(self, field_name), (field_name,)
+                )
+            )
         return diagnostics
 
     def with_ids(self) -> Self:

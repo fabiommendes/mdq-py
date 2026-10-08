@@ -56,18 +56,6 @@ def _assert_one_error(diagnostics: list[Diagnostic], codes: str | frozenset[str]
 # ---------------------------------------------------------------------
 
 
-def test_invalid_regex_in_short_answer_regex_field_is_a_model_error() -> None:
-    doc = {
-        "type": "short-answer",
-        "stem": "Qual é a sigla do estado do Amazonas?",
-        "regex": "/[AM/",
-    }
-    loaded = load(doc)
-    assert loaded.document is None
-    diagnostic = _assert_one_error(loaded.diagnostics, "invalid-regex")
-    assert diagnostic.path == ("regex",)
-
-
 def test_invalid_regex_in_accept_pattern_is_a_model_error() -> None:
     doc = {
         "type": "short-answer",
@@ -88,21 +76,21 @@ def test_invalid_regex_in_fill_in_short_answer_blank_is_a_model_error() -> None:
             {
                 "id": "capital",
                 "type": "short-answer",
-                "regex": "/[Br/",
+                "accept": ["/[Br/"],
             }
         ],
     }
     loaded = load(doc)
     assert loaded.document is None
     diagnostic = _assert_one_error(loaded.diagnostics, "invalid-regex")
-    assert diagnostic.path == ("blanks", 0, "regex")
+    assert diagnostic.path == ("blanks", 0, "accept", 0)
 
 
 def test_valid_regex_does_not_error() -> None:
     doc = {
         "type": "short-answer",
         "stem": "Qual é a sigla do estado do Amazonas?",
-        "regex": "/AM/",
+        "accept": ["/AM/"],
     }
     loaded = load(doc)
     assert loaded.document is not None
@@ -119,7 +107,7 @@ def test_undefined_blank_marker_is_a_model_error() -> None:
         "type": "fill-in",
         "stem": "O bioma [^bioma] abriga o [^rio].",
         "blanks": [
-            {"id": "rio", "type": "short-answer", "oneOf": ["Amazonas"]},
+            {"id": "rio", "type": "short-answer", "accept": ["Amazonas"]},
         ],
     }
     loaded = load(doc)
@@ -133,8 +121,8 @@ def test_every_marker_naming_a_declared_blank_does_not_error() -> None:
         "type": "fill-in",
         "stem": "O bioma [^bioma] abriga o rio [^rio].",
         "blanks": [
-            {"id": "bioma", "type": "short-answer", "oneOf": ["Amazônia"]},
-            {"id": "rio", "type": "short-answer", "oneOf": ["Amazonas"]},
+            {"id": "bioma", "type": "short-answer", "accept": ["Amazônia"]},
+            {"id": "rio", "type": "short-answer", "accept": ["Amazonas"]},
         ],
     }
     loaded = load(doc)
@@ -152,8 +140,8 @@ def test_unreferenced_blank_is_a_model_error() -> None:
         "type": "fill-in",
         "stem": "O maior bioma brasileiro é a [^bioma].",
         "blanks": [
-            {"id": "bioma", "type": "short-answer", "oneOf": ["Amazônia"]},
-            {"id": "regiao", "type": "short-answer", "oneOf": ["Norte"]},
+            {"id": "bioma", "type": "short-answer", "accept": ["Amazônia"]},
+            {"id": "regiao", "type": "short-answer", "accept": ["Norte"]},
         ],
     }
     loaded = load(doc)
@@ -167,7 +155,7 @@ def test_every_declared_blank_referenced_does_not_error() -> None:
         "type": "fill-in",
         "stem": "O maior bioma brasileiro é a [^bioma].",
         "blanks": [
-            {"id": "bioma", "type": "short-answer", "oneOf": ["Amazônia"]},
+            {"id": "bioma", "type": "short-answer", "accept": ["Amazônia"]},
         ],
     }
     loaded = load(doc)
@@ -185,7 +173,7 @@ def test_malformed_locale_is_a_model_error() -> None:
         "type": "essay",
         "stem": "Descreva as características do bioma Cerrado.",
         "input": "text",
-        "locale": "brasil",
+        "locale": "pt_BR",
     }
     loaded = load(doc)
     assert loaded.document is None
@@ -344,13 +332,8 @@ def test_ordering_accept_reject_overlap_is_a_model_error() -> None:
     loaded = load(doc)
     assert loaded.document is None
     diagnostic = _assert_one_error(loaded.diagnostics, "accept-reject-overlap")
-    # The old `value_error` had no field to point at either; interpreted
-    # here as the document root, same as a plain `ValueError` raised from
-    # a whole-model `@model_validator(mode="after")` reports today (see
-    # tests/test_loading.py::test_pydantic_only_rule_ordering_overlap_is_reported_as_an_error,
-    # which currently asserts `code == "value_error"` at the same path
-    # and is expected to be updated by the implementer per this spec).
-    assert diagnostic.path == ()
+    # Points at the `accept` entry that a `reject` entry repeats.
+    assert diagnostic.path == ("accept", 0)
 
 
 def test_ordering_disjoint_accept_and_reject_does_not_error() -> None:

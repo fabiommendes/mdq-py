@@ -4,11 +4,12 @@ Maintain the `.lint.json` snapshots next to the examples under
 `dev/specs/to-do/loading-module.md`).
 
 A `.lint.json` records the non-error diagnostics `mdq.load` is expected
-to produce for one document. `foo.mdq.md` and `foo.yaml` -- when both
-exist -- share `foo.lint.json`, since they are meant to parse into the
-same document. This script never hand-edits an existing file: it only
-creates one that is missing, or reports a mismatch for a human to
-review and, if it agrees, rewrite explicitly with `--overwrite`.
+to produce for one document; a clean document records `[]`. `foo.mdq.md`
+and `foo.yaml` -- when both exist -- share `foo.lint.json`, since they
+are meant to parse into the same document. This script never hand-edits
+an existing file: it only creates one that is missing, or reports a
+mismatch for a human to review and, if it agrees, rewrite explicitly
+with `--overwrite`.
 
 Run it from `mdq-py/` with `uv run scripts/lint_snapshot.py` -- like
 `scripts/schema_bundle.py` at the repository root, this is a maintenance
@@ -122,6 +123,8 @@ def _group_documents(root: Path) -> dict[Path, list[Path]]:
     for path in sorted(root.rglob("*")):
         if not path.is_file() or not path.name.endswith(_SOURCE_SUFFIXES):
             continue
+        if path.name.endswith((".lint.json", ".resolved.yaml")):
+            continue
         lint_json = path.with_name(f"{_stem(path)}.lint.json")
         groups.setdefault(lint_json, []).append(path)
     return groups
@@ -139,8 +142,7 @@ def _sync_one(lint_json: Path, document: Path, overwrite: set[Path]) -> int:
     diagnostics = diagnostics_for(document)
 
     if not lint_json.exists():
-        if diagnostics:
-            _write(lint_json, diagnostics)
+        _write(lint_json, diagnostics)
         return 0
 
     existing = json.loads(lint_json.read_text(encoding="utf-8"))

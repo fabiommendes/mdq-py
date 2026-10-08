@@ -36,7 +36,7 @@ from .. import _schedule, models
 from ..models import _render
 from .._banks import FileLoader, QuestionBank
 from .._loading import InvalidDocument, parse
-from ..types import NumericDomain, Source
+from ..types import NumericDomain, Source, Unmatched
 from ._app import app
 
 _ANSWER_KEY_STYLE = "green"
@@ -160,10 +160,10 @@ def _question_metadata(question: models.Question) -> list[tuple[str, str]]:
     if question.tags:
         rows.append(("Tags", ", ".join(question.tags)))
     rows.append(("Weight", _format_number(question.weight)))
-    grading = getattr(question, "grading", None)
-    if grading is not None:
+    grading = getattr(question, "grading", "inherit")
+    if grading != "inherit":
         rows.append(("Grading strategy", grading))
-    if getattr(question, "shuffle", None):
+    if getattr(question, "shuffle", "inherit") is True:
         rows.append(("Shuffle", "yes"))
     return rows
 
@@ -219,9 +219,9 @@ def _render_body(
     elif isinstance(question, models.ShortAnswerQuestion):
         _render_short_answer(
             console,
-            one_of=question.one_of,
-            regex=question.regex,
-            open_ended=question.open_ended,
+            automation=question.automation,
+            unmatched=question.unmatched,
+            incorrect_feedback=question.incorrect_feedback,
             accept=question.accept,
             reject=question.reject,
             show_answer_key=show_answer_key,
@@ -231,7 +231,12 @@ def _render_body(
     elif isinstance(question, models.OrderingQuestion):
         _render_ordering(console, question, show_answer_key=show_answer_key)
     elif isinstance(question, models.FillInQuestion):
-        _render_fill_in(console, question.blanks, show_answer_key=show_answer_key)
+        _render_fill_in(
+            console,
+            question.blanks,
+            unmatched=question.unmatched,
+            show_answer_key=show_answer_key,
+        )
     else:
         raise AssertionError(f"unhandled question type: {question.type!r}")
 
@@ -353,20 +358,21 @@ def _pattern_lines(label: str, patterns: list[models.AnswerPattern] | None) -> l
 def _render_short_answer(
     console: Console,
     *,
-    one_of: list[str] | None,
-    regex: str | None,
-    open_ended: bool,
+    automation: str,
     show_answer_key: bool,
+    unmatched: str | None = None,
+    incorrect_feedback: str | None = None,
     accept: list[models.AnswerPattern] | None = None,
     reject: list[models.AnswerPattern] | None = None,
 ) -> None:
-    rows: list[tuple[str, str]] = []
-    if open_ended:
-        rows.append(("Grading", "manual (open-ended)"))
-    if rows:
-        _render_metadata(console, rows)
+    rows: list[tuple[str, str]] = [("Automation", automation)]
+    if unmatched is not None:
+        rows.append(("Unmatched", unmatched))
+    if incorrect_feedback is not None:
+        rows.append(("Incorrect feedback", incorrect_feedback))
+    _render_metadata(console, rows)
 
-    if open_ended:
+    if automation == "manual":
         console.print(
             Text(
                 "No machine-checkable answer key -- grade this by hand.",
@@ -382,10 +388,6 @@ def _render_short_answer(
     if accept is not None or reject is not None:
         sections = [_pattern_lines("Accepted", accept), _pattern_lines("Rejected", reject)]
         body = "\n\n".join("\n".join(s) for s in sections if s)
-    elif regex is not None:
-        body = f"Matches pattern: `/{regex}/`"
-    elif one_of:
-        body = "\n".join(f"- {answer}" for answer in one_of)
     else:
         body = "(no accepted answer declared)"
     console.print(
@@ -485,7 +487,11 @@ def _render_ordering_lines(
 # Fill-in body
 #
 def _render_fill_in(
-    console: Console, blanks: Iterable[models.Blank], *, show_answer_key: bool
+    console: Console,
+    blanks: Iterable[models.Blank],
+    *,
+    unmatched: Unmatched | None,
+    show_answer_key: bool,
 ) -> None:
     for blank in blanks:
         console.print()
@@ -499,9 +505,9 @@ def _render_fill_in(
         elif isinstance(blank, models.ShortAnswerBlank):
             _render_short_answer(
                 console,
-                one_of=blank.one_of,
-                regex=blank.regex,
-                open_ended=False,
+                automation=blank.automation(unmatched),
+                accept=blank.accept,
+                reject=blank.reject,
                 show_answer_key=show_answer_key,
             )
         elif isinstance(blank, models.NumericBlank):

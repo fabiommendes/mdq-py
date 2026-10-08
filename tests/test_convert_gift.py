@@ -416,7 +416,7 @@ def test_to_mdq_short_becomes_short_answer():
     )
     question = Gift().to_mdq(GiftQuestion(blocks=[block]))
     assert isinstance(question, ShortAnswerQuestion)
-    assert question.one_of == ["Amazon", "amazon"]
+    assert [p.pattern for p in question.effective_accept()] == ["Amazon", "amazon"]
 
 
 def test_to_mdq_numeric_becomes_numeric_with_tolerance():
@@ -578,18 +578,9 @@ def test_from_mdq_multiple_choice_partial_credit_uses_percentage():
     assert "%50%" in str(gift)
 
 
-def test_from_mdq_multiple_choice_missing_score_raises():
-    question = MultipleChoiceQuestion(
-        stem="Q",
-        choices=[ScoredChoice(text="a"), ScoredChoice(text="b", score=1.0)],
-    )
-    with pytest.raises(ValueError):
-        Gift().from_mdq(question)
-
-
 def test_from_mdq_short_answer():
     question = ShortAnswerQuestion(
-        stem="Name the largest river in Brazil.", one_of=["Amazon", "amazon"]
+        stem="Name the largest river in Brazil.", accept=["Amazon", "amazon"]
     )
     gift = Gift().from_mdq(question)
     [block] = gift.blocks
@@ -597,8 +588,15 @@ def test_from_mdq_short_answer():
     assert [o.text for o in block.answer.options] == ["Amazon", "amazon"]
 
 
-def test_from_mdq_short_answer_without_one_of_raises():
-    question = ShortAnswerQuestion(stem="Q", open_ended=True)
+def test_from_mdq_short_answer_without_accept_raises():
+    """A question with no `accept` is manual: the format cannot express a pending response."""
+    question = ShortAnswerQuestion(stem="Q")
+    with pytest.raises(ValueError, match="(?i)unmatched|manual"):
+        Gift().from_mdq(question)
+
+
+def test_from_mdq_short_answer_with_regex_accept_raises():
+    question = ShortAnswerQuestion(stem="Q", accept=["/Amaz[oô]nia/"])
     with pytest.raises(ValueError):
         Gift().from_mdq(question)
 
@@ -788,13 +786,13 @@ def test_full_round_trip_multiple_choice():
 
 def test_full_round_trip_short_answer():
     question = ShortAnswerQuestion(
-        stem="Name the largest river in Brazil.", one_of=["Amazon", "amazon"]
+        stem="Name the largest river in Brazil.", accept=["Amazon", "amazon"]
     )
     converter = Gift()
     source = converter.render(converter.from_mdq(question))
     roundtripped = converter.to_mdq(converter.parse(source))
     assert isinstance(roundtripped, ShortAnswerQuestion)
-    assert roundtripped.one_of == question.one_of
+    assert roundtripped.effective_accept() == question.effective_accept()
 
 
 def test_full_round_trip_numeric():

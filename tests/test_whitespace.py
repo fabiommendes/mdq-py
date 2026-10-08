@@ -15,7 +15,7 @@ import pytest
 from mdq import load
 from mdq._parser import is_exam, parse_exam, parse_question
 from mdq._parser._frontmatter import _extract_comment
-from mdq.errors import MdqError
+from mdq.errors import ForeignChoiceMarker, MdqError
 from mdq.models._query import parse_query
 
 NBSP = chr(0x00A0)
@@ -28,8 +28,9 @@ NNBSP = chr(0x202F)
 UNUSUAL = [NBSP, BOM, NEL, EM_SPACE]
 
 
-def _choices(doc: dict) -> list[tuple[str, int]]:
-    return [(c["text"], c["score"]) for c in doc["choices"]]
+def _choices(doc: dict) -> list[tuple[str, int | None]]:
+    # `[ ]` omits the score (multiple-choice.md, "Choices").
+    return [(c["text"], c.get("score")) for c in doc["choices"]]
 
 
 def _lint(source: str) -> list[tuple[str, int | None]]:
@@ -47,13 +48,13 @@ def _lint(source: str) -> list[tuple[str, int | None]]:
 @pytest.mark.parametrize("ws", [" ", "\t", " \t  "])
 def test_spaces_and_tabs_are_ws(ws: str) -> None:
     doc = parse_question(f"Qual a capital?\n\n[short-answer]:{ws}Brasília\n")
-    assert doc["oneOf"] == ["Brasília"]  # type: ignore[typeddict-item]
+    assert doc["accept"] == ["Brasília"]  # type: ignore[typeddict-item]
 
 
 @pytest.mark.parametrize("ch", UNUSUAL)
 def test_unicode_space_after_short_answer_tag_is_text(ch: str) -> None:
     doc = parse_question(f"Qual a capital?\n\n[short-answer]:{ch}Brasília\n")
-    assert doc["oneOf"] == [f"{ch}Brasília"]  # type: ignore[typeddict-item]
+    assert doc["accept"] == [f"{ch}Brasília"]  # type: ignore[typeddict-item]
 
 
 @pytest.mark.parametrize("ch", UNUSUAL)
@@ -62,7 +63,7 @@ def test_unicode_space_after_blank_definition_is_text(ch: str) -> None:
         f"A capital é [^cap].\n\n[^cap/short-answer]:{ch}Brasília\n"
     )
     blank = doc["blanks"][0]  # type: ignore[typeddict-item]
-    assert blank["oneOf"] == [f"{ch}Brasília"]
+    assert blank["accept"] == [f"{ch}Brasília"]
 
 
 @pytest.mark.parametrize("ch", [NBSP, BOM, EM_SPACE])
@@ -104,16 +105,18 @@ def test_tabs_are_ws_in_numeric_answer() -> None:
 
 @pytest.mark.parametrize("ch", UNUSUAL)
 def test_unicode_space_is_not_an_empty_checkbox(ch: str) -> None:
-    # The parser reads an unknown value such as `[?]` as an unmarked
-    # choice. A Unicode space is such an unknown value.
+    # base.md, "Type inference": a value outside the type's grammar, such
+    # as `[?]`, is a `foreign-choice-marker` error, never an unmarked
+    # choice. A Unicode space is such a value: only space and tab are blank.
     body = "...\n\n* [{}] Ipê\n* [x] Jatobá\n* [X] Buriti\n"
-    assert parse_question(body.format(ch)) == parse_question(body.format("?"))
+    with pytest.raises(ForeignChoiceMarker):
+        parse_question(body.format(ch))
 
 
 @pytest.mark.parametrize("ch", [NBSP, BOM, EM_SPACE])
 def test_unicode_space_after_choice_marker_is_choice_text(ch: str) -> None:
     doc = parse_question(f"...\n\n* [*]{ch}Ipê\n* [ ] Jatobá\n")
-    assert _choices(dict(doc)) == [(f"{ch}Ipê", 1), ("Jatobá", 0)]
+    assert _choices(dict(doc)) == [(f"{ch}Ipê", 1), ("Jatobá", None)]
 
 
 @pytest.mark.parametrize("ch", [NBSP, BOM, EM_SPACE])
@@ -144,7 +147,7 @@ def test_unicode_space_starts_a_pattern_line(ch: str) -> None:
 @pytest.mark.parametrize("ch", [NEL, LS, chr(0x2029), "\x0b", "\x0c", "\x1c"])
 def test_other_line_separators_are_text(ch: str) -> None:
     doc = parse_question(f"...\n\n* [*] Ipê{ch}amarelo\n* [ ] Jatobá\n")
-    assert _choices(dict(doc)) == [(f"Ipê{ch}amarelo", 1), ("Jatobá", 0)]
+    assert _choices(dict(doc)) == [(f"Ipê{ch}amarelo", 1), ("Jatobá", None)]
 
 
 @pytest.mark.parametrize("eol", ["\n", "\r\n", "\r"])
@@ -155,7 +158,7 @@ def test_commonmark_line_endings(eol: str) -> None:
     doc = parse_question(source)
     assert doc["id"] == "ipe"  # type: ignore[typeddict-item]
     assert doc["comment"] == "Ipê"  # type: ignore[typeddict-item]
-    assert _choices(dict(doc)) == [("Ipê", 1), ("Jatobá", 0)]
+    assert _choices(dict(doc)) == [("Ipê", 1), ("Jatobá", None)]
 
 
 def test_line_separator_does_not_start_an_exam_title() -> None:
@@ -190,7 +193,7 @@ def test_frontmatter_blank_lines_before_comment() -> None:
 
 
 def test_unicode_space_line_is_not_blank_in_frontmatter() -> None:
-    assert _extract_comment(f"\n \t\n# Ipê\nid: ipe\n") == "Ipê"
+    assert _extract_comment("\n \t\n# Ipê\nid: ipe\n") == "Ipê"
     assert _extract_comment(f"{NBSP}\n# Ipê\nid: ipe\n") is None
 
 

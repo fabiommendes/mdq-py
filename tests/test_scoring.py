@@ -270,9 +270,9 @@ def test_numeric_accepts_an_exact_rational_answer() -> None:
 #
 # Short answer
 #
-def test_short_answer_one_of_matches_after_normalization() -> None:
+def test_short_answer_accept_matches_after_normalization() -> None:
     question = models.ShortAnswerQuestion(
-        stem="Name the capital of Brazil.", one_of=["Brasília"]
+        stem="Name the capital of Brazil.", accept=["Brasília"]
     )
     assert question.score_response("  BRASÍLIA  ").score == 1.0
     assert question.score_response("Rio de Janeiro").score == 0.0
@@ -280,29 +280,21 @@ def test_short_answer_one_of_matches_after_normalization() -> None:
 
 def test_short_answer_exact_requires_a_literal_match() -> None:
     question = models.ShortAnswerQuestion(
-        stem="Name the capital of Brazil.", one_of=["`Brasília`"]
+        stem="Name the capital of Brazil.", accept=["`Brasília`"]
     )
     assert question.score_response("Brasília").score == 1.0
     assert question.score_response("brasília").score == 0.0
 
 
 def test_short_answer_regex_is_a_full_match_not_a_search() -> None:
-    """The legacy `regex` field desugars without the `i` flag, so it is
-    case-sensitive by default -- unlike `oneOf`, which is always inexact."""
+    """A regex in `accept` has no implicit `i` flag, so it is
+    case-sensitive by default -- unlike a plain literal, which is inexact."""
     question = models.ShortAnswerQuestion(
-        stem="Name a Brazilian biome.", regex="amazon|cerrado"
+        stem="Name a Brazilian biome.", accept=["/amazon|cerrado/"]
     )
     assert question.score_response("cerrado").score == 1.0
     assert question.score_response("Cerrado").score == 0.0
     assert question.score_response("The Cerrado").score == 0.0
-
-
-def test_short_answer_open_ended_is_not_auto_gradable() -> None:
-    question = models.ShortAnswerQuestion(
-        stem="Describe your favorite Brazilian biome.", open_ended=True
-    )
-    with pytest.raises(NotAutoGradable):
-        question.score_response("The Pantanal.")
 
 
 def test_short_answer_without_an_answer_key_is_not_auto_gradable() -> None:
@@ -429,13 +421,12 @@ def test_fill_in_short_answer_blank_keeps_diacritics_when_configured() -> None:
     assert question.score_response({"state": "Ceara"}).score == 0.0
 
 
-def test_fill_in_short_answer_blank_diacritics_applies_to_legacy_one_of() -> None:
-    """`diacritics` applies to every pattern list, including the legacy
-    `oneOf` desugaring used by a blank with no explicit `accept`."""
+def test_fill_in_short_answer_blank_diacritics_keep_applies_to_a_plain_accept() -> None:
+    """`diacritics: keep` applies to the plain literals of a blank's `accept`."""
     question = models.FillInQuestion(
         stem="Name a Brazilian state in the Northeast: [^state].",
         diacritics="keep",
-        blanks=[models.ShortAnswerBlank(id="state", one_of=["Ceará"])],
+        blanks=[models.ShortAnswerBlank(id="state", accept=["Ceará"])],
     )
     assert question.score_response({"state": "Ceará"}).score == 1.0
     assert question.score_response({"state": "Ceara"}).score == 0.0

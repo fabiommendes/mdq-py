@@ -193,15 +193,6 @@ def test_tab_after_marker_is_not_kept_in_choice_text():
     assert q.choices[0] == "Tabbed"
 
 
-def test_from_mdq_with_unset_score_raises_clear_error():
-    question = MultipleChoiceQuestion(
-        stem="Q",
-        choices=[ScoredChoice(text="a"), ScoredChoice(text="b", score=1.0)],
-    )
-    with pytest.raises(ValueError):
-        Aiken().from_mdq(question)
-
-
 def test_more_than_26_choices_raises_clear_error():
     choices = [
         ScoredChoice(text=f"choice {i}", score=1.0 if i == 0 else 0.0)

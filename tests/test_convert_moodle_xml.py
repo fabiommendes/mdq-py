@@ -53,6 +53,17 @@ from mdq.models import (
 )
 
 
+def _plain_pattern() -> st.SearchStrategy[str]:
+    """
+    An `accept` pattern that is a plain literal and survives a Moodle round trip: no
+    leading `/` or backtick, and not a lone `*` (Moodle imports `*` with fraction 100
+    as the regex `/.*/`).
+    """
+    return mdq_text(max_size=15).filter(
+        lambda text: not text.startswith(("/", "`")) and text != "*"
+    )
+
+
 def parse(source: str) -> MoodleXmlQuestion:
     return MoodleXmlParser(source).parse()
 
@@ -524,7 +535,7 @@ def test_to_mdq_shortanswer_becomes_short_answer():
     )
     question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
     assert isinstance(question, ShortAnswerQuestion)
-    assert question.one_of == ["Amazon", "Amazon River"]
+    assert [p.pattern for p in question.effective_accept()] == ["Amazon", "Amazon River"]
 
 
 def test_to_mdq_numerical_with_tolerance():
@@ -716,14 +727,6 @@ def test_from_mdq_multiple_choice():
     assert block.answers[1].fraction == 0.0
 
 
-def test_from_mdq_multiple_choice_missing_score_raises():
-    question = MultipleChoiceQuestion(
-        stem="Q", choices=[ScoredChoice(text="a"), ScoredChoice(text="b", score=1.0)]
-    )
-    with pytest.raises(ValueError):
-        MoodleXml().from_mdq(question)
-
-
 def test_from_mdq_multiple_selection_uses_split_fractions():
     question = MultipleSelectionQuestion(
         stem="Select all Brazilian biomes.",
@@ -810,7 +813,7 @@ def test_from_mdq_numeric_rational_string_answer():
 
 def test_from_mdq_short_answer():
     question = ShortAnswerQuestion(
-        stem="Name Brazil's longest river.", one_of=["Amazon", "Amazon River"]
+        stem="Name Brazil's longest river.", accept=["Amazon", "Amazon River"]
     )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks
@@ -818,8 +821,15 @@ def test_from_mdq_short_answer():
     assert [a.text for a in block.answers] == ["Amazon", "Amazon River"]
 
 
-def test_from_mdq_short_answer_without_one_of_raises():
-    question = ShortAnswerQuestion(stem="Q", open_ended=True)
+def test_from_mdq_short_answer_without_accept_raises():
+    """A question with no `accept` is manual: the format cannot express a pending response."""
+    question = ShortAnswerQuestion(stem="Q")
+    with pytest.raises(ValueError, match="(?i)unmatched|manual"):
+        MoodleXml().from_mdq(question)
+
+
+def test_from_mdq_short_answer_with_regex_accept_raises():
+    question = ShortAnswerQuestion(stem="Q", accept=["/Amaz[oô]nia/"])
     with pytest.raises(ValueError):
         MoodleXml().from_mdq(question)
 
@@ -1023,13 +1033,13 @@ def test_full_round_trip_numeric():
 
 def test_full_round_trip_short_answer():
     question = ShortAnswerQuestion(
-        stem="Name Brazil's longest river.", one_of=["Amazon", "Amazon River"]
+        stem="Name Brazil's longest river.", accept=["Amazon", "Amazon River"]
     )
     converter = MoodleXml()
     source = converter.render(converter.from_mdq(question))
     roundtripped = converter.to_mdq(converter.parse(source))
     assert isinstance(roundtripped, ShortAnswerQuestion)
-    assert roundtripped.one_of == question.one_of
+    assert roundtripped.effective_accept() == question.effective_accept()
 
 
 def test_full_round_trip_essay():
@@ -1108,17 +1118,17 @@ def test_multiple_choice_round_trips_through_moodle_xml(
 
 @given(
     stem=mdq_text(),
-    one_of=st.lists(mdq_text(max_size=15), min_size=1, max_size=3),
+    accept=st.lists(_plain_pattern(), min_size=1, max_size=3),
 )
 def test_short_answer_round_trips_through_moodle_xml(
-    stem: str, one_of: list[str]
+    stem: str, accept: list[str]
 ) -> None:
-    question = ShortAnswerQuestion(stem=stem, one_of=one_of)
+    question = ShortAnswerQuestion(stem=stem, accept=accept)
     converter = MoodleXml()
     source = converter.render(converter.from_mdq(question))
     roundtripped = converter.to_mdq(converter.parse(source))
     assert isinstance(roundtripped, ShortAnswerQuestion)
-    assert roundtripped.one_of == question.one_of
+    assert roundtripped.effective_accept() == question.effective_accept()
 
 
 @given(

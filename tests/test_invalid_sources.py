@@ -16,7 +16,14 @@ from pathlib import Path
 import pytest
 
 from mdq import load
-from _corpus import INVALID_SOURCES, parsed_sibling, relative_id
+from _corpus import (
+    INVALID_MODEL_ONLY_PARSED,
+    INVALID_PARSED,
+    INVALID_SOURCES,
+    INVALID_SYNTAX,
+    parsed_sibling,
+    relative_id,
+)
 
 
 def _lint_json(source: Path) -> Path:
@@ -53,3 +60,34 @@ def test_invalid_yaml_sibling_reports_the_same_diagnostics(source: Path) -> None
     if not sibling.exists():
         pytest.skip("no .yaml sibling")
     assert _diagnostics(sibling) == _expected(source)
+
+
+# ---------------------------------------------------------------------
+# Invalid examples written directly as `.yaml`, with no Markdown source.
+# They pin their diagnostics the same way, in a `.lint.json` of their own.
+# ---------------------------------------------------------------------
+
+INVALID_PARSED_ONLY = [
+    path
+    for path in INVALID_PARSED + INVALID_MODEL_ONLY_PARSED + INVALID_SYNTAX
+    if not path.with_name(path.name.removesuffix(path.suffix) + ".mdq.md").exists()
+]
+
+
+def _parsed_lint_json(path: Path) -> Path:
+    return path.with_name(path.name.removesuffix(path.suffix) + ".lint.json")
+
+
+def test_there_are_invalid_parsed_only_examples() -> None:
+    assert INVALID_PARSED_ONLY
+
+
+@pytest.mark.parametrize(
+    "path", INVALID_PARSED_ONLY, ids=[relative_id(p) for p in INVALID_PARSED_ONLY]
+)
+def test_invalid_parsed_only_example_reports_its_lint_json(path: Path) -> None:
+    lint_json = _parsed_lint_json(path)
+    assert lint_json.exists(), f"{path.name} has no .lint.json"
+    entries = json.loads(lint_json.read_text(encoding="utf-8"))
+    expected = Counter(json.dumps(entry, sort_keys=True) for entry in entries)
+    assert _diagnostics(path) == expected

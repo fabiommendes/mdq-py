@@ -242,17 +242,13 @@ def _load_text(
             data = _parser.load_yaml(text)
         except yaml.YAMLError as exc:
             return Loaded(None, [_syntax_error("yaml-syntax-error", exc)])
-        return _load_data(
-            data if isinstance(data, dict) else {}, kind=kind, ids=ids
-        )
+        return _load_data(data, kind=kind, ids=ids)
     if fmt == "json":
         try:
             data = json.loads(text, object_pairs_hook=_json_object)
         except ValueError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
-        return _load_data(
-            data if isinstance(data, dict) else {}, kind=kind, ids=ids
-        )
+        return _load_data(data, kind=kind, ids=ids)
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
 
 
@@ -355,7 +351,10 @@ def _parse_error(exc: MdqError) -> Diagnostic:
     if node is not None and node.map is not None:
         line = node.map[0] + 1
     code = getattr(exc, "code", "parse-error")
-    return Diagnostic(severity="error", code=code, message=str(exc), line=line)
+    path = getattr(exc, "path", ())
+    return Diagnostic(
+        severity="error", code=code, message=str(exc), line=line, path=path
+    )
 
 
 # ---------------------------------------------------------------------
@@ -395,6 +394,11 @@ def _strip_discriminator_tags(
     (`question`, `include`, `include-all`) is dropped too. It cannot be
     told apart by walking `data`, since an include block has a key of
     the same name.
+
+    A plain (non-discriminated) union, such as an exam's `grading`, gets
+    one error per member, each with the member's type label in its `loc`
+    (`literal['symmetric', ...]`, `dict[...]`). A label is never a key of
+    the document, so it is dropped as well.
     """
     path: list[str | int] = []
     node = data
@@ -407,12 +411,24 @@ def _strip_discriminator_tags(
             continue
         if exam_entries and _is_exam_entry_tag(loc, index):
             continue
+        if isinstance(segment, str) and _is_union_member_label(segment):
+            continue
         path.append(segment)
         try:
             node = node[segment]
         except (KeyError, IndexError, TypeError):
             node = None
     return tuple(path)
+
+
+#: Labels pydantic uses for the members of a plain union in an error
+#: `loc`, besides the parametrized forms (`literal[...]`, `dict[...]`),
+#: which carry a `[`.
+_BARE_UNION_LABELS = frozenset({"str", "int", "float", "bool", "none", "dict", "list"})
+
+
+def _is_union_member_label(segment: str) -> bool:
+    return "[" in segment or segment in _BARE_UNION_LABELS
 
 
 #: pydantic's own error types (`missing`, `extra_forbidden`,
@@ -429,15 +445,24 @@ def _pydantic_error_code(error_type: str) -> str:
 def _pydantic_diagnostics(
     exc: PydanticValidationError, data: Any, *, exam: bool = False
 ) -> list[Diagnostic]:
-    return [
-        Diagnostic(
-            severity="error",
-            code=_pydantic_error_code(str(error["type"])),
-            message=error["msg"],
-            path=_strip_discriminator_tags(tuple(error["loc"]), data, exam_entries=exam),
+    """
+    One `Diagnostic` per pydantic error. A plain union reports one error
+    per member for the same value; once the member labels are stripped
+    from `loc`, those collapse into one diagnostic per code and path,
+    keeping the first message.
+    """
+    diagnostics: list[Diagnostic] = []
+    seen: set[tuple[str, tuple[str | int, ...]]] = set()
+    for error in exc.errors():
+        code = _pydantic_error_code(str(error["type"]))
+        path = _strip_discriminator_tags(tuple(error["loc"]), data, exam_entries=exam)
+        if (code, path) in seen:
+            continue
+        seen.add((code, path))
+        diagnostics.append(
+            Diagnostic(severity="error", code=code, message=error["msg"], path=path)
         )
-        for error in exc.errors()
-    ]
+    return diagnostics
 
 
 def _load_question(

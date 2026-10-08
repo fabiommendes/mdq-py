@@ -46,9 +46,7 @@ _PROPOSED_CODES: dict[str, str] = {
     "missing-answer-key": "missing-answer-key",
     "domain-mismatch": "domain-mismatch",
     "missing-tolerance": "missing-tolerance",
-    "accept-wildcard": "accept-wildcard",
     "ignored-regex-flag": "ignored-regex-flag",
-    "unreachable-reject": "unreachable-reject",
 }
 
 
@@ -581,29 +579,6 @@ def test_decimal_answer_with_tolerance_does_not_warn() -> None:
     assert _PROPOSED_CODES["missing-tolerance"] not in _codes(question.lint())
 
 
-# --- short-answer.md:383 accept holds a `*` wildcard ---------------------
-
-
-def test_accept_wildcard_warns() -> None:
-    doc = {
-        "type": "short-answer",
-        "stem": "Qual é a capital do Brasil?",
-        "accept": ["Brasília", "*"],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["accept-wildcard"] in _codes(question.lint())
-
-
-def test_accept_without_wildcard_does_not_warn() -> None:
-    doc = {
-        "type": "short-answer",
-        "stem": "Qual é a capital do Brasil?",
-        "accept": ["Brasília"],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["accept-wildcard"] not in _codes(question.lint())
-
-
 # --- short-answer.md:385 regex flag accepted but ignored -----------------
 
 
@@ -613,7 +588,7 @@ def test_ignored_regex_flag_reports_info() -> None:
     doc = {
         "type": "short-answer",
         "stem": "Qual é a capital do Brasil?",
-        "regex": "/Bras[íi]lia/m",
+        "accept": ["/Bras[íi]lia/m"],
     }
     question = _load_ok(doc)
     assert _PROPOSED_CODES["ignored-regex-flag"] in _codes(question.lint())
@@ -623,35 +598,10 @@ def test_meaningful_regex_flag_does_not_warn() -> None:
     doc = {
         "type": "short-answer",
         "stem": "Qual é a capital do Brasil?",
-        "regex": "/Bras[íi]lia/i",
+        "accept": ["/Bras[íi]lia/i"],
     }
     question = _load_ok(doc)
     assert _PROPOSED_CODES["ignored-regex-flag"] not in _codes(question.lint())
-
-
-# --- short-answer.md:386 reject `*` not the last item --------------------
-
-
-def test_reject_wildcard_not_last_reports_unreachable() -> None:
-    doc = {
-        "type": "short-answer",
-        "stem": "Qual é a capital do Brasil?",
-        "accept": ["Brasília"],
-        "reject": ["*", "Rio de Janeiro"],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["unreachable-reject"] in _codes(question.lint())
-
-
-def test_reject_wildcard_last_does_not_warn() -> None:
-    doc = {
-        "type": "short-answer",
-        "stem": "Qual é a capital do Brasil?",
-        "accept": ["Brasília"],
-        "reject": ["Rio de Janeiro", "*"],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["unreachable-reject"] not in _codes(question.lint())
 
 
 # =======================================================================
@@ -709,7 +659,7 @@ def test_blank_marker_outside_a_plain_text_run_is_an_error() -> None:
         "type": "fill-in",
         "stem": "A capital do Brasil é **[^capital]**.",
         "blanks": [
-            {"id": "capital", "type": "short-answer", "oneOf": ["Brasília"]},
+            {"id": "capital", "type": "short-answer", "accept": ["Brasília"]},
         ],
     }
     loaded = load(doc)
@@ -725,7 +675,7 @@ def test_blank_marker_outside_a_plain_text_run_is_an_error() -> None:
 def test_true_false_marker_disagreeing_with_correct_is_an_error() -> None:
     """
     true-false.md:210: the marker must agree with `correct` according to
-    its category (TRUE/FALSE/PROVISIONAL). Here `marker: "F"` (a FALSE
+    its category (TRUE/FALSE/WARNING-category). Here `marker: "F"` (a FALSE
     marker) is paired with `correct: true` -- a direct contradiction.
     """
     doc = {

@@ -64,9 +64,8 @@ _RENDER_MD = MarkdownIt("gfm-like")
 # true-false.md: `T`, `V`, `S` and the CJK characters 对/真 always mean
 # true; `F` and the CJK characters 错/偽 always mean false. Any other
 # letter (besides the reserved `X`, rejected at the model layer) is
-# PROVISIONAL -- it reads as true today, but the document says compliant
-# implementations SHOULD warn, since a future revision of the spec may
-# reassign it.
+# in the WARNING category -- it is in neither list and reads as true, and
+# compliant implementations SHOULD warn about it.
 #
 # Public (not `_`-prefixed): `mdq.models`'s TrueFalseQuestion validator
 # (true-false.md:210, "marker agrees with correct") also classifies a
@@ -139,7 +138,11 @@ def check_blank_text_field(value: str | None, field_name: str) -> list[Diagnosti
     `comment`, `answerKey`) -- `preamble`/`epilogue`/`stem` raise
     `blank-text-field` as a model error instead (`mdq.models`).
     """
-    if value is None or value.strip() != "":
+    # A visible character is neither white space nor an invisible format
+    # character such as U+200B.
+    if value is None or any(
+        not (c.isspace() or unicodedata.category(c) == "Cf") for c in value
+    ):
         return []
     return [
         Diagnostic(
@@ -292,24 +295,62 @@ def check_stem_is_a_paragraph(stem: str) -> list[Diagnostic]:
     return []
 
 
-def check_stem_ellipsis_expanded(stem: str) -> list[Diagnostic]:
+def check_setext_heading(
+    text: str | None, path: tuple[str | int, ...]
+) -> list[Diagnostic]:
     """
-    generic.md: a stem of a single ellipsis MAY be replaced by a default
-    statement for the question type -- flag the ones that never were.
+    exam.md, "Questions": a `---` or `===` line right after text is a
+    setext heading underline in CommonMark, not a block boundary, so a
+    frontmatter or include block glued to a paragraph is swallowed into
+    the text before it. One warning per field, at the first heading.
+    The model only sees the exam's `instructions` verbatim; the question
+    parser rewrites a setext heading in a question, so `parse_exam`
+    reports those from the raw lines.
     """
-    if stem.strip() not in ("...", "…"):
+    if not text:
         return []
-    return [
-        Diagnostic(
-            severity="info",
-            code="unexpanded-stem-ellipsis",
-            path=("stem",),
-            message=(
-                "stem is a bare ellipsis; it was never replaced by a "
-                "default statement for the question type"
-            ),
-        )
-    ]
+    for token in _RENDER_MD.parse(text):
+        if token.type == "heading_open" and token.level == 0 and token.markup in ("-", "="):
+            return [
+                Diagnostic(
+                    severity="warning",
+                    code="setext-heading",
+                    path=path,
+                    message=(
+                        f"a {token.markup * 3!r} line right after text is a "
+                        "setext heading, not a block boundary; put a blank "
+                        "line before the '---' that opens a block"
+                    ),
+                )
+            ]
+    return []
+
+
+def check_unsafe_thematic_break(
+    text: str | None, path: tuple[str | int, ...]
+) -> list[Diagnostic]:
+    """
+    exam.md, "Questions": a thematic break written with `-` (`---`,
+    `- - -`, ...) changes meaning inside an exam, where a `---` line
+    opens a block. One warning per field. A `---` right after text is a
+    setext underline, which `check_setext_heading` reports instead.
+    """
+    if not text:
+        return []
+    for token in _RENDER_MD.parse(text):
+        if token.type == "hr" and token.markup.startswith("-"):
+            return [
+                Diagnostic(
+                    severity="warning",
+                    code="unsafe-thematic-break",
+                    path=path,
+                    message=(
+                        "'---' is a thematic break here, but inside an exam a "
+                        "'---' line opens a block; write '***' or '___'"
+                    ),
+                )
+            ]
+    return []
 
 
 def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
@@ -391,8 +432,7 @@ def check_choice_ids_defined(
                     code="missing-choice-id",
                     path=path + (index, "id"),
                     message=(
-                        "choice has no explicit id; one will be derived "
-                        "from its text"
+                        "choice has no explicit id; one will be derived from its text"
                     ),
                 )
             )
@@ -448,7 +488,9 @@ def check_multiple_choice_answers(
     fill-in choice blank -- graded like multiple-choice, so the same
     rules apply (fill-in.md, "Additional Rules").
     """
-    correct = [index for index, choice in enumerate(choices) if (choice.score or 0) >= 1]
+    correct = [
+        index for index, choice in enumerate(choices) if (choice.score or 0) >= 1
+    ]
 
     if not correct:
         return [
@@ -526,8 +568,8 @@ def check_true_false_markers(
     locale: str | None,
 ) -> list[Diagnostic]:
     """
-    true-false.md: PROVISIONAL letters SHOULD warn, since a later
-    revision may reassign them; implementations MAY warn when the letter
+    true-false.md: WARNING letters (in neither the true nor the false
+    list, read as true) SHOULD warn; implementations MAY warn when the letter
     doesn't match the question's locale; and `S` under `locale: id`
     SHOULD get an escalated warning, since it reads as true globally but
     is the initial letter of Indonesian "salah" (false) -- a document
@@ -554,7 +596,7 @@ def check_true_false_markers(
                     path=("choices", index, "marker"),
                     message=(
                         f"{marker!r} means true (see true-false.md), but is "
-                        f"the initial letter of Indonesian \"salah\" "
+                        f'the initial letter of Indonesian "salah" '
                         f"(false); if this choice was meant to be false, "
                         f"use 'F' instead"
                     ),
@@ -566,12 +608,11 @@ def check_true_false_markers(
             warnings.append(
                 Diagnostic(
                     severity="warning",
-                    code="provisional-true-false-marker",
+                    code="unlisted-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
-                        f"{marker!r} is a PROVISIONAL letter: it reads as "
-                        f"true today, but a future revision of the spec may "
-                        f"reassign it"
+                        f"{marker!r} is in neither the true nor the false "
+                        f"marker list: it reads as true"
                     ),
                 )
             )
@@ -598,7 +639,9 @@ def check_true_false_markers(
     return warnings
 
 
-def check_true_false_marker_nfc(choices: Sequence[_choice.Statement]) -> list[Diagnostic]:
+def check_true_false_marker_nfc(
+    choices: Sequence[_choice.Statement],
+) -> list[Diagnostic]:
     """
     true-false.md:219: a marker is one code point by the field's own
     shape, but that code point should also be its own NFC form -- one
@@ -626,7 +669,9 @@ def check_true_false_marker_nfc(choices: Sequence[_choice.Statement]) -> list[Di
     return warnings
 
 
-def check_true_false_uniform_answers(choices: Sequence[_choice.Statement]) -> list[Diagnostic]:
+def check_true_false_uniform_answers(
+    choices: Sequence[_choice.Statement],
+) -> list[Diagnostic]:
     """
     true-false.md:218: a question whose statements are all true or all
     false is usually an authoring mistake -- a well-formed question
@@ -700,7 +745,7 @@ def check_essay_highlight(input_kind: str, highlight: str | None) -> list[Diagno
             Diagnostic(
                 severity="info",
                 code="code-input-without-highlight",
-                path=("input",),
+                path=("highlight",),
                 message=(
                     "input is 'code' but no 'highlight' language is given, "
                     "so the editor cannot highlight the answer"
@@ -728,90 +773,70 @@ def check_missing_answer_key(answer_key: str | None) -> list[Diagnostic]:
 
 def check_short_answer(
     *,
-    regex: str | None,
-    one_of: list[str] | None,
     accept: "list[_text.AnswerPattern] | None",
     reject: "list[_text.AnswerPattern] | None" = None,
-    open_ended: bool,
+    pre_accept: "list[_text.AnswerPattern] | None" = None,
+    pre_reject: "list[_text.AnswerPattern] | None" = None,
     path: tuple[Union[str, int], ...],
 ) -> list[Diagnostic]:
     """
-    short-answer.md: `regex` takes precedence over the body's answers.
-    A question with none of `regex`/`oneOf`/`accept` and no `openEnded`
-    flag cannot be graded either way.
+    short-answer.md, "Additional Rules": the regex lints
+    (`redundant-regex-anchor`, `ignored-regex-flag`) over the four
+    pattern lists.
 
-    Whether `regex` and every `/`-delimited pattern in `accept`/`reject`/
-    `preAccept`/`preReject` compile is a model error now
+    Diagnostics use the frontmatter key: `path + ("preAccept", index)`.
+
+    Whether every `/`-delimited pattern in `accept`/`reject`/
+    `preAccept`/`preReject` compiles is a model error
     (`invalid-regex` -- dev/specs/to-do/lint-on-models.md), not checked
     here.
     """
     warnings: list[Diagnostic] = []
+    warnings.extend(_check_pattern_list(accept, "accept", path=path))
+    warnings.extend(_check_pattern_list(pre_accept, "preAccept", path=path))
+    warnings.extend(_check_pattern_list(reject, "reject", path=path))
+    warnings.extend(_check_pattern_list(pre_reject, "preReject", path=path))
+    return warnings
 
-    if regex is not None:
-        if one_of:
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="shadowed-answers",
-                    path=path + ("oneOf",),
-                    message=(
-                        "'regex' takes precedence, so these accepted "
-                        "answers are never used"
-                    ),
-                )
-            )
 
-        warnings.extend(_check_redundant_regex_anchor(regex, path + ("regex",)))
-        warnings.extend(_check_ignored_regex_flags(regex, path + ("regex",)))
-
-    if not open_ended and regex is None and not one_of and not accept:
-        warnings.append(
-            Diagnostic(
-                severity="warning",
-                code="short-answer-not-gradable",
-                path=path,
-                message=(
-                    "no 'accept' patterns, no 'oneOf' answers and no 'regex' "
-                    "are given, but the question is not marked 'openEnded'; "
-                    "nothing can grade it"
-                ),
-            )
+def check_no_correct_answer(
+    *,
+    accept: "list[_text.AnswerPattern] | None",
+    unmatched: str,
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """
+    short-answer.md, "Additional Rules": `unmatched` is `"incorrect"`
+    but there is no `accept` pattern, so no response can be correct
+    (`no-correct-answer`). `unmatched` is the effective value.
+    """
+    if unmatched != "incorrect" or accept:
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="no-correct-answer",
+            path=path,
+            message=(
+                "'unmatched' is 'incorrect' but no 'accept' pattern is given: "
+                "no response can be correct"
+            ),
         )
+    ]
 
-    for index, pattern in enumerate(accept or []):
-        if pattern.pattern.strip() == "*":
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="accept-wildcard",
-                    path=path + ("accept", index),
-                    message=(
-                        "'*' accepts every response, defeating the purpose "
-                        "of an answer key"
-                    ),
-                )
-            )
-        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, path + ("accept", index)))
-        warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("accept", index)))
 
-    reject_list = reject or []
-    last_index = len(reject_list) - 1
-    for index, pattern in enumerate(reject_list):
-        if pattern.pattern.strip() == "*" and index != last_index:
-            warnings.append(
-                Diagnostic(
-                    severity="info",
-                    code="unreachable-reject",
-                    path=path + ("reject", index),
-                    message=(
-                        f"'*' rejects every response; reject[{index + 1}:] "
-                        f"is never reached"
-                    ),
-                )
-            )
-        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, path + ("reject", index)))
-        warnings.extend(_check_ignored_regex_flags(pattern.pattern, path + ("reject", index)))
-
+def _check_pattern_list(
+    patterns: "list[_text.AnswerPattern] | None",
+    key: str,
+    *,
+    path: tuple[Union[str, int], ...],
+) -> list[Diagnostic]:
+    """Lints one pattern list, named by its frontmatter `key`: the regex lints of every entry."""
+    warnings: list[Diagnostic] = []
+    for index, pattern in enumerate(patterns or []):
+        item_path = path + (key, index)
+        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, item_path))
+        warnings.extend(_check_ignored_regex_flags(pattern.pattern, item_path))
     return warnings
 
 
@@ -822,10 +847,9 @@ def _check_redundant_regex_anchor(
     short-answer.md, "Regex flags": a leading `^` is implicit unless the
     `f` flag is set, and a trailing `$` is implicit unless `f` or `b` is
     set. A `$` preceded by an odd number of backslashes is a literal.
-    Only a `/`-delimited entry is a regex; the `regex` field may be raw.
+    Only a `/`-delimited entry is a regex.
     """
-    is_field = path[-1] == "regex"
-    if not is_field and not pattern.strip().startswith("/"):
+    if not pattern.strip().startswith("/"):
         return []
     try:
         body, raw_flags = parse_regex(pattern)
@@ -880,29 +904,6 @@ def _check_ignored_regex_flags(
 
 
 _DOMAIN_RANK: dict[str, int] = {"integer": 0, "fraction": 1, "decimal": 2}
-
-
-def _accepted_numeric_domains(
-    answer: int | float | str, tolerance: "_numeric.Tolerance | None"
-) -> set[str]:
-    """
-    numeric.md, "Number type/domain": the declared domains that do not
-    contradict the answer. That is the higher of the answer's domain and
-    the absolute tolerance's (integer < fraction < decimal).
-
-    An integer answer also agrees with `fraction` (numeric.md, "Answer
-    representation": with `domain: fraction`, the answer is a fraction
-    string or an integer). A number that is not whole is a decimal only.
-    """
-    own: set[str] = {_infer_numeric_domain(answer)}
-    if own == {"integer"}:
-        own.add("fraction")
-    if tolerance is None or tolerance.absolute is None:
-        return own
-    tolerance_domain = _infer_numeric_domain(tolerance.absolute)
-    if _DOMAIN_RANK[tolerance_domain] > min(_DOMAIN_RANK[d] for d in own):
-        return {tolerance_domain}
-    return own
 
 
 def _effective_numeric_domain(
@@ -961,7 +962,7 @@ def check_numeric(
     """
     warnings: list[Diagnostic] = []
     inferred_domain = _infer_numeric_domain(answer)
-    accepted_domains = _accepted_numeric_domains(answer, tolerance)
+    needed_domain = _effective_numeric_domain(answer, None, tolerance)
     # A string answer is already grammar-validated, so `Fraction` accepts it.
     value: Fraction | float = Fraction(answer) if isinstance(answer, str) else answer
 
@@ -978,15 +979,16 @@ def check_numeric(
             )
         )
 
-    if domain is not None and domain not in accepted_domains:
+    if domain is not None and _DOMAIN_RANK[domain] < _DOMAIN_RANK[needed_domain]:
         warnings.append(
             Diagnostic(
                 severity="info",
                 code="domain-mismatch",
                 path=path + ("domain",),
                 message=(
-                    f"domain is {domain!r}, but the answer {answer!r} is "
-                    f"written as a {' or '.join(sorted(accepted_domains))} value"
+                    f"domain is {domain!r}, which is narrower than the "
+                    f"{needed_domain!r} the answer {answer!r} and its "
+                    f"tolerance need"
                 ),
             )
         )
@@ -1217,7 +1219,9 @@ def check_ordering_redundant_strict_indentation(
     ]
 
 
-def check_ordering_blank_lines(question: _ordering.OrderingQuestion) -> list[Diagnostic]:
+def check_ordering_blank_lines(
+    question: _ordering.OrderingQuestion,
+) -> list[Diagnostic]:
     """
     ordering.md#additional-rules: a blank `lines`/`extra` entry should
     only appear when `skip-blanks` is normalized -- otherwise it counts

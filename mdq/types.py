@@ -28,12 +28,12 @@ QuestionType = Literal[
 #: `symmetric` may go below zero; `partial` stays within [0, 1] while
 #: still awarding credit for parts; `all-or-nothing` returns 1 or 0.
 #: `partial` names a range, not one formula -- each question type
-#: defines its own (see docs/adr/0002-partial-names-a-range-not-an-algorithm.md).
+#: defines its own (see docs/question-types/*.md, "Grading").
 GradingStrategy = Literal["symmetric", "partial", "all-or-nothing"]
 
 #: The question types that choose a grading strategy. The other types
 #: grade by a fixed rule and take no `grading` field. On these types,
-#: `grading` is `None` when the question declares none, so the exam's
+#: `grading` is `"inherit"` when the question declares none, so the exam's
 #: `grading` applies to it, and `symmetric` applies when neither does.
 #: An explicit `symmetric` is kept, since the exam cannot override it.
 GradedQuestionType = Literal[
@@ -43,6 +43,14 @@ GradedQuestionType = Literal[
     "fill-in",
 ]
 
+#: The `grading` of a question: a strategy of its own, or `inherit` to
+#: take the exam's.
+QuestionGrading = GradingStrategy | Literal["inherit"]
+
+#: The `shuffle` of a question: a value of its own, or `inherit` to take
+#: the exam's.
+QuestionShuffle = bool | Literal["inherit"]
+
 #: An exam's grading strategy: one for every question it holds, or one
 #: per question type. Types missing from the mapping grade as
 #: `symmetric`, and a question that declares its own `grading` ignores
@@ -50,9 +58,19 @@ GradedQuestionType = Literal[
 ExamGrading = GradingStrategy | dict[GradedQuestionType, GradingStrategy]
 
 #: How inexact literals treat diacritics: `fold` strips them before
-#: comparing, `keep` preserves them. Regexes, exact literals and the `*`
-#: wildcard ignore it (docs/question-types/short-answer.md § Diacritics).
+#: comparing, `keep` preserves them. Regexes and exact literals ignore it
+#: (docs/question-types/short-answer.md § Diacritics).
 Diacritics = Literal["fold", "keep"]
+
+#: What becomes of a response that matches no answer key: `manual` leaves
+#: it pending, for a human, and `incorrect` scores it 0. Shared by
+#: short-answer (and its fill-in blanks) and ordering.
+Unmatched = Literal["manual", "incorrect"]
+
+#: How many responses a question settles without the instructor
+#: (docs/question-types/base.md § Automation). A derived property of the
+#: models, never a field of the document.
+Automation = Literal["automatic", "semi-automatic", "manual"]
 
 
 QUESTION_TYPES = set(get_args(QuestionType))
@@ -179,8 +197,8 @@ class MultipleChoiceQuestionDict(QuestionBaseDict, total=False):
 
     type: Required[Literal["multiple-choice"]]
     choices: Required[list[ScoredChoiceDict]]
-    shuffle: bool
-    grading: GradingStrategy
+    shuffle: QuestionShuffle
+    grading: QuestionGrading
 
 
 class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
@@ -188,8 +206,8 @@ class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
 
     type: Required[Literal["multiple-selection"]]
     choices: Required[list[BooleanChoiceDict]]
-    shuffle: bool
-    grading: GradingStrategy
+    shuffle: QuestionShuffle
+    grading: QuestionGrading
 
 
 class TrueFalseQuestionDict(QuestionBaseDict, total=False):
@@ -197,8 +215,8 @@ class TrueFalseQuestionDict(QuestionBaseDict, total=False):
 
     type: Required[Literal["true-false"]]
     choices: Required[list[StatementDict]]
-    shuffle: bool
-    grading: GradingStrategy
+    shuffle: QuestionShuffle
+    grading: QuestionGrading
 
 
 class NumericQuestionDict(QuestionBaseDict, total=False):
@@ -230,14 +248,13 @@ class ShortAnswerQuestionDict(QuestionBaseDict, total=False):
     """schema/short-answer.yaml"""
 
     type: Required[Literal["short-answer"]]
-    oneOf: list[str]
-    regex: str
-    openEnded: bool
     accept: list[PatternEntry]
     reject: list[PatternEntry]
     preAccept: list[PatternEntry]
     preReject: list[PatternEntry]
     diacritics: Diacritics
+    unmatched: Unmatched
+    incorrectFeedback: str
 
 
 class EssayQuestionDict(QuestionBaseDict, total=False):
@@ -254,9 +271,10 @@ class FillInQuestionDict(QuestionBaseDict, total=False):
 
     type: Required[Literal["fill-in"]]
     blanks: Required[list[BlankDict]]
-    shuffle: bool
-    grading: GradingStrategy
+    shuffle: QuestionShuffle
+    grading: QuestionGrading
     diacritics: Diacritics
+    unmatched: Unmatched
 
 
 #: schema/fill-in.yaml#/$defs/Blank -- discriminated by `type`.
@@ -276,8 +294,6 @@ class ShortAnswerBlankDict(TypedDict, total=False):
 
     id: Required[str]
     type: Required[Literal["short-answer"]]
-    oneOf: list[str]
-    regex: str
     accept: list[PatternEntry]
     reject: list[PatternEntry]
     preAccept: list[PatternEntry]
@@ -342,7 +358,7 @@ class BooleanChoiceDict(TypedDict, total=False):
 
     id: str
     text: Required[str]
-    correct: bool
+    correct: Required[bool]
     feedback: str
     comment: str
 
@@ -352,7 +368,7 @@ class StatementDict(TypedDict, total=False):
 
     id: str
     text: Required[str]
-    correct: bool
+    correct: Required[bool]
     marker: str
     feedback: str
     comment: str
@@ -380,10 +396,6 @@ OrderingContent = Literal["code", "text"]
 #: `dedent` normalization.
 Indentation = Literal["fixed", "lenient", "strict"]
 
-#: What becomes of an ordering response that matches no answer key:
-#: `manual` leaves it for a human, `incorrect` scores it 0.
-Unmatched = Literal["manual", "incorrect"]
-
 #: A transformation applied to both sides of every ordering comparison --
 #: the response and each answer key alike -- before they are matched.
 Normalization = Literal["dedent", "skip-blanks"]
@@ -391,7 +403,7 @@ Normalization = Literal["dedent", "skip-blanks"]
 #: An exam's policy for whether a negative question score survives.
 #: Questions never clamp their own score -- this is the only place
 #: clamping happens (see
-#: docs/adr/0001-score-scale-and-exam-level-clamping.md).
+#: docs/exam.md, "Penalty").
 PenaltyPolicy = Literal["none", "capped", "full"]
 
 
@@ -400,7 +412,7 @@ PenaltyPolicy = Literal["none", "capped", "full"]
 #
 # A response is what a student marked. It is never a document: there is
 # no response schema and no Markdown surface for it (see
-# docs/adr/0003-no-response-document.md), so these aliases are the whole
+# docs/responses.md), so these aliases are the whole
 # specification of the shape grading accepts.
 #
 # Several aliases below collapse to the same runtime type -- `str` serves
@@ -446,8 +458,9 @@ type TrueFalseResponse = dict[str, bool | None]
 #: normalisation.
 type TextResponse = str
 
-#: numeric: the value the student entered.
-type NumericResponse = int | float | Fraction
+#: numeric: the value the student entered. A string spells an exact
+#: decimal or fraction ("3.1415", "1/3"), see responses.md, "Numeric".
+type NumericResponse = int | float | Fraction | str
 
 #: fill-in: each blank's response, keyed by blank id, taking whatever
 #: that blank's own type takes.

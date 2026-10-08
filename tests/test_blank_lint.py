@@ -101,7 +101,7 @@ def test_choice_blank_rules_apply_to_the_second_blank_path() -> None:
         "title": "Biomas",
         "stem": "O [^a] e o [^b] são biomas brasileiros.",
         "blanks": [
-            {"id": "a", "type": "short-answer", "oneOf": ["Cerrado"]},
+            {"id": "a", "type": "short-answer", "accept": ["Cerrado"]},
             {
                 "id": "b",
                 "type": "multiple-choice",

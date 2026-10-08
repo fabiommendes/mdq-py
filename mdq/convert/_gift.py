@@ -21,9 +21,13 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ._base import (
+    effective_scores,
     TRUE_FALSE_FALLBACK_STEM,
     ConversionBase,
     float_answer,
+    literal_answers,
+    literal_pattern,
+    require_automatic,
     format_moodle_percent,
     mdq_numeric_answer,
     moodle_grade,
@@ -220,17 +224,14 @@ class GiftEncoder:
         raise ValueError(f"GIFT does not support {question.type!r} questions")
 
     def block_from_choice(self, question: MultipleChoiceQuestion) -> GiftBlock:
-        options = []
-        for choice in question.choices:
-            if choice.score is None:
-                raise ValueError("cannot convert to GIFT: every choice must have a score")
-            options.append(
-                GiftOption(
-                    text=choice.text,
-                    credit=moodle_score(choice.score, format="GIFT"),
-                    feedback=choice.feedback,
-                )
+        options = [
+            GiftOption(
+                text=choice.text,
+                credit=moodle_score(score, format="GIFT"),
+                feedback=choice.feedback,
             )
+            for choice, score in zip(question.choices, effective_scores(question))
+        ]
         return GiftBlock(
             stem=join_blocks(question.preamble, question.stem),
             answer=GiftChoice(options=options),
@@ -241,12 +242,11 @@ class GiftEncoder:
         )
 
     def block_from_short(self, question: ShortAnswerQuestion) -> GiftBlock:
-        if question.one_of is None:
-            raise ValueError(
-                "cannot convert to GIFT: short-answer question needs `oneOf` "
-                "(regex/accept/openEnded answers are not supported)"
-            )
-        options = [GiftOption(text=answer, credit=1.0) for answer in question.one_of]
+        require_automatic(question, format="GIFT")
+        options = [
+            GiftOption(text=answer, credit=1.0)
+            for answer in literal_answers(question.accept, format="GIFT")
+        ]
         return GiftBlock(
             stem=join_blocks(question.preamble, question.stem),
             answer=GiftShort(options=options),
@@ -261,7 +261,9 @@ class GiftEncoder:
         tolerance = gift_numeric_tolerance(value, question.tolerance)
         return GiftBlock(
             stem=join_blocks(question.preamble, question.stem),
-            answer=GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)]),
+            answer=GiftNumeric(
+                options=[GiftNumericOption(value=value, tolerance=tolerance)]
+            ),
             tail=question.epilogue or "",
             title=question.title,
             comment=question.comment,
@@ -323,17 +325,18 @@ class GiftEncoder:
             ]
             answer: GiftAnswer = GiftChoice(options=choice_options)
         elif isinstance(blank, ShortAnswerBlank):
-            if blank.one_of is None:
-                raise ValueError(
-                    "cannot convert to GIFT: short-answer blank needs `oneOf`"
-                )
             answer = GiftShort(
-                options=[GiftOption(text=answer_text, credit=1.0) for answer_text in blank.one_of]
+                options=[
+                    GiftOption(text=answer_text, credit=1.0)
+                    for answer_text in literal_answers(blank.accept, format="GIFT")
+                ]
             )
         else:
             value = float_answer(blank.answer, blank.tolerance, format="GIFT")
             tolerance = gift_numeric_tolerance(value, blank.tolerance)
-            answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
+            answer = GiftNumeric(
+                options=[GiftNumericOption(value=value, tolerance=tolerance)]
+            )
 
         return GiftBlock(
             stem=join_blocks(question.preamble, stem_part),
@@ -408,7 +411,7 @@ class GiftDecoder:
         if isinstance(answer, GiftShort):
             return ShortAnswerQuestion(
                 stem=block.stem,
-                one_of=[o.text for o in answer.options],
+                accept=[literal_pattern(o.text, format="GIFT") for o in answer.options],
                 title=block.title,
                 comment=block.comment,
             )
@@ -436,11 +439,18 @@ class GiftDecoder:
                 ],
             )
         if isinstance(answer, GiftShort):
-            return ShortAnswerBlank(id="blank", one_of=[o.text for o in answer.options])
+            return ShortAnswerBlank(
+                id="blank",
+                accept=[literal_pattern(o.text, format="GIFT") for o in answer.options],
+            )
         if isinstance(answer, GiftNumeric):
             opt = answer.options[0]
             tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
-            return NumericBlank(id="blank", answer=mdq_numeric_answer(format_num(opt.value)), tolerance=tolerance)
+            return NumericBlank(
+                id="blank",
+                answer=mdq_numeric_answer(format_num(opt.value)),
+                tolerance=tolerance,
+            )
         raise ValueError(
             f"GIFT missing-word tail is not supported for {type(answer).__name__} answers"
         )
@@ -597,7 +607,9 @@ class GiftParser(StringParser[GiftQuestion]):
                 rest = rest[match.end() :]
             hash_pos = find_unescaped(rest, "#")
             text_raw, feedback_raw = (
-                (rest, None) if hash_pos == -1 else (rest[:hash_pos], rest[hash_pos + 1 :])
+                (rest, None)
+                if hash_pos == -1
+                else (rest[:hash_pos], rest[hash_pos + 1 :])
             )
             feedback = unescape_gift(feedback_raw).strip() if feedback_raw else None
             options.append(
@@ -609,7 +621,9 @@ class GiftParser(StringParser[GiftQuestion]):
             )
         return options
 
-    def parse_numeric_options(self, content: str, offset: int) -> list[GiftNumericOption]:
+    def parse_numeric_options(
+        self, content: str, offset: int
+    ) -> list[GiftNumericOption]:
         body = content[1:]
         if find_unescaped(body, "=") == -1:
             value, tolerance = self.parse_numeric_spec(body.strip(), offset)
@@ -625,7 +639,9 @@ class GiftParser(StringParser[GiftQuestion]):
                 rest = rest[match.end() :]
             hash_pos = find_unescaped(rest, "#")
             spec_raw, feedback_raw = (
-                (rest, None) if hash_pos == -1 else (rest[:hash_pos], rest[hash_pos + 1 :])
+                (rest, None)
+                if hash_pos == -1
+                else (rest[:hash_pos], rest[hash_pos + 1 :])
             )
             value, tolerance = self.parse_numeric_spec(spec_raw.strip(), offset)
             feedback = unescape_gift(feedback_raw).strip() if feedback_raw else None

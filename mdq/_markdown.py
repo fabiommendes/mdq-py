@@ -55,12 +55,13 @@ md = MarkdownIt("gfm-like")
 md.block.ruler.disable("reference")
 
 
-#: `[^id]` markers, as written in a fill-in stem -- duplicated from
-#: `mdq.models._BLANK_MARKER_RE` (structurally identical, kept separate
-#: since the two modules check different things: `mdq.models` cares only
-#: about which ids are referenced, this module about where in the markup
-#: a marker sits).
-_BLANK_MARKER_RE = re.compile(r"\[\^([^\]]+)\]")
+#: `[^id]` markers, as written in a fill-in stem. The id is a `SLUG`
+#: (base.md, "Bracketed tags"): `[^ a]` and `[^-x]` are ordinary text.
+#: Duplicated from `mdq.models._BLANK_MARKER_RE` (structurally identical,
+#: kept separate since the two modules check different things:
+#: `mdq.models` cares only about which ids are referenced, this module
+#: about where in the markup a marker sits).
+_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\]")
 
 
 def find_misplaced_blank_markers(text: str) -> list[str]:
@@ -70,9 +71,9 @@ def find_misplaced_blank_markers(text: str) -> list[str]:
 
     At the block level, the paragraph must sit at the top of the stem: a
     marker in a heading, list item, table cell or blockquote is misplaced.
-    At the inline level, a marker inside emphasis, a strong span or a link
-    is misplaced. Code (fenced or inline) is literal text, so a marker in
-    it is not a blank and is not reported.
+    At the inline level, a marker inside emphasis, a strong span, a link
+    or a code span is misplaced. Fenced code is a block of its own, so a
+    marker in it is literal text and is not reported.
 
     Args:
         text: A fill-in question's stem.
@@ -103,7 +104,9 @@ def _misplaced_in_inline(children: list[Token], in_paragraph: bool) -> list[str]
             depth += 1
         elif token.nesting == -1:
             depth -= 1
-        elif token.type == "text" and (depth > 0 or not in_paragraph):
+        elif token.type == "code_inline" or (
+            token.type == "text" and (depth > 0 or not in_paragraph)
+        ):
             misplaced.extend(
                 match.group(1) for match in _BLANK_MARKER_RE.finditer(token.content)
             )

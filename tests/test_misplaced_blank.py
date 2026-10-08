@@ -30,9 +30,21 @@ def test_marker_outside_a_top_level_paragraph_is_misplaced(stem: str) -> None:
     "stem",
     [
         "A capital do Brasil é [^capital].\n",
-        "Escreva `[^capital]` literalmente.\n",
         "```\n[^capital]\n```\n",
     ],
 )
-def test_marker_in_plain_paragraph_text_or_code_is_not_reported(stem: str) -> None:
+def test_marker_in_plain_paragraph_text_or_fenced_code_is_not_reported(stem: str) -> None:
     assert find_misplaced_blank_markers(stem) == []
+
+
+def test_marker_in_a_code_span_is_misplaced() -> None:
+    # fill-in.md, "Where blanks may appear": inline code is markup, so a
+    # marker inside it is not a plain text run of the paragraph.
+    assert find_misplaced_blank_markers("Escreva `[^capital]` literalmente.\n") == [
+        "capital"
+    ]
+
+
+@pytest.mark.parametrize("stem", ["Veja [^ a] e [^-x] e [^a/numeric].\n"])
+def test_brackets_that_are_not_slug_markers_are_text(stem: str) -> None:
+    assert find_misplaced_blank_markers(f"*{stem.strip()}*\n") == []

@@ -19,11 +19,12 @@ from pydantic_core import PydanticCustomError
 from .. import types as t
 from .._diagnostics import Diagnostic
 from ..errors import ResponseError
-from ..types import GradingStrategy
+from ..types import GradingStrategy, QuestionGrading, QuestionShuffle
 from . import _lint, _render, _slugify
 from ._base import (
     MdqModel,
     BaseQuestion,
+    SlugId,
     _check_choices_have_text,
     _check_unique_choices,
     _raise_unique_id_error,
@@ -40,6 +41,27 @@ __all__ = [
 ]
 
 
+
+def effective_grading(value: QuestionGrading) -> GradingStrategy:
+    """Read `inherit` as the default strategy, `symmetric`."""
+    return "symmetric" if value == "inherit" else value
+
+
+def effective_shuffle(value: QuestionShuffle) -> bool:
+    """Read `inherit` as the default, `False`."""
+    return False if value == "inherit" else value
+
+
+def write_shuffle_and_grading(
+    data: dict[str, Any], shuffle: QuestionShuffle, grading: QuestionGrading
+) -> None:
+    """Add `shuffle` and `grading` to frontmatter `data`, unless they inherit."""
+    if shuffle != "inherit":
+        data["shuffle"] = shuffle
+    if grading != "inherit":
+        data["grading"] = grading
+
+
 class ScoredChoice(MdqModel):
     """
     A multiple-choice option, or a choice inside a fill-in choice blank.
@@ -48,7 +70,7 @@ class ScoredChoice(MdqModel):
     negative value penalises picking it.
     """
 
-    id: str | None = None
+    id: SlugId | None = None
     text: str
     score: Annotated[float | None, Field(default=None, ge=-1, le=1)] = None
     feedback: str | None = None
@@ -61,9 +83,9 @@ class BooleanChoice(MdqModel):
     answer, and there is no per-choice score.
     """
 
-    id: str | None = None
+    id: SlugId | None = None
     text: str
-    correct: bool = False
+    correct: bool
     feedback: str | None = None
     comment: str | None = None
 
@@ -74,9 +96,9 @@ class Statement(MdqModel):
     marker that spelled it in the Markdown source.
     """
 
-    id: str | None = None
+    id: SlugId | None = None
     text: str
-    correct: bool = False
+    correct: bool
     marker: str | None = None
     feedback: str | None = None
     comment: str | None = None
@@ -142,8 +164,16 @@ def _with_choice_ids[C: (ScoredChoice, BooleanChoice, Statement)](
 class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     choices: Annotated[list[ScoredChoice], Field(min_length=2)]
     type: Literal["multiple-choice"] = "multiple-choice"
-    shuffle: bool | None = None
-    grading: GradingStrategy | None = None
+    shuffle: QuestionShuffle = "inherit"
+    grading: QuestionGrading = "inherit"
+
+    def effective_grading(self) -> GradingStrategy:
+        """The question's `grading`, with `inherit` read as `symmetric`."""
+        return effective_grading(self.grading)
+
+    def effective_shuffle(self) -> bool:
+        """The question's `shuffle`, with `inherit` read as `False`."""
+        return effective_shuffle(self.shuffle)
 
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
@@ -171,24 +201,13 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.shuffle is not None:
-            data["shuffle"] = self.shuffle
-        if self.grading is not None:
-            data["grading"] = self.grading
+        write_shuffle_and_grading(data, self.shuffle, self.grading)
         return data
 
     def _render_body(self) -> Iterable[str]:
         yield ""
         for choice in self.choices:
-            score = choice.score
-            if score == 1.0:
-                mark = "*"
-            elif score == 0.0 or score is None:
-                mark = " "
-            else:
-                mark = f"{score * 100}%"
-
-            yield from _render.yield_choice(choice, mark=mark)
+            yield from _render.yield_choice(choice, mark=_render.score_mark(choice.score))
 
     def score_response(self, response: t.MultipleChoiceResponse) -> QuestionScore:
         """
@@ -214,7 +233,7 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         that declare none, so picking at random averages zero, then clamps
         the result to [-1, 0].
         """
-        if self.grading not in (None, "symmetric"):
+        if self.effective_grading() != "symmetric":
             return 0.0
 
         declared = [c.score for c in self.choices if c.score is not None]
@@ -227,8 +246,16 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
 class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     choices: Annotated[list[BooleanChoice], Field(min_length=2)]
     type: Literal["multiple-selection"] = "multiple-selection"
-    shuffle: bool | None = None
-    grading: GradingStrategy | None = None
+    shuffle: QuestionShuffle = "inherit"
+    grading: QuestionGrading = "inherit"
+
+    def effective_grading(self) -> GradingStrategy:
+        """The question's `grading`, with `inherit` read as `symmetric`."""
+        return effective_grading(self.grading)
+
+    def effective_shuffle(self) -> bool:
+        """The question's `shuffle`, with `inherit` read as `False`."""
+        return effective_shuffle(self.shuffle)
 
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
@@ -257,10 +284,7 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.shuffle is not None:
-            data["shuffle"] = self.shuffle
-        if self.grading is not None:
-            data["grading"] = self.grading
+        write_shuffle_and_grading(data, self.shuffle, self.grading)
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -284,9 +308,9 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         marks = [(choice, choice.id in response) for choice in self.choices]
         judged_correctly = sum(1 for choice, mark in marks if mark == choice.correct)
 
-        if self.grading == "all-or-nothing":
+        if self.effective_grading() == "all-or-nothing":
             score = 1.0 if judged_correctly == n else 0.0
-        elif self.grading == "partial":
+        elif self.effective_grading() == "partial":
             score = judged_correctly / n
         else:
             score = (2 * judged_correctly - n) / n
@@ -302,8 +326,16 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
 class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     choices: Annotated[list[Statement], Field(min_length=2)]
     type: Literal["true-false"] = "true-false"
-    shuffle: bool | None = None
-    grading: GradingStrategy | None = None
+    shuffle: QuestionShuffle = "inherit"
+    grading: QuestionGrading = "inherit"
+
+    def effective_grading(self) -> GradingStrategy:
+        """The question's `grading`, with `inherit` read as `symmetric`."""
+        return effective_grading(self.grading)
+
+    def effective_shuffle(self) -> bool:
+        """The question's `shuffle`, with `inherit` read as `False`."""
+        return effective_shuffle(self.shuffle)
 
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
@@ -320,13 +352,13 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     def check_markers_agree_with_correct(self) -> Self:
         """
         true-false.md:64-66,210: a marker's category (TRUE/FALSE/
-        PROVISIONAL, see `mdq._lint.TRUE_MARKERS`/`FALSE_MARKERS`) must
+        WARNING, see `mdq._lint.TRUE_MARKERS`/`FALSE_MARKERS`) must
         agree with `correct`. A FALSE-category marker disagrees with
-        `correct: true`; a TRUE- or PROVISIONAL-category marker --
-        PROVISIONAL letters also represent true, per the spec's "Body"
-        section -- disagrees with `correct: false`. A PROVISIONAL marker
-        paired with `correct: true` still SHOULD warn, since a future
-        revision may reassign it (`mdq._lint.check_true_false_markers`).
+        `correct: true`; a TRUE- or WARNING-category marker --
+        WARNING letters also represent true, per the spec's "Body"
+        section -- disagrees with `correct: false`. A WARNING marker
+        paired with `correct: true` still SHOULD warn
+        (`mdq._lint.check_true_false_markers`).
         The reserved `X`/`x` marker is rejected at the field level, so it
         never reaches here.
         """
@@ -336,7 +368,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
                 continue
             upper = marker.upper()
             # FALSE-category means false; everything else (TRUE or
-            # PROVISIONAL) reads as true.
+            # WARNING) reads as true.
             expected_correct = upper not in _lint.FALSE_MARKERS
             disagrees = choice.correct != expected_correct
             if disagrees:
@@ -369,10 +401,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.shuffle is not None:
-            data["shuffle"] = self.shuffle
-        if self.grading is not None:
-            data["grading"] = self.grading
+        write_shuffle_and_grading(data, self.shuffle, self.grading)
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -406,9 +435,9 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
             if mark is not None and mark != statement.correct
         )
 
-        if self.grading == "all-or-nothing":
+        if self.effective_grading() == "all-or-nothing":
             score = 0.0 if incorrect else correct / n
-        elif self.grading == "partial":
+        elif self.effective_grading() == "partial":
             score = correct / n
         else:
             score = (correct - incorrect) / n

@@ -5,10 +5,9 @@ package.
 
 from __future__ import annotations
 
-import io
 from typing import TYPE_CHECKING, Any, Iterable
 
-import yaml
+from .._parser import dump_yaml
 
 if TYPE_CHECKING:
     from . import _base, _choice
@@ -28,11 +27,9 @@ def yield_frontmatter(
         for line in comment.splitlines():
             yield f"# {line}"
 
-    with io.StringIO() as buf:
-        yaml.dump(data, buf)
-        dump = buf.getvalue().rstrip()
-        if dump and dump != "{}":
-            yield dump
+    dump = dump_yaml(data).rstrip()
+    if dump and dump != "{}":
+        yield dump
     yield "---"
 
 
@@ -126,14 +123,32 @@ def yield_ordering_section(
     yield from yield_ordering_content(lines, content, highlight)
 
 
+def score_mark(score: float | None) -> str:
+    """
+    The `value` of a choice item (multiple-choice.md, "Body"): `*` for 1,
+    a blank for an omitted score, and the percentage otherwise -- `0%` is
+    an explicit zero, which a blank is not.
+    """
+    if score is None:
+        return " "
+    if score == 1.0:
+        return "*"
+    percent = score * 100
+    if percent == int(percent):
+        return f"{int(percent)}%"
+    return f"{percent}%"
+
+
 def yield_choice(
     choice: _choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement, mark: str
 ):
     """
-    Yield lines of a choice as strings.
+    Yield lines of a choice as strings. An `id` is written as the
+    `[choice-id]` of the item grammar, so it survives a round trip.
     """
     text_lines = iter(choice.text.splitlines())
-    yield f"* [{mark}] {next(text_lines)}"
+    choice_id = f"[{choice.id}] " if choice.id else ""
+    yield f"* [{mark}] {choice_id}{next(text_lines)}"
     for line in text_lines:
         yield f"  {line}"
 

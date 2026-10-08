@@ -47,9 +47,9 @@ QUESTION_DATA = {
     "type": "multiple-selection",
     "stem": "Qual é a capital do Brasil?",
     "choices": [
-        {"id": "rio-de-janeiro", "text": "Rio de Janeiro"},
+        {"id": "rio-de-janeiro", "text": "Rio de Janeiro", "correct": False},
         {"id": "brasilia", "text": "Brasília", "correct": True},
-        {"id": "sao-paulo", "text": "São Paulo"},
+        {"id": "sao-paulo", "text": "São Paulo", "correct": False},
     ],
 }
 
@@ -359,8 +359,8 @@ def test_validate_raise_on_warning_raises_when_a_warning_is_present() -> None:
 
 
 def test_validate_raise_on_info_raises_when_an_info_diagnostic_is_present() -> None:
-    # A bare-ellipsis stem is a strict-only rule, reported at "info".
-    loaded = load("...\n\n[essay]\n")
+    # A lookalike locale is a strict-only rule, reported at "info".
+    loaded = load("---\nlocale: cn\n---\n\nExplique.\n\n[essay]\n")
     assert any(d.severity == "info" for d in loaded.diagnostics)
     with pytest.raises(InvalidDocument):
         loaded.validate(raise_on="info")
@@ -574,9 +574,9 @@ def test_default_level_lint_rules_are_warnings() -> None:
 
 
 def test_strict_only_lint_rule_is_reported_as_info() -> None:
-    loaded = load("...\n\n[essay]\n")
+    loaded = load("---\nlocale: cn\n---\n\nExplique.\n\n[essay]\n")
     assert loaded
-    matching = [d for d in loaded.diagnostics if d.code == "unexpanded-stem-ellipsis"]
+    matching = [d for d in loaded.diagnostics if d.code == "locale-lookalike-language"]
     assert len(matching) == 1
     assert matching[0].severity == "info"
 
@@ -588,13 +588,13 @@ def test_lint_runs_only_when_the_model_was_built() -> None:
 
 
 def test_unknown_frontmatter_warnings_come_before_lint_diagnostics() -> None:
-    text = "---\nauther: Machado de Assis\n---\n\n...\n\n[essay]\n"
+    text = "---\nauther: Machado de Assis\nlocale: cn\n---\n\nExplique.\n\n[essay]\n"
     loaded = load(text)
     assert loaded
     codes = _codes(loaded.diagnostics)
     assert "unknown-frontmatter-key" in codes
-    assert "unexpanded-stem-ellipsis" in codes
-    assert codes.index("unknown-frontmatter-key") < codes.index("unexpanded-stem-ellipsis")
+    assert "locale-lookalike-language" in codes
+    assert codes.index("unknown-frontmatter-key") < codes.index("locale-lookalike-language")
 
 
 def test_unknown_frontmatter_warning_severity_is_warning() -> None:

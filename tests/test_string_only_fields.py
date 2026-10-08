@@ -18,13 +18,13 @@ def _errors(text: str) -> list[tuple[str, tuple]]:
     return [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"]
 
 
-@pytest.mark.parametrize("value", ["2024", "yes", "3.5", "[a, b]"])
+@pytest.mark.parametrize("value", ["2024", "true", "3.5", "[a, b]"])
 def test_question_id_must_be_a_string(value: str) -> None:
     text = f"---\nid: {value}\n---\n\nDescreva o Cerrado.\n\n[essay]\n"
     assert _errors(text) == [("schema-error", ("id",))]
 
 
-@pytest.mark.parametrize("value", ["2024", "no"])
+@pytest.mark.parametrize("value", ["2024", "false"])
 def test_exam_id_must_be_a_string(value: str) -> None:
     text = f"---\nid: {value}\n---\n\n# Prova\n\nDescreva o Cerrado.\n\n[essay]\n"
     assert _errors(text) == [("schema-error", ("id",))]
@@ -35,7 +35,7 @@ def test_question_id_inside_an_exam_must_be_a_string() -> None:
     assert _errors(text) == [("schema-error", ("questions", 0, "id"))]
 
 
-@pytest.mark.parametrize(("key", "value"), [("include", "yes"), ("include", "2024"), ("include-all", "7")])
+@pytest.mark.parametrize(("key", "value"), [("include", "true"), ("include", "2024"), ("include-all", "7")])
 def test_include_must_be_a_string(key: str, value: str) -> None:
     text = f"# Prova\n\n---\n{key}: {value}\n---\n"
     assert _errors(text) == [("schema-error", ("questions", 0, key))]

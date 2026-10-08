@@ -179,12 +179,15 @@ def test_scoring_a_long_decimal_answer_is_exact() -> None:
 
 def test_scoring_compares_floats_by_their_decimal_digits() -> None:
     # |0.4 - 0.3| is 0.1 exactly, although not in binary floating point.
+    # The inferred `decimalPlaces` is 1, so 0.41 rounds to 0.4 and is
+    # accepted; 0.46 rounds to 0.5 and is not (numeric.md, "Decimal places").
     question = models.NumericQuestion(
         stem="x", answer=0.3, tolerance=models.Tolerance(absolute=0.1)
     )
     assert question.score_response(0.4).score == 1.0
     assert question.score_response(0.2).score == 1.0
-    assert question.score_response(0.41).score == 0.0
+    assert question.score_response(0.41).score == 1.0
+    assert question.score_response(0.46).score == 0.0
 
 
 def test_scoring_a_fraction_answer_needs_the_exact_value() -> None:

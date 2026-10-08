@@ -52,18 +52,19 @@ def skip_blank(lines: list[str], i: int) -> int:
 
 
 def parse_content_block(lines: list[str], i: int) -> tuple[ContentBlock, int]:
-    if lines[i].startswith("```"):
+    fence = lines[i][:3]
+    if fence in ("```", "~~~"):
         lang = lines[i][3:].strip() or None
         i += 1
         content = []
-        while lines[i].strip() != "```":
+        while lines[i].strip() != fence:
             content.append(lines[i])
             i += 1
         i += 1  # closing fence
         return ContentBlock("code", lang, tuple(content)), i
 
     items = []
-    while i < len(lines) and lines[i].lstrip().startswith("* "):
+    while i < len(lines) and lines[i].lstrip()[:2] in ("* ", "- ", "+ "):
         items.append(lines[i])
         i += 1
     return ContentBlock("ul", None, tuple(items)), i
@@ -120,7 +121,9 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
 
     sections = []
     i = skip_blank(lines, i)
-    while i < len(lines):
+    # The sections end at the first line that is not a `## [...]` heading:
+    # what follows is the epilogue.
+    while i < len(lines) and lines[i].startswith("## ["):
         section, i = parse_section(lines, i)
         sections.append(section)
         i = skip_blank(lines, i)

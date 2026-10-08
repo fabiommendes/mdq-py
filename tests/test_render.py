@@ -94,7 +94,7 @@ def test_render_true_false_question() -> None:
         stem="What is the meaning of life?",
         choices=[
             models.Statement(text="Happiness", correct=True),
-            models.Statement(text="Money"),
+            models.Statement(text="Money", correct=False),
         ],
     )
     src = question.render()
@@ -134,10 +134,45 @@ What is pi?
     assert src == expected
 
 
+def test_render_single_plain_accept_as_simple_block() -> None:
+    question = models.ShortAnswerQuestion(stem="Name the capital.", accept=["Brasília"])
+    assert question.render() == "Name the capital.\n\n[short-answer]: Brasília"
+
+
+def test_render_single_exact_accept_as_simple_block() -> None:
+    question = models.ShortAnswerQuestion(stem="Which function?", accept=["`math.isnan`"])
+    assert question.render() == "Which function?\n\n[short-answer]: `math.isnan`"
+
+
+def test_render_single_regex_accept_as_simple_block() -> None:
+    question = models.ShortAnswerQuestion(stem="When?", accept=["/1822-0?9-0?7/i"])
+    assert question.render() == "When?\n\n[short-answer]: /1822-0?9-0?7/i"
+
+
+def test_render_accept_with_feedback_uses_a_list_under_the_short_answer_tag() -> None:
+    question = models.ShortAnswerQuestion(
+        stem="Name the capital.",
+        accept=[models.AnswerPattern(pattern="Brasília", feedback="Certo!")],
+    )
+    assert question.render() == (
+        "Name the capital.\n\n[short-answer]:\n* Brasília\n  > Certo!"
+    )
+
+
+def test_render_single_accept_with_reject_uses_blocks() -> None:
+    question = models.ShortAnswerQuestion(
+        stem="Name the capital.", accept=["Brasília"], reject=["Rio de Janeiro"]
+    )
+    src = question.render()
+    assert "[short-answer]:\n* Brasília" in src
+    assert "[short-answer/reject]:\n* Rio de Janeiro" in src
+    assert "[short-answer/accept]" not in src
+
+
 def test_render_short_answer_question() -> None:
     question = models.ShortAnswerQuestion(
         stem="Name a primary colour.",
-        one_of=["`red`", "`green`", "`blue`"],
+        accept=["`red`", "`green`", "`blue`"],
     )
     src = question.render()
     expected = (
@@ -188,10 +223,10 @@ def test_render_fill_in_question() -> None:
                 id="capital",
                 choices=[
                     models.ScoredChoice(id="brasilia", text="Brasília", score=1),
-                    models.ScoredChoice(id="rio", text="Rio", score=0),
+                    models.ScoredChoice(id="rio", text="Rio"),
                 ],
             ),
-            models.ShortAnswerBlank(id="river", regex="Amazon"),
+            models.ShortAnswerBlank(id="river", accept=["/Amazon/"]),
             models.NumericBlank(
                 id="pi",
                 answer=3.14,
@@ -209,8 +244,8 @@ shuffle: true
 The capital is [^capital], the main river is [^river], and pi is [^pi].
 
 [^capital]:
-* [*] Brasília
-* [ ] Rio
+* [*] [brasilia] Brasília
+* [ ] [rio] Rio
 
 [^river/short-answer]: /Amazon/
 

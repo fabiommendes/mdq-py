@@ -32,12 +32,6 @@ from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 #: Keyed by the same id `relative_id` gives the pair (e.g.
 #: "multiple-choice.composite-ids.mdq.md").
 NOT_YET_SUPPORTED: dict[str, str] = {
-    "multiple-choice.fenced-code-choice.mdq.md": (
-        "choice text is folded to single-line prose the same way preamble/"
-        "stem text is, so a fenced code block nested in a choice loses its "
-        "line breaks and stops being valid fenced-code Markdown; see "
-        "BACKLOG.md"
-    ),
     # "numeric.table-preamble.mdq.md": (
     #     "the parser uses plain CommonMark with no table extension, so a "
     #     "GFM pipe table is just an ordinary paragraph to it and its rows "
@@ -404,16 +398,27 @@ def test_numeric_unit_with_slash_does_not_break_fill_in_blank_syntax() -> None:
     [
         "---\naccept: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
         "---\nreject: [Rio de Janeiro]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
-        "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
-        "Qual é a capital do Brasil?\n\n[short-answer]:\n\n[short-answer/accept]:\n* Brasília\n",
     ],
 )
-def test_bare_short_answer_with_patterns_is_not_open_ended(src: str) -> None:
-    # short-answer.md: only a question with no pattern at all is fully manual.
-    question = load(src, format="mdq").validate()
-    assert not question.to_dict().get("openEnded")
+def test_bare_short_answer_with_frontmatter_patterns_keeps_them(src: str) -> None:
+    # short-answer.md, "Block with no pattern": an empty block adds nothing.
+    document = load(src, format="mdq").validate().to_dict()
+    assert "openEnded" not in document
+    assert ("accept" in document) != ("reject" in document)
 
 
-def test_bare_short_answer_without_patterns_is_open_ended() -> None:
-    question = load("Descreva o bioma Cerrado.\n\n[short-answer]:\n", format="mdq").validate()
-    assert question.to_dict()["openEnded"] is True
+def test_bare_short_answer_without_patterns_has_no_accept_and_no_open_ended() -> None:
+    document = load("Descreva o bioma Cerrado.\n\n[short-answer]:\n", format="mdq").validate().to_dict()
+    assert "openEnded" not in document
+    assert "accept" not in document
+
+
+def test_bare_short_answer_with_dropped_regex_frontmatter_has_no_pattern() -> None:
+    """`regex` is no longer a short-answer field: the key is dropped as unknown,
+    so the question has no pattern at all."""
+    src = "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n"
+    loaded = load(src, format="mdq")
+    assert loaded.document is not None
+    document = loaded.document.to_dict()
+    assert "openEnded" not in document
+    assert "accept" not in document

@@ -583,7 +583,7 @@ def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
         "epilogue": st.none() | md_safe_multi_blocks(),
         "comment": st.none() | safe_texts(multiline=True),
         "locale": st.none() | locales(),
-        "tags": st.lists(tags(), min_size=1),
+        "tags": st.lists(tags(), min_size=1, unique=True),
         "weight": weights(),
         # "meta": st.none() | st.dictionaries(st.text(), st.just(None) | st.text()),
     }

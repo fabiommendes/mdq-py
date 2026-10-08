@@ -75,8 +75,9 @@ def test_non_whole_number_still_agrees_with_decimal(answer: object) -> None:
     assert "domain-mismatch" not in codes
 
 
-def test_integer_answer_still_disagrees_with_a_declared_decimal() -> None:
-    assert "domain-mismatch" in _codes(_numeric(answer=1172, domain="decimal"))
+def test_integer_answer_fits_a_declared_decimal() -> None:
+    """A declared domain may be wider than the values (numeric.md [^3])."""
+    assert "domain-mismatch" not in _codes(_numeric(answer=1172, domain="decimal"))
 
 
 # ---------------------------------------------------------------------

@@ -6,7 +6,7 @@ Rules made more precise after the lint-codes audit:
 * `domain-mismatch` infers the domain from the answer and the absolute
   tolerance (numeric.md, "Number type/domain").
 * `redundant-regex-anchor` reports only an anchor that is already
-  implicit, given the `f`/`b` flags, in `regex` and in delimited
+  implicit, given the `f`/`b` flags, in delimited
   `accept`/`reject` entries (short-answer.md, "Regex flags").
 """
 
@@ -103,8 +103,8 @@ def test_integer_domain_disagrees_with_a_decimal_absolute_tolerance() -> None:
 
 
 def test_relative_tolerance_takes_no_part_in_the_inferred_domain() -> None:
-    doc = _numeric(answer=1172, domain="decimal", tolerance={"relative": 0.05})
-    assert _paths(doc, "domain-mismatch") == [("domain",)]
+    doc = _numeric(answer=1172, domain="integer", tolerance={"relative": 0.05})
+    assert _paths(doc, "domain-mismatch") == []
 
 
 def test_numeric_blank_domain_uses_the_absolute_tolerance() -> None:
@@ -143,25 +143,41 @@ def _short_answer(**fields: object) -> dict:
 
 @pytest.mark.parametrize(
     "regex",
-    ["^Negro", "Negro$", "/^Negro/", "/Negro$/i", "/^Negro/b", "/^Rio Negro$/n"],
+    ["/^Negro/", "/Negro$/i", "/^Negro/b", "/^Rio Negro$/n"],
 )
 def test_implicit_anchor_in_regex_is_redundant(regex: str) -> None:
-    assert _paths(_short_answer(regex=regex), "redundant-regex-anchor") == [("regex",)]
+    assert _paths(_short_answer(accept=[regex]), "redundant-regex-anchor") == [("accept", 0)]
+
+
+def test_implicit_anchor_in_a_simple_block_pattern_is_redundant() -> None:
+    """`[short-answer]: /^Negro/` parses to `accept: ["/^Negro/"]`."""
+    doc = _short_answer(accept=["/^Negro$/"])
+    assert _paths(doc, "redundant-regex-anchor") == [("accept", 0)]
 
 
 @pytest.mark.parametrize(
     "regex",
-    ["Negro", "/Negro$/b", "/^Negro/f", "/Negro$/f", "/^Negro$/fb", r"Negro\$", r"/Negro\$/"],
+    [
+        "Negro",
+        "^Negro",
+        "Negro$",
+        "/Negro$/b",
+        "/^Negro/f",
+        "/Negro$/f",
+        "/^Negro$/fb",
+        r"Negro\$",
+        r"/Negro\$/",
+    ],
 )
 def test_explicit_or_literal_anchor_in_regex_is_not_redundant(regex: str) -> None:
-    assert _paths(_short_answer(regex=regex), "redundant-regex-anchor") == []
+    assert _paths(_short_answer(accept=[regex]), "redundant-regex-anchor") == []
 
 
 @pytest.mark.parametrize("section", ["accept", "reject"])
 def test_implicit_anchor_in_a_delimited_pattern_is_redundant(section: str) -> None:
     fields: dict[str, object] = {section: [{"pattern": "Negro"}, {"pattern": "/^Solimões/"}]}
     if section == "reject":
-        fields["oneOf"] = ["Negro"]
+        fields["accept"] = ["Negro"]
     doc = _short_answer(**fields)
     assert _paths(doc, "redundant-regex-anchor") == [(section, 1)]
 

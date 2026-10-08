@@ -6,7 +6,7 @@ value/tolerance-matching helpers a numeric fill-in blank
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Context, Decimal
 from fractions import Fraction
 from typing import Annotated, Any, Iterable, Literal
 
@@ -57,8 +57,10 @@ def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
 
 
 class Tolerance(MdqModel):
-    absolute: float | None = None
-    relative: float | None = None
+    """A distance from the answer, so neither bound is negative (schema)."""
+
+    absolute: Annotated[float, Field(ge=0)] | None = None
+    relative: Annotated[float, Field(ge=0)] | None = None
 
 
 
@@ -107,15 +109,44 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
             tolerance=self.tolerance,
         )
 
+    @property
+    def effective_decimal_places(self) -> int | None:
+        """
+        The precision of the comparison (numeric.md, "Decimal places"):
+        `decimal_places` when given; else, for a `decimal` domain
+        (declared or inferred), `infer_decimal_places`; else None.
+        """
+        if self.decimal_places is not None:
+            return self.decimal_places
+        if _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance) == "decimal":
+            return infer_decimal_places(self.answer, self.tolerance)
+        return None
+
     def score_response(self, response: t.NumericResponse) -> QuestionScore:
         """
-        Score 1 if `response` is within tolerance of `answer`, else 0.
+        Score 1 if `response`, rounded to `effective_decimal_places`, is
+        within tolerance of `answer`, else 0.
 
         Raises:
-            ResponseError: `response` isn't a valid number.
+            ResponseError: `response` isn't a valid number, or is a value the
+                question's domain cannot represent (responses.md, "Numeric").
         """
-        correct = numeric_matches(self.answer, response, self.tolerance)
+        correct = numeric_matches(
+            self.answer,
+            response,
+            self.tolerance,
+            self.effective_decimal_places,
+            domain=self.effective_domain,
+        )
         return QuestionScore(score=1.0 if correct else 0.0)
+
+    @property
+    def effective_domain(self) -> NumericDomain:
+        """
+        The declared `domain`, else the one inferred from `answer` and the
+        absolute tolerance (numeric.md, "Number type/domain").
+        """
+        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
 
 
 
@@ -139,8 +170,51 @@ def numeric_value(value: NumericAnswer | Fraction) -> Fraction:
     return Fraction(value)
 
 
+def infer_decimal_places(answer: NumericAnswer, tolerance: Tolerance | None) -> int:
+    """
+    The `decimalPlaces` a `decimal` question gets when the frontmatter
+    gives none (numeric.md, "Decimal places"): the larger of the number
+    of decimal places written in `answer` and in `tolerance.absolute`. An
+    integer has 0; a string answer counts its written digits (`"2.50"`
+    is 2); a float counts the digits of its shortest repr.
+    """
+    places = _written_places(answer)
+    if tolerance is not None and tolerance.absolute is not None:
+        places = max(places, _written_places(tolerance.absolute))
+    return places
+
+
+def _written_places(value: NumericAnswer) -> int:
+    """The number of digits written after the decimal point of `value`."""
+    if isinstance(value, str):
+        return len(value.split(".", 1)[1]) if "." in value else 0
+    if isinstance(value, float):
+        exponent = Decimal(repr(value)).as_tuple().exponent
+        return max(0, -exponent) if isinstance(exponent, int) else 0
+    return 0
+
+
+_ROUNDING_CONTEXT = Context(prec=50)
+
+
+def _round_half_up(value: Fraction, places: int) -> Fraction:
+    """Round `value` to `places` decimals, half away from zero."""
+    exact = _ROUNDING_CONTEXT.divide(
+        Decimal(value.numerator), Decimal(value.denominator)
+    )
+    rounded = exact.quantize(
+        Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP, context=_ROUNDING_CONTEXT
+    )
+    return Fraction(str(rounded))
+
+
 def numeric_matches(
-    answer: NumericAnswer, response: t.NumericResponse, tolerance: Tolerance | None
+    answer: NumericAnswer,
+    response: t.NumericResponse,
+    tolerance: Tolerance | None,
+    decimal_places: int | None = None,
+    *,
+    domain: NumericDomain | None = None,
 ) -> bool:
     """
     Report whether `response` is within `answer`'s tolerance.
@@ -148,16 +222,28 @@ def numeric_matches(
     With neither tolerance set, the match must be exact. With both set,
     either one passing is enough. The comparison is exact (see
     `numeric_value`), so a string answer keeps the precision it was
-    written with.
+    written with. With `decimal_places`, the response and the answer are
+    first rounded to that many places, half away from zero, in decimal
+    arithmetic (numeric.md, "Decimal places"). With `domain`, a value it
+    cannot represent is malformed: a non-integer where the domain is
+    `integer` (responses.md, "Numeric").
 
     Raises:
-        ResponseError: `response` isn't a valid number.
+        ResponseError: `response` isn't a valid number, or `domain` cannot
+            represent it.
     """
     try:
         value = numeric_value(response)
     except (ValueError, ZeroDivisionError) as exc:
         raise ResponseError(f"{response!r} is not a valid numeric response") from exc
+    if domain == "integer" and value.denominator != 1:
+        raise ResponseError(
+            f"{response!r} is not an integer, which the question's domain requires"
+        )
     target = numeric_value(answer)
+    if decimal_places is not None:
+        value = _round_half_up(value, decimal_places)
+        target = _round_half_up(target, decimal_places)
     distance = abs(value - target)
 
     if tolerance is None or (tolerance.absolute is None and tolerance.relative is None):

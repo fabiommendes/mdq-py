@@ -21,6 +21,11 @@ VALID_DIR = EXAMPLES_ROOT / "valid"
 #: (the pydantic models) rejects them. Every other example under
 #: `examples/invalid/` must fail both (see dev/specs/to-do/unique-ids.md).
 INVALID_MODEL_ONLY_DIR = INVALID_DIR / "model-only"
+#: Invalid examples that are not documents at all: YAML or JSON that does
+#: not parse, repeats a key, or is not a mapping at the top level. Only
+#: `load` sees them (`yaml-syntax-error`, `json-syntax-error`,
+#: `invalid-document`); the schema tests leave them out.
+INVALID_SYNTAX_DIR = INVALID_DIR / "syntax"
 DOCUMENT_SUFFIXES = (".yaml", ".yml", ".json")
 VALID_EXAMS_DIR = VALID_DIR / "exam"
 
@@ -42,6 +47,7 @@ def collect_files(root: Path) -> list[Path]:
         if path.is_file()
         and path.suffix.lower() in DOCUMENT_SUFFIXES
         and not path.name.endswith(".lint.json")
+        and not path.name.endswith(".resolved.yaml")
     )
 
 
@@ -65,10 +71,12 @@ def parsed_sibling(source: Path) -> Path:
 
 
 INVALID_MODEL_ONLY_PARSED = collect_files(INVALID_MODEL_ONLY_DIR)
+INVALID_SYNTAX = collect_files(INVALID_SYNTAX_DIR)
 INVALID_PARSED = [
     path
     for path in collect_files(INVALID_DIR)
     if not path.is_relative_to(INVALID_MODEL_ONLY_DIR)
+    and not path.is_relative_to(INVALID_SYNTAX_DIR)
 ]
 VALID_PARSED = collect_files(VALID_DIR)
 VALID_SOURCES = collect_sources(VALID_DIR)
@@ -104,3 +112,16 @@ def bundled_types(bundle: dict[str, Any]) -> set[str]:
         entry["$ref"].rsplit("/", 1)[-1].removesuffix(".yaml")
         for entry in bundle["oneOf"]
     }
+
+
+#: Codes only the Markdown parser produces, since they need the source
+#: layout. A `.yaml`/`.json` sibling of a source example shares its
+#: `.lint.json` but can never report them.
+PARSER_ONLY_CODES = frozenset(
+    {
+        "unknown-frontmatter-key",
+        "separator-before-include",
+        "non-ascii-whitespace",
+        "detached-answer-list",
+    }
+)

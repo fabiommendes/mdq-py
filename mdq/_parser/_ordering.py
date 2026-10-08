@@ -11,6 +11,8 @@ import math
 import re
 from typing import Any, NamedTuple
 
+from ..errors import ParseError
+
 #: A line before its indentation is reduced to a level -- the leading
 #: whitespace measured in columns (tabs counted as 4), and the text.
 RawLine = tuple[int, str]
@@ -40,12 +42,24 @@ def ordering_code_lines(content: str) -> list[RawLine]:
 
 
 def ordering_ul_lines(raw_lines: list[str]) -> list[RawLine]:
-    """Split a `ul` block's raw source lines into `(indent, text)` pairs."""
+    """
+    Split a `ul` block's raw source lines into `(indent, text)` pairs.
+
+    Raises:
+        ParseError: a non-blank line is not a list item, i.e. an item has
+            a continuation line or a second paragraph (an ordering item is
+            exactly one line).
+    """
     items = []
     for line in raw_lines:
+        if not line.strip(" \t"):
+            continue
         m = ORDERING_ITEM_RE.match(line)
-        if m:
-            items.append((len(m.group("indent").expandtabs(4)), m.group("text")))
+        if m is None:
+            raise ParseError(
+                f"an ordering item is exactly one line, found extra line: {line!r}"
+            )
+        items.append((len(m.group("indent").expandtabs(4)), m.group("text")))
     return items
 
 

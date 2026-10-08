@@ -141,12 +141,28 @@ def test_regex_pattern_keeps_original_pattern_verbatim() -> None:
 
 
 def test_regex_pattern_drops_ignored_flags() -> None:
-    assert RegexPattern("/abc/gimuyx").flags == frozenset({"i"})
+    assert RegexPattern("/abc/gimsuvyd").flags == frozenset({"i"})
 
 
 def test_regex_pattern_repr_is_nonempty_string() -> None:
     assert isinstance(repr(RegexPattern("abc")), str)
     assert repr(RegexPattern("abc")) != ""
+
+
+@pytest.mark.parametrize("flag", list("mgsuvyd"))
+def test_every_spec_ignored_flag_is_accepted_and_dropped(flag: str) -> None:
+    # patterns.md, "Regex flags": `m`, `g`, `s`, `u`, `v`, `y` and `d` are
+    # accepted for compatibility and have no effect.
+    rx = RegexPattern(f"/abc/{flag}")
+    assert rx.flags == frozenset()
+
+
+@pytest.mark.parametrize("flags", ["x", "ii", "ix", "e"])
+def test_unknown_or_repeated_flag_is_an_error(flags: str) -> None:
+    # patterns.md, "Regex flags": any other flag, or a repeated one, is an
+    # error, since in other engines `x` changes what the regex means.
+    with pytest.raises(InvalidRegexError):
+        RegexPattern(f"/abc/{flags}")
 
 
 def test_regex_pattern_flags_kwarg_unions_with_parsed_flags() -> None:
@@ -250,7 +266,7 @@ def test_precomposed_vs_decomposed_unicode_requires_n_flag() -> None:
 
 
 def test_ignored_flags_behave_like_no_flags() -> None:
-    rx = RegexPattern("/abc/gmuyx")
+    rx = RegexPattern("/abc/gmsuvyd")
     assert rx.match("abc") is True
     assert rx.match("xabc") is False
 

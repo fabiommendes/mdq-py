@@ -16,6 +16,8 @@ notion of what it knows.
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
 
 import pytest
@@ -65,6 +67,10 @@ def test_every_frontmatter_key_used_by_a_valid_example_is_known(path: Path) -> N
     an `unknown-frontmatter-key` warning. A drift between the parser's
     known-key set and reality would show up here first.
     """
+    lint_json = path.with_name(path.name.removesuffix(".mdq.md") + ".lint.json")
+    pinned = json.loads(lint_json.read_text(encoding="utf-8")) if lint_json.exists() else []
+    if any(entry["code"] == "unknown-frontmatter-key" for entry in pinned):
+        pytest.skip("this example pins the warning on purpose")
     warnings: list[Diagnostic] = []
     text = path.read_text(encoding="utf-8")
     parse_any(text, warnings=warnings)

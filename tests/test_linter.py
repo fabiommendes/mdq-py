@@ -175,11 +175,11 @@ def test_only_multiple_choice_gets_the_correct_choice_check() -> None:
 
 
 def test_strict_only_rules_still_run_at_info_severity() -> None:
-    doc = {"type": "numeric", "stem": "...", "answer": 4, "locale": "cn"}
+    doc = {"type": "numeric", "stem": "Quanto?", "answer": 4, "locale": "cn"}
     diagnostics = load(doc).diagnostics
-    assert _rules(diagnostics) >= {"unexpanded-stem-ellipsis", "locale-lookalike-language"}
+    assert "locale-lookalike-language" in _rules(diagnostics)
     info_codes = {d.code for d in diagnostics if d.severity == "info"}
-    assert {"unexpanded-stem-ellipsis", "locale-lookalike-language"} <= info_codes
+    assert "locale-lookalike-language" in info_codes
 
 
 # ---------------------------------------------------------------------
@@ -395,7 +395,7 @@ def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
             # Opposite of A's `correct`, so the pair is never uniform, and
             # A's own marker (whichever letter or case it is) matches its
             # `correct` -- B just needs to disagree, so a plain T/F marker
-            # does that without also being PROVISIONAL.
+            # does that without also being WARNING-category.
             {"id": "b", "text": "B", "marker": "T" if not a_correct else "F", "correct": not a_correct},
         ],
     }
@@ -403,12 +403,12 @@ def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
 
 
 @pytest.mark.parametrize("marker", ["N", "D", "W", "n"])
-def test_provisional_marker_warns(marker: str) -> None:
+def test_unlisted_marker_warns(marker: str) -> None:
     """
-    true-false.md: PROVISIONAL letters read as true today, but a later
+    true-false.md: WARNING-category letters read as true today, but a later
     revision may reassign them, so implementations SHOULD warn.
 
-    PROVISIONAL letters also represent true (true-false.md, "Body"), so
+    WARNING-category letters also represent true (true-false.md, "Body"), so
     `correct` must be `true` here -- `false` would instead be
     `true-false-marker-disagrees-with-correct`, a model error.
     """
@@ -417,10 +417,10 @@ def test_provisional_marker_warns(marker: str) -> None:
         "stem": "x",
         "choices": [
             {"text": "A", "marker": marker, "correct": True},
-            {"text": "B", "marker": "F"},
+            {"text": "B", "marker": "F", "correct": False},
         ],
     }
-    assert "provisional-true-false-marker" in _rules(load(doc).diagnostics)
+    assert "unlisted-true-false-marker" in _rules(load(doc).diagnostics)
 
 
 def test_indonesian_s_marker_warns_as_false_friend() -> None:
@@ -433,12 +433,12 @@ def test_indonesian_s_marker_warns_as_false_friend() -> None:
         "locale": "id",
         "choices": [
             {"text": "A", "marker": "S", "correct": True},
-            {"text": "B", "marker": "F"},
+            {"text": "B", "marker": "F", "correct": False},
         ],
     }
     rules = _rules(load(doc).diagnostics)
     assert "false-friend-true-false-marker" in rules
-    assert "provisional-true-false-marker" not in rules
+    assert "unlisted-true-false-marker" not in rules
 
 
 #: `reserved-true-false-marker` (`X`/`x`) is a model error now
@@ -454,7 +454,7 @@ def test_marker_inconsistent_with_locale_warns_at_strict() -> None:
         "locale": "pt-BR",
         "choices": [
             {"text": "A", "marker": "T", "correct": True},
-            {"text": "B", "marker": "F"},
+            {"text": "B", "marker": "F", "correct": False},
         ],
     }
     assert "locale-mismatched-true-false-marker" in _rules(
@@ -537,36 +537,16 @@ def test_code_input_with_highlight_does_not_warn() -> None:
 #: -- see tests/test_model_rule_errors.py.
 
 
-def test_regex_shadows_the_accepted_answers() -> None:
-    """short-answer.md: the frontmatter `regex` takes precedence, which
-    leaves the body's answers unreachable."""
-    doc = {"type": "short-answer", "stem": "x", "regex": "yes", "oneOf": ["yes"]}
-    warnings = load(doc).diagnostics
-    assert "shadowed-answers" in _rules(warnings)
-    assert [w for w in warnings if w.code == "shadowed-answers"][0].path == ("oneOf",)
-
-
 @pytest.mark.parametrize("regex", ["^yes", "yes$", "^yes$"])
 def test_redundant_regex_anchors_warn_at_strict(regex: str) -> None:
-    doc = {"type": "short-answer", "stem": "x", "regex": regex}
+    doc = {"type": "short-answer", "stem": "x", "accept": [f"/{regex}/"]}
     assert "redundant-regex-anchor" in _rules(
         load(doc).diagnostics
     )
 
 
-def test_short_answer_without_any_grading_strategy_warns() -> None:
-    doc = {"type": "short-answer", "stem": "x"}
-    assert "short-answer-not-gradable" in _rules(load(doc).diagnostics)
-
-
-def test_open_ended_short_answer_does_not_need_an_answer() -> None:
-    doc = {
-        "type": "short-answer",
-        "id": "q",
-        "title": "Q",
-        "stem": "x",
-        "openEnded": True,
-    }
+def test_short_answer_without_a_pattern_reports_nothing_about_it() -> None:
+    doc = {"type": "short-answer", "id": "q", "title": "Q", "stem": "x"}
     assert _rules(load(doc).diagnostics) == set()
 
 
@@ -576,7 +556,7 @@ def test_short_answer_with_accepted_answers_does_not_warn() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "oneOf": ["Brasília"],
+        "accept": ["Brasília"],
     }
     assert _rules(load(doc).diagnostics) == set()
 
@@ -661,18 +641,16 @@ def _fill_in(stem: str, blanks: list) -> dict:
 #: (dev/specs/to-do/lint-on-models.md) -- see tests/test_model_rule_errors.py.
 
 
-def test_inline_blank_type_is_stripped_from_the_marker() -> None:
-    """fill-in.md writes `[^size/numeric]` to state a blank's type
-    inline; the id is the part before the slash -- so it must not be
-    mistaken for an undefined/unreferenced blank (which would now stop
-    the document from loading at all)."""
+def test_inline_blank_type_in_the_stem_is_not_a_marker() -> None:
+    """fill-in.md, "Stem": a marker is `[^` + SLUG + `]`. `[^size/numeric]`
+    is not one, so it is text, and the blank `size` goes unreferenced."""
     doc = _fill_in(
         "It has about [^size/numeric] habitants.",
         [{"id": "size", "type": "numeric", "answer": 2800000}],
     )
     loaded = load(doc)
-    assert loaded.document is not None
-    assert _rules(loaded.diagnostics) == set()
+    assert loaded.document is None
+    assert "unreferenced-blank" in {d.code for d in loaded.diagnostics}
 
 
 #: `duplicate-blank-id` is a model error now, not a lint warning -- see

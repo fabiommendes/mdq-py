@@ -7,7 +7,13 @@ from typing import Any, ClassVar, Literal
 
 from .. import _parser
 from ..errors import ParseError
-from ..models import Question, Tolerance
+from ..models import (
+    AnswerPattern,
+    MultipleChoiceQuestion,
+    Question,
+    ShortAnswerQuestion,
+    Tolerance,
+)
 from ..types import QuestionType
 
 #: Every format `mdq.convert` can import from and export to.
@@ -74,6 +80,17 @@ def moodle_grade(score: float) -> Fraction | None:
         if abs(score - grade) < MOODLE_GRADE_TOLERANCE:
             return grade
     return None
+
+
+def effective_scores(question: MultipleChoiceQuestion) -> list[float]:
+    """
+    The score each choice is graded with: its own `score`, or the one the
+    grading strategy gives a choice that declares none
+    (multiple-choice.md, "Grading"). A format that stores a grade per
+    choice exports this, since it is what the student gets.
+    """
+    unspecified = question.unspecified_score()
+    return [c.score if c.score is not None else unspecified for c in question.choices]
 
 
 def moodle_score(score: float, *, format: str) -> float:
@@ -147,6 +164,71 @@ def float_answer(
             f"only accept {number!r}"
         )
     return number
+
+
+def require_automatic(question: ShortAnswerQuestion, *, format: str) -> None:
+    """
+    Raise if `question` leaves some responses to the instructor: external
+    formats grade every response themselves and cannot express a pending one.
+
+    Raises:
+        ValueError: the question is not `automatic`.
+    """
+    if question.automation != "automatic":
+        raise ValueError(
+            f"cannot convert to {format}: the question has `unmatched` "
+            "manual (no accept pattern, or declared), and the format cannot "
+            "leave a response for the instructor to grade"
+        )
+
+
+def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[str]:
+    """
+    Return the texts an external format stores for a short answer's
+    `accept` list: a plain literal as it is, a backtick-enclosed literal
+    without its backticks.
+
+    Raises:
+        ValueError: `accept` is missing or empty, or holds a regex, which
+            an external format cannot express.
+    """
+    if not accept:
+        raise ValueError(
+            f"cannot convert to {format}: a short answer needs an `accept` list"
+        )
+    texts: list[str] = []
+    for rule in accept:
+        pattern = rule.pattern.strip(" \t\r\n")
+        if pattern.startswith("/"):
+            raise ValueError(
+                f"cannot convert to {format}: the pattern {pattern!r} is a "
+                "regex, and only literal answers are supported"
+            )
+        if len(pattern) >= 2 and pattern.startswith("`") and pattern.endswith("`"):
+            pattern = pattern[1:-1]
+        texts.append(pattern)
+    return texts
+
+
+def literal_pattern(text: str, *, format: str) -> AnswerPattern:
+    """
+    Return the `accept` entry for an answer an external format wrote as
+    `text`. A text the pattern mini-language would read as something else
+    (a regex or a backtick span) is enclosed in backticks. A lone `*` is an
+    ordinary plain literal.
+
+    Raises:
+        ValueError: `text` needs backticks but contains one.
+    """
+    stripped = text.strip(" \t\r\n")
+    if stripped.startswith(("/", "`")):
+        if "`" in stripped:
+            raise ValueError(
+                f"cannot convert from {format}: the answer {text!r} contains "
+                "a backtick and cannot be written as a literal pattern"
+            )
+        return AnswerPattern(pattern=f"`{stripped}`")
+    return AnswerPattern(pattern=text)
 
 
 class ConversionBase[Q]:

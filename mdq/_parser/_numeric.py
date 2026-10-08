@@ -56,16 +56,23 @@ class _NumericExpr(TypedDict, total=False):
 
     answer: Required[int | float | str]
     domain: NumericDomain
+    #: The decimal places written in the value and the absolute tolerance,
+    #: whichever is larger (numeric.md, "Decimal places"). Always present;
+    #: the caller keeps it only when the question's domain is `decimal`.
     decimalPlaces: int
     tolerance: ToleranceDict
 
 
 def _parse_numeric_expression(expr: str) -> _NumericExpr:
     """
-    Parse the value/tolerance grammar from docs/question-types/numeric.md
-    (`sign? value abstol? reltol?`, order-independent in practice -- see
-    numeric/tolerances.mdq.md, which writes the relative tolerance
+    Parse the value/tolerance grammar from docs/question-types/numeric.md:
+    `sign? value`, then at most one absolute and one relative tolerance,
+    in either order (numeric/tolerances.mdq.md writes the relative one
     first).
+
+    Raises:
+        ParseError: the text does not match the grammar, the fraction has
+            a zero denominator, or a tolerance kind is written twice.
     """
 
     m = NUM_VALUE_RE.match(expr.strip(" \t"))
@@ -83,29 +90,38 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     if "/" in value_str:
         result = {"answer": answer, "domain": "fraction"}
     elif "." in value_str:
-        result = {
-            "answer": answer,
-            "domain": "decimal",
-            "decimalPlaces": len(value_str.split(".", 1)[1]),
-        }
+        result = {"answer": answer, "domain": "decimal"}
     else:
         result = {"answer": answer, "domain": "integer"}
 
     tolerance: ToleranceDict = {}
     absolute_is_decimal = False
+    absolute_places = 0
     for tol_match in TOL_TERM_RE.finditer(m.group("tolerances")):
         num = float(tol_match.group("num"))
-        if tol_match.group("pct"):
+        kind = "relative" if tol_match.group("pct") else "absolute"
+        if kind in tolerance:
+            raise ParseError(f"a numeric body takes one {kind} tolerance: {expr!r}")
+        if kind == "relative":
             tolerance["relative"] = num / 100
         else:
             tolerance["absolute"] = num
             absolute_is_decimal = "." in tol_match.group("num")
+            absolute_places = (
+                len(tol_match.group("num").split(".", 1)[1])
+                if absolute_is_decimal
+                else 0
+            )
     if tolerance:
         result["tolerance"] = tolerance
     # numeric.md, "Number type/domain": an absolute tolerance written as a
     # decimal makes the domain decimal, whatever the value's own form.
     if absolute_is_decimal:
         result["domain"] = "decimal"
+    # numeric.md, "Decimal places": the places written in the value and in
+    # the absolute tolerance, whichever is larger.
+    value_places = len(value_str.split(".", 1)[1]) if "." in value_str else 0
+    result["decimalPlaces"] = max(value_places, absolute_places)
 
     return result
 

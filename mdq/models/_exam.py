@@ -17,7 +17,7 @@ import weakref
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from typing import Annotated, Any, Iterable, Literal, Mapping, Self, Sequence
+from typing import Annotated, Any, Iterable, Literal, Mapping, Self, Sequence, cast
 
 from pydantic import (
     BeforeValidator,
@@ -32,10 +32,11 @@ from pydantic import (
 from pydantic_core import PydanticCustomError
 
 from .. import _parser, _schedule
+from .._markdown import md
 from .._diagnostics import Diagnostic
-from ..errors import UnresolvedInclude
+from ..errors import MissingIdError, NotAutoGradable, ResponseError, UnresolvedInclude
 from .._banks import QuestionBank
-from ..types import ExamGrading, PenaltyPolicy
+from ..types import ExamGrading, GradingStrategy, PenaltyPolicy, QuestionGrading
 from . import _lint, _render
 from ._base import (
     BaseQuestion,
@@ -44,10 +45,15 @@ from ._base import (
     _validate_locale,
     _validate_uuid,
 )
-from ._choice import MultipleChoiceQuestion, MultipleSelectionQuestion, TrueFalseQuestion
+from ._choice import (
+    MultipleChoiceQuestion,
+    MultipleSelectionQuestion,
+    TrueFalseQuestion,
+)
 from ._fill_in import FillInQuestion
 from ._numeric import NumericQuestion
 from ._ordering import OrderingQuestion
+from ._score import ExamScore, QuestionScore
 from ._query import QuerySyntaxError, parse_query
 from ._text import EssayQuestion, ShortAnswerQuestion
 
@@ -61,6 +67,19 @@ __all__ = [
     "select_random",
     "Exam",
 ]
+
+
+def _has_atx_h1(text: str) -> bool:
+    """
+    Whether `text` holds an ATX `# Heading`. A setext H1 (`Text` over
+    `===`) is left to the `setext-heading` warning.
+    """
+    return any(
+        token.type == "heading_open"
+        and token.tag == "h1"
+        and token.markup == "#"
+        for token in md.parse(text)
+    )
 
 
 def _validate_start(value: Any) -> date | datetime:
@@ -245,6 +264,7 @@ class Exam(MdqModel):
     meta: dict[str, object] | None = None
     penalty: PenaltyPolicy = "none"
     grading: ExamGrading = "symmetric"
+    shuffle: bool = False
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[ExamEntry]
@@ -260,6 +280,20 @@ class Exam(MdqModel):
     def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
         """exam.md's "Additional Rules" imports the base `uuid` rule (`malformed-uuid`)."""
         return _validate_uuid(value)
+
+    @field_validator("instructions")
+    @classmethod
+    def check_instructions_have_no_h1(cls, value: str | None) -> str | None:
+        """
+        exam.md, "Body": the instructions MUST NOT hold an H1 heading
+        (`forbidden-block-element`).
+        """
+        if value and _has_atx_h1(value):
+            raise PydanticCustomError(
+                "forbidden-block-element",
+                "'instructions' holds an H1 heading, which exam.md's \"Body\" forbids",
+            )
+        return value
 
     @model_validator(mode="after")
     def check_questions_have_unique_ids(self) -> Self:
@@ -388,6 +422,44 @@ class Exam(MdqModel):
         data["questions"] = questions
         return type(self).model_validate(data)
 
+    def grading_for(self, question: Question) -> GradingStrategy:
+        """
+        The grading strategy `question` is scored with: its own, unless it
+        is `inherit` (or it has none); then the exam's `grading`, or the
+        entry of the exam's mapping for the question's type, or
+        `symmetric` (exam.md, "Grading").
+        """
+        own: QuestionGrading = getattr(question, "grading", "inherit")
+        if own != "inherit":
+            return own
+        if isinstance(self.grading, str):
+            return self.grading
+        by_type = cast("Mapping[str, GradingStrategy]", self.grading)
+        return by_type.get(question.type, "symmetric")
+
+    def shuffle_for(self, question: Question) -> bool:
+        """
+        Whether `question` is shuffled: its own `shuffle`, unless it is
+        `inherit` (or it has none); then the exam's `shuffle`.
+        """
+        own = getattr(question, "shuffle", "inherit")
+        return self.shuffle if own == "inherit" else bool(own)
+
+    def resolve_question(self, question: Question) -> Question:
+        """
+        Return a copy of `question` whose `grading` and `shuffle` are the
+        values it gets in this exam (`grading_for`, `shuffle_for`). A
+        question without those fields is returned unchanged.
+        """
+        if not hasattr(question, "grading"):
+            return question
+        return question.model_copy(
+            update={
+                "grading": self.grading_for(question),
+                "shuffle": self.shuffle_for(question),
+            }
+        )
+
     def _load_included(self, bank: QuestionBank, question_id: str) -> dict[str, Any]:
         source = bank.load(question_id)
         if isinstance(source, str):
@@ -402,6 +474,68 @@ class Exam(MdqModel):
             if field not in question and value is not None:
                 question[field] = value
         return question
+
+    def score_responses(self, responses: Mapping[str, Any]) -> ExamScore:
+        """
+        Score one attempt: a mapping from question id to response
+        (responses.md, "Responses to an exam"; exam.md, "Exam score").
+
+        Raises:
+            UnresolvedInclude: the exam still holds an include block.
+            MissingIdError: a question has no id.
+            ResponseError: a key of `responses` is not a question of the
+                exam, or a response cannot be graded by its question.
+        """
+        questions: list[Question] = []
+        for entry in self.questions:
+            if isinstance(entry, (Include, IncludeAll)):
+                raise UnresolvedInclude("cannot score an exam with include blocks")
+            if entry.id is None:
+                raise MissingIdError("cannot score a question without an id")
+            questions.append(entry)
+        ids = {q.id for q in questions}
+        for key in responses:
+            if key not in ids:
+                raise ResponseError(f"response for unknown question {key!r}")
+
+        scores: dict[str, QuestionScore | None] = {}
+        pending: list[str] = []
+        skipped: list[str] = []
+        weighted = 0.0
+        settled_weight = 0.0
+        total_weight = 0.0
+        for question in questions:
+            qid = str(question.id)
+            weight = float(question.weight)
+            total_weight += weight
+            response = responses.get(qid)
+            if response is None:
+                skipped.append(qid)
+                result = QuestionScore(score=0.0)
+            else:
+                try:
+                    result = self.resolve_question(question).score_response(response)
+                except NotAutoGradable:
+                    pending.append(qid)
+                    scores[qid] = None
+                    continue
+            scores[qid] = result
+            raw = float(result.score)
+            weighted += weight * (max(0.0, raw) if self.penalty == "none" else raw)
+            settled_weight += weight
+
+        provisional = weighted / settled_weight if settled_weight else 0.0
+        if self.penalty == "capped":
+            provisional = max(0.0, provisional)
+        return ExamScore(
+            score=None if pending else provisional,
+            provisional=provisional,
+            questions=scores,
+            pending=tuple(pending),
+            skipped=tuple(skipped),
+            total_weight=total_weight,
+            penalty=self.penalty,
+        )
 
     def with_ids(self) -> Self:
         """
@@ -455,6 +589,10 @@ class Exam(MdqModel):
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
         diagnostics.extend(_lint.check_blank_text_field(self.title, "title"))
+        diagnostics.extend(_lint.check_setext_heading(self.instructions, ("instructions",)))
+        diagnostics.extend(
+            _lint.check_unsafe_thematic_break(self.instructions, ("instructions",))
+        )
         after_include_all = False
         for index, entry in enumerate(self.questions):
             path: tuple[str | int, ...] = ("questions", index)
@@ -465,7 +603,9 @@ class Exam(MdqModel):
                 )
             elif not isinstance(entry, Include):
                 if after_include_all and entry.id is None:
-                    diagnostics.extend(_lint.check_undeclared_id_after_include_all(path))
+                    diagnostics.extend(
+                        _lint.check_undeclared_id_after_include_all(path + ("id",))
+                    )
                 diagnostics.extend(
                     replace(d, path=path + d.path) for d in entry.lint()
                 )

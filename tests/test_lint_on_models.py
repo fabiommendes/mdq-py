@@ -108,7 +108,7 @@ def test_essay_lint_matches_load_diagnostics_for_ignored_highlight() -> None:
     assert "ignored-highlight" in _codes(loaded.document.lint())
 
 
-def test_true_false_lint_matches_load_diagnostics_for_provisional_marker() -> None:
+def test_true_false_lint_matches_load_diagnostics_for_unlisted_marker() -> None:
     doc = {
         "type": "true-false",
         "stem": "Julgue as afirmações sobre o Brasil.",
@@ -125,7 +125,7 @@ def test_true_false_lint_matches_load_diagnostics_for_provisional_marker() -> No
     loaded = load(doc)
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    assert "provisional-true-false-marker" in _codes(loaded.document.lint())
+    assert "unlisted-true-false-marker" in _codes(loaded.document.lint())
 
 
 def test_ordering_lint_matches_load_diagnostics_for_reject_without_feedback() -> None:

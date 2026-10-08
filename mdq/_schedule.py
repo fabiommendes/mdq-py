@@ -152,7 +152,7 @@ def parse_start(value: str | date | datetime) -> date | datetime:
 
     A string holding only a date is read as a `date`, any other ISO 8601
     string as a `datetime`, keeping its UTC offset if it has one. `date`
-    and `datetime` values, as produced by the YAML loader, are returned
+    and `datetime` values, as a caller may build them, are returned
     unchanged.
 
     Raises:

@@ -134,11 +134,27 @@ def test_show_short_answer() -> None:
     assert "hidden" in hidden.lower()
 
 
-def test_show_short_answer_open_ended() -> None:
-    path = next(p for p in VALID_QUESTIONS if p.name == "open-ended.mdq.md")
-    shown = render(path)
-    assert "manual" in shown.lower()
-    assert "Answer key" not in shown
+@pytest.mark.parametrize(
+    ("name", "automation"),
+    [
+        ("manual.mdq.md", "manual"),
+        ("semi-automatic.mdq.md", "semi-automatic"),
+        ("accept-reject.mdq.md", "automatic"),
+        ("reject-only.mdq.md", "semi-automatic"),
+    ],
+)
+def test_show_short_answer_shows_its_automation(name: str, automation: str) -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == name)
+    shown = render(path).lower()
+    assert automation in shown
+    assert "open ended" not in shown
+    assert "open-ended" not in shown
+    assert "openended" not in shown
+
+
+def test_show_manual_short_answer_has_no_answer_key() -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == "manual.mdq.md")
+    assert "Answer key" not in render(path)
 
 
 def test_show_essay() -> None:

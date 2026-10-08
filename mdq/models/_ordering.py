@@ -7,15 +7,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import Field, field_validator, model_validator
 
 from .. import types as t
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
-from ..types import Indentation, Normalization, OrderingContent, Unmatched
+from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
 from . import _lint, _render
-from ._base import BaseQuestion, MdqModel
+from ._base import BaseQuestion, MdqModel, _raise_unique_id_error
 from ._score import QuestionScore
 
 __all__ = ["OrderingLine", "OrderingAlternative", "OrderingQuestion"]
@@ -36,7 +35,8 @@ class OrderingAlternative(MdqModel):
     feedback shown to the student whose response matched it.
     """
 
-    lines: list[OrderingLine]
+    #: At least one line (schema `minItems: 1`).
+    lines: Annotated[list[OrderingLine], Field(min_length=1)]
     feedback: str | None = None
     comment: str | None = None
 
@@ -59,6 +59,14 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     indentation: Indentation = "fixed"
     unmatched: Unmatched = "manual"
     normalizations: list[Normalization] = Field(default_factory=list)
+
+    @property
+    def automation(self) -> Automation:
+        """
+        `automatic` under `unmatched: incorrect`, `semi-automatic` under
+        `unmatched: manual` (ordering.md, "Automation").
+        """
+        return "automatic" if self.unmatched == "incorrect" else "semi-automatic"
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
@@ -99,6 +107,18 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
                 "reject", alt.lines, self.content, self.highlight, alt.feedback, alt.comment
             )
 
+    @field_validator("normalizations")
+    @classmethod
+    def check_normalizations_unique(cls, value: list[Normalization]) -> list[Normalization]:
+        """
+        Raises:
+            ValueError: an entry repeats (JSON Schema `uniqueItems`), which
+                `load` reports as `schema-error`.
+        """
+        if len(set(value)) != len(value):
+            raise ValueError("normalizations must not repeat an entry")
+        return value
+
     @model_validator(mode="after")
     def check_accept_and_reject_disjoint(self) -> Self:
         """
@@ -110,11 +130,14 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
                 entry holds the same lines as some `reject` entry.
         """
         reject_keys = {self.comparison_key(alt.lines) for alt in self.reject}
-        for alt in self.accept:
+        for index, alt in enumerate(self.accept):
             if self.comparison_key(alt.lines) in reject_keys:
-                raise PydanticCustomError(
+                _raise_unique_id_error(
+                    type(self).__name__,
                     "accept-reject-overlap",
                     "the same lines must not be declared in both accept and reject",
+                    ("accept", index),
+                    alt.lines,
                 )
         return self
 
@@ -130,14 +153,15 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
 
     def grades_indentation(self) -> bool:
         """
-        Whether a line's indentation level takes part in the comparison.
+        Whether a line's indentation level takes part in the comparison
+        (ordering.md, "Indentation" and "Grading").
 
-        Only `"strict"` without an effective `dedent` compares levels:
-        `dedent` flattens every level to 0, and `"lenient"` implies it.
+        Levels identify a line under `"fixed"` (the authored level, which
+        the student cannot change) and under `"strict"`. Only `dedent`
+        removes them, listed in `normalizations` or implied by
+        `"lenient"`: it flattens every level to 0.
         """
-        return self.indentation == "strict" and "dedent" not in (
-            self.effective_normalizations()
-        )
+        return "dedent" not in self.effective_normalizations()
 
     def comparison_key(self, lines: Iterable[OrderingLine]) -> tuple[OrderingLine, ...]:
         """

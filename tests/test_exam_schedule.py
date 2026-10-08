@@ -21,7 +21,6 @@ from rich.console import Console
 
 from mdq import load, models
 from mdq.cli import _show as show_mod
-from mdq.errors import ParseError
 from strategies import schedule as st_schedule
 from mdq._parser import parse_exam
 
@@ -100,18 +99,18 @@ def test_parse_exam_normalizes_a_shorthand_duration() -> None:
     assert doc["duration"] == "PT1H30M"
 
 
-def test_parse_exam_raises_parse_error_naming_the_field_for_a_bad_start() -> None:
-    with pytest.raises(ParseError) as excinfo:
-        parse_exam("---\nstart: 10/03/2026\n---\n\n# Exam\n")
-    assert "start" in str(excinfo.value)
-    assert "10/03/2026" in str(excinfo.value)
-
-
-def test_parse_exam_raises_parse_error_naming_the_field_for_a_bad_duration() -> None:
-    with pytest.raises(ParseError) as excinfo:
-        parse_exam("---\nduration: P1M\n---\n\n# Exam\n")
-    assert "duration" in str(excinfo.value)
-    assert "P1M" in str(excinfo.value)
+@pytest.mark.parametrize(
+    ("field", "value", "code"),
+    [("start", "10/03/2026", "malformed-start"), ("duration", "P1M", "invalid-duration")],
+)
+def test_markdown_source_reports_a_bad_schedule_field_like_yaml_does(
+    field: str, value: str, code: str
+) -> None:
+    loaded = load(f"---\n{field}: {value}\n---\n\n# Exam\n", kind="exam")
+    assert loaded.document is None
+    assert [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"] == [
+        (code, (field,))
+    ]
 
 
 def test_frontmatter_yaml_keeps_hh_mm_like_values_as_strings() -> None:

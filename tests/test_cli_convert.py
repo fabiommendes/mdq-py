@@ -226,7 +226,8 @@ def test_cli_export_gift_file(tmp_path: Path):
     assert dest.exists()
     rendered = dest.read_text(encoding="utf-8")
     assert "=Amazonia" in rendered
-    assert "~Caatinga" in rendered
+    # `[ ]` has no score; the default symmetric grading makes it -50%.
+    assert "~%-50%Caatinga" in rendered
 
 
 def test_cli_import_export_gift_round_trip_via_cli(tmp_path: Path):

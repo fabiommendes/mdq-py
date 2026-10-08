@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from string import ascii_lowercase
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
-from ._base import ConversionBase
+from ._base import ConversionBase, effective_scores
 from ._string_parser import StringParser
 
 CHOICE_REGEX = re.compile(r"(?P<letter>[a-zA-Z])[.)]\s+(?P<choice>[^\n]*)")
@@ -41,11 +41,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
         if not isinstance(question, MultipleChoiceQuestion):
             raise ValueError(f"Aiken does not support {question.type!r} questions")
 
-        scores = [choice.score for choice in question.choices]
-        if any(score is None for score in scores):
-            raise ValueError(
-                "cannot convert to Aiken: every choice must have a score"
-            )
+        scores = effective_scores(question)
 
         parts = [question.preamble, question.stem, question.epilogue]
         return AikenQuestion(
