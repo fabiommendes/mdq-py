@@ -535,7 +535,7 @@ def test_no_correct_answer_is_not_reported_for_a_blank_that_defaults_to_manual()
     assert "no-correct-answer" not in [code for code, _, _ in _codes(doc)]
 
 
-@pytest.mark.parametrize("text", ["", "   ", "​", "\n"])
+@pytest.mark.parametrize("text", ["   ", "​", "\n"])
 def test_blank_incorrect_feedback_is_a_warning(text: str) -> None:
     doc = {
         "type": "short-answer",

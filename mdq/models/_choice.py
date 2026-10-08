@@ -73,8 +73,8 @@ class ScoredChoice(MdqModel):
     id: SlugId | None = None
     text: str
     score: Annotated[float | None, Field(default=None, ge=-1, le=1)] = None
-    feedback: str | None = None
-    comment: str | None = None
+    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
 
 
 class BooleanChoice(MdqModel):
@@ -86,8 +86,8 @@ class BooleanChoice(MdqModel):
     id: SlugId | None = None
     text: str
     correct: bool
-    feedback: str | None = None
-    comment: str | None = None
+    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
 
 
 class Statement(MdqModel):
@@ -100,8 +100,8 @@ class Statement(MdqModel):
     text: str
     correct: bool
     marker: str | None = None
-    feedback: str | None = None
-    comment: str | None = None
+    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     @field_validator("marker")
     @classmethod

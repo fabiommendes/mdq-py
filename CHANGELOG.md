@@ -12,6 +12,11 @@ that it implements.
 
 Implements the unreleased MDQ specification.
 
+### Changed
+
+- Empty free-text fields (`comment`, `preamble`, `epilogue`, `answerKey`, `instructions`, feedback) are now schema errors, and an empty frontmatter comment string is not stored.
+- Refreshed the bundled schema (description text only).
+
 ### Added
 
 - Parser for every question type and for exams, from MDQ Markdown, YAML and

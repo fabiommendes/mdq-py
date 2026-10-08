@@ -332,9 +332,9 @@ class BaseQuestion[R](MdqModel):
     title: str | None = None
     author: str | None = None
     stem: str
-    preamble: str | None = None
-    epilogue: str | None = None
-    comment: str | None = None
+    preamble: Annotated[str | None, Field(default=None, min_length=1)] = None
+    epilogue: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
     locale: str | None = None
     meta: dict[str, object] | None = None
     tags: list[str] = Field(default_factory=list)

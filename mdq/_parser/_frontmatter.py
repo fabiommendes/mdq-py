@@ -92,7 +92,8 @@ def _extract_comment(frontmatter_text: str) -> str | None:
         comment_lines.append(content)
         i += 1
 
-    return " ".join(comment_lines) if comment_lines else None
+    # A joined string with no character is not stored; blank text is.
+    return " ".join(comment_lines) or None
 
 
 class _FrontmatterLoader(yaml.SafeLoader):

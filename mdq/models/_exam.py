@@ -259,7 +259,7 @@ class Exam(MdqModel):
     course: str | None = None
     author: str | None = None
     locale: str | None = None
-    instructions: str | None = None
+    instructions: Annotated[str | None, Field(default=None, min_length=1)] = None
     tags: list[str] | None = None
     meta: dict[str, object] | None = None
     penalty: PenaltyPolicy = "none"

@@ -47,8 +47,8 @@ class AnswerPattern(MdqModel):
     #: visible character, and a pattern that opens with a backtick is a
     #: complete backtick-enclosed span (short-answer.md, "Content").
     pattern: Annotated[str, Field(min_length=1, pattern=PATTERN_STRING_RE)]
-    feedback: str | None = None
-    comment: str | None = None
+    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -130,7 +130,7 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
 
     #: Feedback for an incorrect response that no pattern gave feedback to
     #: (short-answer.md, "Feedback").
-    incorrect_feedback: str | None = None
+    incorrect_feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     @property
     def effective_unmatched(self) -> Unmatched:
@@ -240,7 +240,7 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
 
     #: A model answer for the human grading this. Carrying one does not
     #: make the question auto-gradable.
-    answer_key: str | None = None
+    answer_key: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     @property
     def automation(self) -> Automation:
