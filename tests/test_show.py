@@ -235,7 +235,9 @@ Qual é o maior rio do Brasil?
 """
     shown = render_source(src)
     assert "Escolha [a] ou [b]" in shown
-    assert "bold red, item" in shown
+    # Tags are chips: one per tag, shown as `#tag`.
+    assert "#bold red" in shown
+    assert "#item" in shown
 
 
 def test_show_survives_a_closing_tag_in_document_content() -> None:
@@ -358,3 +360,101 @@ def test_cli_show_stdin() -> None:
     result = runner.invoke(app, ["show", "-"], input=src)
     assert result.exit_code == 0
     assert "Earth is flat" in result.output
+
+
+#
+# Themes and the card view.
+#
+def test_show_plain_theme_has_no_unicode_borders_or_glyphs() -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == "partial-credit.mdq.md")
+    buf = io.StringIO()
+    console = Console(file=buf, width=100, highlight=False)
+    show_mod.show_source(path.read_text(encoding="utf-8"), console, theme="plain")
+    shown = buf.getvalue()
+    assert "+50%" in shown
+    # Markdown bullets are drawn by Rich and stay `•`.
+    assert not any(ch in shown for ch in "╭╮╰╯│─◯◉◐⊖🔑")
+
+
+def test_show_falls_back_to_plain_when_the_console_cannot_encode_unicode() -> None:
+    class Latin1Buffer(io.StringIO):
+        encoding = "latin-1"
+
+    path = next(p for p in VALID_QUESTIONS if p.name == "partial-credit.mdq.md")
+    buf = Latin1Buffer()
+    console = Console(file=buf, width=100, highlight=False)
+    show_mod.show_source(path.read_text(encoding="utf-8"), console)
+    assert "╭" not in buf.getvalue()
+
+
+def test_show_card_shows_a_badge_and_the_id() -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == "partial-credit.mdq.md")
+    shown = render(path)
+    assert "MULTIPLE CHOICE" in shown
+    assert "mc-partial-credit" in shown
+
+
+def test_show_hides_the_default_weight_chip() -> None:
+    src = "---\ntype: essay\nweight: 3\n---\n\nExplique.\n\n[essay]\n"
+    assert "weight 3" in render_source(src)
+    assert "weight" not in render_source(src.replace("weight: 3\n", ""))
+
+
+def test_show_fill_in_stem_shows_blanks_as_fields() -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == "mixed-blanks.mdq.md")
+    stem = render(path).split("Blank [^planet]")[0]
+    assert "▭ planet" in stem
+    assert "[^planet]" not in stem
+
+
+def test_show_true_false_shows_the_correct_radio_only_with_the_key() -> None:
+    path = next(
+        p
+        for p in VALID_QUESTIONS
+        if p.name == "simple.mdq.md" and "true-false" in str(p)
+    )
+    assert "◉T" in render(path)
+    assert "◉" not in render(path, show_answer_key=False)
+
+
+def test_cli_show_rejects_an_unknown_theme(tmp_path: Path) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text("Explique.\n\n[essay]\n", encoding="utf-8")
+    result = runner.invoke(app, ["show", "--theme", "neon", str(doc)])
+    assert result.exit_code == 2
+
+
+def test_cli_show_accepts_every_theme(tmp_path: Path) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text("Explique.\n\n[essay]\n", encoding="utf-8")
+    for theme in ("auto", "dark", "light", "plain"):
+        result = runner.invoke(app, ["show", "--theme", theme, str(doc)])
+        assert result.exit_code == 0, (theme, result.output)
+
+
+def test_show_ordering_numbers_the_lines_with_the_key_and_shows_handles_without() -> None:
+    path = next(p for p in VALID_QUESTIONS if p.name == "brazil-timeline.mdq.md")
+    shown = render(path)
+    assert "1. " in shown and "5. " in shown
+    assert "⠿" not in shown
+
+    hidden = render(path, show_answer_key=False)
+    assert hidden.count("⠿") == 5
+    assert "1. " not in hidden
+
+
+def test_show_exam_hides_the_locale_and_author_a_question_inherits() -> None:
+    path = next(p for p in VALID_EXAMS if p.name == "midterm.mdq.md")
+    shown = render(path)
+    # The exam banner states them once; the cards below do not repeat them.
+    assert shown.count("pt-BR") == 1
+    assert shown.count("Fábio Macêdo Mendes") == 1
+
+
+def test_cli_show_has_no_escape_codes_off_a_terminal_unless_a_theme_is_given(
+    tmp_path: Path,
+) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text("Explique.\n\n[essay]\n", encoding="utf-8")
+    assert "\x1b[" not in runner.invoke(app, ["show", str(doc)]).output
+    assert "\x1b[" in runner.invoke(app, ["show", "--theme", "dark", str(doc)]).output
