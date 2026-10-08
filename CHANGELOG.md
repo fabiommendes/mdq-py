@@ -24,7 +24,9 @@ Implements the unreleased MDQ specification.
 - Import and export of GIFT, Aiken and Moodle XML
   (`mdq.convert.import_question`/`export_question`, `mdq.convert.FORMATS`).
 - `mdq` CLI with the `new`, `validate`, `show`, `import` and `export`
-  commands.
+  commands. `mdq show` draws a question as a card, with a type badge, radio
+  buttons, checkboxes, input fields and metadata chips. `--theme` selects
+  `dark`, `light` or `plain`.
 - `mdq[hypothesis]` extra with Hypothesis strategies for generating
   questions and exams (`mdq.hypothesis`).
 - Lint code `non-ascii-whitespace` for Unicode spaces outside code. `load`

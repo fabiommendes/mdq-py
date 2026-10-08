@@ -44,9 +44,15 @@ the result to a file instead of stdout.
 mdq show
 --------
 
-Render a question or exam document for a human at a terminal:
+Render a question or exam document for a human at a terminal, as a
+card like a quiz page would show it: a badge with the question type,
 rich-text fields (preamble, stem, choices, feedback, ...) as Markdown,
-everything else as structured metadata. ``--no-answer-key`` hides
+choices as radio buttons and checkboxes, typed answers as empty input
+fields, and the rest of the metadata as chips. ``--no-answer-key`` hides
 anything that would reveal the correct answer, as when previewing a
 question for a student. ``--width`` sets the console width (default:
-the terminal's own width). Pass ``-`` as the file to read from stdin.
+the terminal's own width). ``--theme`` picks the colors and symbols:
+``dark``, ``light``, ``plain`` (ASCII borders, no colors, no emoji) or
+``auto`` (the default: ``light`` if ``COLORFGBG`` says the terminal
+background is light, ``dark`` otherwise). Pass ``-`` as the file to read
+from stdin.

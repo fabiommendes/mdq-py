@@ -138,7 +138,7 @@ def test_show_exam_renders_start_and_duration_rows() -> None:
     console = Console(file=buf, width=100, highlight=False)
     show_mod.show_source(src, console, show_answer_key=True)
     shown = buf.getvalue()
-    assert "Start" in shown
+    assert "start" in shown
     assert "2026-03-10T09:00:00-03:00" in shown
-    assert "Duration" in shown
+    assert "duration" in shown
     assert "PT2H30M" in shown
