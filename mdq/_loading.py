@@ -450,6 +450,49 @@ def _pydantic_error_code(error_type: str) -> str:
     return "schema-error" if error_type in _PYDANTIC_ERROR_TYPES else error_type
 
 
+#: The include keys, written the way the spec spells them.
+_INCLUDE_KEYS = ("include", "includeAll")
+
+
+def _normalized_key(key: str) -> str:
+    return key.replace("-", "").replace("_", "").lower()
+
+
+def _include_key_hint(entry: Any) -> str:
+    """` (did you mean `includeAll`?)` for a key that misspells an include key."""
+    if not isinstance(entry, Mapping):
+        return ""
+    for key in entry:
+        for include_key in _INCLUDE_KEYS:
+            if isinstance(key, str) and _normalized_key(key) == include_key.lower():
+                return f" (did you mean `{include_key}` instead of `{key}`?)"
+    return ""
+
+
+def _missing_tag_message(entry: Any, *, exam_entry: bool) -> str:
+    """
+    Replaces pydantic's "Unable to extract tag using discriminator
+    'type'": a question with no `type`, or an exam entry that is neither
+    a question nor an include block.
+    """
+    if exam_entry:
+        return (
+            "an entry of `questions` needs a `type`, or an `include` or "
+            "`includeAll` key" + _include_key_hint(entry)
+        )
+    return "a question needs a `type`"
+
+
+def _pydantic_message(error: Mapping[str, Any], path: tuple[str | int, ...], exam: bool) -> str:
+    if error["type"] != "union_tag_not_found":
+        return str(error["msg"])
+    if exam and len(path) == 2 and path[0] == "questions":
+        return _missing_tag_message(error.get("input"), exam_entry=True)
+    if not exam and not path:
+        return _missing_tag_message(error.get("input"), exam_entry=False)
+    return str(error["msg"])
+
+
 def _pydantic_diagnostics(
     exc: PydanticValidationError, data: Any, *, exam: bool = False
 ) -> list[Diagnostic]:
@@ -468,7 +511,12 @@ def _pydantic_diagnostics(
             continue
         seen.add((code, path))
         diagnostics.append(
-            Diagnostic(severity="error", code=code, message=error["msg"], path=path)
+            Diagnostic(
+                severity="error",
+                code=code,
+                message=_pydantic_message(error, path, exam),
+                path=path,
+            )
         )
     return diagnostics
 

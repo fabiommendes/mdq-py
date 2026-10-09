@@ -23,6 +23,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- An exam entry with no `type` and no `include`/`includeAll` key, and a question with no `type`, now report a clear `schema-error` message instead of pydantic's "Unable to extract tag using discriminator 'type'". A key such as `include-all` gets a "did you mean `includeAll`?" hint.
 - A `schema-error` on a field of a bare-string shorthand (an empty pattern line, a choice text) is reported at the string, not below it: `["accept", 0]` instead of `["accept", 0, "pattern"]`.
 - `normalize()` no longer trims Unicode spaces (such as U+00A0) from the ends of `stem` and `preamble`: the grammar reads them as text, and the parser keeps them.
 
