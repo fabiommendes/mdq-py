@@ -34,12 +34,30 @@ def _choices(doc: dict) -> list[tuple[str, int | None]]:
 
 
 def _lint(source: str) -> list[tuple[str, int | None]]:
-    """(severity, line) of every `non-ascii-whitespace` diagnostic."""
+    """(severity, line) of every non-ASCII whitespace diagnostic.
+
+    One severity per code: `warning` is `non-ascii-whitespace` and `info`
+    is `non-ascii-whitespace-in-prose`.
+    """
+    expected = {
+        "warning": "non-ascii-whitespace",
+        "info": "non-ascii-whitespace-in-prose",
+    }
     return [
         (d.severity, d.line)
         for d in load(source, format="mdq").diagnostics
-        if d.code == "non-ascii-whitespace"
+        if d.code in expected.values()
+        and d.code == expected.get(d.severity)
     ]
+
+
+def _codes_by_severity(source: str) -> set[tuple[str, str]]:
+    """(severity, code) of every non-ASCII whitespace diagnostic."""
+    return {
+        (d.severity, d.code)
+        for d in load(source, format="mdq").diagnostics
+        if d.code.startswith("non-ascii-whitespace")
+    }
 
 
 # ---------------------------------------------------------------------
@@ -291,6 +309,15 @@ def test_report_is_kept_when_parsing_fails() -> None:
     codes = [(d.severity, d.code) for d in loaded.diagnostics]
     assert ("warning", "non-ascii-whitespace") in codes
     assert any(severity == "error" for severity, _ in codes)
+
+
+def test_each_severity_has_its_own_code() -> None:
+    prose = f"Descreva o ipê{NBSP}amarelo.\n\n[essay]\n"
+    separator = "Descreva o ipê\u2028amarelo.\n\n[essay]\n"
+    syntax = f"Descreva o ipê.\n\n{NBSP}[essay]\n"
+    assert _codes_by_severity(prose) == {("info", "non-ascii-whitespace-in-prose")}
+    assert _codes_by_severity(separator) == {("warning", "non-ascii-whitespace")}
+    assert _codes_by_severity(syntax) == {("warning", "non-ascii-whitespace")}
 
 
 def test_exam_is_checked() -> None:

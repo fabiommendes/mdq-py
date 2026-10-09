@@ -23,6 +23,8 @@ from ._frontmatter import _split_frontmatter
 __all__ = ["find_unicode_spaces"]
 
 CODE = "non-ascii-whitespace"
+#: The code of a Unicode space in prose: one severity per code.
+PROSE_CODE = "non-ascii-whitespace-in-prose"
 
 #: The characters the lint reports: `UNICODE_SPACE` outside ASCII, and
 #: U+FEFF, which is invisible and which JavaScript `\s` matches.
@@ -68,8 +70,8 @@ def find_unicode_spaces(text: str, /) -> list[Diagnostic]:
         text: MDQ source of a question or an exam.
 
     Returns:
-        One `non-ascii-whitespace` diagnostic per character, in source
-        order. `line` is the 1-based line in `text`.
+        One diagnostic per character, in source order: `non-ascii-whitespace`
+        for a `warning`, `non-ascii-whitespace-in-prose` for an `info`. `line` is the 1-based line in `text`.
 
     Example:
         >>> [(d.severity, d.line) for d in find_unicode_spaces("6\\u202f400 km")]
@@ -211,7 +213,7 @@ def _diagnostic(char: str, severity: Severity, line: int) -> Diagnostic:
         detail = "other tools may read it as whitespace"
     return Diagnostic(
         severity=severity,
-        code=CODE,
+        code=CODE if severity == "warning" else PROSE_CODE,
         message=f"{label} is text in MDQ, but {detail}",
         line=line,
     )

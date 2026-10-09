@@ -14,8 +14,15 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`). A blank `preamble`, `epilogue` or `stem` reports the new `blank-content-field` (`error`); `blank-text-field` is always `warning`.
 - Empty free-text fields (`comment`, `preamble`, `epilogue`, `answerKey`, `instructions`, feedback) are now schema errors, and an empty frontmatter comment string is not stored.
+- A blank exam `instructions` reports `blank-content-field` (`error`).
+- Fixed: the models did not enforce several schema `minItems`/`minLength` limits. `load` now reports `schema-error` for an empty fill-in `blanks`, a choice blank with fewer than two choices, an empty `accept`/`reject`/`preAccept`/`preReject` list, an empty ordering `accept`/`reject`, and an empty `id`, `title`, `author`, exam `course`, `highlight`, include `include` or ordering alternative `feedback`/`comment`.
 - Refreshed the bundled schema (description text only).
+
+### Fixed
+
+- `normalize()` no longer trims Unicode spaces (such as U+00A0) from the ends of `stem` and `preamble`: the grammar reads them as text, and the parser keeps them.
 
 ### Added
 

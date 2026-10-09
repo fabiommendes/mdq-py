@@ -136,7 +136,7 @@ def check_blank_text_field(value: str | None, field_name: str) -> list[Diagnosti
 
     Only for the fields this stays a *warning* on (`title`, `author`,
     `comment`, `answerKey`) -- `preamble`/`epilogue`/`stem` raise
-    `blank-text-field` as a model error instead (`mdq.models`).
+    `blank-content-field` as a model error instead (`mdq.models`).
     """
     # A visible character is neither white space nor an invisible format
     # character such as U+200B.

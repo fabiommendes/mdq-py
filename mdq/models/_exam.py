@@ -43,6 +43,7 @@ from ._base import (
     MdqModel,
     _raise_unique_id_error,
     _validate_locale,
+    _validate_not_blank,
     _validate_uuid,
 )
 from ._choice import (
@@ -180,7 +181,7 @@ class Include(MdqModel):
     #: `extra_forbidden`.
     model_config = MdqModel.model_config | {"extra": "allow"}
 
-    include: str
+    include: Annotated[str, Field(min_length=1)]
 
     @model_validator(mode="after")
     def check_no_extra_fields(self) -> Self:
@@ -252,12 +253,12 @@ class Exam(MdqModel):
     """
 
     type: Literal["exam"] = "exam"
-    id: str | None = None
+    id: Annotated[str | None, Field(default=None, min_length=1)] = None
     uuid: str | None = None
-    title: str | None = None
+    title: Annotated[str | None, Field(default=None, min_length=1)] = None
     description: Annotated[str | None, Field(default=None, min_length=1)] = None
-    course: str | None = None
-    author: str | None = None
+    course: Annotated[str | None, Field(default=None, min_length=1)] = None
+    author: Annotated[str | None, Field(default=None, min_length=1)] = None
     locale: str | None = None
     instructions: Annotated[str | None, Field(default=None, min_length=1)] = None
     tags: list[str] | None = None
@@ -280,6 +281,12 @@ class Exam(MdqModel):
     def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
         """exam.md's "Additional Rules" imports the base `uuid` rule (`malformed-uuid`)."""
         return _validate_uuid(value)
+
+    @field_validator("instructions")
+    @classmethod
+    def check_instructions_are_not_blank(cls, value: str | None) -> str | None:
+        """exam.md, "Additional Rules": raise `blank-content-field` for blank instructions."""
+        return _validate_not_blank(value, "instructions")
 
     @field_validator("instructions")
     @classmethod

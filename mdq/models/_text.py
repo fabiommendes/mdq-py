@@ -108,18 +108,22 @@ class AnswerPattern(MdqModel):
 
 
 
+#: A pattern list holds at least one entry (schema `patternList`, `minItems: 1`).
+PatternList = Annotated[list[AnswerPattern], Field(min_length=1)]
+
+
 class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
     type: Literal["short-answer"] = "short-answer"
     #: Grading rules. `accept` decides the score and wins over `reject`
     #: when both match; `reject` only attaches feedback to answers known
     #: to be wrong.
-    accept: list[AnswerPattern] | None = None
-    reject: list[AnswerPattern] | None = None
+    accept: PatternList | None = None
+    reject: PatternList | None = None
 
     #: Pre-submission validators. A system warns the student before
     #: accepting the answer; grading ignores them entirely.
-    pre_accept: list[AnswerPattern] | None = None
-    pre_reject: list[AnswerPattern] | None = None
+    pre_accept: PatternList | None = None
+    pre_reject: PatternList | None = None
 
     #: How inexact literals treat diacritics, in every pattern list.
     diacritics: Diacritics = "fold"
@@ -236,7 +240,7 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
 class EssayQuestion(BaseQuestion[t.TextResponse]):
     type: Literal["essay"] = "essay"
     input: EssayInput = "text"
-    highlight: str | None = None
+    highlight: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     #: A model answer for the human grading this. Carrying one does not
     #: make the question auto-gradable.

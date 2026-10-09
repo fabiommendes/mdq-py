@@ -4,7 +4,7 @@
 
 Also home to generic helpers with no question-type of their own: the
 unique-id machinery shared by every "duplicate choice/id" rule
-(dev/specs/to-do/unique-ids.md), the `locale`/blank-text-field/regex
+(dev/specs/to-do/unique-ids.md), the `locale`/blank-content-field/regex
 validators reused across question and blank types, and the
 preamble/stem/epilogue normalization helpers `BaseQuestion._normalize`
 calls.
@@ -309,10 +309,10 @@ def _validate_uuid(value: str | None) -> str | None:
 
 
 def _validate_not_blank(value: str | None, field_name: str) -> str | None:
-    """base.md: raise `blank-text-field` for a defined-but-blank value."""
+    """base.md: raise `blank-content-field` for a defined-but-blank value."""
     if value is not None and value.strip() == "":
         raise PydanticCustomError(
-            "blank-text-field",
+            "blank-content-field",
             f"'{field_name}' is defined but has no visible characters",
         )
     return value
@@ -327,10 +327,10 @@ class BaseQuestion[R](MdqModel):
     library is expected to supply it.
     """
 
-    id: str | None = None
+    id: Annotated[str | None, Field(default=None, min_length=1)] = None
     uuid: str | None = None
-    title: str | None = None
-    author: str | None = None
+    title: Annotated[str | None, Field(default=None, min_length=1)] = None
+    author: Annotated[str | None, Field(default=None, min_length=1)] = None
     stem: str
     preamble: Annotated[str | None, Field(default=None, min_length=1)] = None
     epilogue: Annotated[str | None, Field(default=None, min_length=1)] = None
@@ -367,12 +367,12 @@ class BaseQuestion[R](MdqModel):
     @classmethod
     def check_stem_is_not_blank(cls, value: str) -> str:
         """
-        base.md, "Additional Rules": raise `blank-text-field` for a stem
+        base.md, "Additional Rules": raise `blank-content-field` for a stem
         without a visible character.
         """
         if not value.strip():
             raise PydanticCustomError(
-                "blank-text-field", "'stem' has no visible characters"
+                "blank-content-field", "'stem' has no visible characters"
             )
         return value
 
@@ -656,6 +656,10 @@ def can_inline_id(preamble: str | None, stem: str) -> bool:
     return bool(blocks) and blocks[0][0] == "paragraph"
 
 
+#: The whitespace that CommonMark trims around a block.
+_ASCII_WS = " \t\r\n"
+
+
 def normalize_paragraphs(src: str) -> str:
     """
     Normalize a string that is a Markdown paragraph or series of
@@ -693,9 +697,11 @@ def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
     makes that possible.
     """
     combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = _parser.reconstruct_blocks(combined.strip())
+    # Trim only ASCII whitespace: a Unicode space is text (grammar.md,
+    # "Unicode spaces"), and `str.strip()` would remove U+00A0 and others.
+    blocks = _parser.reconstruct_blocks(combined.strip(_ASCII_WS))
     if not blocks:
-        return None, stem.strip()
+        return None, stem.strip(_ASCII_WS)
     new_stem = blocks[-1][1]
     new_preamble = "\n\n".join(text for _, text in blocks[:-1]) or None
     return new_preamble, new_stem

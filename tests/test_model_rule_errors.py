@@ -10,11 +10,9 @@ which this file mirrors): `load` must report each one as an `error`
 diagnostic with `document=None`, at the same path the old lint warning
 used.
 
-`blank-text-field` is the one exception: the spec allows the code
-`blank-intro-field` for the error form of `preamble`/`epilogue`/`stem`,
-if sharing one code across two severities causes a problem. Those tests
-accept either code -- see `_BLANK_INTRO_CODES` -- and this is called out
-in the report.
+The error form of a blank `preamble`/`epilogue`/`stem` is the code
+`blank-content-field`. The `warning` form on the metadata fields keeps
+`blank-text-field`: one severity per code.
 
 Fixtures use Brazil-themed questions, per AGENTS.md. Written against the
 public `mdq.load` API only -- no parser/linter internals.
@@ -26,9 +24,8 @@ import pytest
 
 from mdq import Diagnostic, load
 
-#: Either code is acceptable for the *error* form of `blank-text-field`
-#: on `preamble`/`epilogue`/`stem` -- see the module docstring.
-_BLANK_INTRO_CODES = frozenset({"blank-text-field", "blank-intro-field"})
+#: The code of the *error* form on `preamble`/`epilogue`/`stem`.
+_BLANK_INTRO_CODES = frozenset({"blank-content-field"})
 
 
 def _codes(diagnostics: list[Diagnostic]) -> set[str]:
@@ -249,7 +246,7 @@ def test_non_reserved_true_false_marker_does_not_error() -> None:
 
 
 # ---------------------------------------------------------------------
-# blank-text-field (error form): preamble, epilogue, stem
+# blank-content-field (error form): preamble, epilogue, stem
 # ---------------------------------------------------------------------
 
 
@@ -388,3 +385,77 @@ def test_well_formed_numeric_answer_does_not_error(answer: float | str) -> None:
     loaded = load(doc)
     assert loaded.document is not None
     assert "malformed-numeric-answer" not in _codes(loaded.diagnostics)
+
+
+def test_blank_exam_instructions_is_a_model_error() -> None:
+    loaded = load({"type": "exam", "instructions": "  ", "questions": []})
+    assert loaded.document is None
+    diagnostic = _assert_one_error(loaded.diagnostics, _BLANK_INTRO_CODES)
+    assert diagnostic.code == "blank-content-field"
+    assert diagnostic.path == ("instructions",)
+
+
+# ---------------------------------------------------------------------
+# schema minItems / minLength limits the models must enforce
+# ---------------------------------------------------------------------
+
+_FILL_IN_CHOICE_BLANK = {
+    "id": "bioma",
+    "type": "multiple-choice",
+    "choices": [{"id": "amazonia", "text": "Amazônia", "score": 1}],
+}
+_ORDERING = {"type": "ordering", "stem": "Ordene.", "lines": [[0, "a"], [0, "b"]]}
+_SHORT = {"type": "short-answer", "stem": "Capital?", "accept": ["Brasília"]}
+_MC = {
+    "type": "multiple-choice",
+    "stem": "Maior bioma?",
+    "choices": [{"text": "Amazônia", "score": 1}, {"text": "Pampa"}],
+}
+
+
+@pytest.mark.parametrize(
+    ("doc", "path"),
+    [
+        ({"type": "fill-in", "stem": "A Mata Atlântica.", "blanks": []}, ("blanks",)),
+        (
+            {"type": "fill-in", "stem": "A [^bioma].", "blanks": [_FILL_IN_CHOICE_BLANK]},
+            ("blanks", 0, "choices"),
+        ),
+        (_SHORT | {"reject": []}, ("reject",)),
+        (_SHORT | {"accept": []}, ("accept",)),
+        (_SHORT | {"preAccept": []}, ("preAccept",)),
+        (_SHORT | {"preReject": []}, ("preReject",)),
+        (
+            {
+                "type": "fill-in",
+                "stem": "A [^c].",
+                "blanks": [{"id": "c", "type": "short-answer", "accept": []}],
+            },
+            ("blanks", 0, "accept"),
+        ),
+        (_ORDERING | {"accept": []}, ("accept",)),
+        (_ORDERING | {"reject": []}, ("reject",)),
+        (
+            _ORDERING | {"accept": [{"lines": [[0, "b"], [0, "a"]], "feedback": ""}]},
+            ("accept", 0, "feedback"),
+        ),
+        (_ORDERING | {"highlight": ""}, ("highlight",)),
+        ({"type": "essay", "stem": "x", "input": "code", "highlight": ""}, ("highlight",)),
+        (_MC | {"id": ""}, ("id",)),
+        (_MC | {"title": ""}, ("title",)),
+        (_MC | {"author": ""}, ("author",)),
+        ({"type": "exam", "title": "", "questions": []}, ("title",)),
+        ({"type": "exam", "course": "", "questions": []}, ("course",)),
+        ({"type": "exam", "author": "", "questions": []}, ("author",)),
+        ({"type": "exam", "id": "", "questions": []}, ("id",)),
+        ({"type": "exam", "questions": [{"include": ""}]}, ("questions", 0, "include")),
+    ],
+)
+def test_schema_length_limit_is_enforced_by_the_models(
+    doc: dict[str, object], path: tuple[str | int, ...]
+) -> None:
+    loaded = load(doc)
+    assert loaded.document is None
+    assert [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"][:1] == [
+        ("schema-error", path)
+    ]

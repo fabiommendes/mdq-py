@@ -52,7 +52,8 @@ def alternatives(tag: str) -> st.SearchStrategy[list[OrderingAlternative]]:
         feedback=st.none() | st.text(min_size=1, max_size=8),
         comment=st.none() | st.text(min_size=1, max_size=8),
     )
-    return st.lists(alternative, max_size=2)
+    # An explicit empty list breaks the schema (`minItems: 1`); omit it instead.
+    return st.lists(alternative, min_size=1, max_size=2)
 
 
 @st.composite
@@ -125,10 +126,9 @@ def test_minimal_to_dict_omits_every_default_but_the_discriminator() -> None:
     }
 
 
-def test_empty_accept_is_allowed_and_dropped_by_to_dict() -> None:
-    question = OrderingQuestion(stem="s", lines=[(0, "a"), (0, "b")], accept=[])
-    assert question.accept == []
-    assert "accept" not in question.to_dict()
+def test_empty_accept_is_rejected_like_the_schema_min_items() -> None:
+    with pytest.raises(ValidationError):
+        OrderingQuestion(stem="s", lines=[(0, "a"), (0, "b")], accept=[])
 
 
 #

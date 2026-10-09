@@ -37,8 +37,8 @@ class OrderingAlternative(MdqModel):
 
     #: At least one line (schema `minItems: 1`).
     lines: Annotated[list[OrderingLine], Field(min_length=1)]
-    feedback: str | None = None
-    comment: str | None = None
+    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
 
 
 class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
@@ -52,10 +52,10 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     type: Literal["ordering"] = "ordering"
     lines: Annotated[list[OrderingLine], Field(min_length=2)]
     extra: list[OrderingLine] = Field(default_factory=list)
-    accept: list[OrderingAlternative] = Field(default_factory=list)
-    reject: list[OrderingAlternative] = Field(default_factory=list)
+    accept: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
+    reject: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
     content: OrderingContent = "text"
-    highlight: str | None = None
+    highlight: Annotated[str | None, Field(default=None, min_length=1)] = None
     indentation: Indentation = "fixed"
     unmatched: Unmatched = "manual"
     normalizations: list[Normalization] = Field(default_factory=list)

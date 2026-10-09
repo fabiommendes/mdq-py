@@ -54,7 +54,7 @@ from ._numeric import (
 )
 from ._score import QuestionScore
 from ._text import (
-    AnswerPattern,
+    PatternList,
     _pattern_entry,
     default_unmatched,
     first_feedback,
@@ -69,7 +69,7 @@ __all__ = ["ChoiceBlank", "ShortAnswerBlank", "NumericBlank", "Blank", "FillInQu
 class ChoiceBlank(MdqModel):
     id: SlugId
     type: Literal["multiple-choice"] = "multiple-choice"
-    choices: list[ScoredChoice]
+    choices: Annotated[list[ScoredChoice], Field(min_length=2)]
 
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
@@ -87,10 +87,10 @@ class ChoiceBlank(MdqModel):
 class ShortAnswerBlank(MdqModel):
     id: SlugId
     type: Literal["short-answer"] = "short-answer"
-    accept: list[AnswerPattern] | None = None
-    reject: list[AnswerPattern] | None = None
-    pre_accept: list[AnswerPattern] | None = None
-    pre_reject: list[AnswerPattern] | None = None
+    accept: PatternList | None = None
+    reject: PatternList | None = None
+    pre_accept: PatternList | None = None
+    pre_reject: PatternList | None = None
 
     def effective_unmatched(self, unmatched: Unmatched | None) -> Unmatched:
         """
@@ -149,7 +149,7 @@ Blank = Annotated[
 
 
 class FillInQuestion(BaseQuestion[t.FillInResponse]):
-    blanks: list[Blank]
+    blanks: Annotated[list[Blank], Field(min_length=1)]
     type: Literal["fill-in"] = "fill-in"
     shuffle: QuestionShuffle = "inherit"
     grading: QuestionGrading = "inherit"

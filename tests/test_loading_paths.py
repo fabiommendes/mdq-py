@@ -83,4 +83,4 @@ def test_empty_stem_is_an_error() -> None:
         kind="question",
     )
     assert loaded.document is None
-    assert [(d.code, d.path) for d in loaded.diagnostics] == [("blank-text-field", ("stem",))]
+    assert [(d.code, d.path) for d in loaded.diagnostics] == [("blank-content-field", ("stem",))]

@@ -52,7 +52,7 @@ from .._banks import FileLoader, QuestionBank
 from .._loading import InvalidDocument, parse
 from ..types import NumericDomain, Source, Unmatched
 from ._app import app
-from ._show_theme import Theme, ThemeName, resolve_theme
+from ._show_theme import ThemeName, resolve_theme
 
 #: Widest card. A card as wide as a 200-column terminal is hard to read.
 _MAX_CARD_WIDTH = 100

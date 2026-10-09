@@ -140,6 +140,13 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
         if content == "code"
         else None
     )
+    # An empty `accept`/`reject` list is invalid (`minItems: 1`): the
+    # model only takes the default, so leave out an empty draw.
+    alternatives = {
+        tag: st.just(draws)
+        for tag in ("accept", "reject")
+        if (draws := draw(_alternatives(tag)))
+    }
     return draw(
         st.builds(
             OrderingQuestion,
@@ -148,13 +155,12 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
             highlight=st.just(highlight),
             lines=_lines("main"),
             extra=_lines("extra", min_size=0, max_size=3),
-            accept=_alternatives("accept"),
-            reject=_alternatives("reject"),
             indentation=st.sampled_from(["fixed", "lenient", "strict"]),
             unmatched=st.sampled_from(["manual", "incorrect"]),
             normalizations=st.lists(
                 st.sampled_from(["dedent", "skip-blanks"]), unique=True, max_size=2
             ),
+            **alternatives,
         )
     )
 
@@ -319,3 +325,20 @@ def test_interleaved_feedback_and_comment_blocks_is_a_parse_error() -> None:
     )
     with pytest.raises(ParseError):
         parse_question("Order.\n\n" + source)
+
+
+def test_render_parse_keeps_trailing_unicode_space_in_stem() -> None:
+    """
+    Regression for a falsified `test_render_parse_is_a_fixed_point`:
+    grammar.md reads U+00A0 as text, so `normalize()` must not trim it
+    from the stem (it used `str.strip()`), as the parser keeps it.
+    """
+    question = OrderingQuestion(
+        stem="A\xa0",
+        content="code",
+        highlight="python",
+        lines=[(0, "main-0"), (0, "main-00")],
+    )
+    rebuilt = QuestionRoot.model_validate(parse_question(question.render())).root
+    assert rebuilt == question.normalize()
+    assert rebuilt.stem == "A\xa0"
