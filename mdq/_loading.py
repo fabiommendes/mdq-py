@@ -399,10 +399,18 @@ def _strip_discriminator_tags(
     one error per member, each with the member's type label in its `loc`
     (`literal['symmetric', ...]`, `dict[...]`). A label is never a key of
     the document, so it is dropped as well.
+
+    A string-or-mapping shorthand (a bare pattern line, a choice text) is
+    expanded into a mapping by a model validator, so an error on a field
+    of the expansion has a `loc` that goes into a string of the document.
+    The path stops at that string: it points into the document as
+    written.
     """
     path: list[str | int] = []
     node = data
     for index, segment in enumerate(loc):
+        if isinstance(node, str):
+            break
         if (
             isinstance(node, dict)
             and segment not in node

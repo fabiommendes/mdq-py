@@ -22,6 +22,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- A `schema-error` on a field of a bare-string shorthand (an empty pattern line, a choice text) is reported at the string, not below it: `["accept", 0]` instead of `["accept", 0, "pattern"]`.
 - `normalize()` no longer trims Unicode spaces (such as U+00A0) from the ends of `stem` and `preamble`: the grammar reads them as text, and the parser keeps them.
 
 ### Added
