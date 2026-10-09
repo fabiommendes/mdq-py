@@ -23,6 +23,8 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `load` validates a YAML/JSON/dict document by alias only. A Python field name such as `answer_key`, `pre_accept` or `include_all` was accepted silently; it is now a `schema-error` like any unknown key. Building a model in Python (`Essay(answer_key=...)`) still takes the field names. Requires pydantic 2.11.
+- In an exam written in Markdown, a block with a key such as `include-all` (a misspelling of `include`/`includeAll`) gets the same "did you mean `includeAll`?" hint on its `parse-error` (no body) or `unknown-frontmatter-key` warning (with a body).
 - An exam entry with no `type` and no `include`/`includeAll` key, and a question with no `type`, now report a clear `schema-error` message instead of pydantic's "Unable to extract tag using discriminator 'type'". A key such as `include-all` gets a "did you mean `includeAll`?" hint.
 - A `schema-error` on a field of a bare-string shorthand (an empty pattern line, a choice text) is reported at the string, not below it: `["accept", 0]` instead of `["accept", 0, "pattern"]`.
 - `normalize()` no longer trims Unicode spaces (such as U+00A0) from the ends of `stem` and `preamble`: the grammar reads them as text, and the parser keeps them.

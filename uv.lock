@@ -761,7 +761,7 @@ requires-dist = [
     { name = "linkify-it-py", specifier = ">=2.2.0" },
     { name = "markdown-it-py", specifier = ">=4.2.0" },
     { name = "optionz", specifier = ">=0.2.0" },
-    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pydantic", specifier = ">=2.11" },
     { name = "pygments", specifier = ">=2.21.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "python-slugify", specifier = ">=8.0.4" },

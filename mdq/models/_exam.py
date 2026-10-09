@@ -213,7 +213,7 @@ def _entry_kind(value: Any) -> str:
     if isinstance(value, IncludeAll):
         return "includeAll"
     if isinstance(value, Mapping) and "type" not in value:
-        if "includeAll" in value or "include_all" in value:
+        if "includeAll" in value:
             return "includeAll"
         if "include" in value:
             return "include"

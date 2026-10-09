@@ -25,6 +25,7 @@ from pydantic_core.core_schema import ErrorType
 
 from . import _parser, models
 from ._diagnostics import RANK, Diagnostic, Severity
+from ._include_keys import include_key_hint
 from .errors import InvalidDocument, MdqError, UnresolvedInclude
 from .types import Format, Ids, Kind, Source
 
@@ -450,25 +451,6 @@ def _pydantic_error_code(error_type: str) -> str:
     return "schema-error" if error_type in _PYDANTIC_ERROR_TYPES else error_type
 
 
-#: The include keys, written the way the spec spells them.
-_INCLUDE_KEYS = ("include", "includeAll")
-
-
-def _normalized_key(key: str) -> str:
-    return key.replace("-", "").replace("_", "").lower()
-
-
-def _include_key_hint(entry: Any) -> str:
-    """` (did you mean `includeAll`?)` for a key that misspells an include key."""
-    if not isinstance(entry, Mapping):
-        return ""
-    for key in entry:
-        for include_key in _INCLUDE_KEYS:
-            if isinstance(key, str) and _normalized_key(key) == include_key.lower():
-                return f" (did you mean `{include_key}` instead of `{key}`?)"
-    return ""
-
-
 def _missing_tag_message(entry: Any, *, exam_entry: bool) -> str:
     """
     Replaces pydantic's "Unable to extract tag using discriminator
@@ -478,7 +460,7 @@ def _missing_tag_message(entry: Any, *, exam_entry: bool) -> str:
     if exam_entry:
         return (
             "an entry of `questions` needs a `type`, or an `include` or "
-            "`includeAll` key" + _include_key_hint(entry)
+            "`includeAll` key" + include_key_hint(entry)
         )
     return "a question needs a `type`"
 
@@ -526,7 +508,7 @@ def _load_question(
 ) -> Loaded[Any]:
     diagnostics = list(diagnostics)
     try:
-        question = models.QuestionRoot.model_validate(data).root
+        question = models.QuestionRoot.model_validate(data, by_alias=True, by_name=False).root
     except PydanticValidationError as exc:
         diagnostics.extend(_pydantic_diagnostics(exc, data))
         return Loaded(None, diagnostics)
@@ -545,7 +527,7 @@ def _load_exam(
 ) -> Loaded[Any]:
     diagnostics = list(diagnostics)
     try:
-        exam = models.Exam.model_validate(data)
+        exam = models.Exam.model_validate(data, by_alias=True, by_name=False)
     except PydanticValidationError as exc:
         diagnostics.extend(_pydantic_diagnostics(exc, data, exam=True))
         return Loaded(None, diagnostics)

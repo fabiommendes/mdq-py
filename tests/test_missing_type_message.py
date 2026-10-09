@@ -47,3 +47,41 @@ def test_question_without_type() -> None:
     [(code, path, message)] = _messages({"stem": "Descreva o Cerrado."})
     assert (code, path) == ("schema-error", ())
     assert message == "a question needs a `type`"
+
+
+def _exam_md(block: str) -> str:
+    return f"# Biomas\n\n{block}"
+
+
+def _unknown_key(loaded) -> list:
+    return [d for d in loaded.diagnostics if d.code == "unknown-frontmatter-key"]
+
+
+def test_md_block_with_misspelled_include_key_and_no_body() -> None:
+    loaded = load(_exam_md("---\ninclude-all: biome\n---\n"), format="mdq")
+    assert loaded.document is None
+    [d] = loaded.diagnostics
+    assert d.code == "parse-error"
+    assert d.severity == "error"
+    assert d.message.endswith("(did you mean `includeAll` instead of `include-all`?)")
+
+
+def test_md_block_with_misspelled_include_key_and_body() -> None:
+    source = _exam_md("---\ninclude_all: biome\n---\n\nQual bioma?\n\n[essay]\n")
+    loaded = load(source, format="mdq")
+    assert loaded.document is not None
+    [d] = _unknown_key(loaded)
+    assert (d.code, d.severity) == ("unknown-frontmatter-key", "warning")
+    assert d.path == ("questions", 0, "include_all")
+    assert "did you mean `includeAll` instead of `include_all`?" in d.message
+
+
+def test_md_block_without_include_like_key_has_no_hint() -> None:
+    loaded = load(_exam_md("---\nautor: Ana\n---\n\nQual bioma?\n\n[essay]\n"), format="mdq")
+    [d] = _unknown_key(loaded)
+    assert "did you mean" not in d.message
+
+
+def test_md_block_with_exact_include_key_has_no_hint() -> None:
+    loaded = load(_exam_md("---\ninclude: q1\n---\n"), format="mdq")
+    assert all("did you mean" not in d.message for d in loaded.diagnostics)

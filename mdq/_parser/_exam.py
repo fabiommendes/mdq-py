@@ -20,7 +20,8 @@ import yaml
 from .. import _schedule
 from .._markdown import md, split_lines
 from .._diagnostics import Diagnostic
-from ..errors import MissingField, ParseError
+from .._include_keys import include_key_hint, misspelled_include_key
+from ..errors import IncompleteQuestion, MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
 from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import _load_frontmatter_yaml, _normalize_tags, _split_frontmatter
@@ -63,7 +64,12 @@ EXAM_PASSTHROUGH_KEYS = (
 #: Every frontmatter key an exam accepts. `type` has no effect of its own
 #: -- an exam is recognized by its H1 title, not by declaring `type:
 #: exam` (docs/exam.md) -- but is accepted, not flagged as a mistake.
-EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {"tags", "start", "duration", "type"}
+EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {
+    "tags",
+    "start",
+    "duration",
+    "type",
+}
 
 #: A block with no `include:`/`includeAll:` is an inline question
 #: instead, and its frontmatter is checked against `COMMON_QUESTION_KEYS`/
@@ -190,9 +196,7 @@ def parse_exam(
 
     questions: list[ExamEntryDict] = []
     for index, block in enumerate(blocks):
-        questions.append(
-            _parse_exam_block(block, doc, warnings=warnings, index=index)
-        )
+        questions.append(_parse_exam_block(block, doc, warnings=warnings, index=index))
     doc["questions"] = questions
 
     return cast(ExamDict, doc)
@@ -350,8 +354,7 @@ def _split_exam_blocks(
                     (
                         j
                         for j in range(index + 1, len(lines))
-                        if j not in code_lines
-                        and lines[j].rstrip(" \t") == "---"
+                        if j not in code_lines and lines[j].rstrip(" \t") == "---"
                     ),
                     None,
                 )
@@ -469,14 +472,35 @@ def _parse_exam_block(
     if "include" in front:
         return cast(IncludeDict, dict(front))
 
+    # A key that only misspells `include`/`includeAll` leaves the block an
+    # inline question; the diagnostic it produces gets the same hint as the
+    # YAML/JSON path.
+    hint = include_key_hint(front)
     block_warnings: list[Diagnostic] = []
-    parsed_question: dict[str, Any] = dict(
-        parse_question(source, warnings=block_warnings if warnings is not None else None)
-    )
-    if warnings is not None:
-        warnings.extend(
-            replace(w, path=("questions", index) + w.path) for w in block_warnings
+    try:
+        parsed_question: dict[str, Any] = dict(
+            parse_question(
+                source, warnings=block_warnings if warnings is not None else None
+            )
         )
+    except MissingField as exc:
+        if not hint:
+            raise
+        raise MissingField(exc.field, exc.node, exc.message + hint) from exc
+    except IncompleteQuestion as exc:
+        if not hint:
+            raise
+        raise IncompleteQuestion(exc.message + hint) from exc
+    if warnings is not None:
+        misspelled = misspelled_include_key(front)
+        for w in block_warnings:
+            if (
+                misspelled
+                and w.code == "unknown-frontmatter-key"
+                and w.path == (misspelled[0],)
+            ):
+                w = replace(w, message=w.message + hint)
+            warnings.append(replace(w, path=("questions", index) + w.path))
     _inherit_from_exam(parsed_question, exam)
     return cast(QuestionDict, parsed_question)
 
