@@ -1,5 +1,5 @@
 """
-exam.md and base.md: `id`, `include` and `include-all` take only a YAML
+exam.md and base.md: `id`, `include` and `includeAll` take only a YAML
 string. A number or boolean is not converted (`id: 2024` is not
 `"2024"`); `load` reports it as `schema-error`, as it does for a
 YAML/JSON document.
@@ -35,7 +35,7 @@ def test_question_id_inside_an_exam_must_be_a_string() -> None:
     assert _errors(text) == [("schema-error", ("questions", 0, "id"))]
 
 
-@pytest.mark.parametrize(("key", "value"), [("include", "true"), ("include", "2024"), ("include-all", "7")])
+@pytest.mark.parametrize(("key", "value"), [("include", "true"), ("include", "2024"), ("includeAll", "7")])
 def test_include_must_be_a_string(key: str, value: str) -> None:
     text = f"# Prova\n\n---\n{key}: {value}\n---\n"
     assert _errors(text) == [("schema-error", ("questions", 0, key))]

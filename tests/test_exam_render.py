@@ -55,7 +55,7 @@ include: recursion-01
 ---
 
 ---
-include-all: recursion AND NOT draft
+includeAll: recursion AND NOT draft
 max: 2
 ---
 

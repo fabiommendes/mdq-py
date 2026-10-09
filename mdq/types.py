@@ -150,10 +150,10 @@ class IncludeDict(TypedDict):
 
 
 #: A query for out-of-line questions -- schema/exam.yaml#/$defs/IncludeAll.
-#: Declared with the functional syntax, since `include-all` is not a valid
+#: Declared with the functional syntax, since `includeAll` is not a valid
 #: Python identifier.
 IncludeAllDict = TypedDict(
-    "IncludeAllDict", {"include-all": Required[str], "max": int}, total=False
+    "IncludeAllDict", {"includeAll": Required[str], "max": int}, total=False
 )
 
 

@@ -150,7 +150,7 @@ class QuestionRoot(RootModel):
 def _check_no_extra_include_fields(model: MdqModel) -> None:
     """
     exam.md, "Question and include blocks": an include block holds
-    exactly one of `include`/`include-all` (plus `max` for the latter).
+    exactly one of `include`/`includeAll` (plus `max` for the latter).
     No other field is allowed, in the Markdown path (where
     `mdq._parser._exam` keeps whatever the block's frontmatter wrote,
     instead of dropping it) or the dict/YAML one (which lands here
@@ -197,7 +197,7 @@ class IncludeAll(MdqModel):
 
     model_config = MdqModel.model_config | {"extra": "allow"}
 
-    include_all: Annotated[str, Field(alias="include-all", min_length=1)]
+    include_all: Annotated[str, Field(alias="includeAll", min_length=1)]
     max: Annotated[int | None, Field(default=None, ge=1, strict=True)] = None
 
     @model_validator(mode="after")
@@ -211,10 +211,10 @@ def _entry_kind(value: Any) -> str:
     if isinstance(value, Include):
         return "include"
     if isinstance(value, IncludeAll):
-        return "include-all"
+        return "includeAll"
     if isinstance(value, Mapping) and "type" not in value:
-        if "include-all" in value or "include_all" in value:
-            return "include-all"
+        if "includeAll" in value or "include_all" in value:
+            return "includeAll"
         if "include" in value:
             return "include"
     return "question"
@@ -225,11 +225,11 @@ def _entry_kind(value: Any) -> str:
 ExamEntry = Annotated[
     Annotated[Question, Tag("question")]
     | Annotated[Include, Tag("include")]
-    | Annotated[IncludeAll, Tag("include-all")],
+    | Annotated[IncludeAll, Tag("includeAll")],
     Discriminator(_entry_kind),
 ]
 
-#: Chooses which questions an `include-all` block adds. It receives the
+#: Chooses which questions an `includeAll` block adds. It receives the
 #: ids that match the query and are not in the exam yet, sorted, and the
 #: block's `max`. It returns the chosen ids, in the order the exam shows
 #: them: at most `max` of them, all taken from the candidates.
@@ -316,7 +316,7 @@ class Exam(MdqModel):
         participate: there is nothing to collide.
 
         Before `resolve()`, an `include` counts with the id it references.
-        An `include-all` adds questions that are not known yet, so the
+        An `includeAll` adds questions that are not known yet, so the
         implicit ids after it are not checked.
         """
         seen: dict[str, int] = {}
@@ -370,12 +370,12 @@ class Exam(MdqModel):
     ) -> Exam:
         """
         Return a copy of this exam in which every `include` and
-        `include-all` block is replaced by the questions it selects from
+        `includeAll` block is replaced by the questions it selects from
         `bank` (exam.md, "Include" and "Include all").
 
-        An `include-all` never adds a question that the exam already
+        An `includeAll` never adds a question that the exam already
         contains: the target of an `include`, a declared inline id, or a
-        question an earlier `include-all` added. `select` then chooses
+        question an earlier `includeAll` added. `select` then chooses
         among the remaining matches; it defaults to `select_random`. A
         query that does not follow the recommended language adds no
         questions. Included questions inherit `locale` and `author` from
@@ -383,9 +383,9 @@ class Exam(MdqModel):
 
         Args:
             bank: Where the included questions come from.
-            select: Chooses the questions of each `include-all` block.
+            select: Chooses the questions of each `includeAll` block.
             warnings: When given, an `empty-include-all` `Diagnostic` is
-                appended for every `include-all` block that adds nothing.
+                appended for every `includeAll` block that adds nothing.
 
         Raises:
             IncludeNotFound: `bank` cannot load an included question.
@@ -558,13 +558,13 @@ class Exam(MdqModel):
         twice gives the same result as running it once.
 
         Raises:
-            UnresolvedInclude: the exam has an `include-all` block, so
+            UnresolvedInclude: the exam has an `includeAll` block, so
                 the positions after it are not known. Call `resolve()`
                 first.
         """
         if any(isinstance(entry, IncludeAll) for entry in self.questions):
             raise UnresolvedInclude(
-                "the positions after an 'include-all' block are only known "
+                "the positions after an 'includeAll' block are only known "
                 "after resolve()"
             )
         new_questions: list[Question | Include | IncludeAll] = []
@@ -606,7 +606,7 @@ class Exam(MdqModel):
             if isinstance(entry, IncludeAll):
                 after_include_all = True
                 diagnostics.extend(
-                    _lint.check_include_query(entry.include_all, path + ("include-all",))
+                    _lint.check_include_query(entry.include_all, path + ("includeAll",))
                 )
             elif not isinstance(entry, Include):
                 if after_include_all and entry.id is None:

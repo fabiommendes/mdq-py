@@ -1,7 +1,7 @@
 """
 Exam-level parsing: splitting an exam document below its H1 title into
 question blocks (`_split_exam_blocks`), turning each block into an
-inline question, `include` or `include-all` entry (`_parse_exam_block`),
+inline question, `include` or `includeAll` entry (`_parse_exam_block`),
 and applying exam-to-question inheritance (`_inherit_from_exam`).
 
 `parse_exam` is the public entry point; it never resolves `include`s
@@ -65,10 +65,10 @@ EXAM_PASSTHROUGH_KEYS = (
 #: exam` (docs/exam.md) -- but is accepted, not flagged as a mistake.
 EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {"tags", "start", "duration", "type"}
 
-#: A block with no `include:`/`include-all:` is an inline question
+#: A block with no `include:`/`includeAll:` is an inline question
 #: instead, and its frontmatter is checked against `COMMON_QUESTION_KEYS`/
 #: `TYPE_QUESTION_KEYS` like any other question's, by `parse_question`. An
-#: include/include-all block's own frontmatter is passed through
+#: include/includeAll block's own frontmatter is passed through
 #: verbatim instead (see `_parse_exam_block`): an extra field there is a
 #: model error (`unknown-include-field`), not a dropped-and-warned key.
 
@@ -81,8 +81,8 @@ def parse_exam(
     """
     Parse an exam document.
 
-    `include:` and `include-all:` blocks are left as they are written, as
-    `{"include": id}` and `{"include-all": query}` entries. See
+    `include:` and `includeAll:` blocks are left as they are written, as
+    `{"include": id}` and `{"includeAll": query}` entries. See
     `mdq.models.Exam.resolve`.
 
     Args:
@@ -444,7 +444,7 @@ def _parse_exam_block(
     frontmatter_text, _ = _split_frontmatter(source + "\n")
     front = _load_frontmatter_yaml(frontmatter_text) if frontmatter_text else {}
 
-    is_include = "include" in front or "include-all" in front
+    is_include = "include" in front or "includeAll" in front
     if has_separator and is_include and warnings is not None:
         warnings.append(
             Diagnostic(
@@ -455,14 +455,14 @@ def _parse_exam_block(
             )
         )
 
-    if "include-all" in front:
+    if "includeAll" in front:
         # Every key the block's frontmatter wrote is kept, not just the
         # known ones: an extra field is now an `unknown-include-field`
         # model error (exam.md, "No other field is allowed"), raised by
         # `mdq.models.IncludeAll` once this reaches it -- the same error
         # the dict/YAML path raises directly, so dropping the key here
         # instead would let the Markdown path silently lose it.
-        # `include-all`/`include` take only a string: a number or boolean
+        # `includeAll`/`include` take only a string: a number or boolean
         # passes through unconverted, and the model reports it.
         return cast(IncludeAllDict, dict(front))
 

@@ -3,7 +3,7 @@ The MDQ Markdown parser.
 
 Turns MDQ source into the JSON-like dict shapes `schema/*.yaml` and
 `mdq.validator.validate_document` describe: `parse_question` for a
-single question, `parse_exam` for an exam (its `include`/`include-all`
+single question, `parse_exam` for an exam (its `include`/`includeAll`
 blocks left unresolved -- see `mdq.models.Exam.resolve`), and `is_exam`
 to tell which one a document is before parsing it.
 

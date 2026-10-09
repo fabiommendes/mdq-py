@@ -1,5 +1,5 @@
 """
-Question banks: where an exam's `include:` and `include-all:` blocks find
+Question banks: where an exam's `include:` and `includeAll:` blocks find
 their questions.
 
 An exam may pull in questions that live elsewhere rather than writing them
@@ -41,7 +41,7 @@ class QuestionBank(Protocol):
     for Markdown text, or a `Mapping` for already-parsed data. It raises
     `IncludeNotFound` when the id names nothing.
 
-    `tagged` and `ids` are what an `include-all:` query reads (see
+    `tagged` and `ids` are what an `includeAll:` query reads (see
     `mdq.models._query`). `ids` is only called for a query that selects by
     exclusion alone, like `NOT draft`, so a large bank can serve most
     queries from a tag index without listing every question.

@@ -14,6 +14,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- The exam include block key `include-all` is renamed to `includeAll` (`IncludeAll` model alias, `IncludeAllDict`, parser, linter paths). `include-all` is now an unknown field (`unknown-include-field`).
 - One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`). A blank `preamble`, `epilogue` or `stem` reports the new `blank-content-field` (`error`); `blank-text-field` is always `warning`.
 - Empty free-text fields (`comment`, `preamble`, `epilogue`, `answerKey`, `instructions`, feedback) are now schema errors, and an empty frontmatter comment string is not stored.
 - A blank exam `instructions` reports `blank-content-field` (`error`).
@@ -133,7 +134,7 @@ Implements the unreleased MDQ specification.
   answer U+00A0 `Brasília`.
 - A leading byte order mark is removed before parsing.
 - A `unit` excludes `UNICODE_SPACE` instead of Python's `\s`, and an
-  `include-all` query tag excludes it too. A query with another Unicode
+  `includeAll` query tag excludes it too. A query with another Unicode
   space between tokens does not follow the query language.
 - A short-answer pattern is a regex if it starts with `/` after stripping
   spaces, tabs and line endings. Before, every Unicode space was stripped.
@@ -207,7 +208,7 @@ Implements the unreleased MDQ specification.
   `malformed-true-false-marker` error (before, `string_too_short`,
   `string_too_long`, or no error for a non-letter such as `1`).
 - The parser no longer converts a non-string `id` (question or exam),
-  `include` or `include-all` with `str()`: `id: 2024` and `include: yes`
+  `include` or `includeAll` with `str()`: `id: 2024` and `include: yes`
   are `schema-error`s. A null exam `id` is absent (it was `"None"`).
 - A repeated key in a YAML mapping is `yaml-syntax-error`, in Markdown
   frontmatter (question, exam, exam block) and in a YAML document. A

@@ -1095,7 +1095,7 @@ def check_undeclared_id_after_include_all(
 ) -> list[Diagnostic]:
     """
     exam.md, "Question ids": the derived id of a question after an
-    `include-all` changes with the questions the query adds.
+    `includeAll` changes with the questions the query adds.
     """
     return [
         Diagnostic(
@@ -1103,7 +1103,7 @@ def check_undeclared_id_after_include_all(
             code="undeclared-id-after-include-all",
             path=path,
             message=(
-                "the derived id of a question after an 'include-all' changes "
+                "the derived id of a question after an 'includeAll' changes "
                 "with the questions the query adds; declare an 'id'"
             ),
         )

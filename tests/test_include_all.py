@@ -1,5 +1,5 @@
 """
-`include-all` blocks and their query language (docs/exam.md, "Include all").
+`includeAll` blocks and their query language (docs/exam.md, "Include all").
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def exam(*blocks: str) -> str:
 
 
 def include_all(query: str, max: int | None = None) -> str:
-    lines = ["---", f"include-all: {query}"]
+    lines = ["---", f"includeAll: {query}"]
     if max is not None:
         lines.append(f"max: {max}")
     return "\n".join(lines + ["---"])
@@ -164,24 +164,24 @@ def test_select_lists_every_id_only_for_a_complement(
 
 def test_parser_keeps_include_all_as_written() -> None:
     doc = parse_exam(exam(include_all("biome", max=2)))
-    assert doc["questions"] == [{"include-all": "biome", "max": 2}]
+    assert doc["questions"] == [{"includeAll": "biome", "max": 2}]
 
 
 def test_load_keeps_include_all_unresolved() -> None:
     document = load(exam(include_all("biome", max=2))).validate()
     assert document.questions == [IncludeAll(include_all="biome", max=2)]
-    assert document.to_dict()["questions"] == [{"include-all": "biome", "max": 2}]
+    assert document.to_dict()["questions"] == [{"includeAll": "biome", "max": 2}]
 
 
 def test_unknown_key_in_include_all_block_is_an_error() -> None:
     """
-    exam.md, "No other field is allowed": an include-all block accepts
-    only `include-all` and `max`. An extra key used to be dropped with an
+    exam.md, "No other field is allowed": an includeAll block accepts
+    only `includeAll` and `max`. An extra key used to be dropped with an
     `unknown-frontmatter-key` warning; it is now `unknown-include-field`,
     raised by `mdq.models.IncludeAll` -- the same code the dict/YAML path
     raises for the same mistake.
     """
-    text = exam("---\ninclude-all: biome\ncount: 2\n---")
+    text = exam("---\nincludeAll: biome\ncount: 2\n---")
     loaded = load(text)
     assert loaded.document is None
     assert "unknown-include-field" in [d.code for d in loaded.diagnostics]
@@ -189,7 +189,7 @@ def test_unknown_key_in_include_all_block_is_an_error() -> None:
 
 @pytest.mark.parametrize("value", ["0", "-1", "two", "true"])
 def test_max_must_be_a_positive_integer(value: str) -> None:
-    text = exam(f"---\ninclude-all: biome\nmax: {value}\n---")
+    text = exam(f"---\nincludeAll: biome\nmax: {value}\n---")
     assert load(text).document is None
 
 
@@ -313,7 +313,7 @@ def test_nonstandard_query_is_a_warning() -> None:
     loaded = load(exam(include_all("tags ~ savanna")))
     assert loaded.document is not None
     assert [(d.code, d.severity, d.path) for d in relevant(loaded.diagnostics)] == [
-        ("nonstandard-include-query", "warning", ("questions", 0, "include-all"))
+        ("nonstandard-include-query", "warning", ("questions", 0, "includeAll"))
     ]
 
 

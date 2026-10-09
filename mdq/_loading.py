@@ -363,7 +363,7 @@ def _parse_error(exc: MdqError) -> Diagnostic:
 
 
 #: The tags of `models.ExamEntry`, the union of an exam's `questions`.
-_EXAM_ENTRY_TAGS = frozenset({"question", "include", "include-all"})
+_EXAM_ENTRY_TAGS = frozenset({"question", "include", "includeAll"})
 
 
 def _is_exam_entry_tag(loc: tuple[str | int, ...], index: int) -> bool:
@@ -391,7 +391,7 @@ def _strip_discriminator_tags(
     question types used as keys of an exam's `grading`.
 
     With `exam_entries`, the `ExamEntry` tag right after `questions.N`
-    (`question`, `include`, `include-all`) is dropped too. It cannot be
+    (`question`, `include`, `includeAll`) is dropped too. It cannot be
     told apart by walking `data`, since an include block has a key of
     the same name.
 

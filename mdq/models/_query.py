@@ -1,5 +1,5 @@
 """
-The query language docs/exam.md recommends for `include-all`.
+The query language docs/exam.md recommends for `includeAll`.
 
     query     : logic ("EXCEPT" slugs)?
     logic     : logic "OR" logic_and | logic_and
@@ -50,7 +50,7 @@ _TOKEN_RE = re.compile(
 
 
 class QuerySyntaxError(MdqError):
-    """Raised when an `include-all` query does not follow the language."""
+    """Raised when an `includeAll` query does not follow the language."""
 
 
 class TagIndex(Protocol):
@@ -142,7 +142,7 @@ type Expr = Tag | Not | And | Or
 
 @dataclass(frozen=True)
 class Query:
-    """A parsed `include-all` query."""
+    """A parsed `includeAll` query."""
 
     expr: Expr
     excluded: frozenset[str] = frozenset()
@@ -163,7 +163,7 @@ class Query:
 
 def parse_query(text: str) -> Query:
     """
-    Parse an `include-all` query.
+    Parse an `includeAll` query.
 
     Raises:
         QuerySyntaxError: If `text` does not follow the language.
@@ -265,4 +265,4 @@ class _Parser:
         return False
 
     def _fail(self, detail: str) -> NoReturn:
-        raise QuerySyntaxError(f"invalid include-all query {self.text!r}: {detail}")
+        raise QuerySyntaxError(f"invalid includeAll query {self.text!r}: {detail}")
