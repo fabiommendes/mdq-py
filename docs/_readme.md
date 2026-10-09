@@ -47,6 +47,8 @@ mdq new multiple-choice               # scaffold multiple-choice.mdq.md
 mdq new numeric --complete            # scaffold with every feature of the type
 mdq validate question.mdq.md          # print errors and warnings
 mdq validate question.mdq.md --level strict   # also print info diagnostics
+cat question.mdq.md | mdq validate -  # read from stdin (mdq by default)
+mdq validate - --format yaml < question.yaml
 mdq show exam.mdq.md                  # render the parsed document
 mdq show exam.mdq.md --no-answer-key  # preview it as a student sees it
 mdq export question.mdq.md --format gift

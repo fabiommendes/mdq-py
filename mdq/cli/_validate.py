@@ -5,22 +5,40 @@ diagnostics.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Literal
 
 import typer
 
 from .._loading import Diagnostic, load
+from ..types import Format
 from ._app import app
 
 Level = Literal["default", "strict"]
+
+#: The `file` argument that selects standard input.
+STDIN = "-"
+STDIN_LABEL = "<stdin>"
 
 
 @app.command()
 def validate(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question or exam document (.mdq.md, .md, .mdq, .yaml, .yml, or .json).",
+        help=(
+            "Path to a question or exam document (.mdq.md, .md, .mdq, .yaml, "
+            ".yml, or .json). Use '-' to read the document from stdin."
+        ),
+    ),
+    format: Format | None = typer.Option(
+        None,
+        "--format",
+        case_sensitive=False,
+        help=(
+            "Format of the document: mdq, yaml or json. Default: inferred "
+            "from FILE's extension, or mdq when reading stdin."
+        ),
     ),
     level: Level = typer.Option(
         "default",
@@ -38,18 +56,20 @@ def validate(
     what a schema can express.
     """
 
+    from_stdin = str(file) == STDIN
+    label = STDIN_LABEL if from_stdin else str(file)
     try:
-        loaded = load(file)
+        loaded = load(sys.stdin.read() if from_stdin else file, format=format)
     except (OSError, ValueError) as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2)
 
-    exit_code = _print_result(file, loaded.diagnostics, level=level)
+    exit_code = _print_result(label, loaded.diagnostics, level=level)
     if exit_code:
         raise typer.Exit(code=exit_code)
 
 
-def _print_result(file: Path, diagnostics: list[Diagnostic], *, level: Level) -> int:
+def _print_result(label: str, diagnostics: list[Diagnostic], *, level: Level) -> int:
     """
     Print one line per diagnostic and return the process exit code.
 
@@ -58,7 +78,7 @@ def _print_result(file: Path, diagnostics: list[Diagnostic], *, level: Level) ->
     warning or an info diagnostic is advisory.
     """
     has_error = any(d.severity == "error" for d in diagnostics)
-    typer.echo(f"{'FAIL' if has_error else 'OK':<5} {file}", err=has_error)
+    typer.echo(f"{'FAIL' if has_error else 'OK':<5} {label}", err=has_error)
 
     shown = diagnostics if level == "strict" else [d for d in diagnostics if d.severity != "info"]
     for d in shown:

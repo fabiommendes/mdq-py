@@ -157,3 +157,44 @@ def test_validate_rejects_the_removed_schema_dir_option(tmp_path: Path) -> None:
     )
     assert result.exit_code == 2
     assert "--schema-dir" in result.output or "no such option" in result.output.lower()
+
+
+def test_validate_reads_mdq_from_stdin() -> None:
+    result = runner.invoke(app, ["validate", "-"], input=ESSAY_MD)
+    assert result.exit_code == 0, result.output
+    assert "<stdin>" in result.output
+
+
+def test_validate_reads_yaml_from_stdin() -> None:
+    result = runner.invoke(
+        app,
+        ["validate", "-", "--format", "yaml"],
+        input="type: essay\nstem: Explique o efeito Coriolis.\n",
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_validate_reads_json_from_stdin() -> None:
+    result = runner.invoke(
+        app,
+        ["validate", "-", "--format", "json"],
+        input=json.dumps({"type": "essay", "stem": "Explique o efeito Coriolis."}),
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_validate_stdin_failure_matches_file_mode(tmp_path: Path) -> None:
+    path = tmp_path / "ordering.yaml"
+    path.write_text(ORDERING_OVERLAP_YAML, encoding="utf-8")
+    from_file = runner.invoke(app, ["validate", str(path)])
+    from_stdin = runner.invoke(
+        app, ["validate", "-", "--format", "yaml"], input=ORDERING_OVERLAP_YAML
+    )
+    assert from_file.exit_code == from_stdin.exit_code == 1
+    assert from_stdin.output.replace("<stdin>", str(path)) == from_file.output
+
+
+def test_validate_stdin_warning_keeps_exit_code_zero() -> None:
+    result = runner.invoke(app, ["validate", "-"], input=WARNING_ONLY_MD)
+    assert result.exit_code == 0, result.output
+    assert "warning" in result.output

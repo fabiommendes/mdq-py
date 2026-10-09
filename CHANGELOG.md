@@ -27,6 +27,10 @@ Implements the unreleased MDQ specification.
 
 ### Added
 
+- `mdq validate -` reads the document from stdin, as MDQ Markdown by default.
+  The new `--format mdq|yaml|json` option sets the format of stdin, or
+  overrides the one inferred from a file extension. Diagnostics show `<stdin>`
+  as the file name.
 - Parser for every question type and for exams, from MDQ Markdown, YAML and
   JSON, into Pydantic models.
 - `mdq.load()` and `mdq.parse()`, with diagnostics for errors, warnings and
