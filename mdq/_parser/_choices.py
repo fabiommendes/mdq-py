@@ -191,11 +191,11 @@ def _pattern_entry(item: RawChoice) -> str | PatternDict:
     pattern = item.text.strip(" \t")
     if not pattern:
         raise ParseError("a short-answer pattern line cannot be empty")
-    if not item.feedback and not item.comment:
+    if item.feedback is None and item.comment is None:
         return pattern
     entry: PatternDict = {"pattern": pattern}
-    if item.feedback:
+    if item.feedback is not None:
         entry["feedback"] = item.feedback
-    if item.comment:
+    if item.comment is not None:
         entry["comment"] = item.comment
     return entry

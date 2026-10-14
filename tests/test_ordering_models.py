@@ -49,8 +49,8 @@ def alternatives(tag: str) -> st.SearchStrategy[list[OrderingAlternative]]:
     alternative = st.builds(
         OrderingAlternative,
         lines=lines(tag),
-        feedback=st.none() | st.text(min_size=1, max_size=8),
-        comment=st.none() | st.text(min_size=1, max_size=8),
+        feedback=st.none() | st.text(alphabet="abcde", min_size=1, max_size=8),
+        comment=st.none() | st.text(alphabet="abcde", min_size=1, max_size=8),
     )
     # An explicit empty list breaks the schema (`minItems: 1`); omit it instead.
     return st.lists(alternative, min_size=1, max_size=2)

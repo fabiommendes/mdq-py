@@ -15,26 +15,22 @@ def _rules(diagnostics) -> set[str]:
 
 
 # ---------------------------------------------------------------------
-# blank-text-field: preamble, stem, epilogue, comment
+# blank-text: see also tests/test_blank_text.py
 # ---------------------------------------------------------------------
 
 
-#: `preamble`/`stem`/`epilogue` are `blank-text-field` model *errors* now
-#: (dev/specs/to-do/lint-on-models.md) -- see
-#: tests/test_model_rule_errors.py. `comment` (and `title`/`author`/
-#: `answerKey`) stays a lint warning.
 @pytest.mark.parametrize("field_name", ["comment"])
-def test_whitespace_only_text_field_warns(field_name: str) -> None:
+def test_whitespace_only_text_field_is_an_error(field_name: str) -> None:
     doc = {
         "type": "essay",
         "stem": "A perfectly fine stem.",
         "input": "text",
         field_name: "   \n\t  ",
     }
-    warnings = load(doc).diagnostics
-    assert "blank-text-field" in _rules(warnings)
-    matching = [w for w in warnings if w.code == "blank-text-field"]
+    diagnostics = load(doc).diagnostics
+    matching = [d for d in diagnostics if d.code == "blank-text"]
     assert matching[0].path == (field_name,)
+    assert matching[0].severity == "error"
 
 
 def test_non_blank_text_fields_do_not_warn() -> None:
@@ -53,7 +49,7 @@ def test_non_blank_text_fields_do_not_warn() -> None:
 
 
 def test_missing_text_fields_do_not_warn() -> None:
-    """`author`/`comment` are merely absent -- `blank-text-field` only
+    """`author`/`comment` are merely absent -- `blank-text` only
     fires on a defined-but-empty value, never on `None`. `id`/`title`/
     `answerKey` get their own rules for that (`missing-id`,
     `missing-title`, `missing-answer-key`), asserted elsewhere."""
@@ -258,11 +254,11 @@ def test_tag_containing_a_comma_warns() -> None:
     assert "unsplit-tag-list" in _rules(load(doc).diagnostics)
 
 
-def test_blank_tag_warns() -> None:
+def test_blank_tag_is_an_error() -> None:
     doc = {"type": "essay", "stem": "x", "tags": ["ok", "  "]}
-    warnings = load(doc).diagnostics
-    assert "blank-tag" in _rules(warnings)
-    assert [w for w in warnings if w.code == "blank-tag"][0].path == ("tags", 1)
+    diagnostics = load(doc).diagnostics
+    matching = [d for d in diagnostics if d.code == "blank-text"]
+    assert [(d.path, d.severity) for d in matching] == [(("tags", 1), "error")]
 
 
 def test_ordinary_tags_do_not_warn() -> None:
@@ -328,14 +324,14 @@ def test_locale_lookalike_warns_but_real_locale_does_not() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_whitespace_only_choice_text_warns() -> None:
+def test_whitespace_only_choice_text_is_an_error() -> None:
     doc = {
         "type": "multiple-choice",
         "stem": "x",
         "choices": [{"text": "A", "score": 1}, {"text": "   "}],
     }
-    warnings = load(doc).diagnostics
-    assert "blank-choice-text" in _rules(warnings)
+    diagnostics = load(doc).diagnostics
+    assert "blank-text" in _rules(diagnostics)
 
 
 #: `visually-identical-choice-text` is removed: `duplicate-choice-text`

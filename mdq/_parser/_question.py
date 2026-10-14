@@ -80,6 +80,7 @@ from ._frontmatter import (
     _copy_pattern_lists,
     _extract_comment,
     _load_frontmatter_yaml,
+    _normalize_list,
     _normalize_tags,
     _question_frontmatter_warnings,
     _split_frontmatter,
@@ -550,9 +551,9 @@ class MDQParser:
                 comment_lines.append(stripped)
 
         choice = RawChoice(value, explicit_id, " ".join(t for t in text_lines if t))
-        if any(feedback_lines):
+        if feedback_lines:
             choice.feedback = " ".join(t for t in feedback_lines if t)
-        if any(comment_lines):
+        if comment_lines:
             choice.comment = " ".join(t for t in comment_lines if t)
         return choice
 
@@ -589,9 +590,9 @@ class MDQParser:
                 entry["correct"] = letter.lower() not in FALSE_LETTERS
                 if letter:
                     entry["marker"] = letter
-            if choice.feedback:
+            if choice.feedback is not None:
                 entry["feedback"] = choice.feedback
-            if choice.comment:
+            if choice.comment is not None:
                 entry["comment"] = choice.comment
             choices.append(entry)
         self.state["choices"] = choices
@@ -686,7 +687,7 @@ class MDQParser:
         if "unmatched" in front:
             doc["unmatched"] = front["unmatched"]
         if front.get("normalizations") is not None:
-            doc["normalizations"] = _normalize_tags(front["normalizations"])
+            doc["normalizations"] = _normalize_list(front["normalizations"])
 
         doc["lines"] = ordering_leveled(main_raw, unit)
         if extra_raw is not None:
@@ -991,9 +992,9 @@ class MDQParser:
                     score = _score_from_value(choice.value)
                     if score is not None:
                         entry["score"] = score
-                    if choice.feedback:
+                    if choice.feedback is not None:
                         entry["feedback"] = choice.feedback
-                    if choice.comment:
+                    if choice.comment is not None:
                         entry["comment"] = choice.comment
                     choices.append(entry)
                 self._add_blank(

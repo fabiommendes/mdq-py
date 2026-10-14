@@ -147,7 +147,7 @@ def test_fill_in_lint_matches_load_diagnostics() -> None:
     `multiple-choice-no-correct-choice` exactly as a standalone
     multiple-choice question would -- see
     `dev/specs/to-do/lint-codes-corrections.md`. (A blank `text`, like
-    `Amazônia`, is a `blank-choice-text` model error now, not a lint
+    `Amazônia`, is a `blank-text` model error now, not a lint
     rule -- see `tests/test_model_rule_errors.py`.)
     """
     doc = {
@@ -177,7 +177,7 @@ def test_fill_in_lint_matches_load_diagnostics() -> None:
 
 def test_common_rule_runs_regardless_of_question_type() -> None:
     """
-    `blank-tag` (a common `BaseQuestion.lint()` rule) fires for a
+    `unsplit-tag-list` (a common `BaseQuestion.lint()` rule) fires for a
     numeric question exactly as it would for any other type -- there is
     nothing numeric-specific about it.
     """
@@ -185,11 +185,11 @@ def test_common_rule_runs_regardless_of_question_type() -> None:
         "type": "numeric",
         "stem": "Quantos estados tem o Brasil?",
         "answer": 26,
-        "tags": ["geografia", "  "],
+        "tags": ["geografia", "mata,cerrado"],
     }
     loaded = load(doc)
     assert loaded.document is not None
-    assert "blank-tag" in _codes(loaded.document.lint())
+    assert "unsplit-tag-list" in _codes(loaded.document.lint())
     assert loaded.document.lint() == loaded.diagnostics
 
 

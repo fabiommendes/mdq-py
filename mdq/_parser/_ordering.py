@@ -95,9 +95,9 @@ def ordering_leveled(raw: list[RawLine], unit: int) -> list[list[int | str]]:
 def ordering_alternative(alt: RawAlternative, unit: int) -> dict[str, Any]:
     """Build one `accept`/`reject` entry from its raw lines and observations."""
     entry: dict[str, Any] = {"lines": ordering_leveled(alt.lines, unit)}
-    if alt.feedback:
+    if alt.feedback is not None:
         entry["feedback"] = alt.feedback
-    if alt.comment:
+    if alt.comment is not None:
         entry["comment"] = alt.comment
     return entry
 

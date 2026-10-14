@@ -129,29 +129,12 @@ def _language_subtag(locale: str | None) -> str:
 # ----------------------------------------------------------------------
 # common rules
 # ----------------------------------------------------------------------
-def check_blank_text_field(value: str | None, field_name: str) -> list[Diagnostic]:
+def has_visible_character(value: str) -> bool:
     """
-    A free-text field, if defined, must have at least one visible
-    (non-whitespace) character.
-
-    Only for the fields this stays a *warning* on (`title`, `author`,
-    `comment`, `answerKey`) -- `preamble`/`epilogue`/`stem` raise
-    `blank-content-field` as a model error instead (`mdq.models`).
+    Whether `value` has a visible character: one that is neither white
+    space nor an invisible format character such as U+200B.
     """
-    # A visible character is neither white space nor an invisible format
-    # character such as U+200B.
-    if value is None or any(
-        not (c.isspace() or unicodedata.category(c) == "Cf") for c in value
-    ):
-        return []
-    return [
-        Diagnostic(
-            severity="warning",
-            code="blank-text-field",
-            path=(field_name,),
-            message=f"'{field_name}' is defined but has no visible characters",
-        )
-    ]
+    return any(not (c.isspace() or unicodedata.category(c) == "Cf") for c in value)
 
 
 #: base.md:252, footnote [^2]: the url-safe shape a question `id` SHOULD have.
@@ -249,16 +232,7 @@ def check_tags(tags: Sequence[str]) -> list[Diagnostic]:
     """
     warnings = []
     for index, tag in enumerate(tags):
-        if tag.strip() == "":
-            warnings.append(
-                Diagnostic(
-                    severity="warning",
-                    code="blank-tag",
-                    path=("tags", index),
-                    message="tag is empty or whitespace only",
-                )
-            )
-        elif "," in tag:
+        if "," in tag:
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -379,39 +353,6 @@ def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
 # choice rules (multiple-choice, multiple-selection, true-false, and the
 # choice blanks of a fill-in question)
 # ----------------------------------------------------------------------
-
-
-def check_choice_feedback_and_comment(
-    choices: Sequence[_choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement],
-    path: tuple[Union[str, int], ...],
-) -> list[Diagnostic]:
-    """
-    multiple-choice.md, "Choices" (shared by multiple-selection and
-    true-false): a choice's `feedback`/`comment`, if defined, must have
-    at least one visible character -- the same rule
-    `check_blank_text_field` applies to a question's own free-text
-    fields, applied per choice instead.
-    """
-    warnings: list[Diagnostic] = []
-    for index, choice in enumerate(choices):
-        for field_name, code in (
-            ("feedback", "blank-choice-feedback"),
-            ("comment", "blank-choice-comment"),
-        ):
-            value = getattr(choice, field_name)
-            if value is not None and value.strip() == "":
-                warnings.append(
-                    Diagnostic(
-                        severity="warning",
-                        code=code,
-                        path=path + (index, field_name),
-                        message=(
-                            f"choice {field_name} is defined but has no "
-                            f"visible characters"
-                        ),
-                    )
-                )
-    return warnings
 
 
 def check_choice_ids_defined(

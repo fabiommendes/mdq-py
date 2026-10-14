@@ -70,8 +70,7 @@
             },
             "answerKey": {
               "type": "string",
-              "description": "A model answer. It guides the instructor while grading and MAY be shown to students as feedback afterwards. A blank, whitespace-only value is a warning (`blank-text-field`). An empty string is a schema error, exactly like `title`.",
-              "minLength": 1
+              "description": "A model answer. It guides the instructor while grading and MAY be shown to students as feedback afterwards. An empty or whitespace-only value is a `blank-text` error, like `title`."
             }
           },
           "required": [
@@ -109,23 +108,19 @@
         },
         "title": {
           "type": "string",
-          "description": "Human readable title, normally taken from the H1 heading. When the frontmatter also sets it, the frontmatter wins.",
-          "minLength": 1
+          "description": "Human readable title, normally taken from the H1 heading. When the frontmatter also sets it, the frontmatter wins."
         },
         "description": {
           "type": "string",
-          "description": "A short summary shown in exam listings, giving a little more detail than the title alone. Not inherited by the questions.",
-          "minLength": 1
+          "description": "A short summary shown in exam listings, giving a little more detail than the title alone. Not inherited by the questions."
         },
         "course": {
           "type": "string",
-          "description": "The course code the exam belongs to.",
-          "minLength": 1
+          "description": "The course code the exam belongs to."
         },
         "author": {
           "type": "string",
-          "description": "The exam author. Inherited by any question that does not name one.",
-          "minLength": 1
+          "description": "The exam author. Inherited by any question that does not name one."
         },
         "locale": {
           "type": "string",
@@ -137,8 +132,7 @@
         },
         "instructions": {
           "type": "string",
-          "description": "The paragraphs between the title and the first question, shown to the student before the assessment begins. May contain Markdown.",
-          "minLength": 1
+          "description": "The paragraphs between the title and the first question, shown to the student before the assessment begins. May contain Markdown."
         },
         "tags": {
           "type": "array",
@@ -345,7 +339,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam. A `null` value is the same as an absent field."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -545,7 +539,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam. A `null` value is the same as an absent field."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -585,8 +579,7 @@
             },
             "text": {
               "type": "string",
-              "description": "A textual display for the choice.",
-              "minLength": 1
+              "description": "A textual display for the choice."
             },
             "score": {
               "type": "number",
@@ -596,13 +589,11 @@
             },
             "feedback": {
               "type": "string",
-              "description": "Feedback text shown to students that selected this choice. Usually explains why the choice is wrong (or right).",
-              "minLength": 1
+              "description": "Feedback text shown to students that selected this choice. Usually explains why the choice is wrong (or right)."
             },
             "comment": {
               "type": "string",
-              "description": "Optional comment for the instructor. Not shown to students.",
-              "minLength": 1
+              "description": "Optional comment for the instructor. Not shown to students."
             }
           },
           "required": [
@@ -642,7 +633,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam. A `null` value is the same as an absent field."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -682,8 +673,7 @@
             },
             "text": {
               "type": "string",
-              "description": "A textual display for the choice.",
-              "minLength": 1
+              "description": "A textual display for the choice."
             },
             "correct": {
               "type": "boolean",
@@ -691,13 +681,11 @@
             },
             "feedback": {
               "type": "string",
-              "description": "Feedback text shown to students that judged this choice wrongly -- either by ticking one that should not be ticked, or by leaving unticked one that should be. Usually explains why the choice belongs in the answer or does not. Unlike multiple-choice, a correctly judged choice never shows it.",
-              "minLength": 1
+              "description": "Feedback text shown to students that judged this choice wrongly -- either by ticking one that should not be ticked, or by leaving unticked one that should be. Usually explains why the choice belongs in the answer or does not. Unlike multiple-choice, a correctly judged choice never shows it."
             },
             "comment": {
               "type": "string",
-              "description": "Optional comment for the instructor. Do not show to students.",
-              "minLength": 1
+              "description": "Optional comment for the instructor. Do not show to students."
             }
           },
           "required": [
@@ -923,13 +911,11 @@
             },
             "feedback": {
               "type": "string",
-              "description": "Feedback text shown to the student whose response matched this ordering. An implementation MAY supply a generic message when it is absent.",
-              "minLength": 1
+              "description": "Feedback text shown to the student whose response matched this ordering. An implementation MAY supply a generic message when it is absent."
             },
             "comment": {
               "type": "string",
-              "description": "An author-facing note. Never shown to students.",
-              "minLength": 1
+              "description": "An author-facing note. Never shown to students."
             }
           },
           "required": [
@@ -967,33 +953,27 @@
         },
         "title": {
           "type": "string",
-          "description": "Human readable title, e.g. shown in question listings, tables of contents, or instructor-facing question banks.",
-          "minLength": 1
+          "description": "Human readable title, e.g. shown in question listings, tables of contents, or instructor-facing question banks."
         },
         "author": {
           "type": "string",
-          "description": "The name of the author or authors. Just for reference.",
-          "minLength": 1
+          "description": "The name of the author or authors. Just for reference."
         },
         "stem": {
           "type": "string",
-          "description": "The main command shown to the students (e.g. \"Select all correct answers\", \"Write a program that...\"). This is the sentence that tells the student what to do and is always shown to them.",
-          "minLength": 1
+          "description": "The main command shown to the students (e.g. \"Select all correct answers\", \"Write a program that...\"). This is the sentence that tells the student what to do and is always shown to them."
         },
         "preamble": {
           "type": "string",
-          "description": "One or more paragraphs of context shown before the stem. May contain Markdown markup.",
-          "minLength": 1
+          "description": "One or more paragraphs of context shown before the stem. May contain Markdown markup."
         },
         "epilogue": {
           "type": "string",
-          "description": "One or more paragraphs of text shown after the question body (e.g. after the list of choices). May contain Markdown markup.",
-          "minLength": 1
+          "description": "One or more paragraphs of text shown after the question body (e.g. after the list of choices). May contain Markdown markup."
         },
         "comment": {
           "type": "string",
-          "description": "Free-form text shown only to instructors, never to students. Used to explain the intent of the question, grading rationale, formatting decisions, etc.",
-          "minLength": 1
+          "description": "Free-form text shown only to instructors, never to students. Used to explain the intent of the question, grading rationale, formatting decisions, etc."
         },
         "locale": {
           "type": "string",
@@ -1067,8 +1047,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response that no pattern gave feedback to: a response that matches no pattern under `unmatched: incorrect`, or one that matches a `reject` pattern with no feedback. Inline markdown, like the feedback of a pattern.",
-              "minLength": 1
+              "description": "Feedback for an incorrect response that no pattern gave feedback to: a response that matches no pattern under `unmatched: incorrect`, or one that matches a `reject` pattern with no feedback. Inline markdown, like the feedback of a pattern."
             }
           },
           "required": [
@@ -1114,13 +1093,11 @@
                 },
                 "feedback": {
                   "type": "string",
-                  "description": "Shown to the student whose response this pattern decided.",
-                  "minLength": 1
+                  "description": "Shown to the student whose response this pattern decided."
                 },
                 "comment": {
                   "type": "string",
-                  "description": "An author-facing note. Never shown to students.",
-                  "minLength": 1
+                  "description": "An author-facing note. Never shown to students."
                 }
               },
               "required": [
@@ -1170,7 +1147,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam. A `null` value is the same as an absent field."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -1210,8 +1187,7 @@
             },
             "text": {
               "type": "string",
-              "description": "A textual display for the statement.",
-              "minLength": 1
+              "description": "A textual display for the statement."
             },
             "correct": {
               "type": "boolean",
@@ -1225,13 +1201,11 @@
             },
             "feedback": {
               "type": "string",
-              "description": "Feedback text shown to students that judged this statement incorrectly or left it unjudged. Usually explains why the statement is true or false.",
-              "minLength": 1
+              "description": "Feedback text shown to students that judged this statement incorrectly or left it unjudged. Usually explains why the statement is true or false."
             },
             "comment": {
               "type": "string",
-              "description": "Optional comment for the instructor. Do not show to students.",
-              "minLength": 1
+              "description": "Optional comment for the instructor. Do not show to students."
             }
           },
           "required": [

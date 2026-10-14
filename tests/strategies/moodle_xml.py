@@ -5,6 +5,7 @@ flavored text.
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Literal
 
 from hypothesis import strategies as st
@@ -234,6 +235,8 @@ def mdq_text(max_size: int = 30) -> st.SearchStrategy[str]:
         lambda s: (
             s == s.strip()
             and s != ""
+            # `blank-text`: an invisible format character is not visible.
+            and any(unicodedata.category(c) != "Cf" for c in s)
             and "\n\n" not in s
             and "[^" not in s
             # base.md, "Forbidden elements": an H1 heading, a heading or

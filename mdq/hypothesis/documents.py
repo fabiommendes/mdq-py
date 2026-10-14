@@ -22,6 +22,7 @@ top-level block exactly as `MDQParser.raw_text` would once it is
 embedded in a full document and parsed back out.
 """
 
+import unicodedata
 from typing import Any, Callable, Literal, get_args
 
 from hypothesis import strategies as st
@@ -496,17 +497,23 @@ def md_safe_multi_blocks(
     )
 
 
+def _has_visible_character(text: str) -> bool:
+    """Whether `text` has a character that is neither white space nor a format character."""
+    return any(not (c.isspace() or unicodedata.category(c) == "Cf") for c in text)
+
+
 def safe_texts(multiline: bool = False) -> st.SearchStrategy[str]:
     """
     Somewhat safe text for use in tests. It excludes control characters, line
-    separators, and paragraph separators. It also excludes the empty string.
+    separators, and paragraph separators. It also excludes the empty string and
+    text with no visible character, which is `blank-text`.
     """
     alphabet = (
         st.characters(blacklist_categories=_TEXT_BLACKLIST_CATEGORIES)
         if multiline
         else _LINE_ALPHABET
     )
-    return st.text(alphabet=alphabet, min_size=1)
+    return st.text(alphabet=alphabet, min_size=1).filter(_has_visible_character)
 
 
 def slugs() -> st.SearchStrategy[str]:

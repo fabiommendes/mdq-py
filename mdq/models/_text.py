@@ -23,7 +23,7 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable
 from ..types import Automation, Diacritics, EssayInput, Unmatched
 from . import _lint
-from ._base import BaseQuestion, MdqModel, _raise_unique_id_error
+from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
 from ._regex import InvalidRegexError, RegexPattern
 from ._score import QuestionScore
 
@@ -47,8 +47,8 @@ class AnswerPattern(MdqModel):
     #: visible character, and a pattern that opens with a backtick is a
     #: complete backtick-enclosed span (short-answer.md, "Content").
     pattern: Annotated[str, Field(min_length=1, pattern=PATTERN_STRING_RE)]
-    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    feedback: FreeText | None = None
+    comment: FreeText | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -134,7 +134,7 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
 
     #: Feedback for an incorrect response that no pattern gave feedback to
     #: (short-answer.md, "Feedback").
-    incorrect_feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
+    incorrect_feedback: FreeText | None = None
 
     @property
     def effective_unmatched(self) -> Unmatched:
@@ -169,9 +169,6 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
                 unmatched=self.effective_unmatched,
                 path=("unmatched",),
             )
-        )
-        diagnostics.extend(
-            _lint.check_blank_text_field(self.incorrect_feedback, "incorrectFeedback")
         )
         return diagnostics
 
@@ -244,7 +241,7 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
 
     #: A model answer for the human grading this. Carrying one does not
     #: make the question auto-gradable.
-    answer_key: Annotated[str | None, Field(default=None, min_length=1)] = None
+    answer_key: FreeText | None = None
 
     @property
     def automation(self) -> Automation:
@@ -255,7 +252,6 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
         diagnostics.extend(_lint.check_essay_highlight(self.input, self.highlight))
-        diagnostics.extend(_lint.check_blank_text_field(self.answer_key, "answerKey"))
         diagnostics.extend(_lint.check_missing_answer_key(self.answer_key))
         return diagnostics
 

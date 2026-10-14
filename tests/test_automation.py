@@ -536,14 +536,14 @@ def test_no_correct_answer_is_not_reported_for_a_blank_that_defaults_to_manual()
 
 
 @pytest.mark.parametrize("text", ["   ", "​", "\n"])
-def test_blank_incorrect_feedback_is_a_warning(text: str) -> None:
+def test_blank_incorrect_feedback_is_an_error(text: str) -> None:
     doc = {
         "type": "short-answer",
         "stem": STEM,
         "accept": ["Brasília"],
         "incorrectFeedback": text,
     }
-    assert ("blank-text-field", "warning", ("incorrectFeedback",)) in _codes(doc)
+    assert ("blank-text", "error", ("incorrectFeedback",)) in _codes(doc)
 
 
 def test_visible_incorrect_feedback_is_not_reported() -> None:
@@ -553,7 +553,7 @@ def test_visible_incorrect_feedback_is_not_reported() -> None:
         "accept": ["Brasília"],
         "incorrectFeedback": _INCORRECT,
     }
-    assert "blank-text-field" not in [code for code, _, _ in _codes(doc)]
+    assert "blank-text" not in [code for code, _, _ in _codes(doc)]
 
 
 @pytest.mark.parametrize(

@@ -555,7 +555,7 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 
 
 def test_default_level_lint_rules_are_warnings() -> None:
-    # A whitespace-only tag stays a `warning`
+    # A tag that holds a comma is a `warning`
     # (dev/specs/to-do/rule-conformance.md, section A --
     # `multiple-choice-many-correct-choices`, formerly this test's
     # example, moved to `info`: a question MAY mark any number of
@@ -564,12 +564,12 @@ def test_default_level_lint_rules_are_warnings() -> None:
         "type": "essay",
         "input": "text",
         "stem": "Qual das opções é a capital do Brasil?",
-        "tags": ["   "],
+        "tags": ["cerrado,bioma"],
     }
     loaded = load(data)
     assert loaded
-    assert "blank-tag" in _codes(loaded.diagnostics)
-    matching = [d for d in loaded.diagnostics if d.code == "blank-tag"]
+    assert "unsplit-tag-list" in _codes(loaded.diagnostics)
+    matching = [d for d in loaded.diagnostics if d.code == "unsplit-tag-list"]
     assert matching[0].severity == "warning"
 
 
@@ -667,11 +667,11 @@ def test_included_question_diagnostics_are_prefixed_with_questions_index() -> No
         "id": "recursao-fatorial",
         "type": "essay",
         "stem": "Converta este algoritmo iterativo de fatorial em um recursivo.",
-        "comment": "   ",
+        "tags": ["cerrado,bioma"],
     }
     bank = DictLoader({"recursao-fatorial": included_with_warning})
     exam = load(_exam_with_include("recursao-fatorial")).validate().resolve(bank)
-    matching = [d for d in exam.lint() if d.code == "blank-text-field"]
+    matching = [d for d in exam.lint() if d.code == "unsplit-tag-list"]
     assert len(matching) == 1
     assert matching[0].path[:2] == ("questions", 0)
 

@@ -43,7 +43,7 @@ from ._base import (
     MdqModel,
     _raise_unique_id_error,
     _validate_locale,
-    _validate_not_blank,
+    FreeText,
     _validate_uuid,
 )
 from ._choice import (
@@ -255,13 +255,13 @@ class Exam(MdqModel):
     type: Literal["exam"] = "exam"
     id: Annotated[str | None, Field(default=None, min_length=1)] = None
     uuid: str | None = None
-    title: Annotated[str | None, Field(default=None, min_length=1)] = None
-    description: Annotated[str | None, Field(default=None, min_length=1)] = None
-    course: Annotated[str | None, Field(default=None, min_length=1)] = None
-    author: Annotated[str | None, Field(default=None, min_length=1)] = None
+    title: FreeText | None = None
+    description: FreeText | None = None
+    course: FreeText | None = None
+    author: FreeText | None = None
     locale: str | None = None
-    instructions: Annotated[str | None, Field(default=None, min_length=1)] = None
-    tags: list[str] | None = None
+    instructions: FreeText | None = None
+    tags: list[FreeText] | None = None
     meta: dict[str, object] | None = None
     penalty: PenaltyPolicy = "none"
     grading: ExamGrading = "symmetric"
@@ -281,12 +281,6 @@ class Exam(MdqModel):
     def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
         """exam.md's "Additional Rules" imports the base `uuid` rule (`malformed-uuid`)."""
         return _validate_uuid(value)
-
-    @field_validator("instructions")
-    @classmethod
-    def check_instructions_are_not_blank(cls, value: str | None) -> str | None:
-        """exam.md, "Additional Rules": raise `blank-content-field` for blank instructions."""
-        return _validate_not_blank(value, "instructions")
 
     @field_validator("instructions")
     @classmethod
@@ -595,7 +589,6 @@ class Exam(MdqModel):
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
-        diagnostics.extend(_lint.check_blank_text_field(self.title, "title"))
         diagnostics.extend(_lint.check_setext_heading(self.instructions, ("instructions",)))
         diagnostics.extend(
             _lint.check_unsafe_thematic_break(self.instructions, ("instructions",))

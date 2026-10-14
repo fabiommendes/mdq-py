@@ -42,18 +42,17 @@ def _choice_blank_doc(*choices: dict) -> dict:
 # ---------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("field_name", "code"),
-    [("feedback", "blank-choice-feedback"), ("comment", "blank-choice-comment")],
-)
-def test_choice_blank_with_a_blank_choice_text_field_warns(field_name: str, code: str) -> None:
+@pytest.mark.parametrize("field_name", ["feedback", "comment"])
+def test_choice_blank_with_a_blank_choice_text_field_is_an_error(field_name: str) -> None:
     doc = _choice_blank_doc(
         {"id": "brasilia", "text": "Brasília", "score": 1},
         {"id": "salvador", "text": "Salvador", field_name: "  \n "},
     )
-    found = _diagnostics(doc, code)
+    loaded = load(doc, kind="question")
+    assert loaded.document is None
+    found = [d for d in loaded.diagnostics if d.code == "blank-text"]
     assert [d.path for d in found] == [("blanks", 0, "choices", 1, field_name)]
-    assert found[0].severity == "warning"
+    assert found[0].severity == "error"
 
 
 def test_choice_blank_with_visible_feedback_and_comment_does_not_warn() -> None:
@@ -61,8 +60,7 @@ def test_choice_blank_with_visible_feedback_and_comment_does_not_warn() -> None:
         {"id": "brasilia", "text": "Brasília", "score": 1, "feedback": "Isso."},
         {"id": "salvador", "text": "Salvador", "comment": "Capital até 1763."},
     )
-    assert _diagnostics(doc, "blank-choice-feedback") == []
-    assert _diagnostics(doc, "blank-choice-comment") == []
+    assert _diagnostics(doc, "blank-text") == []
 
 
 def test_choice_blank_choice_without_id_is_reported() -> None:
@@ -118,15 +116,12 @@ def test_choice_blank_rules_apply_to_the_second_blank_path() -> None:
 
 def test_fill_in_model_lint_matches_load() -> None:
     doc = _choice_blank_doc(
-        {"id": "brasilia", "text": "Brasília", "score": 1, "feedback": " "},
+        {"id": "brasilia", "text": "Brasília", "score": 1},
         {"text": "Salvador"},
     )
     loaded = load(doc, kind="question")
     assert isinstance(loaded.document, FillInQuestion)
-    assert {d.code for d in loaded.document.lint()} >= {
-        "blank-choice-feedback",
-        "missing-choice-id",
-    }
+    assert {d.code for d in loaded.document.lint()} >= {"missing-choice-id"}
 
 
 # ---------------------------------------------------------------------

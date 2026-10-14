@@ -15,10 +15,12 @@ Implements the unreleased MDQ specification.
 ### Changed
 
 - The exam include block key `include-all` is renamed to `includeAll` (`IncludeAll` model alias, `IncludeAllDict`, parser, linter paths). `include-all` is now an unknown field (`unknown-include-field`).
-- One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`). A blank `preamble`, `epilogue` or `stem` reports the new `blank-content-field` (`error`); `blank-text-field` is always `warning`.
-- Empty free-text fields (`comment`, `preamble`, `epilogue`, `answerKey`, `instructions`, feedback) are now schema errors, and an empty frontmatter comment string is not stored.
-- A blank exam `instructions` reports `blank-content-field` (`error`).
-- Fixed: the models did not enforce several schema `minItems`/`minLength` limits. `load` now reports `schema-error` for an empty fill-in `blanks`, a choice blank with fewer than two choices, an empty `accept`/`reject`/`preAccept`/`preReject` list, an empty ordering `accept`/`reject`, and an empty `id`, `title`, `author`, exam `course`, `highlight`, include `include` or ordering alternative `feedback`/`comment`.
+- One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`).
+- The lint codes `blank-text-field`, `blank-content-field`, `blank-choice-text`, `blank-choice-feedback`, `blank-choice-comment` and `blank-tag` are replaced by `blank-text` (`error`). It reports a free-text field, or a `tags` entry, that is defined but empty or whitespace only: `title`, `author`, `comment`, `preamble`, `stem`, `epilogue`, exam `description`, `course` and `instructions`, `answerKey`, `incorrectFeedback`, and the `text`, `feedback` and `comment` of a choice, an ordering alternative or a pattern. The check is in the models, so a document loaded from YAML, JSON or a dict is covered, and building a model with a blank field raises. An empty string is no longer a `schema-error` in these fields (the models dropped their `min_length`); `null` still is, and `id`, `include`, `includeAll`, `highlight` and pattern strings keep theirs.
+- A `tags` string drops the empty part after a final comma (`"cerrado, bioma,"` is `[cerrado, bioma]`). Any other empty part (`"a,, b"`, `""`) is `blank-text`.
+- In Markdown, a choice with no text (`* [ ]`, `* [*] [brasilia]`) and a feedback or comment block of only empty marker lines (`>` alone) reach the `blank-text` check.
+- `mdq.hypothesis.safe_texts()` no longer generates text with no visible character.
+- Fixed: the models did not enforce several schema `minItems`/`minLength` limits. `load` now reports `schema-error` for an empty fill-in `blanks`, a choice blank with fewer than two choices, an empty `accept`/`reject`/`preAccept`/`preReject` list, an empty ordering `accept`/`reject`, and an empty `id`, `highlight` or include `include`.
 - Refreshed the bundled schema (description text only).
 
 ### Fixed

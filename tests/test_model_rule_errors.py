@@ -10,9 +10,7 @@ which this file mirrors): `load` must report each one as an `error`
 diagnostic with `document=None`, at the same path the old lint warning
 used.
 
-The error form of a blank `preamble`/`epilogue`/`stem` is the code
-`blank-content-field`. The `warning` form on the metadata fields keeps
-`blank-text-field`: one severity per code.
+A blank free-text field is the `blank-text` error.
 
 Fixtures use Brazil-themed questions, per AGENTS.md. Written against the
 public `mdq.load` API only -- no parser/linter internals.
@@ -24,8 +22,8 @@ import pytest
 
 from mdq import Diagnostic, load
 
-#: The code of the *error* form on `preamble`/`epilogue`/`stem`.
-_BLANK_INTRO_CODES = frozenset({"blank-content-field"})
+#: The code of a blank `preamble`/`epilogue`/`stem`.
+_BLANK_INTRO_CODES = frozenset({"blank-text"})
 
 
 def _codes(diagnostics: list[Diagnostic]) -> set[str]:
@@ -246,7 +244,8 @@ def test_non_reserved_true_false_marker_does_not_error() -> None:
 
 
 # ---------------------------------------------------------------------
-# blank-content-field (error form): preamble, epilogue, stem
+# blank-text: preamble, epilogue, stem, title, author, comment, answerKey.
+# Every free-text family is covered by tests/test_blank_text.py.
 # ---------------------------------------------------------------------
 
 
@@ -264,13 +263,8 @@ def test_blank_intro_field_is_a_model_error(field_name: str) -> None:
     assert diagnostic.path == (field_name,)
 
 
-@pytest.mark.parametrize("field_name", ["title", "author", "comment"])
-def test_blank_text_field_on_metadata_fields_stays_a_warning(field_name: str) -> None:
-    """
-    base.md's "critical" rule only covers `preamble`/`epilogue`/`stem`;
-    `title`/`author`/`comment`/`answerKey` keep the same code at
-    `warning`, per the spec's `blank-text-field` split.
-    """
+@pytest.mark.parametrize("field_name", ["title", "author", "comment", "answerKey"])
+def test_blank_text_on_metadata_fields_is_a_model_error(field_name: str) -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o processo de fotossíntese na Mata Atlântica.",
@@ -278,26 +272,9 @@ def test_blank_text_field_on_metadata_fields_stays_a_warning(field_name: str) ->
         field_name: "   \n\t  ",
     }
     loaded = load(doc)
-    assert loaded.document is not None
-    matching = [d for d in loaded.diagnostics if d.code == "blank-text-field"]
-    assert len(matching) == 1
-    assert matching[0].severity == "warning"
-    assert matching[0].path == (field_name,)
-
-
-def test_blank_answer_key_stays_a_warning() -> None:
-    doc = {
-        "type": "essay",
-        "stem": "Descreva o processo de fotossíntese na Mata Atlântica.",
-        "input": "text",
-        "answerKey": "   ",
-    }
-    loaded = load(doc)
-    assert loaded.document is not None
-    matching = [d for d in loaded.diagnostics if d.code == "blank-text-field"]
-    assert len(matching) == 1
-    assert matching[0].severity == "warning"
-    assert matching[0].path == ("answerKey",)
+    assert loaded.document is None
+    diagnostic = _assert_one_error(loaded.diagnostics, "blank-text")
+    assert diagnostic.path == (field_name,)
 
 
 def test_non_blank_intro_fields_do_not_error() -> None:
@@ -391,7 +368,7 @@ def test_blank_exam_instructions_is_a_model_error() -> None:
     loaded = load({"type": "exam", "instructions": "  ", "questions": []})
     assert loaded.document is None
     diagnostic = _assert_one_error(loaded.diagnostics, _BLANK_INTRO_CODES)
-    assert diagnostic.code == "blank-content-field"
+    assert diagnostic.code == "blank-text"
     assert diagnostic.path == ("instructions",)
 
 
@@ -435,18 +412,9 @@ _MC = {
         ),
         (_ORDERING | {"accept": []}, ("accept",)),
         (_ORDERING | {"reject": []}, ("reject",)),
-        (
-            _ORDERING | {"accept": [{"lines": [[0, "b"], [0, "a"]], "feedback": ""}]},
-            ("accept", 0, "feedback"),
-        ),
         (_ORDERING | {"highlight": ""}, ("highlight",)),
         ({"type": "essay", "stem": "x", "input": "code", "highlight": ""}, ("highlight",)),
         (_MC | {"id": ""}, ("id",)),
-        (_MC | {"title": ""}, ("title",)),
-        (_MC | {"author": ""}, ("author",)),
-        ({"type": "exam", "title": "", "questions": []}, ("title",)),
-        ({"type": "exam", "course": "", "questions": []}, ("course",)),
-        ({"type": "exam", "author": "", "questions": []}, ("author",)),
         ({"type": "exam", "id": "", "questions": []}, ("id",)),
         ({"type": "exam", "questions": [{"include": ""}]}, ("questions", 0, "include")),
     ],

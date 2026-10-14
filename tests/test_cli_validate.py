@@ -50,8 +50,7 @@ reject:
 # dev/specs/to-do/unique-ids.md.)
 WARNING_ONLY_MD = (
     "---\n"
-    "tags:\n"
-    '  - "   "\n'
+    "id: Capital Do Brasil\n"
     "---\n"
     "\n"
     "Explique o efeito Coriolis.\n"

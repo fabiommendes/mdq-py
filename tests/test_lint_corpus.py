@@ -84,7 +84,7 @@ def _assert_matches_lint_json(doc_path: Path) -> None:
 # md/yaml pair sharing one `.lint.json`.
 # ---------------------------------------------------------------------
 
-#: A blank tag -- one default-level warning.
+#: An unsplit tag -- one default-level warning.
 #:
 #: (Previously a malformed `locale`; `malformed-locale` is an `error`
 #: diagnostic raised by the models now -- dev/specs/to-do/
@@ -100,7 +100,7 @@ title: O efeito Coriolis
 stem: Explique o efeito Coriolis.
 answerKey: Ele desvia o movimento de fluidos devido a rotação da Terra.
 tags:
-  - "   "
+  - "a,b"
 """
 
 DUPLICATE_TEXT_MD = (
@@ -108,7 +108,7 @@ DUPLICATE_TEXT_MD = (
     "id: coriolis\n"
     "title: O efeito Coriolis\n"
     "tags:\n"
-    "  - \"   \"\n"
+    "  - \"a,b\"\n"
     "---\n"
     "\n"
     "Explique o efeito Coriolis.\n"
@@ -121,7 +121,7 @@ DUPLICATE_TEXT_MD = (
 )
 
 DUPLICATE_TEXT_LINT_JSON = [
-    {"code": "blank-tag", "severity": "warning", "path": ["tags", 0]},
+    {"code": "unsplit-tag-list", "severity": "warning", "path": ["tags", 0]},
 ]
 
 #: An essay question with `id`/`title`/`answerKey` all defined, so it
@@ -144,8 +144,8 @@ _ZERO_DIAGNOSTIC_ESSAY_MD = (
 )
 
 
-#: Two independent warnings on the same document: a blank tag and an
-#: unsplit comma-delimited tag.
+#: Two independent warnings on the same document: two unsplit
+#: comma-delimited tags.
 TWO_WARNINGS_YAML = """\
 type: essay
 id: coriolis
@@ -153,12 +153,12 @@ title: O efeito Coriolis
 stem: Explique o efeito Coriolis.
 answerKey: Ele desvia o movimento de fluidos devido a rotação da Terra.
 tags:
-  - "   "
+  - "c,d"
   - "a,b"
 """
 
 TWO_WARNINGS_LINT_JSON = [
-    {"code": "blank-tag", "severity": "warning", "path": ["tags", 0]},
+    {"code": "unsplit-tag-list", "severity": "warning", "path": ["tags", 0]},
     {"code": "unsplit-tag-list", "severity": "warning", "path": ["tags", 1]},
 ]
 
@@ -167,8 +167,8 @@ def test_lint_json_multiset_ignores_order(tmp_path: Path) -> None:
     doc = tmp_path / "capital.yaml"
     doc.write_text(TWO_WARNINGS_YAML, encoding="utf-8")
     lint_json = tmp_path / "capital.lint.json"
-    # `lint_document` would actually produce `blank-text-field` before
-    # `duplicate-choice-text` -- written here in the opposite order to
+    # `lint_document` would actually produce the entry for `tags/0` before
+    # the one for `tags/1` -- written here in the opposite order to
     # prove the comparison does not care.
     lint_json.write_text(json.dumps(TWO_WARNINGS_LINT_JSON), encoding="utf-8")
     _assert_matches_lint_json(doc)

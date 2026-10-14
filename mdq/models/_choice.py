@@ -24,8 +24,8 @@ from . import _lint, _render, _slugify
 from ._base import (
     MdqModel,
     BaseQuestion,
+    FreeText,
     SlugId,
-    _check_choices_have_text,
     _check_unique_choices,
     _raise_unique_id_error,
 )
@@ -71,10 +71,10 @@ class ScoredChoice(MdqModel):
     """
 
     id: SlugId | None = None
-    text: str
+    text: FreeText
     score: Annotated[float | None, Field(default=None, ge=-1, le=1)] = None
-    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    feedback: FreeText | None = None
+    comment: FreeText | None = None
 
 
 class BooleanChoice(MdqModel):
@@ -84,10 +84,10 @@ class BooleanChoice(MdqModel):
     """
 
     id: SlugId | None = None
-    text: str
+    text: FreeText
     correct: bool
-    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    feedback: FreeText | None = None
+    comment: FreeText | None = None
 
 
 class Statement(MdqModel):
@@ -97,11 +97,11 @@ class Statement(MdqModel):
     """
 
     id: SlugId | None = None
-    text: str
+    text: FreeText
     correct: bool
     marker: str | None = None
-    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    feedback: FreeText | None = None
+    comment: FreeText | None = None
 
     @field_validator("marker")
     @classmethod
@@ -179,10 +179,9 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     def check_choices_are_unique(self) -> Self:
         """
         multiple-choice.md, "Choices": no choice's `text` may be empty
-        (`blank-choice-text`), and ids and texts must each be unique
+        (`blank-text`), and ids and texts must each be unique
         (`duplicate-choice-id`, `duplicate-choice-text`).
         """
-        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -193,7 +192,6 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_multiple_choice_answers(self.choices, ("choices",)))
@@ -261,11 +259,10 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     def check_choices_are_unique(self) -> Self:
         """
         multiple-choice.md, "Choices" (shared by multiple-selection): no
-        choice's `text` may be empty (`blank-choice-text`), and ids and
+        choice's `text` may be empty (`blank-text`), and ids and
         texts must each be unique (`duplicate-choice-id`,
         `duplicate-choice-text`).
         """
-        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -276,7 +273,6 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_multiple_selection_answers(self.choices, ("choices",)))
@@ -341,10 +337,9 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     def check_choices_are_unique(self) -> Self:
         """
         multiple-choice.md, "Choices" (shared by true-false): no choice's
-        `text` may be empty (`blank-choice-text`), and ids and texts must
+        `text` may be empty (`blank-text`), and ids and texts must
         each be unique (`duplicate-choice-id`, `duplicate-choice-text`).
         """
-        _check_choices_have_text(type(self).__name__, self.choices)
         _check_unique_choices(type(self).__name__, self.choices)
         return self
 
@@ -391,7 +386,6 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_feedback_and_comment(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_true_false_markers(self.choices, self.locale))

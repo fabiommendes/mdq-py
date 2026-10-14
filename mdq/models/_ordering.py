@@ -14,7 +14,7 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
 from . import _lint, _render
-from ._base import BaseQuestion, MdqModel, _raise_unique_id_error
+from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
 from ._score import QuestionScore
 
 __all__ = ["OrderingLine", "OrderingAlternative", "OrderingQuestion"]
@@ -37,8 +37,8 @@ class OrderingAlternative(MdqModel):
 
     #: At least one line (schema `minItems: 1`).
     lines: Annotated[list[OrderingLine], Field(min_length=1)]
-    feedback: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    feedback: FreeText | None = None
+    comment: FreeText | None = None
 
 
 class OrderingQuestion(BaseQuestion[t.OrderingResponse]):

@@ -34,8 +34,6 @@ _PROPOSED_CODES: dict[str, str] = {
     "unsafe-id": "unsafe-id",
     "missing-id": "missing-id",
     "missing-title": "missing-title",
-    "blank-choice-feedback": "blank-choice-feedback",
-    "blank-choice-comment": "blank-choice-comment",
     "visually-identical-choices": "visually-identical-choices",
     "missing-choice-id": "missing-choice-id",
     "all-choices-correct": "all-choices-correct",
@@ -185,61 +183,6 @@ def test_defined_id_and_title_do_not_warn() -> None:
     codes = _codes(question.lint())
     assert _PROPOSED_CODES["missing-id"] not in codes
     assert _PROPOSED_CODES["missing-title"] not in codes
-
-
-# --- MC/MS/TF choices[].feedback, choices[].comment ---------------------
-
-
-def test_blank_choice_feedback_warns() -> None:
-    doc = {
-        "type": "multiple-choice",
-        "stem": "Qual é a capital do Brasil?",
-        "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 0, "feedback": "   "},
-            {"id": "b", "text": "Brasília", "score": 1},
-        ],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["blank-choice-feedback"] in _codes(question.lint())
-
-
-def test_non_blank_choice_feedback_does_not_warn() -> None:
-    doc = {
-        "type": "multiple-choice",
-        "stem": "Qual é a capital do Brasil?",
-        "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 0, "feedback": "Já foi, não é mais."},
-            {"id": "b", "text": "Brasília", "score": 1},
-        ],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["blank-choice-feedback"] not in _codes(question.lint())
-
-
-def test_blank_choice_comment_warns() -> None:
-    doc = {
-        "type": "multiple-choice",
-        "stem": "Qual é a capital do Brasil?",
-        "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 0, "comment": "\t "},
-            {"id": "b", "text": "Brasília", "score": 1},
-        ],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["blank-choice-comment"] in _codes(question.lint())
-
-
-def test_non_blank_choice_comment_does_not_warn() -> None:
-    doc = {
-        "type": "multiple-choice",
-        "stem": "Qual é a capital do Brasil?",
-        "choices": [
-            {"id": "a", "text": "Rio de Janeiro", "score": 0, "comment": "nota interna"},
-            {"id": "b", "text": "Brasília", "score": 1},
-        ],
-    }
-    question = _load_ok(doc)
-    assert _PROPOSED_CODES["blank-choice-comment"] not in _codes(question.lint())
 
 
 # --- MC/MS/TF choices[].text visual equivalence -------------------------

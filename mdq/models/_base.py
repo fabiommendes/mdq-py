@@ -4,7 +4,7 @@
 
 Also home to generic helpers with no question-type of their own: the
 unique-id machinery shared by every "duplicate choice/id" rule
-(dev/specs/to-do/unique-ids.md), the `locale`/blank-content-field/regex
+(dev/specs/to-do/unique-ids.md), the `locale`/`blank-text`/regex
 validators reused across question and blank types, and the
 preamble/stem/epilogue normalization helpers `BaseQuestion._normalize`
 calls.
@@ -19,7 +19,15 @@ from typing import TYPE_CHECKING, Annotated, Any, Iterable, Mapping, Self, Seque
 
 import opt
 import pydantic_core
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
@@ -32,7 +40,7 @@ if TYPE_CHECKING:
     from ._exam import Exam
     from ._score import QuestionScore
 
-__all__ = ["MdqModel", "BaseQuestion"]
+__all__ = ["MdqModel", "BaseQuestion", "FreeText"]
 
 
 #: The `SLUG` terminal of docs/references/grammar.md, as the `id` of a
@@ -170,25 +178,6 @@ def _raise_unique_id_error(
     raise pydantic_core.ValidationError.from_exception_data(model_name, [error])
 
 
-def _check_choices_have_text(model_name: str, choices: Sequence[Any]) -> None:
-    """
-    multiple-choice.md, "Choices": a choice's `text` MUST NOT be empty --
-    shared by multiple-choice, multiple-selection, true-false, and a
-    fill-in choice blank. `blank-choice-comment`/`blank-choice-feedback`
-    stay `warning`-level lint checks (`mdq.models._lint`); a blank
-    `text` is critical enough to stop the document from loading instead.
-    """
-    for index, choice in enumerate(choices):
-        if choice.text.strip() == "":
-            _raise_unique_id_error(
-                model_name,
-                "blank-choice-text",
-                f"choices[{index}] text has no visible characters",
-                ("choices", index, "text"),
-                choice.text,
-            )
-
-
 def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
     """
     Enforce `duplicate-choice-id` and `duplicate-choice-text` over one
@@ -308,14 +297,24 @@ def _validate_uuid(value: str | None) -> str | None:
     return value
 
 
-def _validate_not_blank(value: str | None, field_name: str) -> str | None:
-    """base.md: raise `blank-content-field` for a defined-but-blank value."""
-    if value is not None and value.strip() == "":
+def _validate_free_text(value: str, info: ValidationInfo) -> str:
+    """
+    generic.md: a free-text field, if defined, must have at least one
+    visible character. An empty or whitespace-only string raises
+    `blank-text`.
+    """
+    if not _lint.has_visible_character(value):
         raise PydanticCustomError(
-            "blank-content-field",
-            f"'{field_name}' is defined but has no visible characters",
+            "blank-text",
+            f"'{info.field_name}' is defined but has no visible characters",
         )
     return value
+
+
+#: A free-text field (`title`, `stem`, a choice `text`, `feedback`, an
+#: entry of `tags`, ...): the schema accepts any string and the model
+#: rejects one with no visible character (`blank-text`).
+FreeText = Annotated[str, AfterValidator(_validate_free_text)]
 
 
 class BaseQuestion[R](MdqModel):
@@ -329,15 +328,15 @@ class BaseQuestion[R](MdqModel):
 
     id: Annotated[str | None, Field(default=None, min_length=1)] = None
     uuid: str | None = None
-    title: Annotated[str | None, Field(default=None, min_length=1)] = None
-    author: Annotated[str | None, Field(default=None, min_length=1)] = None
-    stem: str
-    preamble: Annotated[str | None, Field(default=None, min_length=1)] = None
-    epilogue: Annotated[str | None, Field(default=None, min_length=1)] = None
-    comment: Annotated[str | None, Field(default=None, min_length=1)] = None
+    title: FreeText | None = None
+    author: FreeText | None = None
+    stem: FreeText
+    preamble: FreeText | None = None
+    epilogue: FreeText | None = None
+    comment: FreeText | None = None
     locale: str | None = None
     meta: dict[str, object] | None = None
-    tags: list[str] = Field(default_factory=list)
+    tags: list[FreeText] = Field(default_factory=list)
 
     @field_validator("tags")
     @classmethod
@@ -357,29 +356,6 @@ class BaseQuestion[R](MdqModel):
     @classmethod
     def check_uuid_is_well_formed(cls, value: str | None) -> str | None:
         return _validate_uuid(value)
-
-    @field_validator("preamble")
-    @classmethod
-    def check_preamble_is_not_blank(cls, value: str | None) -> str | None:
-        return _validate_not_blank(value, "preamble")
-
-    @field_validator("stem")
-    @classmethod
-    def check_stem_is_not_blank(cls, value: str) -> str:
-        """
-        base.md, "Additional Rules": raise `blank-content-field` for a stem
-        without a visible character.
-        """
-        if not value.strip():
-            raise PydanticCustomError(
-                "blank-content-field", "'stem' has no visible characters"
-            )
-        return value
-
-    @field_validator("epilogue")
-    @classmethod
-    def check_epilogue_is_not_blank(cls, value: str | None) -> str | None:
-        return _validate_not_blank(value, "epilogue")
 
     @model_validator(mode="after")
     def check_no_forbidden_block_elements(self) -> Self:
@@ -563,10 +539,6 @@ class BaseQuestion[R](MdqModel):
         the module docstring).
         """
         diagnostics: list[Diagnostic] = []
-        for field_name in ("title", "author", "comment"):
-            diagnostics.extend(
-                _lint.check_blank_text_field(getattr(self, field_name), field_name)
-            )
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
         diagnostics.extend(_lint.check_tags(self.tags))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))

@@ -328,11 +328,26 @@ def _question_frontmatter_warnings(
 def _normalize_tags(tags: Any) -> Any:
     """
     generic.md: `tags` is a list, or a single comma-delimited string that
-    is split into one. Exams and questions share the rule. Any other
-    value is returned as it is, for the model to report.
+    is split into one. Exams and questions share the rule. An empty part
+    after a final comma is dropped; any other empty part is kept, for the
+    model to report as `blank-text`. Any other value is returned as it
+    is, for the model to report.
     """
     if isinstance(tags, str):
-        return [part.strip() for part in tags.split(",") if part.strip()]
-    if isinstance(tags, list | tuple):
-        return list(tags)
-    return tags
+        parts = [part.strip() for part in tags.split(",")]
+        if len(parts) > 1 and parts[-1] == "":
+            parts.pop()
+        return parts
+    return _normalize_list(tags)
+
+
+def _normalize_list(value: Any) -> Any:
+    """
+    A list, or a single comma-delimited string split into one, with the
+    empty parts dropped. Any other value is returned as it is.
+    """
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, list | tuple):
+        return list(value)
+    return value
