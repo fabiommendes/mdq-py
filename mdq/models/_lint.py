@@ -422,7 +422,7 @@ def check_multiple_choice_answers(
     """
     multiple-choice.md: a question MAY mark any number of choices as
     correct, and typically marks exactly one -- more than one is unusual
-    enough to flag (`multiple-choice-many-correct-choices`, `info`), but
+    enough to flag (`many-correct-choices`, `info`), but
     not a mistake. No correct choice at all more likely is one.
 
     Also used, via `mdq.models._fill_in.FillInQuestion.lint`, for a
@@ -437,7 +437,7 @@ def check_multiple_choice_answers(
         return [
             Diagnostic(
                 severity="info",
-                code="multiple-choice-no-correct-choice",
+                code="no-correct-choice",
                 path=path,
                 message="no choice has a score >= 1; the question has no correct answer",
             )
@@ -449,7 +449,7 @@ def check_multiple_choice_answers(
         warnings.append(
             Diagnostic(
                 severity="info",
-                code="multiple-choice-many-correct-choices",
+                code="many-correct-choices",
                 path=path,
                 message=(
                     f"choices {listed} all have a score >= 1; a question MAY "

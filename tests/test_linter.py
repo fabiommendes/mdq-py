@@ -125,7 +125,7 @@ def test_choice_checks_do_not_apply_to_essay_or_numeric() -> None:
 
 
 # ---------------------------------------------------------------------
-# multiple-choice-no-correct-choice
+# no-correct-choice
 # ---------------------------------------------------------------------
 
 
@@ -136,7 +136,7 @@ def test_multiple_choice_without_any_correct_choice_warns() -> None:
         "choices": [{"id": "a", "text": "A", "score": 0}, {"id": "b", "text": "B"}],
     }
     warnings = load(doc).diagnostics
-    assert "multiple-choice-no-correct-choice" in _rules(warnings)
+    assert "no-correct-choice" in _rules(warnings)
 
 
 def test_multiple_choice_with_a_correct_choice_does_not_warn() -> None:
@@ -146,7 +146,7 @@ def test_multiple_choice_with_a_correct_choice_does_not_warn() -> None:
         "choices": [{"id": "a", "text": "A", "score": 1}, {"id": "b", "text": "B"}],
     }
     warnings = load(doc).diagnostics
-    assert "multiple-choice-no-correct-choice" not in _rules(warnings)
+    assert "no-correct-choice" not in _rules(warnings)
 
 
 def test_only_multiple_choice_gets_the_correct_choice_check() -> None:
@@ -158,7 +158,7 @@ def test_only_multiple_choice_gets_the_correct_choice_check() -> None:
         "stem": "x",
         "choices": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
     }
-    assert "multiple-choice-no-correct-choice" not in _rules(
+    assert "no-correct-choice" not in _rules(
         load(doc).diagnostics
     )
 
@@ -196,7 +196,7 @@ def test_load_reports_warnings_without_failing() -> None:
     loaded = load(doc)
     assert loaded
     assert not any(d.severity == "error" for d in loaded.diagnostics)
-    assert "multiple-choice-no-correct-choice" in _rules(loaded.diagnostics)
+    assert "no-correct-choice" in _rules(loaded.diagnostics)
 
 
 # ---------------------------------------------------------------------
@@ -350,7 +350,7 @@ def test_multiple_choice_with_two_correct_choices_warns() -> None:
             {"id": "b", "text": "B", "score": 1},
         ],
     }
-    assert "multiple-choice-many-correct-choices" in _rules(
+    assert "many-correct-choices" in _rules(
         load(doc).diagnostics
     )
 
@@ -367,8 +367,8 @@ def test_partial_credit_choices_are_not_correct_answers() -> None:
         ],
     }
     rules = _rules(load(doc).diagnostics)
-    assert "multiple-choice-no-correct-choice" in rules
-    assert "multiple-choice-many-correct-choices" not in rules
+    assert "no-correct-choice" in rules
+    assert "many-correct-choices" not in rules
 
 
 # ---------------------------------------------------------------------
@@ -676,10 +676,10 @@ def test_blanks_inherit_the_checks_of_the_type_they_name() -> None:
     )
     warnings = load(doc).diagnostics
     rules = _rules(warnings)
-    assert "multiple-choice-no-correct-choice" in rules
+    assert "no-correct-choice" in rules
     assert "relative-tolerance-around-zero" in rules
     by_rule = {w.code: w.path for w in warnings}
-    assert by_rule["multiple-choice-no-correct-choice"] == ("blanks", 0, "choices")
+    assert by_rule["no-correct-choice"] == ("blanks", 0, "choices")
     assert by_rule["relative-tolerance-around-zero"] == (
         "blanks",
         1,

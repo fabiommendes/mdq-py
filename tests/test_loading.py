@@ -557,7 +557,7 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 def test_default_level_lint_rules_are_warnings() -> None:
     # A tag that holds a comma is a `warning`
     # (dev/specs/to-do/rule-conformance.md, section A --
-    # `multiple-choice-many-correct-choices`, formerly this test's
+    # `many-correct-choices`, formerly this test's
     # example, moved to `info`: a question MAY mark any number of
     # choices as correct, see docs/lint-codes.md).
     data = {

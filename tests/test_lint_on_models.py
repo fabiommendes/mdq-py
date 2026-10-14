@@ -92,7 +92,7 @@ def test_multiple_choice_lint_matches_load_diagnostics() -> None:
     loaded = load(doc)
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    assert "multiple-choice-no-correct-choice" in _codes(loaded.document.lint())
+    assert "no-correct-choice" in _codes(loaded.document.lint())
 
 
 def test_essay_lint_matches_load_diagnostics_for_ignored_highlight() -> None:
@@ -144,7 +144,7 @@ def test_ordering_lint_matches_load_diagnostics_for_reject_without_feedback() ->
 def test_fill_in_lint_matches_load_diagnostics() -> None:
     """
     A choice blank is graded like multiple-choice, so it runs
-    `multiple-choice-no-correct-choice` exactly as a standalone
+    `no-correct-choice` exactly as a standalone
     multiple-choice question would -- see
     `dev/specs/to-do/lint-codes-corrections.md`. (A blank `text`, like
     `Amazônia`, is a `blank-text` model error now, not a lint
@@ -167,7 +167,7 @@ def test_fill_in_lint_matches_load_diagnostics() -> None:
     loaded = load(doc)
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    assert "multiple-choice-no-correct-choice" in _codes(loaded.document.lint())
+    assert "no-correct-choice" in _codes(loaded.document.lint())
 
 
 # ---------------------------------------------------------------------
@@ -226,7 +226,7 @@ def test_exam_lint_prefixes_question_diagnostics_with_questions_index() -> None:
     exam = _load_exam(doc)
     diagnostics = exam.lint()
 
-    matching = [d for d in diagnostics if d.code == "multiple-choice-no-correct-choice"]
+    matching = [d for d in diagnostics if d.code == "no-correct-choice"]
     assert len(matching) == 1
     assert matching[0].path == ("questions", 1, "choices")
 

@@ -14,6 +14,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- Lint codes `multiple-choice-no-correct-choice` and `multiple-choice-many-correct-choices` are renamed `no-correct-choice` and `many-correct-choices`, as in the spec.
 - The exam include block key `include-all` is renamed to `includeAll` (`IncludeAll` model alias, `IncludeAllDict`, parser, linter paths). `include-all` is now an unknown field (`unknown-include-field`).
 - One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`).
 - The lint codes `blank-text-field`, `blank-content-field`, `blank-choice-text`, `blank-choice-feedback`, `blank-choice-comment` and `blank-tag` are replaced by `blank-text` (`error`). It reports a free-text field, or a `tags` entry, that is defined but empty or whitespace only: `title`, `author`, `comment`, `preamble`, `stem`, `epilogue`, exam `description`, `course` and `instructions`, `answerKey`, `incorrectFeedback`, and the `text`, `feedback` and `comment` of a choice, an ordering alternative or a pattern. The check is in the models, so a document loaded from YAML, JSON or a dict is covered, and building a model with a blank field raises. An empty string is no longer a `schema-error` in these fields (the models dropped their `min_length`); `null` still is, and `id`, `include`, `includeAll`, `highlight` and pattern strings keep theirs.

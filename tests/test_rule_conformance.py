@@ -100,7 +100,7 @@ def test_multiple_choice_no_correct_choice_is_info() -> None:
     }
     question = _load_ok(doc)
     matching = [
-        d for d in question.lint() if d.code == "multiple-choice-no-correct-choice"
+        d for d in question.lint() if d.code == "no-correct-choice"
     ]
     assert len(matching) == 1
     assert matching[0].severity == "info"
