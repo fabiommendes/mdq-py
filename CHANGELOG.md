@@ -14,6 +14,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- `blank-text` also treats control characters (`Cc`) as invisible, as the visible character definition of the spec says.
 - Lint codes `multiple-choice-no-correct-choice` and `multiple-choice-many-correct-choices` are renamed `no-correct-choice` and `many-correct-choices`, as in the spec.
 - The exam include block key `include-all` is renamed to `includeAll` (`IncludeAll` model alias, `IncludeAllDict`, parser, linter paths). `include-all` is now an unknown field (`unknown-include-field`).
 - One severity per lint code. `non-ascii-whitespace` is always `warning`; a Unicode space in prose reports the new `non-ascii-whitespace-in-prose` (`info`).

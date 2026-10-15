@@ -1,7 +1,8 @@
 """
 `blank-text` (docs/lint-codes.md, "Errors"): a free-text field, or a
 `tags` entry, that is defined but empty or whitespace only. One error
-code for every field; `null` and the identifier fields are schema errors.
+code for every field; `null` in a required field and the empty identifier
+fields are schema errors.
 
 Written against the public `mdq.load` API and the models.
 """
@@ -16,7 +17,7 @@ from pydantic import ValidationError
 import mdq
 from mdq import Diagnostic, models
 
-BLANKS = ["", "   ", "\n\t ", "​"]
+BLANKS = ["", "   ", "\n\t ", "\u200b", "\u00ad", "\x01"]
 
 _MC_CHOICES: list[dict[str, Any]] = [
     {"id": "brasilia", "text": "Brasília", "score": 1},

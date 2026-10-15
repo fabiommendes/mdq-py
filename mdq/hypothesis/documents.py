@@ -498,8 +498,8 @@ def md_safe_multi_blocks(
 
 
 def _has_visible_character(text: str) -> bool:
-    """Whether `text` has a character that is neither white space nor a format character."""
-    return any(not (c.isspace() or unicodedata.category(c) == "Cf") for c in text)
+    """Whether `text` has a character that is not white space, a control or a format character."""
+    return any(not (c.isspace() or unicodedata.category(c) in ("Cc", "Cf")) for c in text)
 
 
 def safe_texts(multiline: bool = False) -> st.SearchStrategy[str]:

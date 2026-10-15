@@ -131,10 +131,11 @@ def _language_subtag(locale: str | None) -> str:
 # ----------------------------------------------------------------------
 def has_visible_character(value: str) -> bool:
     """
-    Whether `value` has a visible character: one that is neither white
-    space nor an invisible format character such as U+200B.
+    Whether `value` has a visible character, as grammar.md "Visible
+    characters" defines it: not white space, and not a control (`Cc`) or
+    format (`Cf`) character such as U+200B.
     """
-    return any(not (c.isspace() or unicodedata.category(c) == "Cf") for c in value)
+    return any(not (c.isspace() or unicodedata.category(c) in ("Cc", "Cf")) for c in value)
 
 
 #: base.md:252, footnote [^2]: the url-safe shape a question `id` SHOULD have.
