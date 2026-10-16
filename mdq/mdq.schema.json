@@ -606,7 +606,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml",
       "title": "Multiple selection question",
-      "description": "A question where the student must select all choices they believe are correct, out of a list of options (zero, one, or many may be correct). Extends the common question-base schema with a `choices` field.",
+      "description": "A question where the student must select all choices they believe are correct, out of a list of options (zero, one, or many may be correct). Extends the common question-base schema with the `choices`, `grading` and `shuffle` fields.",
       "allOf": [
         {
           "$ref": "./question-base.yaml"
@@ -633,7 +633,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value (its `multiple-selection` entry when it is a map, `symmetric` if the entry is missing), and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [

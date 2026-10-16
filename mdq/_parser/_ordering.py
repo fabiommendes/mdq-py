@@ -102,17 +102,6 @@ def ordering_alternative(alt: RawAlternative, unit: int) -> dict[str, Any]:
     return entry
 
 
-def join_prefixed_lines(lines: list[str], prefix: str) -> str:
-    """Strip a `>`/`!` prefix from each raw line and join the rest with spaces."""
-    parts = []
-    for line in lines:
-        stripped = line.strip(" \t")
-        if stripped.startswith(prefix):
-            stripped = stripped[len(prefix) :].strip(" \t")
-        parts.append(stripped)
-    return " ".join(p for p in parts if p)
-
-
 def is_comment_block(lines: list[str]) -> bool:
     """Whether every raw line of a paragraph is a `!`-prefixed comment line."""
     return bool(lines) and all(line.strip(" \t").startswith("!") for line in lines)

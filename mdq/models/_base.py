@@ -551,6 +551,11 @@ class BaseQuestion[R](MdqModel):
                     getattr(self, field_name), (field_name,)
                 )
             )
+            diagnostics.extend(
+                _lint.check_stray_choice_markers(
+                    getattr(self, field_name), (field_name,)
+                )
+            )
         return diagnostics
 
     def with_ids(self) -> Self:

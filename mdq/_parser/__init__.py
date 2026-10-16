@@ -18,8 +18,9 @@ block) for the exam-level `===`/`---` block-splitting grammar.
 `_spaces` reads the source of either one for the `non-ascii-whitespace`
 lint (`find_unicode_spaces`).
 
-`reconstruct_blocks` and `find_forbidden_elements` are exposed here too,
-even though they read like `mdq.models` helpers: both replay a
+`reconstruct_blocks`, `find_forbidden_elements` and
+`find_stray_choice_markers` are exposed here too, even though they read
+like `mdq.models` helpers: they replay a
 preamble/epilogue/stem field through `MDQParser` to canonicalize it or
 check it for constructs base.md forbids, so they belong next to the
 grammar they reuse, not in `mdq._markdown` (which only wraps the
@@ -32,7 +33,12 @@ from ._choices import SLUG_BODY_RE, SLUG_PREFIX_RE
 from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
 from ._frontmatter import COMMON_QUESTION_KEYS, dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer
-from ._question import find_forbidden_elements, parse_question, reconstruct_blocks
+from ._question import (
+    find_forbidden_elements,
+    find_stray_choice_markers,
+    parse_question,
+    reconstruct_blocks,
+)
 from ._spaces import find_unicode_spaces
 
 __all__ = [
@@ -46,6 +52,7 @@ __all__ = [
     "COMMON_QUESTION_KEYS",
     "reconstruct_blocks",
     "find_forbidden_elements",
+    "find_stray_choice_markers",
     "parse_numeric_answer",
     "find_unicode_spaces",
     "load_yaml",

@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from collections.abc import Mapping
 from typing import Any, cast
 
+from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
@@ -63,17 +64,23 @@ from ..types import (
 )
 from ._choices import (
     FALSE_LETTERS,
-    PLAIN_ITEM_RE,
+    LINK_START_RE,
     RawChoice,
     SLUG_BODY_RE,
     SLUG_PREFIX_RE,
     _assign_choice_ids,
     _infer_choice_type,
     _pattern_entry,
+    dedent,
     foreign_choice_index,
     _score_from_value,
-    _split_list_items,
+    CODE_INDENT,
+    indentation,
+    is_choice_value,
+    match_choice_marker,
     parse_marker,
+    parse_observations,
+    split_item,
 )
 from ._frontmatter import (
     GRADED_QUESTION_TYPES,
@@ -91,7 +98,6 @@ from ._ordering import (
     RawAlternative,
     RawLine,
     is_comment_block,
-    join_prefixed_lines,
     ordering_alternative,
     ordering_code_lines,
     ordering_leveled,
@@ -99,7 +105,12 @@ from ._ordering import (
     ordering_unit,
 )
 
-__all__ = ["parse_question", "reconstruct_blocks", "find_forbidden_elements"]
+__all__ = [
+    "parse_question",
+    "reconstruct_blocks",
+    "find_forbidden_elements",
+    "find_stray_choice_markers",
+]
 
 #
 # Constants
@@ -133,16 +144,16 @@ BLANK_KIND_RE = re.compile(
     r"|(?P<short>short-answer)(?:/(?P<variant>accept|reject))?"
     r")$"
 )
-BRACKET_ITEM_RE = re.compile(r"^[*+-][ \t]*\[")
+#: A raw line that looks like the first line of a choice: a list marker
+#: and a choice marker (choices.md, "Choice marker").
+BRACKET_ITEM_RE = re.compile(r"^[*+-][ \t]+\[[^\]\r\n]*\](?![(\[])")
 ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
 # The markers around the text of an ATX heading.
 ATX_OPENING_RE = re.compile(r"^[ \t]*#{1,6}")
 ATX_CLOSING_RE = re.compile(r"(?:[ \t]+#+)?[ \t]*$")
-_INTERLEAVED = (
-    "a pattern item carries at most one feedback and one comment block, and "
-    "they must not interleave"
-)
 ORDERING_TAG_RE = re.compile(r"^\[ordering\]$")
+#: Reads link reference definitions, which `md` leaves as paragraphs.
+_REFERENCE_MD = MarkdownIt("commonmark")
 
 
 #
@@ -407,14 +418,41 @@ class MDQParser:
     #
     # Body-start / tag detection
     #
-    def is_bracket_list(self, node: Node) -> bool:
-        if node.type != "bullet_list":
+    def item_lines(self, item: Node) -> list[str]:
+        """
+        The content lines of a list item, as CommonMark gives them
+        (grammar.md, "Content of a list item"): the first line without the
+        list marker and its padding, the other lines without the
+        indentation of the item content. Trailing blank lines are dropped.
+
+        The content column comes from markdown-it (`meta["indent"]`, see
+        `mdq._markdown`). An empty first line has none: CommonMark then
+        puts the content one column after the marker.
+        """
+        lines = self.raw_lines(item)
+        while lines and not lines[-1].strip(" \t"):
+            lines.pop()
+        if not lines:
+            return [""]
+        first = lines[0]
+        marker = len(first) - len(first.lstrip(" \t"))
+        first = first[:marker] + " " + first[marker + 1 :]
+        column = item.meta.get("indent")
+        if column is None:
+            column = indentation(lines[0]) + 2
+        return [dedent(first, column)] + [dedent(line, column) for line in lines[1:]]
+
+    def is_choice_list(self, node: Node) -> bool:
+        """
+        Whether `node` is a choice list: an unordered list whose every
+        item starts with a choice marker (choices.md, "Choice marker").
+        """
+        if node.type != "bullet_list" or not node.children:
             return False
-        for item in node.children:
-            first_line = self.raw_lines(item)[0] if item.map else ""
-            if not BRACKET_ITEM_RE.match(first_line):
-                return False
-        return bool(node.children)
+        return all(
+            match_choice_marker(self.item_lines(item)[0]) is not None
+            for item in node.children
+        )
 
     def find_body_start(self) -> int:
         """
@@ -433,7 +471,7 @@ class MDQParser:
                 text = self.raw_text(child)
                 if _matches_tag(text):
                     return i
-            elif self.is_bracket_list(child):
+            elif self.is_choice_list(child):
                 return i
         raise MissingField("body")
 
@@ -489,73 +527,33 @@ class MDQParser:
     # Choice/item-list parsing
     #
     def parse_item_list(self, node: Node) -> list[RawChoice]:
-        raw_lines = self.raw_lines(node)
-        return [self.parse_item(item) for item in _split_list_items(raw_lines)]
+        return [self.parse_item(self.item_lines(item)) for item in node.children]
 
     def parse_item(self, item_lines: list[str]) -> RawChoice:
+        """
+        Parse the content lines of one choice (choices.md, "Item").
+
+        Raises:
+            ParseError: The item does not start with a choice marker, the
+                marker is empty, or the lines after the text are not one
+                feedback block and one comment block.
+        """
         value, explicit_id, rest = parse_marker(item_lines[0])
-        return self.collect_item(item_lines, value, explicit_id, rest)
+        choice = split_item(rest, item_lines[1:])
+        choice.value = value
+        choice.explicit_id = explicit_id
+        return choice
 
     def parse_plain_item(self, item_lines: list[str]) -> RawChoice:
         """
-        Parse a list item carrying no `[value]` marker, e.g. a pattern line.
+        Parse the content lines of a list item with no `[value]` marker,
+        e.g. a pattern line.
 
         Raises:
-            ParseError: `item_lines` does not start with a list marker.
+            ParseError: The lines after the text are not one feedback block
+                and one comment block.
         """
-        m = PLAIN_ITEM_RE.match(item_lines[0])
-        if not m:
-            raise ParseError(f"malformed list item: {item_lines[0]!r}")
-        return self.collect_item(
-            item_lines, "", None, m.group("rest") or "", strict_observations=True
-        )
-
-    def collect_item(
-        self,
-        item_lines: list[str],
-        value: str,
-        explicit_id: str | None,
-        rest: str,
-        *,
-        strict_observations: bool = False,
-    ) -> RawChoice:
-        """
-        Split an item's continuation lines into text, `>` feedback and `!` comments.
-
-        Raises:
-            ParseError: `strict_observations` is set and the feedback and
-                comment lines interleave.
-        """
-        text_lines = [rest] if rest.strip(" \t") else []
-        feedback_lines: list[str] = []
-        comment_lines: list[str] = []
-        mode = "text"
-
-        for line in item_lines[1:]:
-            stripped = line.strip(" \t")
-            if stripped.startswith(">"):
-                if strict_observations and mode == "comment" and feedback_lines:
-                    raise ParseError(_INTERLEAVED)
-                mode = "feedback"
-                feedback_lines.append(stripped[1:].strip(" \t"))
-            elif stripped.startswith("!"):
-                if strict_observations and mode == "feedback" and comment_lines:
-                    raise ParseError(_INTERLEAVED)
-                mode = "comment"
-                comment_lines.append(stripped[1:].strip(" \t"))
-            elif mode == "text":
-                text_lines.append(stripped)
-            elif mode == "feedback":
-                feedback_lines.append(stripped)
-            else:
-                comment_lines.append(stripped)
-
-        choice = RawChoice(value, explicit_id, " ".join(t for t in text_lines if t))
-        if feedback_lines:
-            choice.feedback = " ".join(t for t in feedback_lines if t)
-        if comment_lines:
-            choice.comment = " ".join(t for t in comment_lines if t)
-        return choice
+        return split_item(item_lines[0], item_lines[1:])
 
     #
     # Per-type body fillers
@@ -727,59 +725,31 @@ class MDQParser:
         The blocks are read from the raw lines, not from the markdown
         nodes: with no blank line between them, CommonMark folds a `!`
         line into the blockquote before it as a lazy continuation, which
-        the grammar does not do. A line keeps the block its prefix starts;
-        a line with neither prefix continues the current block.
+        the grammar does not do.
 
         Raises:
             ParseError: a section carries more than one feedback or
-                comment block, or the two interleave.
+                comment block, or a line that is not part of one.
         """
-        lines: list[str] = []
+        first: Node | None = None
+        last: Node | None = None
         while True:
             node = self.seek()
-            if node is None:
+            if node is None or node.map is None:
                 break
-            raw = self.raw_lines(node)
             if node.type == "blockquote" or (
-                node.type == "paragraph" and is_comment_block(raw[:1])
+                node.type == "paragraph" and is_comment_block(self.raw_lines(node)[:1])
             ):
-                lines.extend(raw)
-                lines.append("")
+                if first is None:
+                    first = node
+                last = node
                 self.read()
             else:
                 break
-
-        #: `(prefix, lines)` per block. A block starts at a line whose
-        #: prefix differs from the open block's, or at any prefixed line
-        #: after a blank line, which closes the open block.
-        blocks: list[tuple[str, list[str]]] = []
-        open_block = False
-        for line in lines:
-            stripped = line.strip(" \t")
-            if not stripped:
-                open_block = False
-                continue
-            prefix = stripped[0] if stripped[0] in ">!" else ""
-            if open_block and (not prefix or blocks[-1][0] == prefix):
-                blocks[-1][1].append(line)
-            else:
-                blocks.append((prefix, [line]))
-                open_block = True
-
-        kinds = [kind for kind, _ in blocks]
-        if len(kinds) != len(set(kinds)) or "" in kinds:
-            raise ParseError(
-                "an accept/reject section carries at most one feedback and one "
-                "comment block, and they must not interleave"
-            )
-        feedback = comment = None
-        for kind, block_lines in blocks:
-            text = join_prefixed_lines(block_lines, kind)
-            if kind == ">":
-                feedback = text
-            else:
-                comment = text
-        return feedback, comment
+        if first is None or last is None:
+            return None, None
+        assert first.map is not None and last.map is not None
+        return parse_observations(self.lines[first.map[0] : last.map[1]])
 
     def parse_short_answer_body(self, tag_text: str, tag_node: Node) -> None:
         """
@@ -862,8 +832,8 @@ class MDQParser:
                 )
             self.read()
             return [
-                _pattern_entry(self.parse_plain_item(item))
-                for item in _split_list_items(self.raw_lines(node))
+                _pattern_entry(self.parse_plain_item(self.item_lines(item)))
+                for item in node.children
             ]
         if reject and not rest:
             raise ParseError("a [short-answer/reject] block has no pattern")
@@ -1317,7 +1287,27 @@ def _restore_trimmed(content: str, source: str) -> str:
 
 
 def _starts_with_bracket(text: str) -> bool:
-    return text.lstrip(" \t").startswith("[")
+    """
+    Whether `text` starts with optional `ws` and a `[` that does not start
+    a markdown link (question-base.md, "Forbidden elements").
+    """
+    stripped = text.lstrip(" \t")
+    return stripped.startswith("[") and not LINK_START_RE.match(stripped)
+
+
+def _after_reference_definitions(src: str) -> str:
+    """
+    The text of the paragraph `src` after its leading CommonMark link
+    reference definitions (`[inpe]: https://www.inpe.br`), or an empty
+    string when the paragraph holds only definitions.
+
+    `md` does not read definitions, so that MDQ tags such as
+    `[numeric]: 42` stay paragraphs; `_REFERENCE_MD` does.
+    """
+    for token in _REFERENCE_MD.parse(src):
+        if token.type == "inline":
+            return token.content
+    return ""
 
 
 def find_forbidden_elements(
@@ -1334,7 +1324,10 @@ def find_forbidden_elements(
     optional whitespace and `[`, unless it is immediately followed by
     `^` (the fill-in blank marker syntax) or -- see
     `allow_first_paragraph_bracket` -- it is `src`'s own first block (the
-    slug syntax, base.md "Slug").
+    slug syntax, base.md "Slug"). A `[` that starts a markdown link
+    (`[text](url)`, `[text][ref]`) does not count, and neither does a
+    paragraph of CommonMark link reference definitions
+    (`[inpe]: https://www.inpe.br`) that is not an MDQ tag.
 
     Args:
         src: Markdown source for one field -- no YAML frontmatter.
@@ -1362,14 +1355,22 @@ def find_forbidden_elements(
                 forbidden.append("a heading starting with '['")
             continue
 
-        if node.type == "bullet_list" and reader.is_bracket_list(node):
+        if node.type == "bullet_list" and all(
+            indentation(first := reader.item_lines(item)[0]) < CODE_INDENT
+            and _starts_with_bracket(first)
+            for item in node.children
+        ):
             forbidden.append("an unordered list whose items all start with '['")
             continue
 
         if node.type == "paragraph":
             text = reader.raw_text(node)
             stripped = text.lstrip(" \t")
-            if not stripped.startswith("["):
+            if not _starts_with_bracket(stripped):
+                continue
+            if not _matches_tag(stripped) and not _starts_with_bracket(
+                _after_reference_definitions("\n".join(reader.raw_lines(node)))
+            ):
                 continue
             if stripped.startswith("[^"):
                 continue
@@ -1378,3 +1379,39 @@ def find_forbidden_elements(
             forbidden.append("a paragraph starting with '['")
 
     return forbidden
+
+
+def find_stray_choice_markers(src: str) -> list[str]:
+    """
+    question-base.md, "Forbidden elements": return the choice marker of
+    every stray item in `src`, a preamble, stem or epilogue field.
+
+    A stray item belongs to a top-level unordered list in which some
+    items, but not all, start with a choice marker, and its marker holds
+    the value of a choice type or is empty (`is_choice_value`). Such a
+    list is valid prose, but it is almost always a broken choice list.
+
+    Args:
+        src: Markdown source for one field -- no YAML frontmatter.
+
+    Returns:
+        The marker of each stray item, such as `[x]`, in source order.
+    """
+    if not src.strip():
+        return []
+    reader = MDQParser(src)
+    stray: list[str] = []
+    for node in reader.children:
+        if node.type != "bullet_list":
+            continue
+        markers = [
+            match_choice_marker(reader.item_lines(item)[0]) for item in node.children
+        ]
+        if all(m is not None for m in markers):
+            continue
+        stray.extend(
+            m.group(0)
+            for m in markers
+            if m is not None and is_choice_value(m.group("value"))
+        )
+    return stray

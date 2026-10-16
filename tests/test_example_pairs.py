@@ -28,7 +28,9 @@ from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 
 #: `* [x] text`, `- [ ] text`, `+ [50%] text` -- a body choice item. The
 #: bracket is what separates a choice from an ordinary list item.
-_CHOICE_ITEM_RE = re.compile(r"^\s{0,3}[-*+]\s+\[", re.MULTILINE)
+_CHOICE_ITEM_RE = re.compile(
+    r"^\s{0,3}[-*+]\s+\[[^\]\n]*\](?![(\[])", re.MULTILINE
+)
 
 #: `[^name]:` or `[^name/type]:` at the start of a line -- a fill-in
 #: blank definition.
@@ -211,7 +213,12 @@ def test_body_shape_matches_the_parsed_document(source: Path) -> None:
         return
 
     if isinstance(parsed.get("choices"), list):
-        written = len(_CHOICE_ITEM_RE.findall(body))
+        # Items with a choice marker can also sit in a list of the preamble
+        # or the epilogue (`stray-choice-marker`): they are not choices.
+        written = len(_CHOICE_ITEM_RE.findall(body)) - sum(
+            len(_CHOICE_ITEM_RE.findall(parsed.get(field) or ""))
+            for field in ("preamble", "epilogue")
+        )
         assert written == len(parsed["choices"]), (
             f"{relative_id(source)}: the body has {written} choice item(s) "
             f"but the parsed document has {len(parsed['choices'])}"

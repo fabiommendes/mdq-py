@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from ..errors import ParseError
 from ..types import PatternDict
@@ -34,14 +34,24 @@ _NOT_A_LINK = r"(?![(\[])"
 SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]{_NOT_A_LINK}[ \t]*")
 CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]{_NOT_A_LINK}[ \t]*")
 
-ITEM_MARKER_RE = re.compile(r"^[*+-][ \t]+\[(?P<value>[^\]]*)\][ \t]?(?P<rest>.*)$")
+#: The `CHOICE_MARK` terminal of docs/references/choices.md: a bracket
+#: with no `]` or line ending inside, not followed by `(` or `[` (which
+#: would start a markdown link).
+CHOICE_MARK_RE = re.compile(r"\[(?P<value>[^\]\r\n]*)\](?![(\[])")
+#: A bracket that starts a markdown link, `[text](url)` or `[text][ref]`.
+LINK_START_RE = re.compile(r"\[[^\]\r\n]*\][(\[]")
 PERCENT_RE = re.compile(r"^[+-]?[0-9]+(?:\.[0-9]+)?%$")
-#: A list item with no `[value]` marker, e.g. a pattern line. A bare
-#: marker (`*` alone on its line) is an item with no text, so an empty
-#: pattern line is reported as such instead of being read as a
-#: continuation of the item before it.
-PLAIN_ITEM_RE = re.compile(r"^[*+-](?:[ \t]+(?P<rest>.*)|[ \t]*)$")
-LIST_ITEM_START_RE = re.compile(r"^[*+-](?:[ \t]|[ \t]*$)")
+#: The `LAZY_START` terminal of docs/references/grammar.md, for a line
+#: without its line ending: the first character of a line that continues
+#: the block before it. It is not a `>` or `!` marker, and it does not
+#: start a block that interrupts a paragraph.
+LAZY_START_RE = re.compile(
+    r"(?!>|!(?!\[)|[*+-][ \t]|1[.)][ \t]|#{1,6}(?:[ \t]|$)|`{3}|~{3}"
+    r"|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|(?:_[ \t]*){3,}$)[^ \t\r\n]"
+)
+#: Columns of indentation that make a line code or a continuation line,
+#: relative to the content of the list item that holds it.
+CODE_INDENT = 4
 
 # True/false marker classification, per
 # docs/question-types/true-false.md#body. Only FALSE letters mean false;
@@ -65,24 +75,64 @@ class ParsedMarker(NamedTuple):
     rest: str
 
 
+def indentation(line: str) -> int:
+    """
+    The columns of whitespace at the start of `line`, with a tab
+    expanded to the next multiple of four columns, as in CommonMark.
+    """
+    column = 0
+    for char in line:
+        if char == " ":
+            column += 1
+        elif char == "\t":
+            column += 4 - column % 4
+        else:
+            break
+    return column
+
+
+def dedent(line: str, columns: int) -> str:
+    """
+    Remove `columns` columns of indentation from the start of `line`.
+
+    Tabs in the indentation expand to spaces first, so a tab that spans
+    the cut keeps the columns after it. A line with less indentation
+    loses all of it, as a lazy continuation line does in CommonMark.
+    """
+    rest = line.lstrip(" \t")
+    return " " * max(indentation(line) - columns, 0) + rest
+
+
+def match_choice_marker(line: str) -> re.Match[str] | None:
+    """
+    The choice marker at the start of the first content line of a list
+    item (choices.md, "Choice marker"), or None when the line does not
+    start with one. Up to three columns of indentation can come before
+    it; with more, the content is an indented code block
+    (grammar.md, "Content of a list item").
+    """
+    if indentation(line) >= CODE_INDENT:
+        return None
+    return CHOICE_MARK_RE.match(line.lstrip(" \t"))
+
+
 def parse_marker(line: str) -> ParsedMarker:
     """
-    Extract a choice item's (value, explicit id, remaining text) from
-    its first raw line, e.g. `* [x] [my-id] Some text`.
+    Extract a choice item's (value, explicit id, remaining text) from the
+    first content line of the item, e.g. `[x] [my-id] Some text`.
 
     Raises:
-        ParseError: If `line` does not start with a `* [value]` marker, or the
+        ParseError: If `line` does not start with a choice marker, or the
             brackets are empty (`[]`).
     """
 
-    m = ITEM_MARKER_RE.match(line)
+    m = match_choice_marker(line)
     if not m:
         raise ParseError(f"malformed choice item: {line!r}")
-
     if not m.group("value"):
         raise ParseError(f"empty choice marker `[]` (use `[ ]` for blank): {line!r}")
     value = m.group("value").strip(" \t")
-    rest = m.group("rest")
+    rest = line.lstrip(" \t")[m.end() :].lstrip(" \t")
 
     id = None
     id_match = CHOICE_ID_PREFIX_RE.match(rest)
@@ -93,23 +143,140 @@ def parse_marker(line: str) -> ParsedMarker:
     return ParsedMarker(value, id, rest)
 
 
-def _strip_list_marker(line: str) -> str:
-    """Strip a plain (non-bracket) list item's `* `/`- ` marker."""
+def is_choice_value(value: str) -> bool:
+    """
+    Whether the text of a choice marker is the value of some choice type
+    or is empty (question-base.md, "Forbidden elements"): blank, `x`/`X`,
+    `*`, a percentage, a single letter, or `[]`.
+    """
+    value = value.strip(" \t")
+    return (
+        value in ("", "*")
+        or bool(PERCENT_RE.match(value))
+        or (len(value) == 1 and value.isalpha())
+    )
 
-    m = PLAIN_ITEM_RE.match(line)
-    return (m.group("rest") or "").strip(" \t") if m else line.strip(" \t")
+
+#
+# Feedback and comment lines (grammar.md, "Feedback and comment lines")
+#
+#: The kind of a line after the text of an element: a `>` feedback line,
+#: a `!` comment line, a lazy continuation line, a blank line, or a line
+#: that starts a block which interrupts a paragraph.
+LineKind = Literal[">", "!", "lazy", "blank", "block"]
 
 
-def _split_list_items(item_lines: list[str]) -> list[list[str]]:
-    items: list[list[str]] = []
-    current: list[str] = []
-    for line in item_lines:
-        if LIST_ITEM_START_RE.match(line):
-            current = [line]
-            items.append(current)
+def classify_line(line: str) -> tuple[LineKind, str]:
+    """
+    Return the kind of `line` and its content: the text after the marker
+    and its `ws` for a feedback or comment line, the text without its
+    indentation for a lazy line.
+
+    `line` is relative to the content of its element: a line with four
+    or more columns of indentation is a continuation line, whatever it
+    starts with (grammar.md, "Content of a list item").
+    """
+    stripped = line.strip(" \t")
+    if not stripped:
+        return "blank", ""
+    if indentation(line) >= CODE_INDENT:
+        return "lazy", stripped
+    if stripped.startswith(">"):
+        return ">", stripped[1:].strip(" \t")
+    if stripped.startswith("!") and not stripped.startswith("!["):
+        return "!", stripped[1:].strip(" \t")
+    if LAZY_START_RE.match(stripped):
+        return "lazy", stripped
+    return "block", stripped
+
+
+def join_paragraph_lines(lines: list[str]) -> str:
+    """
+    Join the lines of a text, feedback or comment as markdown joins the
+    lines of a paragraph: with one space. An empty string in `lines` is an
+    empty marker line, which separates two paragraphs with a blank line.
+    """
+    paragraphs: list[list[str]] = [[]]
+    for line in lines:
+        if line:
+            paragraphs[-1].append(line)
+        elif paragraphs[-1]:
+            paragraphs.append([])
+    return "\n\n".join(" ".join(p) for p in paragraphs if p)
+
+
+def split_item(first: str, lines: list[str]) -> RawChoice:
+    """
+    Split the content of an element into its text, feedback and comment.
+
+    Args:
+        first: The text on the first line, after the marker, value and id.
+        lines: The other content lines of the element, relative to its
+            content column.
+
+    Returns:
+        A `RawChoice` with an empty value and no id, which the caller
+        fills in.
+
+    Raises:
+        ParseError: The lines after the text are not a feedback block and
+            a comment block (`parse_observations`).
+    """
+    text = [first.strip(" \t")]
+    index = 0
+    while index < len(lines):
+        kind, content = classify_line(lines[index])
+        if kind != "lazy":
+            break
+        text.append(content)
+        index += 1
+    feedback, comment = parse_observations(lines[index:])
+    return RawChoice("", None, join_paragraph_lines(text), feedback, comment)
+
+
+def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
+    """
+    Read the feedback (`>`) and comment (`!`) blocks of an element, in
+    either order, and return the value of each, or None when absent.
+
+    A marker line of the other kind, or a blank line, ends a block. A lazy
+    line continues the open block. An empty marker line separates two
+    paragraphs of the value.
+
+    Raises:
+        ParseError: A second block of the same kind (also after a blank
+            line or a block of the other kind), a lazy line with no open
+            block, or a line that starts another markdown block.
+    """
+    blocks: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in lines:
+        kind, content = classify_line(line)
+        if kind == "blank":
+            current = None
+        elif kind in (">", "!"):
+            if kind != current:
+                if kind in blocks:
+                    name = "feedback" if kind == ">" else "comment"
+                    raise ParseError(
+                        f"an element has at most one {name} block: {line!r}"
+                    )
+                blocks[kind] = []
+                current = kind
+            blocks[kind].append(content)
+        elif kind == "lazy" and current is not None:
+            blocks[current].append(content)
         else:
-            current.append(line)
-    return items
+            raise ParseError(
+                "only a feedback block and a comment block can follow the text "
+                f"of an element: {line!r}"
+            )
+    feedback = blocks.get(">")
+    comment = blocks.get("!")
+    return (
+        None if feedback is None else join_paragraph_lines(feedback),
+        None if comment is None else join_paragraph_lines(comment),
+    )
 
 
 def _assign_choice_ids(choices: list[RawChoice]) -> list[str | None]:

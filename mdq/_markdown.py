@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from markdown_it import MarkdownIt
+from markdown_it.rules_block import StateBlock
 from markdown_it.token import Token
 
 __all__ = [
@@ -53,6 +54,28 @@ md = MarkdownIt("gfm-like")
 # silently with no token emitted at all. Disable that rule so these lines
 # survive as ordinary paragraphs for us to pattern-match.
 md.block.ruler.disable("reference")
+
+
+def _record_item_indent(
+    state: StateBlock, start_line: int, end_line: int, silent: bool
+) -> bool:
+    """
+    Store the content column of a list item in the `meta` of its token.
+
+    The list rule of markdown-it opens an item, sets `blkIndent` to the
+    column where the content of the item starts (after the list marker
+    and its padding, as CommonMark defines it) and then parses the
+    content. This rule runs first on the first line of that content and
+    copies the column to `meta["indent"]`. It never consumes a line.
+    """
+    if not silent and state.tokens:
+        token = state.tokens[-1]
+        if token.type == "list_item_open" and "indent" not in token.meta:
+            token.meta["indent"] = state.blkIndent
+    return False
+
+
+md.block.ruler.before("table", "mdq_item_indent", _record_item_indent)
 
 
 #: `[^id]` markers, as written in a fill-in stem. The id is a `SLUG`

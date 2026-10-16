@@ -24,6 +24,10 @@ Implements the unreleased MDQ specification.
 - `mdq.hypothesis.safe_texts()` no longer generates text with no visible character.
 - Fixed: the models did not enforce several schema `minItems`/`minLength` limits. `load` now reports `schema-error` for an empty fill-in `blanks`, a choice blank with fewer than two choices, an empty `accept`/`reject`/`preAccept`/`preReject` list, an empty ordering `accept`/`reject`, and an empty `id`, `highlight` or include `include`.
 - Refreshed the bundled schema (description text only).
+- A bracket followed by `(` or `[` starts a markdown link and is not a choice marker. A list of links (`* [IBGE](https://www.ibge.gov.br)`), or a paragraph, heading or list item that starts with a link, is valid in the preamble, stem and epilogue, and is no longer a `forbidden-block-element`. A paragraph of link reference definitions (`[inpe]: https://www.inpe.br`) is not one either, unless it is an MDQ tag. `* [x](url) Rio` and `* [x][ref] Rio` are not choices.
+- A choice, a fill-in choice, a pattern item or an ordering section with two feedback blocks or two comment blocks is a `parse-error`, also when a blank line or a block of the other kind separates them. Before, the blocks of a choice were merged. A nested block (a list, a heading, a fence) or a second paragraph after the text of a choice is a `parse-error` too.
+- An empty marker line (`>` or `!` alone) in a feedback or comment separates two paragraphs: the value keeps a blank line there instead of joining with a space.
+- A list item follows the CommonMark item content. A `>` or `!` line indented four or more columns past the item content continues the text or block before it, and `*      [x] Rio` (five or more spaces after the marker) is an indented code block, not a choice.
 
 ### Fixed
 
@@ -35,6 +39,7 @@ Implements the unreleased MDQ specification.
 
 ### Added
 
+- Lint warning `stray-choice-marker`: an unordered list in the preamble, stem or epilogue in which some, not all, items start with a choice marker. One warning per item whose marker is a choice value (`[ ]`, `[x]`, `[*]`, a percentage, a letter) or empty (`[]`). It runs on the models, so YAML, JSON and dict documents are covered.
 - `mdq validate -` reads the document from stdin, as MDQ Markdown by default.
   The new `--format mdq|yaml|json` option sets the format of stdin, or
   overrides the one inferred from a file extension. Diagnostics show `<stdin>`

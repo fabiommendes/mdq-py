@@ -46,6 +46,7 @@ from markdown_it import MarkdownIt
 from pygments.lexers import find_lexer_class_by_name
 from pygments.util import ClassNotFound
 
+from .. import _parser
 from .._diagnostics import Diagnostic
 from ._query import is_standard_query
 from ._regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
@@ -326,6 +327,31 @@ def check_unsafe_thematic_break(
                 )
             ]
     return []
+
+
+def check_stray_choice_markers(
+    text: str | None, path: tuple[str | int, ...]
+) -> list[Diagnostic]:
+    """
+    question-base.md, "Forbidden elements": one warning per item of an
+    unordered list in which only some items start with a choice marker,
+    when the marker of the item is a choice value or is empty. The list
+    is valid prose, but it is almost always a broken choice list.
+    """
+    if not text:
+        return []
+    return [
+        Diagnostic(
+            severity="warning",
+            code="stray-choice-marker",
+            path=path,
+            message=(
+                f"a list item starts with the choice marker {marker!r}, but "
+                "other items of its list do not, so the list is not a choice list"
+            ),
+        )
+        for marker in _parser.find_stray_choice_markers(text)
+    ]
 
 
 def check_locale_language_subtag(locale: str | None) -> list[Diagnostic]:
