@@ -10,7 +10,6 @@ into another question family.
 
 from __future__ import annotations
 
-import unicodedata
 from typing import Annotated, Any, Iterable, Literal, Self, Sequence
 
 from pydantic import Field, field_validator, model_validator
@@ -18,8 +17,18 @@ from pydantic_core import PydanticCustomError
 
 from .. import types as t
 from .._diagnostics import Diagnostic
+from .._letters import is_letter, normalize_value
 from ..errors import ResponseError
-from ..types import GradingStrategy, QuestionGrading, QuestionShuffle
+from ..types import (
+    GradingStrategy,
+    MultipleChoiceGrading,
+    MultipleChoiceQuestionGrading,
+    MultipleSelectionGrading,
+    MultipleSelectionQuestionGrading,
+    QuestionGrading,
+    QuestionShuffle,
+    TrueFalseGrading,
+)
 from . import _lint, _render, _slugify
 from ._base import (
     MdqModel,
@@ -108,18 +117,18 @@ class Statement(MdqModel):
     def check_marker(cls, value: str | None) -> str | None:
         """
         true-false.md, "Additional Rules": a marker is a single letter,
-        one code point in `\\p{L}` (`malformed-true-false-marker`). `X`/`x`
-        marks a selected multiple-selection choice and never means true
+        one code point in `LETTER` (`malformed-true-false-marker`). `X`/`x`,
+        also in a compatibility form such as `Ｘ`, marks a selected multiple-selection choice and never means true
         or false (`reserved-true-false-marker`).
         """
         if value is None:
             return value
-        if len(value) != 1 or not unicodedata.category(value).startswith("L"):
+        if not is_letter(value):
             raise PydanticCustomError(
                 "malformed-true-false-marker",
                 f"{value!r} is not a true/false marker: a marker is a single letter",
             )
-        if value.upper() == "X":
+        if normalize_value(value) == "x":
             raise PydanticCustomError(
                 "reserved-true-false-marker",
                 f"{value!r} marks a selected multiple-selection choice "
@@ -165,11 +174,11 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     choices: Annotated[list[ScoredChoice], Field(min_length=2)]
     type: Literal["multiple-choice"] = "multiple-choice"
     shuffle: QuestionShuffle = "inherit"
-    grading: QuestionGrading = "inherit"
+    grading: MultipleChoiceQuestionGrading = "inherit"
 
-    def effective_grading(self) -> GradingStrategy:
+    def effective_grading(self) -> MultipleChoiceGrading:
         """The question's `grading`, with `inherit` read as `symmetric`."""
-        return effective_grading(self.grading)
+        return "symmetric" if self.grading == "inherit" else self.grading
 
     def effective_shuffle(self) -> bool:
         """The question's `shuffle`, with `inherit` read as `False`."""
@@ -226,7 +235,7 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         """
         The score a choice that declares none is graded with.
 
-        `"partial"` and `"all-or-nothing"` treat it as zero. `"symmetric"`
+        `"partial"` treats it as zero. `"symmetric"`
         spreads the negative of the declared scores evenly over the choices
         that declare none, so picking at random averages zero, then clamps
         the result to [-1, 0].
@@ -245,11 +254,11 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
     choices: Annotated[list[BooleanChoice], Field(min_length=2)]
     type: Literal["multiple-selection"] = "multiple-selection"
     shuffle: QuestionShuffle = "inherit"
-    grading: QuestionGrading = "inherit"
+    grading: MultipleSelectionQuestionGrading = "inherit"
 
-    def effective_grading(self) -> GradingStrategy:
+    def effective_grading(self) -> MultipleSelectionGrading:
         """The question's `grading`, with `inherit` read as `symmetric`."""
-        return effective_grading(self.grading)
+        return "symmetric" if self.grading == "inherit" else self.grading
 
     def effective_shuffle(self) -> bool:
         """The question's `shuffle`, with `inherit` read as `False`."""
@@ -325,7 +334,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     shuffle: QuestionShuffle = "inherit"
     grading: QuestionGrading = "inherit"
 
-    def effective_grading(self) -> GradingStrategy:
+    def effective_grading(self) -> TrueFalseGrading:
         """The question's `grading`, with `inherit` read as `symmetric`."""
         return effective_grading(self.grading)
 
@@ -361,10 +370,9 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
             marker = choice.marker
             if marker is None:
                 continue
-            upper = marker.upper()
             # FALSE-category means false; everything else (TRUE or
             # WARNING) reads as true.
-            expected_correct = upper not in _lint.FALSE_MARKERS
+            expected_correct = normalize_value(marker) not in _lint.FALSE_MARKERS
             disagrees = choice.correct != expected_correct
             if disagrees:
                 _raise_unique_id_error(
@@ -390,7 +398,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_true_false_markers(self.choices, self.locale))
         diagnostics.extend(_lint.check_true_false_uniform_answers(self.choices))
-        diagnostics.extend(_lint.check_true_false_marker_nfc(self.choices))
+        diagnostics.extend(_lint.check_true_false_marker_nfkc(self.choices))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -401,7 +409,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
     def _render_body(self) -> Iterable[str]:
         yield ""
         for choice in self.choices:
-            # Use locale to choose better markings?
+            # A statement without `marker` is written as `T` or `F`.
             mark = "T" if choice.correct else "F"
             if choice.marker:
                 mark = choice.marker
@@ -412,11 +420,22 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         Score judged statements against their `correct` flags.
 
         `"partial"` is correct-count over total; `"symmetric"` also
-        subtracts incorrect judgements; `"all-or-nothing"` zeroes out on
-        any incorrect judgement, but still awards correct-count over total
-        for a response that is merely incomplete. A statement missing from
+        subtracts incorrect judgements; `"no-mistakes"` zeroes out on any
+        incorrect judgement, but still awards correct-count over total for
+        a response that is merely incomplete; `"all-or-nothing"` is 1 only
+        when every statement is judged correctly. A statement missing from
         `response` counts as an abstention, like an explicit `None`.
+
+        Raises:
+            ResponseError: a value of `response` is neither a boolean nor
+                `None` (responses.md, "True/false").
         """
+        for key, value in response.items():
+            if value is not None and not isinstance(value, bool):
+                raise ResponseError(
+                    f"Response for statement {key!r} must be a boolean or null,"
+                    f" got {value!r}"
+                )
         n = len(self.choices)
         marks = [
             (statement, lookup(response, statement.id, None))
@@ -430,6 +449,8 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         )
 
         if self.effective_grading() == "all-or-nothing":
+            score = 1.0 if correct == n else 0.0
+        elif self.effective_grading() == "no-mistakes":
             score = 0.0 if incorrect else correct / n
         elif self.effective_grading() == "partial":
             score = correct / n

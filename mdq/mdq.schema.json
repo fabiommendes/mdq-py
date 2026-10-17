@@ -148,7 +148,7 @@
           "additionalProperties": true
         },
         "grading": {
-          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy for every question, or a mapping from question type to strategy. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely.",
+          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy, translated for each question type by the table in docs/exam.md, or a mapping from question type to a strategy of that type. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely.",
           "oneOf": [
             {
               "$ref": "#/$defs/GradingStrategy"
@@ -158,16 +158,33 @@
               "additionalProperties": false,
               "properties": {
                 "multiple-choice": {
-                  "$ref": "#/$defs/GradingStrategy"
+                  "enum": [
+                    "partial",
+                    "symmetric"
+                  ]
                 },
                 "multiple-selection": {
-                  "$ref": "#/$defs/GradingStrategy"
+                  "enum": [
+                    "partial",
+                    "all-or-nothing",
+                    "symmetric"
+                  ]
                 },
                 "true-false": {
-                  "$ref": "#/$defs/GradingStrategy"
+                  "enum": [
+                    "partial",
+                    "no-mistakes",
+                    "all-or-nothing",
+                    "symmetric"
+                  ]
                 },
                 "fill-in": {
-                  "$ref": "#/$defs/GradingStrategy"
+                  "enum": [
+                    "partial",
+                    "no-mistakes",
+                    "all-or-nothing",
+                    "symmetric"
+                  ]
                 }
               }
             }
@@ -223,6 +240,7 @@
         "GradingStrategy": {
           "enum": [
             "partial",
+            "no-mistakes",
             "all-or-nothing",
             "symmetric"
           ]
@@ -334,6 +352,7 @@
             "grading": {
               "enum": [
                 "partial",
+                "no-mistakes",
                 "all-or-nothing",
                 "symmetric",
                 "inherit"
@@ -534,7 +553,6 @@
             "grading": {
               "enum": [
                 "partial",
-                "all-or-nothing",
                 "symmetric",
                 "inherit"
               ],
@@ -1142,12 +1160,13 @@
             "grading": {
               "enum": [
                 "partial",
+                "no-mistakes",
                 "all-or-nothing",
                 "symmetric",
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` (its `true-false` entry when it is a map), and is `symmetric` outside an exam or when the exam sets none."
             },
             "shuffle": {
               "oneOf": [
@@ -1195,7 +1214,7 @@
             },
             "marker": {
               "type": "string",
-              "description": "The single letter written between the brackets in the source document (`T`, `F`, `V`, ...). Preserved verbatim: `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document unchanged.",
+              "description": "The letter of the bracket value in the source document (`T`, `F`, `V`, ...), without the whitespace around it. Only the letter and its case are kept. `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document. When present, its category (TRUE, FALSE or WARNING) must agree with `correct` (`true-false-marker-disagrees-with-correct`). The schema checks only the length. The letter check (one code point of category Lu, Ll, Lt or Lo, before NFKC normalization) and the reserved `X` are lint rules (`malformed-true-false-marker`, `reserved-true-false-marker`).",
               "minLength": 1,
               "maxLength": 1
             },

@@ -7,7 +7,7 @@ disagrees with the prose spec -- see the docstring of each failing test
 for the exact quote it is checking.
 
 Fill-in is not covered here: it already matches its `#grading` section --
-partial/all-or-nothing/symmetric all divide by the total blank count, and
+partial/no-mistakes/all-or-nothing/symmetric all divide by the total blank count, and
 an unanswered blank is neutral under symmetric.
 """
 
@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from mdq import models
+from mdq.types import MultipleSelectionGrading, TrueFalseGrading
 
 
 #
@@ -27,7 +28,6 @@ from mdq import models
 #   and the question is graded according to that score. Otherwise, it uses
 #   the following rules:
 #   * partial: Non specified scores are treated as 0.
-#   * all-or-nothing: Non specified scores are treated as 0.
 #   * symmetric: Non specified scores are computed in such a way that the
 #     average score of randomly picking choices is zero. [...] Default is
 #     "symmetric".
@@ -82,11 +82,14 @@ def test_multiple_choice_symmetric_default_backfills_unspecified_scores() -> Non
 #   missing marking is ignored. The total is normalized to the range
 #   [0, 1] by dividing by the total number of choices.
 #
+#   no-mistakes: The student must not mark any choice with the wrong
+#   marking. Any mistake gives zero points. If all marked choices are
+#   correct, the score is the number of correct markings divided by the
+#   total number of choices. Unmarked choices are not mistakes.
+#
 #   all-or-nothing: The student must mark all choices with the correct
-#   marking. Any mistake gives zero points. The total is zero if there is
-#   any incorrect marking, otherwise it is the number of correct markings
-#   divided by the total number of choices. It can be smaller than 1 if the
-#   student abstained from marking some choices.
+#   marking, otherwise the score is zero. An unmarked choice counts as a
+#   mistake.
 #
 #   symmetric: Each correctly marked choice gives a point, and each
 #   incorrectly marked choice subtracts a point. The total is normalized to
@@ -95,17 +98,17 @@ def test_multiple_choice_symmetric_default_backfills_unspecified_scores() -> Non
 #
 # The doc backs this with a worked table for the answer key [T, F, T, F]:
 #
-#   | Markings       | "partial" | "all-or-nothing" | "symmetric" |
-#   | -------------- | :-------: | :--------------: | :---------: |
-#   | [T, F, T, F]   |    1.0    |       1.0        |     1.0     |
-#   | [F, T, F, T]   |    0.0    |       0.0        |    -1.0     |
-#   | [T, T, F, F]   |    0.5    |       0.0        |     0.0     |
-#   | [T, F, _, _]   |    0.5    |       0.5        |     0.5     |
-#   | [F, T, _, _]   |    0.0    |       0.0        |    -0.5     |
-#   | [_, _, _, _]   |    0.0    |       0.0        |     0.0     |
+#   | Markings       | "partial" | "no-mistakes" | "all-or-nothing" | "symmetric" |
+#   | -------------- | :-------: | :-----------: | :--------------: | :---------: |
+#   | [T, F, T, F]   |    1.0    |      1.0      |       1.0        |     1.0     |
+#   | [F, T, F, T]   |    0.0    |      0.0      |       0.0        |    -1.0     |
+#   | [T, T, F, F]   |    0.5    |      0.0      |       0.0        |     0.0     |
+#   | [T, F, _, _]   |    0.5    |      0.5      |       0.0        |     0.5     |
+#   | [F, T, _, _]   |    0.0    |      0.0      |       0.0        |    -0.5     |
+#   | [_, _, _, _]   |    0.0    |      0.0      |       0.0        |     0.0     |
 #
-# reproduced verbatim below against all three grading strategies.
-def _tf_question(grading: models.GradingStrategy) -> models.TrueFalseQuestion:
+# reproduced verbatim below against all four grading strategies.
+def _tf_question(grading: TrueFalseGrading) -> models.TrueFalseQuestion:
     return models.TrueFalseQuestion(
         stem="Judge the alternatives.",
         grading=grading,
@@ -118,70 +121,36 @@ def _tf_question(grading: models.GradingStrategy) -> models.TrueFalseQuestion:
     )
 
 
-_TF_TABLE: list[tuple[str, dict[str, bool | None], float, float, float]] = [
-    # markings              partial  all-or-nothing  symmetric
-    ("[T, F, T, F]", {"s1": True, "s2": False, "s3": True, "s4": False}, 1.0, 1.0, 1.0),
+_TF_TABLE: list[tuple[str, dict[str, bool | None], float, float, float, float]] = [
+    # markings   partial  no-mistakes  all-or-nothing  symmetric
+    ("[T, F, T, F]", {"s1": True, "s2": False, "s3": True, "s4": False}, 1.0, 1.0, 1.0, 1.0),
     (
         "[F, T, F, T]",
         {"s1": False, "s2": True, "s3": False, "s4": True},
         0.0,
         0.0,
+        0.0,
         -1.0,
     ),
-    ("[T, T, F, F]", {"s1": True, "s2": True, "s3": False, "s4": False}, 0.5, 0.0, 0.0),
-    ("[T, F, _, _]", {"s1": True, "s2": False}, 0.5, 0.5, 0.5),
-    ("[F, T, _, _]", {"s1": False, "s2": True}, 0.0, 0.0, -0.5),
-    ("[_, _, _, _]", {}, 0.0, 0.0, 0.0),
+    ("[T, T, F, F]", {"s1": True, "s2": True, "s3": False, "s4": False}, 0.5, 0.0, 0.0, 0.0),
+    ("[T, F, _, _]", {"s1": True, "s2": False}, 0.5, 0.5, 0.0, 0.5),
+    ("[F, T, _, _]", {"s1": False, "s2": True}, 0.0, 0.0, 0.0, -0.5),
+    ("[_, _, _, _]", {}, 0.0, 0.0, 0.0, 0.0),
 ]
 
 
 @pytest.mark.parametrize(
-    "markings, partial, all_or_nothing, symmetric",
-    [row[1:] for row in _TF_TABLE],
-    ids=[row[0] for row in _TF_TABLE],
+    "grading, column",
+    [("partial", 2), ("no-mistakes", 3), ("all-or-nothing", 4), ("symmetric", 5)],
 )
-def test_true_false_partial_matches_the_documented_table(
-    markings: dict[str, bool | None],
-    partial: float,
-    all_or_nothing: float,
-    symmetric: float,
+@pytest.mark.parametrize("row", _TF_TABLE, ids=[row[0] for row in _TF_TABLE])
+def test_true_false_matches_the_documented_table(
+    row: tuple[str, dict[str, bool | None], float, float, float, float],
+    grading: TrueFalseGrading,
+    column: int,
 ) -> None:
-    result = _tf_question("partial").score_response(markings)
-    assert result.score == pytest.approx(partial)
-
-
-@pytest.mark.parametrize(
-    "markings, partial, all_or_nothing, symmetric",
-    [row[1:] for row in _TF_TABLE],
-    ids=[row[0] for row in _TF_TABLE],
-)
-def test_true_false_symmetric_matches_the_documented_table(
-    markings: dict[str, bool | None],
-    partial: float,
-    all_or_nothing: float,
-    symmetric: float,
-) -> None:
-    result = _tf_question("symmetric").score_response(markings)
-    assert result.score == pytest.approx(symmetric)
-
-
-@pytest.mark.parametrize(
-    "markings, partial, all_or_nothing, symmetric",
-    [row[1:] for row in _TF_TABLE],
-    ids=[row[0] for row in _TF_TABLE],
-)
-def test_true_false_all_or_nothing_matches_the_documented_table(
-    markings: dict[str, bool | None],
-    partial: float,
-    all_or_nothing: float,
-    symmetric: float,
-) -> None:
-    """`[T, F, _, _]` has no incorrect marking, only two correct markings
-    and two abstentions, so the doc awards partial credit -- 2/4 = 0.5,
-    the same number `"partial"` gets for that row.
-    """
-    result = _tf_question("all-or-nothing").score_response(markings)
-    assert result.score == pytest.approx(all_or_nothing)
+    result = _tf_question(grading).score_response(row[1])
+    assert result.score == pytest.approx(row[column])
 
 
 #
@@ -224,7 +193,7 @@ def test_true_false_all_or_nothing_matches_the_documented_table(
 # row of the doc, not a different formula. `_MS_TABLE` below encodes the
 # other five rows verbatim and carries the row-5 values the formula
 # above actually produces, flagged inline; worth a doc fix.
-def _ms_question(grading: models.GradingStrategy) -> models.MultipleSelectionQuestion:
+def _ms_question(grading: MultipleSelectionGrading) -> models.MultipleSelectionQuestion:
     return models.MultipleSelectionQuestion(
         stem="Which of these should be selected?",
         grading=grading,
@@ -322,11 +291,10 @@ def test_symmetric_spreads_declared_scores_over_the_undeclared_ones(
     assert question.score_response("c3").score == pytest.approx(expected)
 
 
-@pytest.mark.parametrize("grading", ["partial", "all-or-nothing"])
-def test_non_symmetric_grading_treats_undeclared_scores_as_zero(grading: str) -> None:
+def test_partial_grading_treats_undeclared_scores_as_zero() -> None:
     question = models.MultipleChoiceQuestion(
         stem="Which river is the longest in Brazil?",
-        grading=grading,
+        grading="partial",
         choices=[
             models.ScoredChoice(id="amazon", text="Amazon", score=1.0),
             models.ScoredChoice(id="parana", text="Parana"),

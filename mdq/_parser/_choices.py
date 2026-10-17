@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
+from .._letters import is_letter, normalize_value
 from ..errors import ParseError
 from ..types import PatternDict
 
@@ -52,12 +53,6 @@ LAZY_START_RE = re.compile(
 #: Columns of indentation that make a line code or a continuation line,
 #: relative to the content of the list item that holds it.
 CODE_INDENT = 4
-
-# True/false marker classification, per
-# docs/question-types/true-false.md#body. Only FALSE letters mean false;
-# TRUE and WARNING letters both mean true. CJK characters have no
-# case, so they're listed once rather than lowercased.
-FALSE_LETTERS = {"f", "错", "偽"}
 
 
 @dataclass(slots=True)
@@ -147,13 +142,15 @@ def is_choice_value(value: str) -> bool:
     """
     Whether the text of a choice marker is the value of some choice type
     or is empty (question-base.md, "Forbidden elements"): blank, `x`/`X`,
-    `*`, a percentage, a single letter, or `[]`.
+    `*`, a percentage, a single letter, or `[]`. The value is normalized
+    first (`normalize_value`), so `[＊]` is `*`.
     """
     value = value.strip(" \t")
+    normalized = normalize_value(value)
     return (
-        value in ("", "*")
-        or bool(PERCENT_RE.match(value))
-        or (len(value) == 1 and value.isalpha())
+        normalized in ("", "*")
+        or bool(PERCENT_RE.match(normalized))
+        or is_letter(value)
     )
 
 
@@ -297,17 +294,19 @@ def foreign_choice_index(question_type: str, values: list[str]) -> int | None:
     The index of the first value that is not in the `value` rule of
     `question_type` (base.md, "Type inference"), or None when every value
     belongs to it. `values` are the bracket values stripped of spaces and
-    tabs, as `RawChoice.value` holds them: multiple-choice takes `""`,
-    `*` or a percentage; multiple-selection `""`, `x` or `X`; true-false
-    one letter (`\\p{L}`) other than `x`/`X`.
+    tabs, as `RawChoice.value` holds them. The rules apply to the
+    normalized value (`normalize_value`): multiple-choice takes `""`, `*`
+    or a percentage; multiple-selection `""` or `x`; true-false one
+    written letter (`LETTER`) that is not `x`.
     """
     for index, value in enumerate(values):
+        normalized = normalize_value(value)
         if question_type == "multiple-choice":
-            ok = value in ("", "*") or bool(PERCENT_RE.match(value))
+            ok = normalized in ("", "*") or bool(PERCENT_RE.match(normalized))
         elif question_type == "multiple-selection":
-            ok = value in ("", "x", "X")
+            ok = normalized in ("", "x")
         elif question_type == "true-false":
-            ok = len(value) == 1 and value.isalpha() and value.lower() != "x"
+            ok = is_letter(value) and normalized != "x"
         else:
             continue
         if not ok:
@@ -327,14 +326,14 @@ def _infer_choice_type(values: list[str]) -> str | None:
     choices is a legal answer key) but multiple-choice does not.
     """
 
-    for v in values:
-        if v == "*" or PERCENT_RE.match(v):
+    normalized = [normalize_value(v) for v in values]
+    for n in normalized:
+        if n == "*" or PERCENT_RE.match(n):
             return "multiple-choice"
+    if "x" in normalized:
+        return "multiple-selection"
     for v in values:
-        if v.lower() == "x":
-            return "multiple-selection"
-    for v in values:
-        if v and v.lower() not in ("x",) and len(v) == 1 and v.isalpha():
+        if is_letter(v):
             return "true-false"
     return "multiple-selection"
 
@@ -346,6 +345,7 @@ def _score_from_value(value: str) -> float | int | None:
     the grading strategy decides what it is worth. Any other value is
     read as a blank too.
     """
+    value = normalize_value(value)
     if value == "*":
         return 1
     if PERCENT_RE.match(value):

@@ -39,7 +39,7 @@ _PROPOSED_CODES: dict[str, str] = {
     "all-choices-correct": "all-choices-correct",
     "no-correct-choice": "no-correct-choice",
     "uniform-true-false-answers": "uniform-true-false-answers",
-    "non-nfc-true-false-marker": "non-nfc-true-false-marker",
+    "non-nfkc-true-false-marker": "non-nfkc-true-false-marker",
     "unknown-highlight-language": "unknown-highlight-language",
     "missing-answer-key": "missing-answer-key",
     "domain-mismatch": "domain-mismatch",
@@ -117,7 +117,7 @@ def test_locale_mismatched_true_false_marker_is_a_warning() -> None:
                 "id": "a",
                 "text": "O Amazonas é o maior rio do mundo em volume de água.",
                 "correct": True,
-                "marker": "T",
+                "marker": "B",
             },
             {"id": "b", "text": "Brasília fica no litoral.", "correct": False, "marker": "F"},
         ],
@@ -368,13 +368,13 @@ def test_true_false_mixed_answers_does_not_warn_uniform() -> None:
     assert _PROPOSED_CODES["uniform-true-false-answers"] not in _codes(question.lint())
 
 
-# --- true-false.md:219 marker is one code point in NFC -------------------
+# --- true-false.md:219 marker is its own NFKC form -------------------
 
 
-def test_non_nfc_true_false_marker_reports_info() -> None:
+def test_non_nfkc_true_false_marker_reports_info() -> None:
     """
     U+212B (ANGSTROM SIGN) is one code point -- satisfying the field's
-    single-character shape -- but is not its own NFC form: NFC
+    single-character shape -- but is not its own NFKC form: NFKC
     normalizes it to U+00C5 (LATIN CAPITAL LETTER A WITH RING ABOVE).
     """
     doc = {
@@ -386,10 +386,10 @@ def test_non_nfc_true_false_marker_reports_info() -> None:
         ],
     }
     question = _load_ok(doc)
-    assert _PROPOSED_CODES["non-nfc-true-false-marker"] in _codes(question.lint())
+    assert _PROPOSED_CODES["non-nfkc-true-false-marker"] in _codes(question.lint())
 
 
-def test_nfc_true_false_marker_does_not_warn() -> None:
+def test_nfkc_true_false_marker_does_not_warn() -> None:
     doc = {
         "type": "true-false",
         "stem": "Julgue as afirmações sobre o Brasil.",
@@ -399,7 +399,7 @@ def test_nfc_true_false_marker_does_not_warn() -> None:
         ],
     }
     question = _load_ok(doc)
-    assert _PROPOSED_CODES["non-nfc-true-false-marker"] not in _codes(question.lint())
+    assert _PROPOSED_CODES["non-nfkc-true-false-marker"] not in _codes(question.lint())
 
 
 # --- essay.md:89, ordering.md:343 highlight is a recognized language -----

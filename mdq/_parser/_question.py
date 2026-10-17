@@ -45,6 +45,7 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
+from .._letters import FALSE_LETTERS, normalize_value
 from .._markdown import UNICODE_SPACE, md, split_lines
 from ..errors import (
     ConflictingAnswerKey,
@@ -63,7 +64,6 @@ from ..types import (
     ShortAnswerBlankDict,
 )
 from ._choices import (
-    FALSE_LETTERS,
     LINK_START_RE,
     RawChoice,
     SLUG_BODY_RE,
@@ -580,12 +580,12 @@ class MDQParser:
                     entry["score"] = score
             elif question_type == "multiple-selection":
                 # `correct` is required: a blank `[ ]` is an explicit false.
-                entry["correct"] = choice.value.lower() == "x"
+                entry["correct"] = normalize_value(choice.value) == "x"
             elif question_type == "true-false":
                 letter = choice.value
                 # TRUE and WARNING letters both mean true; only FALSE
                 # letters mean false (docs/question-types/true-false.md).
-                entry["correct"] = letter.lower() not in FALSE_LETTERS
+                entry["correct"] = normalize_value(letter) not in FALSE_LETTERS
                 if letter:
                     entry["marker"] = letter
             if choice.feedback is not None:

@@ -148,9 +148,9 @@ def test_exam_defaults_apply_to_inherit() -> None:
 
 
 def test_own_values_beat_the_exam() -> None:
-    exam = _exam({**MC, "grading": "all-or-nothing", "shuffle": False}, grading="partial", shuffle=True)
+    exam = _exam({**MC, "grading": "symmetric", "shuffle": False}, grading="partial", shuffle=True)
     (question,) = exam.questions
-    assert exam.grading_for(question) == "all-or-nothing"
+    assert exam.grading_for(question) == "symmetric"
     assert exam.shuffle_for(question) is False
 
 
@@ -161,6 +161,51 @@ def test_exam_grading_mapping_resolves_by_type() -> None:
     assert exam.grading_for(ms) == "symmetric"
     assert exam.grading_for(tf) == "all-or-nothing"
     assert exam.grading_for(fill) == "symmetric"
+
+
+#
+# exam.md, "Grading": the exam's scalar `grading` is translated per type
+#
+_SCALAR_TABLE = [
+    # exam grading, multiple-choice, multiple-selection, true-false, fill-in
+    ("partial", "partial", "partial", "partial", "partial"),
+    ("no-mistakes", "partial", "all-or-nothing", "no-mistakes", "no-mistakes"),
+    ("all-or-nothing", "partial", "all-or-nothing", "all-or-nothing", "all-or-nothing"),
+    ("symmetric", "symmetric", "symmetric", "symmetric", "symmetric"),
+]
+
+
+@pytest.mark.parametrize("row", _SCALAR_TABLE, ids=[row[0] for row in _SCALAR_TABLE])
+def test_scalar_exam_grading_is_translated_per_type(row: tuple[str, ...]) -> None:
+    exam = _exam(MC, MS, TF, FILL_IN, grading=row[0])
+    got = tuple(exam.grading_for(question) for question in exam.questions)
+    assert got == row[1:]
+
+
+def test_exam_mapping_values_are_not_translated() -> None:
+    exam = _exam(MS, TF, grading={"multiple-selection": "all-or-nothing", "true-false": "no-mistakes"})
+    ms, tf = exam.questions
+    assert exam.grading_for(ms) == "all-or-nothing"
+    assert exam.grading_for(tf) == "no-mistakes"
+
+
+def test_exam_mapping_rejects_a_value_the_type_does_not_accept() -> None:
+    for key, value in [("multiple-choice", "all-or-nothing"), ("multiple-selection", "no-mistakes")]:
+        loaded = mdq.load(
+            {"type": "exam", "title": "Prova", "grading": {key: value}, "questions": [MC]},
+            kind="exam",
+        )
+        assert "schema-error" in [d.code for d in loaded.diagnostics]
+
+
+@pytest.mark.parametrize(
+    "doc, grading",
+    [(MC, "all-or-nothing"), (MS, "no-mistakes")],
+    ids=["multiple-choice-all-or-nothing", "multiple-selection-no-mistakes"],
+)
+def test_question_rejects_a_grading_its_type_does_not_accept(doc: dict[str, Any], grading: str) -> None:
+    loaded = mdq.load({**doc, "grading": grading}, kind="question")
+    assert "schema-error" in [d.code for d in loaded.diagnostics]
 
 
 def test_resolve_returns_a_copy_with_effective_values() -> None:
@@ -200,6 +245,15 @@ def test_inherited_mapping_applies_per_type() -> None:
 def test_own_grading_wins_when_scoring() -> None:
     exam = _exam({**MC, "grading": "symmetric"}, grading="partial")
     assert exam.score_responses({"q1": "b"}).questions["q1"].score == -1.0
+
+
+def test_corpus_no_mistakes_exam_example() -> None:
+    source = EXAMPLES_ROOT / "valid" / "exam" / "grading-no-mistakes.mdq.md"
+    exam = mdq.load(source, kind="exam").document
+    mc, ms, tf = exam.questions
+    assert exam.grading_for(mc) == "partial"
+    assert exam.grading_for(ms) == "all-or-nothing"
+    assert exam.grading_for(tf) == "no-mistakes"
 
 
 def test_corpus_inherited_grading_example() -> None:

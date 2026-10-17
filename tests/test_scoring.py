@@ -207,6 +207,23 @@ def test_true_false_all_or_nothing_requires_every_statement_correct() -> None:
     )
 
 
+def test_true_false_all_or_nothing_counts_an_abstention_as_a_mistake() -> None:
+    partial_response = {"s1": True, "s2": True, "s3": False, "s4": False}
+    assert (
+        _amazon_statements("all-or-nothing").score_response(partial_response).score
+        == 0.0
+    )
+
+
+def test_true_false_no_mistakes_ignores_abstentions_and_zeroes_a_mistake() -> None:
+    question = _amazon_statements("no-mistakes")
+    perfect = {"s1": True, "s2": True, "s3": False, "s4": False, "s5": False}
+    assert question.score_response(perfect).score == 1.0
+    incomplete = {"s1": True, "s2": True, "s3": False}
+    assert question.score_response(incomplete).score == pytest.approx(0.6)
+    assert question.score_response(_ALL_JUDGED_TRUE).score == 0.0
+
+
 def test_true_false_feedback_covers_wrong_and_unjudged_statements() -> None:
     response = {"s1": True, "s2": None, "s3": True}
     result = _amazon_statements("symmetric").score_response(response)
@@ -377,6 +394,36 @@ def test_fill_in_all_or_nothing_requires_every_blank_perfect() -> None:
     question = _capital_and_pi("all-or-nothing")
     assert question.score_response({"capital": "brasilia", "pi": 3.14}).score == 1.0
     assert question.score_response({"capital": "rio", "pi": 3.14}).score == 0.0
+
+
+def test_fill_in_no_mistakes_zeroes_a_filled_blank_below_one() -> None:
+    question = _capital_and_pi("no-mistakes")
+    assert question.score_response({"capital": "brasilia", "pi": 3.14}).score == 1.0
+    assert question.score_response({"capital": "rio", "pi": 3.14}).score == 0.0
+
+
+def test_fill_in_no_mistakes_does_not_count_an_empty_blank_as_a_mistake() -> None:
+    result = _capital_and_pi("no-mistakes").score_response({"capital": "brasilia"})
+    assert result.score == pytest.approx(0.5)
+    assert _capital_and_pi("all-or-nothing").score_response({"capital": "brasilia"}).score == 0.0
+
+
+def test_fill_in_no_mistakes_counts_a_partial_credit_choice_as_a_mistake() -> None:
+    question = models.FillInQuestion(
+        stem="This is [^a].",
+        grading="no-mistakes",
+        blanks=[
+            models.ChoiceBlank(
+                id="a",
+                choices=[
+                    models.ScoredChoice(id="half", text="Half", score=0.5),
+                    models.ScoredChoice(id="good", text="Right", score=1.0),
+                ],
+            )
+        ],
+    )
+    assert question.score_response({"a": "half"}).score == 0.0
+    assert question.score_response({"a": "good"}).score == 1.0
 
 
 def test_fill_in_collects_feedback_in_blank_declaration_order() -> None:

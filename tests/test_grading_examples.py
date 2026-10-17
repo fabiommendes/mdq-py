@@ -84,6 +84,10 @@ def _tf_params() -> list[Any]:
 def test_true_false(case: dict[str, Any], example: dict[str, Any]) -> None:
     question = _question("true-false", case)
     marks = {cid: example["marks"].get(cid) for cid in case["choices"]}
+    if example["score"] == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(marks)
+        return
     score = question.score_response(marks).score
     assert score == pytest.approx(_number(example["score"]))
 

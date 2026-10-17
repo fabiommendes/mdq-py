@@ -377,10 +377,13 @@ def test_partial_credit_choices_are_not_correct_answers() -> None:
 
 
 @pytest.mark.parametrize(
-    "marker", ["T", "V", "S", "F", "t", "v", "s", "f", "对", "真", "错", "偽"]
+    "marker",
+    ["T", "V", "B", "D", "Đ", "F", "M", "t", "v", "b", "d", "đ", "f", "m"]
+    + list("对對真是В참صसসबఒசถસ错錯偽非Нخغगমचతதผખ")
+    + ["в", "н"],
 )
 def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
-    a_correct = marker.upper() not in ("F", "错", "偽")
+    a_correct = marker not in "FfMm错錯偽非Ннخغगমचతதผખ"
     doc = {
         "type": "true-false",
         "id": "q",
@@ -398,7 +401,7 @@ def test_assigned_true_false_markers_do_not_warn(marker: str) -> None:
     assert _rules(load(doc).diagnostics) == set()
 
 
-@pytest.mark.parametrize("marker", ["N", "D", "W", "n"])
+@pytest.mark.parametrize("marker", ["N", "S", "W", "C", "n"])
 def test_unlisted_marker_warns(marker: str) -> None:
     """
     true-false.md: WARNING-category letters read as true today, but a later
@@ -419,22 +422,23 @@ def test_unlisted_marker_warns(marker: str) -> None:
     assert "unlisted-true-false-marker" in _rules(load(doc).diagnostics)
 
 
-def test_indonesian_s_marker_warns_as_false_friend() -> None:
-    """true-false.md#locale: `S` means true globally, but is the initial
-    letter of Indonesian "salah" (false) -- flag it beyond the usual
-    locale-mismatch notice, since it risks silent misgrading."""
+@pytest.mark.parametrize(("locale", "marker"), [("id", "S"), ("vi", "S"), ("pt", "E")])
+def test_false_friend_marker_warns_only_as_false_friend(locale: str, marker: str) -> None:
+    """true-false.md#locale: a letter that reads as true globally but means
+    false in the language of the row gets only the false-friend warning."""
     doc = {
         "type": "true-false",
         "stem": "x",
-        "locale": "id",
+        "locale": locale,
         "choices": [
-            {"text": "A", "marker": "S", "correct": True},
+            {"text": "A", "marker": marker, "correct": True},
             {"text": "B", "marker": "F", "correct": False},
         ],
     }
     rules = _rules(load(doc).diagnostics)
     assert "false-friend-true-false-marker" in rules
     assert "unlisted-true-false-marker" not in rules
+    assert "locale-mismatched-true-false-marker" not in rules
 
 
 #: `reserved-true-false-marker` (`X`/`x`) is a model error now
@@ -442,20 +446,72 @@ def test_indonesian_s_marker_warns_as_false_friend() -> None:
 #: tests/test_model_rule_errors.py.
 
 
-def test_marker_inconsistent_with_locale_warns_at_strict() -> None:
-    """A pt-BR question normally writes V/F, not T/F."""
+_FALSE_FRIEND = {"false-friend-true-false-marker"}
+_UNLISTED = {"unlisted-true-false-marker"}
+_MISMATCHED = {"locale-mismatched-true-false-marker"}
+
+
+@pytest.mark.parametrize(
+    ("locale", "marker", "correct", "expected"),
+    [
+        # The examples table of true-false.md, "Locale".
+        ("pt-BR", "V", True, set()),
+        ("pt-BR", "F", False, set()),
+        ("pt-BR", "T", True, set()),
+        ("pt-BR", "C", True, set()),
+        ("pt-BR", "E", True, _FALSE_FRIEND),
+        ("pt-BR", "S", True, _UNLISTED),
+        ("pt-BR", "B", True, _MISMATCHED),
+        ("pt-BR", "K", True, _UNLISTED),
+        ("pt-BR", "真", True, _MISMATCHED),
+        ("pt-BR", "错", False, _MISMATCHED),
+        ("de", "W", True, set()),
+        ("en", "W", True, _FALSE_FRIEND),
+        (None, "W", True, _UNLISTED),
+        ("id", "S", True, _FALSE_FRIEND),
+        ("vi", "S", True, _FALSE_FRIEND),
+        ("vi", "Đ", True, set()),
+        ("vi", "đ", True, set()),
+        ("hi", "S", True, set()),
+        ("hi", "स", True, set()),
+        ("hi", "ग", False, set()),
+        ("hi", "G", True, _FALSE_FRIEND),
+        ("ru", "Н", False, set()),
+        ("ru", "н", False, set()),
+        ("ru", "В", True, set()),
+        ("en", "Н", False, _MISMATCHED),
+        ("fr", "V", True, set()),
+        ("it-IT", "V", True, set()),
+        ("ko", "O", True, set()),
+        ("ja", "O", True, set()),
+        ("zh", "对", True, set()),
+        ("zh", "真", True, _MISMATCHED),
+        ("yue", "錯", False, set()),
+        ("en", "V", True, _MISMATCHED),
+        ("en", "Ｔ", True, {"non-nfkc-true-false-marker"}),
+        # No row for the locale: only the WARNING letters get a warning.
+        ("nl", "V", True, set()),
+        ("nl", "W", True, _UNLISTED),
+        (None, "V", True, set()),
+    ],
+)
+def test_locale_marker_rule(
+    locale: str | None, marker: str, correct: bool, expected: set[str]
+) -> None:
+    """true-false.md#locale: `T`/`F` are canonical under every locale; a
+    false friend gets only its own warning, a letter the row accepts gets
+    none, a WARNING letter gets only `unlisted-true-false-marker`."""
     doc = {
         "type": "true-false",
         "stem": "x",
-        "locale": "pt-BR",
+        **({"locale": locale} if locale else {}),
         "choices": [
-            {"text": "A", "marker": "T", "correct": True},
+            {"text": "A", "marker": marker, "correct": correct},
             {"text": "B", "marker": "F", "correct": False},
         ],
     }
-    assert "locale-mismatched-true-false-marker" in _rules(
-        load(doc).diagnostics
-    )
+    codes = {c for c in _rules(load(doc).diagnostics) if c.endswith("true-false-marker")}
+    assert codes == expected
 
 
 def test_marker_consistent_with_locale_does_not_warn() -> None:

@@ -48,6 +48,13 @@ from pygments.util import ClassNotFound
 
 from .. import _parser
 from .._diagnostics import Diagnostic
+from .._letters import (
+    FALSE_LETTERS,
+    LOCALE_ROWS,
+    TRUE_LETTERS,
+    nfkc,
+    normalize_value,
+)
 from ._query import is_standard_query
 from ._regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
 
@@ -62,25 +69,16 @@ if TYPE_CHECKING:
 #: to parse MDQ source.
 _RENDER_MD = MarkdownIt("gfm-like")
 
-# true-false.md: `T`, `V`, `S` and the CJK characters 对/真 always mean
-# true; `F` and the CJK characters 错/偽 always mean false. Any other
-# letter (besides the reserved `X`, rejected at the model layer) is
-# in the WARNING category -- it is in neither list and reads as true, and
-# compliant implementations SHOULD warn about it.
+# true-false.md, "Body": the TRUE and FALSE letter sets live in
+# `mdq._letters`. Any other letter (besides the reserved `X`, rejected at
+# the model layer) is in the WARNING category -- it is in neither list and
+# reads as true, and compliant implementations SHOULD warn about it.
 #
 # Public (not `_`-prefixed): `mdq.models`'s TrueFalseQuestion validator
-# (true-false.md:210, "marker agrees with correct") also classifies a
-# marker by these sets, to raise a model error rather than a lint warning.
-TRUE_MARKERS = frozenset("TVS对真")
-FALSE_MARKERS = frozenset("F错偽")
-
-# docs/references/true-false-spellings.md, keyed by primary language
-# subtag: the letters an author writing in that language would reach for.
-_LOCALE_MARKERS = {
-    "en": ("T", "F"),  # true / false
-    "pt": ("V", "F"),  # verdadeiro / falso
-    "es": ("V", "F"),  # verdadero / falso
-}
+# ("marker agrees with correct") also classifies a marker by these sets, to
+# raise a model error rather than a lint warning.
+TRUE_MARKERS = TRUE_LETTERS
+FALSE_MARKERS = FALSE_LETTERS
 
 # Two-letter codes that look like a language but are not valid ISO 639-1;
 # they are almost always a country code written where a language belongs.
@@ -536,70 +534,65 @@ def check_true_false_markers(
     locale: str | None,
 ) -> list[Diagnostic]:
     """
-    true-false.md: WARNING letters (in neither the true nor the false
-    list, read as true) SHOULD warn; implementations MAY warn when the letter
-    doesn't match the question's locale; and `S` under `locale: id`
-    SHOULD get an escalated warning, since it reads as true globally but
-    is the initial letter of Indonesian "salah" (false) -- a document
-    that meant false there is silently graded true, not just mismatched.
+    true-false.md, "Locale": the marker rules, in this order, on the
+    normalized value.
+
+    1. A false friend of the locale row: only `false-friend-true-false-marker`.
+    2. A letter the row accepts (even a WARNING letter): no warning.
+    3. A WARNING letter: only `unlisted-true-false-marker`.
+    4. A locale without a row: no locale warning.
+    5. Any other TRUE or FALSE letter: `locale-mismatched-true-false-marker`.
 
     The reserved `X`/`x` marker is rejected at the model layer
     (`reserved-true-false-marker`), so it never reaches here.
     """
     warnings: list[Diagnostic] = []
-    language = _language_subtag(locale)
-    expected = _LOCALE_MARKERS.get(language)
+    row = LOCALE_ROWS.get(_language_subtag(locale))
 
     for index, choice in enumerate(choices):
         marker = choice.marker
         if marker is None:
             continue
 
-        upper = marker.upper()
-        if language == "id" and upper == "S":
+        value = normalize_value(marker)
+        path = ("choices", index, "marker")
+        if row is not None and value in row.false_friends:
             warnings.append(
                 Diagnostic(
                     severity="warning",
                     code="false-friend-true-false-marker",
-                    path=("choices", index, "marker"),
+                    path=path,
                     message=(
-                        f"{marker!r} means true (see true-false.md), but is "
-                        f'the initial letter of Indonesian "salah" '
-                        f"(false); if this choice was meant to be false, "
+                        f"{marker!r} reads as true (see true-false.md), but "
+                        f"it can mean false in the language of locale "
+                        f"{locale!r}; if this choice was meant to be false, "
                         f"use 'F' instead"
                     ),
                 )
             )
+        elif row is not None and (value in row.true or value in row.false):
             continue
-
-        if upper not in TRUE_MARKERS and upper not in FALSE_MARKERS:
+        elif value not in TRUE_MARKERS and value not in FALSE_MARKERS:
             warnings.append(
                 Diagnostic(
                     severity="warning",
                     code="unlisted-true-false-marker",
-                    path=("choices", index, "marker"),
+                    path=path,
                     message=(
                         f"{marker!r} is in neither the true nor the false "
                         f"marker list: it reads as true"
                     ),
                 )
             )
-            continue
-
-        if expected is None:
-            continue
-
-        expected_true, expected_false = expected
-        wanted = expected_true if upper in TRUE_MARKERS else expected_false
-        if upper != wanted:
+        elif row is not None:
             warnings.append(
                 Diagnostic(
                     severity="warning",
                     code="locale-mismatched-true-false-marker",
-                    path=("choices", index, "marker"),
+                    path=path,
                     message=(
-                        f"{marker!r} is unusual for locale {locale!r}, which "
-                        f"normally writes {expected_true!r}/{expected_false!r}"
+                        f"{marker!r} does not fit locale {locale!r}: use "
+                        f"'T'/'F' or a letter of the locale table"
                     ),
                 )
             )
@@ -607,30 +600,30 @@ def check_true_false_markers(
     return warnings
 
 
-def check_true_false_marker_nfc(
+def check_true_false_marker_nfkc(
     choices: Sequence[_choice.Statement],
 ) -> list[Diagnostic]:
     """
-    true-false.md:219: a marker is one code point by the field's own
-    shape, but that code point should also be its own NFC form -- one
-    that normalizes to something else (e.g. U+212B ANGSTROM SIGN, which
-    NFC turns into U+00C5) is easy to type by mistake and renders
-    differently than intended.
+    true-false.md, "Additional Rules": a marker that is not its own NFKC
+    form (`non-nfkc-true-false-marker`, info), for example U+FF26
+    FULLWIDTH LATIN CAPITAL LETTER F or U+212B ANGSTROM SIGN. The letter
+    is valid and keeps its written form in `marker`, but it is read as
+    its NFKC form, and it renders differently than intended.
     """
     warnings: list[Diagnostic] = []
     for index, choice in enumerate(choices):
         marker = choice.marker
         if marker is None:
             continue
-        if unicodedata.normalize("NFC", marker) != marker:
+        form = nfkc(marker)
+        if form != marker:
             warnings.append(
                 Diagnostic(
                     severity="info",
-                    code="non-nfc-true-false-marker",
+                    code="non-nfkc-true-false-marker",
                     path=("choices", index, "marker"),
                     message=(
-                        f"{marker!r} is not its own NFC form "
-                        f"({unicodedata.normalize('NFC', marker)!r})"
+                        f"{marker!r} is not its own NFKC form; read as {form!r}"
                     ),
                 )
             )

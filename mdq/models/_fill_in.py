@@ -444,6 +444,14 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
         if self.effective_grading() == "all-or-nothing":
             score = 1.0 if all(s == 1.0 for s in scores) else 0.0
+        elif self.effective_grading() == "no-mistakes":
+            # An empty blank scores 0 but is no mistake: only a filled
+            # blank below 1 zeroes the question.
+            mistaken = any(
+                score < 1.0 and response.get(blank.id) is not None
+                for blank, score in zip(self.blanks, scores, strict=True)
+            )
+            score = 0.0 if mistaken else mean
         elif self.effective_grading() == "partial":
             score = max(0.0, mean)
         else:

@@ -26,10 +26,19 @@ QuestionType = Literal[
 
 #: How a question with several parts reduces them to one score.
 #: `symmetric` may go below zero; `partial` stays within [0, 1] while
-#: still awarding credit for parts; `all-or-nothing` returns 1 or 0.
-#: `partial` names a range, not one formula -- each question type
-#: defines its own (see docs/question-types/*.md, "Grading").
-GradingStrategy = Literal["symmetric", "partial", "all-or-nothing"]
+#: still awarding credit for parts; `all-or-nothing` returns 1 or 0;
+#: `no-mistakes` returns 0 on any mistake and the `partial`-like credit
+#: otherwise. `partial` names a range, not one formula -- each question
+#: type defines its own (see docs/question-types/*.md, "Grading"). This
+#: is the set an exam's scalar `grading` accepts; each question type
+#: accepts a subset (`MultipleChoiceGrading`, ...).
+GradingStrategy = Literal["symmetric", "partial", "all-or-nothing", "no-mistakes"]
+
+#: The strategies each graded question type accepts (without `inherit`).
+MultipleChoiceGrading = Literal["partial", "symmetric"]
+MultipleSelectionGrading = Literal["partial", "all-or-nothing", "symmetric"]
+TrueFalseGrading = GradingStrategy
+FillInGrading = GradingStrategy
 
 #: The question types that choose a grading strategy. The other types
 #: grade by a fixed rule and take no `grading` field. On these types,
@@ -46,15 +55,18 @@ GradedQuestionType = Literal[
 #: The `grading` of a question: a strategy of its own, or `inherit` to
 #: take the exam's.
 QuestionGrading = GradingStrategy | Literal["inherit"]
+MultipleChoiceQuestionGrading = MultipleChoiceGrading | Literal["inherit"]
+MultipleSelectionQuestionGrading = MultipleSelectionGrading | Literal["inherit"]
 
 #: The `shuffle` of a question: a value of its own, or `inherit` to take
 #: the exam's.
 QuestionShuffle = bool | Literal["inherit"]
 
-#: An exam's grading strategy: one for every question it holds, or one
-#: per question type. Types missing from the mapping grade as
+#: An exam's grading strategy: one translated for every question type it
+#: holds (docs/exam.md, "Grading"), or one per question type, each value
+#: from the type's own set. Types missing from the mapping grade as
 #: `symmetric`, and a question that declares its own `grading` ignores
-#: the exam's.
+#: the exam's. The schema checks the per-type values of the mapping.
 ExamGrading = GradingStrategy | dict[GradedQuestionType, GradingStrategy]
 
 #: How inexact literals treat diacritics: `fold` strips them before
@@ -198,7 +210,7 @@ class MultipleChoiceQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["multiple-choice"]]
     choices: Required[list[ScoredChoiceDict]]
     shuffle: QuestionShuffle
-    grading: QuestionGrading
+    grading: MultipleChoiceQuestionGrading
 
 
 class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
@@ -207,7 +219,7 @@ class MultipleSelectionQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["multiple-selection"]]
     choices: Required[list[BooleanChoiceDict]]
     shuffle: QuestionShuffle
-    grading: QuestionGrading
+    grading: MultipleSelectionQuestionGrading
 
 
 class TrueFalseQuestionDict(QuestionBaseDict, total=False):

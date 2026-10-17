@@ -17,6 +17,7 @@ dependencies = [
     "linkify-it-py>=2.2.0",
     "python-slugify>=8.0.4",
     "pygments>=2.21.0",
+    "unicodedata2>=17,<18",
 ]
 
 [project.optional-dependencies]

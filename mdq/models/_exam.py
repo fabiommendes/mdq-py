@@ -17,7 +17,17 @@ import weakref
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from typing import Annotated, Any, Iterable, Literal, Mapping, Self, Sequence, cast
+from typing import (
+    Annotated,
+    Any,
+    Iterable,
+    Literal,
+    Mapping,
+    Self,
+    Sequence,
+    cast,
+    get_args,
+)
 
 from pydantic import (
     BeforeValidator,
@@ -36,7 +46,16 @@ from .._markdown import md
 from .._diagnostics import Diagnostic
 from ..errors import MissingIdError, NotAutoGradable, ResponseError, UnresolvedInclude
 from .._banks import QuestionBank
-from ..types import ExamGrading, GradingStrategy, PenaltyPolicy, QuestionGrading
+from ..types import (
+    ExamGrading,
+    FillInGrading,
+    GradingStrategy,
+    MultipleChoiceGrading,
+    MultipleSelectionGrading,
+    PenaltyPolicy,
+    QuestionGrading,
+    TrueFalseGrading,
+)
 from . import _lint, _render
 from ._base import (
     BaseQuestion,
@@ -247,6 +266,46 @@ def select_random(candidates: list[str], max: int | None) -> list[str]:
     return [candidate for candidate in candidates if candidate in chosen]
 
 
+#: docs/exam.md, "Grading": the strategy each question type gets from an
+#: exam's scalar `grading`. Multiple choice has a single pick, and
+#: multiple selection has no abstention, so `no-mistakes` and
+#: `all-or-nothing` collapse there.
+_SCALAR_GRADING: dict[GradingStrategy, dict[str, GradingStrategy]] = {
+    "partial": {
+        "multiple-choice": "partial",
+        "multiple-selection": "partial",
+        "true-false": "partial",
+        "fill-in": "partial",
+    },
+    "no-mistakes": {
+        "multiple-choice": "partial",
+        "multiple-selection": "all-or-nothing",
+        "true-false": "no-mistakes",
+        "fill-in": "no-mistakes",
+    },
+    "all-or-nothing": {
+        "multiple-choice": "partial",
+        "multiple-selection": "all-or-nothing",
+        "true-false": "all-or-nothing",
+        "fill-in": "all-or-nothing",
+    },
+    "symmetric": {
+        "multiple-choice": "symmetric",
+        "multiple-selection": "symmetric",
+        "true-false": "symmetric",
+        "fill-in": "symmetric",
+    },
+}
+
+#: The strategies each type accepts in the exam's mapping form of `grading`.
+_TYPE_GRADINGS: dict[str, tuple[str, ...]] = {
+    "multiple-choice": get_args(MultipleChoiceGrading),
+    "multiple-selection": get_args(MultipleSelectionGrading),
+    "true-false": get_args(TrueFalseGrading),
+    "fill-in": get_args(FillInGrading),
+}
+
+
 class Exam(MdqModel):
     """
     An exam. Its include blocks stay unresolved until `resolve()`.
@@ -269,6 +328,22 @@ class Exam(MdqModel):
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[ExamEntry]
+
+    @field_validator("grading")
+    @classmethod
+    def check_grading_map_values_fit_their_types(cls, value: ExamGrading) -> ExamGrading:
+        """
+        exam.md, "Grading": each value of the mapping form must be a
+        strategy its question type accepts (`schema-error`).
+        """
+        if isinstance(value, dict):
+            for question_type, strategy in value.items():
+                if strategy not in _TYPE_GRADINGS[question_type]:
+                    raise ValueError(
+                        f"{strategy!r} is not a grading of {question_type} "
+                        f"questions: expected one of {_TYPE_GRADINGS[question_type]}"
+                    )
+        return value
 
     @field_validator("locale")
     @classmethod
@@ -426,15 +501,16 @@ class Exam(MdqModel):
     def grading_for(self, question: Question) -> GradingStrategy:
         """
         The grading strategy `question` is scored with: its own, unless it
-        is `inherit` (or it has none); then the exam's `grading`, or the
-        entry of the exam's mapping for the question's type, or
+        is `inherit` (or it has none); then the exam's scalar `grading`
+        translated for the question's type, or the entry of the exam's
+        mapping for the question's type, or
         `symmetric` (exam.md, "Grading").
         """
         own: QuestionGrading = getattr(question, "grading", "inherit")
         if own != "inherit":
             return own
         if isinstance(self.grading, str):
-            return self.grading
+            return _SCALAR_GRADING[self.grading].get(question.type, self.grading)
         by_type = cast("Mapping[str, GradingStrategy]", self.grading)
         return by_type.get(question.type, "symmetric")
 
