@@ -68,7 +68,12 @@ def _ms_params() -> list[Any]:
 @pytest.mark.parametrize(("case", "example"), _ms_params())
 def test_multiple_selection(case: dict[str, Any], example: dict[str, Any]) -> None:
     question = _question("multiple-selection", case)
-    score = question.score_response(set(example["ticks"])).score
+    ticks = set(example["ticks"])
+    if example["score"] == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(ticks)
+        return
+    score = question.score_response(ticks).score
     assert score == pytest.approx(_number(example["score"]))
 
 
@@ -83,7 +88,7 @@ def _tf_params() -> list[Any]:
 @pytest.mark.parametrize(("case", "example"), _tf_params())
 def test_true_false(case: dict[str, Any], example: dict[str, Any]) -> None:
     question = _question("true-false", case)
-    marks = {cid: example["marks"].get(cid) for cid in case["choices"]}
+    marks = {cid: None for cid in case["choices"]} | example["marks"]
     if example["score"] == "malformed":
         with pytest.raises(ResponseError):
             question.score_response(marks)

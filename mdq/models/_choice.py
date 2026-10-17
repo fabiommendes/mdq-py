@@ -302,13 +302,24 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         """
         Score marked choices against their `correct` flags.
 
-        A choice not in `response` asserts false, on par with one
-        explicitly marked false. `"symmetric"` awards +-1/n per choice for
+        `response` is the set of ticked choice ids; a choice not in it
+        asserts false. `"symmetric"` awards +-1/n per choice for
         each correct/incorrect judgement; `"partial"` is the same count
         but only over correctly-judged choices, so it never goes negative
         without needing a floor; `"all-or-nothing"` requires every choice
         judged correctly.
+
+        Raises:
+            ResponseError: an element of `response` is not a string, or
+                names no choice of the question.
         """
+        known = {choice.id for choice in self.choices}
+        for tick in response:
+            if not isinstance(tick, str):
+                raise ResponseError(f"Ticked id {tick!r} is not a string")
+        unknown = sorted(tick for tick in response if tick not in known)
+        if unknown:
+            raise ResponseError(f"Ticked ids {unknown!r} not found in choices")
         n = len(self.choices)
         marks = [(choice, choice.id in response) for choice in self.choices]
         judged_correctly = sum(1 for choice, mark in marks if mark == choice.correct)
@@ -427,9 +438,14 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
         `response` counts as an abstention, like an explicit `None`.
 
         Raises:
-            ResponseError: a value of `response` is neither a boolean nor
-                `None` (responses.md, "True/false").
+            ResponseError: a key of `response` names no statement, or a
+                value is neither a boolean nor `None` (responses.md,
+                "True/false").
         """
+        known = {statement.id for statement in self.choices}
+        unknown = sorted(key for key in response if key not in known)
+        if unknown:
+            raise ResponseError(f"Statement ids {unknown!r} not found in choices")
         for key, value in response.items():
             if value is not None and not isinstance(value, bool):
                 raise ResponseError(

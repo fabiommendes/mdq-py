@@ -131,7 +131,7 @@ def test_multiple_selection_missing_key_asserts_false() -> None:
 
 
 def test_multiple_selection_feedback_lists_only_wrongly_judged_choices() -> None:
-    response = {"c1", "s1", "s3"}
+    response = {"s1", "s2", "s3"}
     result = _biomes("symmetric").score_response(response)
     assert result.feedback == ["Taiga does not occur in Brazil."]
 

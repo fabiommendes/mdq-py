@@ -458,12 +458,14 @@ type QuestionResponse = (
 #: multiple-choice: the id of the choice the student picked.
 type MultipleChoiceResponse = str
 
-#: multiple-selection: the set of choice ids the student marked.
-#: A missing key means the student did not mark that choice.
+#: multiple-selection: the set of choice ids the student ticked. An id
+#: absent from the set is an unticked choice. An id that names no choice
+#: of the question is a `ResponseError`.
 type MultipleSelectionResponse = set[str]
 
 #: true-false: the student's choice, `True` or `False`. Explicit skips are
-#: `None`.
+#: `None`. A key that names no statement of the question is a
+#: `ResponseError`.
 type TrueFalseResponse = dict[str, bool | None]
 
 #: short-answer and essay: the text the student wrote, before
@@ -475,7 +477,8 @@ type TextResponse = str
 type NumericResponse = int | float | Fraction | str
 
 #: fill-in: each blank's response, keyed by blank id, taking whatever
-#: that blank's own type takes.
+#: that blank's own type takes. A key that names no blank of the question
+#: is a `ResponseError`.
 type FillInResponse = dict[str, QuestionResponse]
 
 #: ordering: the lines the student submitted, in the order they submitted

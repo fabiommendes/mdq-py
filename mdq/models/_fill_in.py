@@ -376,8 +376,13 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         Score each blank independently and combine by `grading`.
 
         Raises:
-            ResponseError: a blank's response doesn't match its type.
+            ResponseError: a key of `response` names no blank, or a blank's
+                response doesn't match its type.
         """
+        known = {blank.id for blank in self.blanks}
+        unknown = sorted(key for key in response if key not in known)
+        if unknown:
+            raise ResponseError(f"Blank ids {unknown!r} not found in the question")
         scores: list[float] = []
         feedback: list[str] = []
 
