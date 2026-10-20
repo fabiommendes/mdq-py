@@ -5,12 +5,12 @@ flavored text.
 
 from __future__ import annotations
 
-import unicodedata
 from typing import Literal
 
 from hypothesis import strategies as st
 
 from mdq import _parser
+from mdq.models import _lint
 from mdq.convert._moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
 
 __all__ = [
@@ -235,8 +235,9 @@ def mdq_text(max_size: int = 30) -> st.SearchStrategy[str]:
         lambda s: (
             s == s.strip()
             and s != ""
-            # `blank-text`: control and format characters are not visible.
-            and any(unicodedata.category(c) not in ("Cc", "Cf") for c in s)
+            # `blank-text`: spaces, control and format characters are not
+            # visible (grammar.md, "Visible characters").
+            and _lint.has_visible_character(s)
             and "\n\n" not in s
             and "[^" not in s
             # base.md, "Forbidden elements": an H1 heading, a heading or

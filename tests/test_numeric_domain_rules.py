@@ -4,7 +4,7 @@ numeric.md: which answers agree with a declared `domain` (P4), and when
 
 * With `domain: fraction`, the answer SHOULD be a fraction string or an
   integer (a number or an integer string). A non-whole number is a
-  decimal only, so it gets `domain-mismatch`.
+  decimal only, so it gets `answer-outside-domain`.
 * `ignored-decimal-places` uses the effective domain: the declared one,
   else the one inferred from the answer and the absolute tolerance.
 """
@@ -55,13 +55,38 @@ def test_fraction_domain_accepts_a_fraction_string_or_an_integer(answer: object)
 
 @pytest.mark.parametrize("answer", [0.25, -0.75, "0.25", "2.50"])
 def test_fraction_domain_rejects_a_decimal(answer: object) -> None:
-    assert "domain-mismatch" in _codes(_numeric(answer=answer, domain="fraction"))
-    assert "domain-mismatch" in _codes(_blank(answer=answer, domain="fraction"))
+    assert "answer-outside-domain" in _codes(_numeric(answer=answer, domain="fraction"))
+    assert "answer-outside-domain" in _codes(_blank(answer=answer, domain="fraction"))
+    assert "domain-mismatch" not in _codes(_numeric(answer=answer, domain="fraction"))
 
 
-def test_markdown_decimal_with_a_declared_fraction_domain_mismatches() -> None:
+@pytest.mark.parametrize("answer", ["1/4", "-3/4", 1, -2, "2", 2.0, "4/2"])
+def test_fraction_domain_accepts_a_whole_or_fraction_answer(answer: object) -> None:
+    assert "answer-outside-domain" not in _codes(_numeric(answer=answer, domain="fraction"))
+
+
+def test_markdown_decimal_with_a_declared_fraction_domain_is_outside_it() -> None:
     source = "---\ndomain: fraction\n---\n\nQuanto vale?\n\n[numeric]: 0.75 +- 1\n"
-    assert "domain-mismatch" in _codes(source)
+    assert "answer-outside-domain" in _codes(source)
+    assert "domain-mismatch" not in _codes(source)
+
+
+@pytest.mark.parametrize("domain", ["integer", "fraction"])
+def test_decimal_absolute_tolerance_under_a_narrow_domain_mismatches(domain: str) -> None:
+    fields = {"answer": 2, "domain": domain, "tolerance": {"absolute": 0.5}}
+    assert "domain-mismatch" in _codes(_numeric(**fields))
+    assert "domain-mismatch" in _codes(_blank(**fields))
+
+
+@pytest.mark.parametrize("domain", ["integer", "fraction"])
+def test_whole_absolute_tolerance_under_a_narrow_domain_agrees(domain: str) -> None:
+    fields = {"answer": 2, "domain": domain, "tolerance": {"absolute": 1.0}}
+    assert "domain-mismatch" not in _codes(_numeric(**fields))
+
+
+def test_relative_tolerance_never_mismatches_the_domain() -> None:
+    fields = {"answer": 40, "domain": "integer", "tolerance": {"relative": 0.05}}
+    assert "domain-mismatch" not in _codes(_numeric(**fields))
 
 
 def test_markdown_integer_with_a_declared_fraction_domain_agrees() -> None:

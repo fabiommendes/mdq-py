@@ -490,14 +490,14 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\" or \"390000000000\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"
                 },
                 {
                   "type": "string",
-                  "pattern": "^[+-]?(?:(?:0|[1-9][0-9]*)/[1-9][0-9]*|(?:0|[1-9][0-9]*)\\.[0-9]+|0|[1-9][0-9]*)$"
+                  "pattern": "^[+-]?(?:(?:0|[1-9][0-9]*)/[1-9][0-9]*|(?:(?:0|[1-9][0-9]*)\\.[0-9]+|0|[1-9][0-9]*)(?:[eE][+-]?[0-9]{1,3})?)$"
                 }
               ]
             },
@@ -512,15 +512,19 @@
                 "decimal",
                 "fraction"
               ],
-              "description": "The domain/kind of number for the response."
+              "description": "The kind of number the response is. Inferred when absent: the widest of the answer and the absolute tolerance, ranked integer < fraction < decimal. It decides which responses are valid (docs/question-types/numeric.md, \"Number type/domain\")."
             },
             "decimalPlaces": {
               "type": "integer",
               "minimum": 0,
-              "description": "The number of decimal places used in the decimal value representation. Ignored if domain is 'integer' or 'fraction'."
+              "description": "The precision of the comparison: the response and the answer are rounded to this many decimal places before the tolerance test. Ignored if domain is 'integer' or 'fraction'."
             },
             "tolerance": {
               "$ref": "./numeric.yaml#/$defs/Tolerance"
+            },
+            "incorrectFeedback": {
+              "type": "string",
+              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance, with the same meaning as the `incorrectFeedback` of a numeric question (numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
             }
           },
           "required": [
@@ -733,14 +737,14 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\" or \"390000000000\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"
                 },
                 {
                   "type": "string",
-                  "pattern": "^[+-]?(?:(?:0|[1-9][0-9]*)/[1-9][0-9]*|(?:0|[1-9][0-9]*)\\.[0-9]+|0|[1-9][0-9]*)$"
+                  "pattern": "^[+-]?(?:(?:0|[1-9][0-9]*)/[1-9][0-9]*|(?:(?:0|[1-9][0-9]*)\\.[0-9]+|0|[1-9][0-9]*)(?:[eE][+-]?[0-9]{1,3})?)$"
                 }
               ]
             },
@@ -755,15 +759,19 @@
                 "decimal",
                 "fraction"
               ],
-              "description": "The domain/kind of number for the response."
+              "description": "The kind of number the response is. Inferred when absent: the widest of the answer and the absolute tolerance, ranked integer < fraction < decimal. It decides which responses are valid (docs/question-types/numeric.md, \"Number type/domain\")."
             },
             "decimalPlaces": {
               "type": "integer",
               "minimum": 0,
-              "description": "The number of decimal places used in the decimal value representation. This value is ignored if domain is 'integer' or 'fraction'."
+              "description": "The precision of the comparison: the response and the answer are rounded to this many decimal places before the tolerance test. Ignored if domain is 'integer' or 'fraction'."
             },
             "tolerance": {
               "$ref": "#/$defs/Tolerance"
+            },
+            "incorrectFeedback": {
+              "type": "string",
+              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance. Never shown for a correct, malformed or skipped response (docs/question-types/numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
             }
           },
           "required": [
@@ -787,7 +795,7 @@
             },
             "relative": {
               "type": "number",
-              "description": "Maximum allowed relative difference between the submitted value and the answer, expressed as a fraction (e.g. 0.05 for 5%), i.e. |submitted - answer| / |answer| <= relative.",
+              "description": "Maximum allowed relative difference between the submitted value and the answer, expressed as a fraction (e.g. 0.05 for 5%), i.e. |submitted - answer| <= |answer| * relative.",
               "minimum": 0
             }
           }
@@ -1444,6 +1452,9 @@
         "decimalPlaces": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml#/allOf/1/properties/decimalPlaces"
         },
+        "incorrectFeedback": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml#/allOf/1/properties/incorrectFeedback"
+        },
         "title": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
         },
@@ -1571,6 +1582,18 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
+          }
+        },
+        "domain": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/domain"
+          }
+        },
+        "decimalPlaces": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/decimalPlaces"
           }
         },
         "title": {

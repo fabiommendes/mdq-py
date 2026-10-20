@@ -474,18 +474,30 @@ def test_defined_answer_key_does_not_warn() -> None:
 # --- numeric.md:153 domain agrees with the inferred domain --------------
 
 
-def test_numeric_domain_narrower_than_inferred_reports_mismatch() -> None:
+def test_numeric_fraction_answer_under_integer_domain_is_outside_it() -> None:
     """
-    numeric.md, "Number type/domain": ranking is integer < fraction <
-    decimal, and a declared domain never widens the value written in
-    the body. `answer: "1/3"` is a fraction; declaring `domain:
-    "integer"` contradicts it.
+    numeric.md, "Additional Rules": `answer: "1/3"` is not a whole
+    number, so `domain: "integer"` contradicts it. A fraction string is
+    judged by its value, so this is `answer-outside-domain`.
     """
     doc = {
         "type": "numeric",
         "stem": "Qual fração representa um terço?",
         "answer": "1/3",
         "domain": "integer",
+    }
+    question = _load_ok(doc)
+    assert "answer-outside-domain" in _codes(question.lint())
+    assert _PROPOSED_CODES["domain-mismatch"] not in _codes(question.lint())
+
+
+def test_numeric_decimal_tolerance_under_integer_domain_reports_mismatch() -> None:
+    doc = {
+        "type": "numeric",
+        "stem": "Quantos estados tem o Brasil?",
+        "answer": 26,
+        "domain": "integer",
+        "tolerance": {"absolute": 0.5},
     }
     question = _load_ok(doc)
     assert _PROPOSED_CODES["domain-mismatch"] in _codes(question.lint())

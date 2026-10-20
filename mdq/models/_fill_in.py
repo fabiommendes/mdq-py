@@ -9,8 +9,9 @@ numeric_matches`/`render_numeric_tag`).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Literal, Self
+from typing import Annotated, Any, Iterable, Literal, Self, cast
 
 from pydantic import Field, field_validator, model_validator
 
@@ -135,6 +136,10 @@ class NumericBlank(MdqModel):
     domain: NumericDomain | None = None
     decimal_places: Annotated[int | None, Field(ge=0)] = None
     tolerance: Tolerance | None = None
+
+    #: Feedback for an incorrect response (numeric.md, "Feedback";
+    #: fill-in.md, "Feedback").
+    incorrect_feedback: FreeText | None = None
 
     @field_validator("answer")
     @classmethod
@@ -371,10 +376,21 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         texts = {
             blank.id: blank.incorrect_feedback
             for blank in self.blanks
-            if isinstance(blank, ShortAnswerBlank) and blank.incorrect_feedback is not None
+            if isinstance(blank, ShortAnswerBlank | NumericBlank)
+            and blank.incorrect_feedback is not None
         }
         if texts:
             data["incorrectFeedback"] = texts
+        # fill-in.md, "Frontmatter": maps from blank id to the `domain` and
+        # `decimalPlaces` of a numeric blank.
+        for key, attr in (("domain", "domain"), ("decimalPlaces", "decimal_places")):
+            values = {
+                blank.id: getattr(blank, attr)
+                for blank in self.blanks
+                if isinstance(blank, NumericBlank) and getattr(blank, attr) is not None
+            }
+            if values:
+                data[key] = values
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -458,18 +474,21 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                 if sub_response is None:
                     scores.append(0.0)
                     continue
-                if not isinstance(sub_response, int | float | Fraction | str):
+                if not isinstance(sub_response, int | float | Fraction | str | Mapping):
                     raise ResponseError(
                         f"Response {sub_response!r} to blank {blank.id!r} is not numeric"
                     )
                 correct = numeric_matches(
                     blank.answer,
-                    sub_response,
+                    cast(t.NumericResponse, sub_response),
                     blank.tolerance,
                     blank.effective_decimal_places,
                     domain=blank.effective_domain,
+                    unit=blank.unit,
                 )
                 scores.append(1.0 if correct else 0.0)
+                if not correct and blank.incorrect_feedback:
+                    feedback.append(blank.incorrect_feedback)
 
         mean = sum(scores) / len(scores)
 

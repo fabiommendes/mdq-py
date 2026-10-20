@@ -934,8 +934,8 @@ def _infer_numeric_domain(answer: int | float | str) -> "NumericDomain":
     """
     numeric.md, "Number type/domain": infer the domain an `answer` is
     written in, ranking integer < fraction < decimal. A `str` answer
-    holds a `/` (a fraction) or a `.` (a decimal) or neither (an
-    integer); a number is an integer when it has no fractional part,
+    holds a `/` (a fraction) or a `.` or an exponent (a decimal) or
+    neither (an integer); a number is an integer when it has no fractional part,
     decimal otherwise. The parser keeps a whole decimal such as `2.0`
     as a string, so a whole number here was not written as a decimal
     in Markdown.
@@ -944,7 +944,7 @@ def _infer_numeric_domain(answer: int | float | str) -> "NumericDomain":
         text = answer.strip()
         if "/" in text:
             return "fraction"
-        if "." in text:
+        if "." in text or "e" in text or "E" in text:
             return "decimal"
         return "integer"
     return "integer" if float(answer) == int(answer) else "decimal"
@@ -965,46 +965,53 @@ def check_numeric(
     the accepted range.
     """
     warnings: list[Diagnostic] = []
-    inferred_domain = _infer_numeric_domain(answer)
-    needed_domain = _effective_numeric_domain(answer, None, tolerance)
+    effective_domain = _effective_numeric_domain(answer, domain, tolerance)
     # A string answer is already grammar-validated, so `Fraction` accepts it.
     value: Fraction | float = Fraction(answer) if isinstance(answer, str) else answer
-
-    if domain == "integer" and value != int(value):
+    # numeric.md, "Additional Rules": under `integer` the answer must be
+    # whole; under `fraction` it must be whole or a fraction string.
+    is_fraction_string = isinstance(answer, str) and "/" in answer
+    if (domain == "integer" or (domain == "fraction" and not is_fraction_string)) and (
+        value != int(value)
+    ):
         warnings.append(
             Diagnostic(
                 severity="warning",
                 code="answer-outside-domain",
                 path=path + ("answer",),
                 message=(
-                    f"domain is 'integer' but the answer {answer!r} is not a "
-                    f"whole number"
+                    f"domain is {domain!r} but the answer {answer!r} is not "
+                    + ("a whole number" if domain == "integer" else "a whole number or a fraction")
                 ),
             )
         )
 
-    if domain is not None and _DOMAIN_RANK[domain] < _DOMAIN_RANK[needed_domain]:
+    if (
+        domain in ("integer", "fraction")
+        and tolerance is not None
+        and tolerance.absolute is not None
+        and _infer_numeric_domain(tolerance.absolute) == "decimal"
+    ):
         warnings.append(
             Diagnostic(
                 severity="info",
                 code="domain-mismatch",
                 path=path + ("domain",),
                 message=(
-                    f"domain is {domain!r}, which is narrower than the "
-                    f"{needed_domain!r} the answer {answer!r} and its "
-                    f"tolerance need"
+                    f"domain is {domain!r}, but the absolute tolerance "
+                    f"{tolerance.absolute!r} is a decimal"
                 ),
             )
         )
 
-    if tolerance is None and inferred_domain in ("decimal", "fraction"):
+    if tolerance is None and effective_domain == "decimal":
         warnings.append(
             Diagnostic(
                 severity="info",
                 code="missing-tolerance",
                 path=path + ("tolerance",),
                 message=(
-                    f"the answer {answer!r} is a {inferred_domain} value, but "
+                    f"the answer {answer!r} is in a decimal domain, but "
                     f"no tolerance is given; an exact comparison rarely "
                     f"matches a typed response"
                 ),
@@ -1041,7 +1048,6 @@ def check_numeric(
                 )
             )
 
-    effective_domain = _effective_numeric_domain(answer, domain, tolerance)
     if decimal_places is not None and effective_domain != "decimal":
         source = "" if domain is not None else " (inferred from the answer)"
         warnings.append(

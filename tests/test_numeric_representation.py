@@ -66,7 +66,7 @@ CASES = [
     ("2.50", "2.50", "decimal"),
     ("-0.0", "-0.0", "decimal"),
     ("3.14159265358979323846", "3.14159265358979323846", "decimal"),
-    ("0." + "0" * 400 + "1", "0." + "0" * 400 + "1", "decimal"),
+    ("0." + "0" * 300 + "314159265358979323846", "0." + "0" * 300 + "314159265358979323846", "decimal"),
 ]
 
 
@@ -135,25 +135,30 @@ def test_parsed_domain_never_mismatches_its_own_answer(body: str) -> None:
     assert "domain-mismatch" not in _codes(body)
 
 
-@pytest.mark.parametrize("body", ["2.0", "2.50", "4/2", "1/3"])
-def test_string_decimal_or_fraction_without_tolerance_is_reported(body: str) -> None:
+@pytest.mark.parametrize("body", ["2.0", "2.50"])
+def test_string_decimal_without_tolerance_is_reported(body: str) -> None:
     assert "missing-tolerance" in _codes(body)
+
+
+@pytest.mark.parametrize("body", ["4/2", "1/3", "42"])
+def test_fraction_or_integer_without_tolerance_is_not_reported(body: str) -> None:
+    assert "missing-tolerance" not in _codes(body)
 
 
 def test_integer_beyond_int32_is_not_missing_a_tolerance() -> None:
     assert "missing-tolerance" not in _codes("390000000000")
 
 
-def test_dict_document_fraction_as_a_float_is_a_mismatch() -> None:
+def test_dict_document_fraction_as_a_float_is_outside_the_domain() -> None:
     # numeric.md: with `domain: fraction`, a JSON/YAML/dict answer SHOULD
     # be a fraction string or an integer; `0.25` is a decimal.
     doc = {"type": "numeric", "stem": "x", "answer": 0.25, "domain": "fraction"}
-    assert "domain-mismatch" in _codes(doc)
+    assert "answer-outside-domain" in _codes(doc)
 
 
 def test_dict_document_string_decimal_is_not_a_fraction() -> None:
     doc = {"type": "numeric", "stem": "x", "answer": "0.25", "domain": "fraction"}
-    assert "domain-mismatch" in _codes(doc)
+    assert "answer-outside-domain" in _codes(doc)
 
 
 def test_string_zero_with_relative_tolerance_is_reported() -> None:

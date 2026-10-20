@@ -242,6 +242,7 @@ class NumericQuestionDict(QuestionBaseDict, total=False):
     domain: NumericDomain
     decimalPlaces: int
     tolerance: ToleranceDict
+    incorrectFeedback: str
 
 
 class PatternDict(TypedDict, total=False):
@@ -325,6 +326,7 @@ class NumericBlankDict(TypedDict, total=False):
     domain: NumericDomain
     decimalPlaces: int
     tolerance: ToleranceDict
+    incorrectFeedback: str
 
 
 class OrderingQuestionDict(QuestionBaseDict, total=False):
@@ -475,7 +477,18 @@ type TextResponse = str
 
 #: numeric: the value the student entered. A string spells an exact
 #: decimal or fraction ("3.1415", "1/3"), see responses.md, "Numeric".
-type NumericResponse = int | float | Fraction | str
+#: A `NumericUnitResponse` adds the unit the student entered.
+type NumericResponse = int | float | Fraction | str | NumericUnitResponse
+
+
+class NumericUnitResponse(TypedDict, total=False):
+    """
+    The `{value, unit}` form of a numeric response (responses.md,
+    "Numeric"). An absent or `None` unit means the declared unit.
+    """
+
+    value: Required[int | float | Fraction | str]
+    unit: str | None
 
 #: fill-in: each blank's response, keyed by blank id, taking whatever
 #: that blank's own type takes. A key that names no blank of the question

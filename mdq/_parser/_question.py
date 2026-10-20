@@ -933,6 +933,8 @@ class MDQParser:
             doc["decimalPlaces"] = parsed["decimalPlaces"]
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
+        if "incorrectFeedback" in front:
+            doc["incorrectFeedback"] = front["incorrectFeedback"]
 
     def parse_fill_in_body(self, tag_text: str, tag_node: Node) -> None:
         """
@@ -955,6 +957,7 @@ class MDQParser:
             if key in front:
                 self.state[key] = front[key]
 
+        numeric_maps = self.numeric_blank_maps(front)
         blanks: dict[str, BlankDict] = {}
         #: The (blank id, `accept`/`reject`) short-answer definitions seen.
         defined: set[tuple[str, str]] = set()
@@ -1040,9 +1043,16 @@ class MDQParser:
                 }
                 if unit:
                     blank["unit"] = unit
-                if "domain" in parsed:
+                # fill-in.md, "Frontmatter": the `domain` and `decimalPlaces`
+                # maps win over the inferred values, as they do in a numeric
+                # question (numeric.md, "Number type/domain").
+                if blank_id in numeric_maps["domain"]:
+                    blank["domain"] = numeric_maps["domain"][blank_id]
+                elif "domain" in parsed:
                     blank["domain"] = parsed["domain"]
-                if parsed.get("domain") == "decimal":
+                if blank_id in numeric_maps["decimalPlaces"]:
+                    blank["decimalPlaces"] = numeric_maps["decimalPlaces"][blank_id]
+                elif blank.get("domain") == "decimal":
                     blank["decimalPlaces"] = parsed["decimalPlaces"]
                 if "tolerance" in parsed:
                     blank["tolerance"] = parsed["tolerance"]
@@ -1078,7 +1088,51 @@ class MDQParser:
             tag_node = self.read()
 
         self.distribute_blank_pattern_lists(front, blanks)
+        self.distribute_numeric_blank_maps(numeric_maps, blanks)
         self.state["blanks"] = list(blanks.values())
+
+    @staticmethod
+    def numeric_blank_maps(front: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+        """
+        The frontmatter `domain` and `decimalPlaces` maps of a fill-in
+        question (fill-in.md, "Frontmatter"), each from a blank id to the
+        value of the field of the same name. A missing map is empty. The
+        values are not checked here: the schema checks them on the blank.
+
+        Raises:
+            ParseError: a map is not a mapping.
+        """
+        maps: dict[str, Mapping[str, Any]] = {}
+        for key in ("domain", "decimalPlaces"):
+            mapping = front.get(key, {})
+            if not isinstance(mapping, Mapping):
+                raise ParseError(
+                    f"frontmatter {key!r} of a fill-in question must map blank "
+                    "ids to values"
+                )
+            maps[key] = mapping
+        return maps
+
+    @staticmethod
+    def distribute_numeric_blank_maps(
+        maps: Mapping[str, Mapping[str, Any]], blanks: dict[str, BlankDict]
+    ) -> None:
+        """
+        Check the keys of the `domain` and `decimalPlaces` maps against the
+        blanks. A numeric blank took its values when it was built; a key
+        that is the id of another kind of blank puts the value on that
+        blank, where the schema rejects it.
+
+        Raises:
+            UndefinedBlank: a key is not the id of a blank in `blanks`.
+        """
+        for key, mapping in maps.items():
+            for blank_id, value in mapping.items():
+                blank = blanks.get(blank_id)
+                if blank is None:
+                    raise UndefinedBlank(str(blank_id), key)
+                if blank["type"] != "numeric":
+                    cast("dict[str, Any]", blank)[key] = value
 
     @staticmethod
     def distribute_blank_pattern_lists(
@@ -1089,8 +1143,9 @@ class MDQParser:
         maps onto the blanks they key (fill-in.md, "Frontmatter"). Each map
         goes from a blank id to a pattern list (a string for
         `incorrectFeedback`); the value becomes the field of the same name
-        of that blank, whatever its kind -- the schema rejects it on a
-        choice or numeric blank.
+        of that blank, whatever its kind -- the schema rejects `preAccept`
+        and `preReject` on a choice or numeric blank, and `incorrectFeedback`
+        on a choice blank.
 
         Raises:
             UndefinedBlank: a key is not the id of a blank in `blanks`.

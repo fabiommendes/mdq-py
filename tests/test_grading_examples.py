@@ -119,8 +119,11 @@ def test_numeric(case: dict[str, Any], example: dict[str, Any]) -> None:
         with pytest.raises(ResponseError):
             question.score_response(example["response"])
         return
-    score = question.score_response(example["response"]).score
-    assert score == pytest.approx(_number(example["score"]))
+    result = question.score_response(example["response"])
+    assert result.score == pytest.approx(_number(example["score"]))
+    if "feedback" in example:
+        assert (result.feedback[0] if result.feedback else None) == example["feedback"]
+        assert len(result.feedback) <= 1
 
 
 @pytest.mark.parametrize(("case", "example"), _binary_params("short-answer"))

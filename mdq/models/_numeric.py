@@ -6,7 +6,10 @@ value/tolerance-matching helpers a numeric fill-in blank
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Context, Decimal
+import math
+import unicodedata
+from collections.abc import Mapping
+from decimal import Decimal
 from fractions import Fraction
 from typing import Annotated, Any, Iterable, Literal
 
@@ -19,7 +22,7 @@ from .._markdown import UNICODE_SPACE
 from ..errors import ParseError, ResponseError
 from ..types import NumericDomain
 from . import _lint
-from ._base import BaseQuestion, MdqModel
+from ._base import BaseQuestion, FreeText, MdqModel
 from ._score import QuestionScore
 
 __all__ = ["Tolerance", "NumericQuestion"]
@@ -39,12 +42,23 @@ NumericAnswer = StrictInt | StrictFloat | str
 def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
     """
     numeric.md, "Answer representation": a string `answer` MUST be a
-    valid `sign? value` (an `INTEGER`, `DECIMAL`, or a fraction with a
-    nonzero denominator) -- the same grammar a numeric body's value
-    follows. A JSON/YAML number needs no check; it is already one.
+    valid `sign? value` (an `INTEGER` or `DECIMAL` with an optional
+    exponent, or a fraction with a nonzero denominator) -- the same grammar a numeric body's value
+    follows. A JSON/YAML number MUST be finite: `.inf` and `.nan` are
+    rejected.
 
     Reuses `mdq._parser.parse_numeric_answer` instead of a second regex.
     """
+    if isinstance(value, float) and not math.isfinite(value):
+        raise PydanticCustomError(
+            "malformed-numeric-answer",
+            f"{value!r} is not a finite number",
+        )
+    if isinstance(value, int) and _int_beyond_double(value):
+        raise PydanticCustomError(
+            "malformed-numeric-answer",
+            "the integer is out of the range of a double",
+        )
     if isinstance(value, str):
         try:
             _parser.parse_numeric_answer(value)
@@ -56,12 +70,31 @@ def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
     return value
 
 
+def _int_beyond_double(value: int) -> bool:
+    """True if the modulus of `value` is above the largest finite double."""
+    try:
+        float(value)
+    except OverflowError:
+        return True
+    return False
+
+
 class Tolerance(MdqModel):
     """A distance from the answer, so neither bound is negative (schema)."""
 
     absolute: Annotated[float, Field(ge=0)] | None = None
     relative: Annotated[float, Field(ge=0)] | None = None
 
+    @field_validator("absolute", "relative", mode="before")
+    @classmethod
+    def check_finite(cls, value: Any) -> Any:
+        """numeric.md, "Answer representation": a tolerance is finite."""
+        if isinstance(value, float) and not math.isfinite(value):
+            raise PydanticCustomError(
+                "malformed-numeric-answer",
+                f"{value!r} is not a finite number",
+            )
+        return value
 
 
 
@@ -73,6 +106,9 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     domain: NumericDomain | None = None
     decimal_places: int | None = Field(default=None, ge=0)
     tolerance: Tolerance | None = None
+
+    #: Feedback for an incorrect response (numeric.md, "Feedback").
+    incorrect_feedback: FreeText | None = None
 
     @field_validator("answer")
     @classmethod
@@ -99,6 +135,8 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
             data["domain"] = self.domain
         if self.decimal_places is not None:
             data["decimalPlaces"] = self.decimal_places
+        if self.incorrect_feedback is not None:
+            data["incorrectFeedback"] = self.incorrect_feedback
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -125,11 +163,13 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     def score_response(self, response: t.NumericResponse) -> QuestionScore:
         """
         Score 1 if `response`, rounded to `effective_decimal_places`, is
-        within tolerance of `answer`, else 0.
+        within tolerance of `answer`, else 0. An incorrect response gets
+        `incorrect_feedback`, if set (numeric.md, "Feedback").
 
         Raises:
-            ResponseError: `response` isn't a valid number, or is a value the
-                question's domain cannot represent (responses.md, "Numeric").
+            ResponseError: `response` isn't a valid number, is a value the
+                question's domain cannot represent, or has a unit other than
+                the question's (responses.md, "Numeric").
         """
         correct = numeric_matches(
             self.answer,
@@ -137,8 +177,10 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
             self.tolerance,
             self.effective_decimal_places,
             domain=self.effective_domain,
+            unit=self.unit,
         )
-        return QuestionScore(score=1.0 if correct else 0.0)
+        feedback = [] if correct or not self.incorrect_feedback else [self.incorrect_feedback]
+        return QuestionScore(score=1.0 if correct else 0.0, feedback=feedback)
 
     @property
     def effective_domain(self) -> NumericDomain:
@@ -176,7 +218,9 @@ def infer_decimal_places(answer: NumericAnswer, tolerance: Tolerance | None) -> 
     gives none (numeric.md, "Decimal places"): the larger of the number
     of decimal places written in `answer` and in `tolerance.absolute`. An
     integer has 0; a string answer counts its written digits (`"2.50"`
-    is 2); a float counts the digits of its shortest repr.
+    is 2); a float counts the digits of its shortest repr, but a float
+    of whole value has 0 (`4.0`), as the JS number `4.0` is `4`. An
+    exponent moves the point: `"1.5e-3"` has 4 places, `"6.022e23"` has 0.
     """
     places = _written_places(answer)
     if tolerance is not None and tolerance.absolute is not None:
@@ -185,27 +229,114 @@ def infer_decimal_places(answer: NumericAnswer, tolerance: Tolerance | None) -> 
 
 
 def _written_places(value: NumericAnswer) -> int:
-    """The number of digits written after the decimal point of `value`."""
+    """
+    The decimal places of `value` (numeric.md, "Decimal places"): the digits
+    after the point less the exponent, never below 0.
+    """
     if isinstance(value, str):
-        return len(value.split(".", 1)[1]) if "." in value else 0
+        mantissa, _, written_exponent = value.lower().partition("e")
+        digits = len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
+        return max(0, digits - int(written_exponent or 0))
     if isinstance(value, float):
+        if value.is_integer():
+            return 0
         exponent = Decimal(repr(value)).as_tuple().exponent
         return max(0, -exponent) if isinstance(exponent, int) else 0
     return 0
 
 
-_ROUNDING_CONTEXT = Context(prec=50)
-
-
 def _round_half_up(value: Fraction, places: int) -> Fraction:
-    """Round `value` to `places` decimals, half away from zero."""
-    exact = _ROUNDING_CONTEXT.divide(
-        Decimal(value.numerator), Decimal(value.denominator)
-    )
-    rounded = exact.quantize(
-        Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP, context=_ROUNDING_CONTEXT
-    )
-    return Fraction(str(rounded))
+    """Round `value` to `places` decimals, half away from zero (exact)."""
+    scale = 10**places
+    scaled = abs(value) * scale
+    rounded = (scaled.numerator * 2 + scaled.denominator) // (scaled.denominator * 2)
+    return Fraction(rounded if value >= 0 else -rounded, scale)
+
+
+def _response_value(
+    response: t.NumericResponse,
+    *,
+    domain: NumericDomain | None,
+    unit: str | None,
+) -> Fraction:
+    """
+    Read a response as an exact rational and check it against the
+    question's `domain` and `unit` (responses.md, "Numeric").
+
+    Raises:
+        ResponseError: the response is malformed.
+    """
+    original = response
+    if isinstance(response, Mapping):
+        extra = set(response) - {"value", "unit"}
+        if "value" not in response or extra:
+            raise ResponseError(
+                f"{original!r} must be a mapping with 'value' and, optionally, 'unit'"
+            )
+        _check_response_unit(response.get("unit"), unit)
+        response = response["value"]
+        if isinstance(response, Mapping):
+            raise ResponseError(f"{original!r} is not a valid numeric response")
+
+    from_fraction_form = False
+    if isinstance(response, bool):
+        raise ResponseError(f"{response!r} is not a valid numeric response")
+    if isinstance(response, str):
+        try:
+            value, from_fraction_form = _parser.parse_numeric_string(response)
+        except ParseError as exc:
+            raise ResponseError(f"{response!r} is not a valid numeric response") from exc
+    elif isinstance(response, float):
+        if not math.isfinite(response):
+            raise ResponseError(f"{response!r} is not a finite number")
+        value = numeric_value(response)
+    elif isinstance(response, int) and _int_beyond_double(response):
+        raise ResponseError("the integer is out of the range of a double")
+    elif isinstance(response, int | Fraction):
+        value = Fraction(response)
+        # A `Fraction` object has no written form: it is a fraction only
+        # if no finite decimal spells it.
+        from_fraction_form = not _is_terminating(value)
+    else:
+        raise ResponseError(f"{response!r} is not a valid numeric response")
+
+    if domain == "integer" and value.denominator != 1:
+        raise ResponseError(
+            f"{response!r} is not an integer, which the question's domain requires"
+        )
+    if domain == "decimal" and from_fraction_form:
+        raise ResponseError(
+            f"{response!r} is a fraction, which a decimal question does not take"
+        )
+    return value
+
+
+def _is_terminating(value: Fraction) -> bool:
+    """True if a finite decimal spells `value` (the denominator is 2^a 5^b)."""
+    denominator = value.denominator
+    for prime in (2, 5):
+        while denominator % prime == 0:
+            denominator //= prime
+    return denominator == 1
+
+
+def _check_response_unit(response_unit: object, unit: str | None) -> None:
+    """
+    responses.md, "Numeric": the unit of a response is absent or equal to
+    the declared one (exact string after NFC); any other is malformed.
+    """
+    if response_unit is None:
+        return
+    if not isinstance(response_unit, str):
+        raise ResponseError(f"the unit {response_unit!r} is not a string")
+    if unit is None:
+        raise ResponseError(
+            f"the response has the unit {response_unit!r}, but the question declares none"
+        )
+    if unicodedata.normalize("NFC", response_unit) != unicodedata.normalize("NFC", unit):
+        raise ResponseError(
+            f"the response has the unit {response_unit!r}, but the question declares {unit!r}"
+        )
 
 
 def numeric_matches(
@@ -215,6 +346,7 @@ def numeric_matches(
     decimal_places: int | None = None,
     *,
     domain: NumericDomain | None = None,
+    unit: str | None = None,
 ) -> bool:
     """
     Report whether `response` is within `answer`'s tolerance.
@@ -224,23 +356,19 @@ def numeric_matches(
     `numeric_value`), so a string answer keeps the precision it was
     written with. With `decimal_places`, the response and the answer are
     first rounded to that many places, half away from zero, in decimal
-    arithmetic (numeric.md, "Decimal places"). With `domain`, a value it
-    cannot represent is malformed: a non-integer where the domain is
-    `integer` (responses.md, "Numeric").
+    arithmetic (numeric.md, "Decimal places"). The relative tolerance
+    uses the answer before the rounding, and no tolerance is rounded
+    (numeric.md, "Tolerances"). With `domain`, a value it cannot
+    represent is malformed (responses.md, "Numeric"). `unit` is the
+    question's declared unit: a response in another unit is malformed.
 
     Raises:
-        ResponseError: `response` isn't a valid number, or `domain` cannot
-            represent it.
+        ResponseError: `response` isn't a valid number, `domain` cannot
+            represent it, or its unit is not `unit`.
     """
-    try:
-        value = numeric_value(response)
-    except (ValueError, ZeroDivisionError) as exc:
-        raise ResponseError(f"{response!r} is not a valid numeric response") from exc
-    if domain == "integer" and value.denominator != 1:
-        raise ResponseError(
-            f"{response!r} is not an integer, which the question's domain requires"
-        )
-    target = numeric_value(answer)
+    value = _response_value(response, domain=domain, unit=unit)
+    exact_answer = numeric_value(answer)
+    target = exact_answer
     if decimal_places is not None:
         value = _round_half_up(value, decimal_places)
         target = _round_half_up(target, decimal_places)
@@ -252,7 +380,7 @@ def numeric_matches(
         return True
     if (
         tolerance.relative is not None
-        and distance <= abs(target) * numeric_value(tolerance.relative)
+        and distance <= abs(exact_answer) * numeric_value(tolerance.relative)
     ):
         return True
     return False
@@ -281,7 +409,7 @@ def render_numeric_tag(
 
 def _format_number(value: int | float) -> str:
     """
-    Write a number in the `INTEGER`/`DECIMAL` grammar of numeric.md:
+    Write a number in the `number` grammar of numeric.md:
     plain notation, never an exponent (`1e-05` is `0.00001`). A float
     keeps its `.0` when whole, so it reads back as a decimal.
     """

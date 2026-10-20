@@ -12,8 +12,24 @@ that it implements.
 
 Implements the unreleased MDQ specification.
 
+### Fixed
+
+- A numeric value with a huge exponent (`[numeric]: 1e999999999`) no longer hangs the parser: the range is checked before any `Fraction` exists. The exponent has at most 3 digits, and a value or tolerance above the largest finite double, or not zero but rounding to 0 as a double, is a `ParseError` in a body, `malformed-numeric-answer` in an `answer` and a `ResponseError` in a response (also a Python `int` beyond a double).
+
+### Added
+
+- Scientific notation in a number (`6.022e23`, `1E-3`, `2.5e+4`, `1e05`): the Markdown body (value and both tolerances), `parse_numeric_string`, a string `answer` and the string of a response. A number with an exponent is `decimal`, and the inferred decimal places are `max(0, digits after the point - exponent)`, also for a string or a float (`1e-07` has 7). A value with an exponent is a float when the float gives back the digits and the mantissa has no trailing zero after the point (`1.50e3` stays a string). A fraction takes no exponent. The renderer still writes plain notation, so a large float comes back from `render()` as a string of the same value.
+- A `parse-error` for U+2212, `±`, a decimal comma or a digit group separator in a numeric body says which spelling to write (`use "-"`, `use "+-"`, `use "." as the decimal separator`, `remove the digit group separator`).
+- `NumericBlank.incorrect_feedback` (`incorrectFeedback` of the blank, from the fill-in frontmatter map): `FillInQuestion.score_response` adds it to the feedback of an incorrect numeric blank. A skipped blank and a correct one show none. A choice blank still rejects the map entry with a `schema-error`.
+- `NumericQuestion.incorrect_feedback` (frontmatter `incorrectFeedback`): `score_response` returns it as feedback for an incorrect response, never for a correct one. A malformed response is still a `ResponseError`.
+- The fill-in frontmatter maps `domain` and `decimalPlaces` set those fields of a numeric blank, over the inferred values. A key that is not a blank is `undefined-blank`; a key of a choice or short answer blank is a `schema-error` on that blank. `FillInQuestion.frontmatter()` writes them back.
+
 ### Changed
 
+- Numeric lint: `answer-outside-domain` also reports a `fraction` domain with an answer that is neither whole nor a fraction string (`0.75`, `"0.75"`). `domain-mismatch` only reports a decimal absolute tolerance under `integer` or `fraction`. `missing-tolerance` only reports a `decimal` domain (declared or inferred), so a fraction without tolerance has no diagnostic and a declared `decimal` with an integer answer has one.
+- Numeric: a YAML/JSON number of whole value (`4.0`) counts 0 decimal places, as it already counted as `integer`. A number `answer` or tolerance that is not finite (`.inf`, `.nan`) is the `malformed-numeric-answer` error; before, `mdq validate` crashed with `OverflowError` or a raw error.
+- Numeric responses follow the table of `docs/responses.md`: a fraction (`"1/3"`, `"4/2"`, a `Fraction` that no finite decimal spells) is malformed in a `decimal` question, and a non-finite number or a `bool` is malformed in every domain. A response string is exactly `sign? value`: `"1e3"`, `"1,5"`, `" 5"` and `"1 000"` are a `ResponseError` (before, `Fraction` read some of them).
+- Numeric responses accept the `{value, unit}` form (`NumericUnitResponse`, also in a numeric blank). A unit equal to the declared one after NFC, or absent, is valid. Any other unit, or a unit on a question without one, is a `ResponseError`. `numeric_matches` takes a `unit` argument.
 - A Markdown frontmatter may hold only the fields of its frontmatter table: any other key is the error `invalid-frontmatter-field` and `load` returns no document. Its message says when the key is a field of the body (`stem`, `choices`, `accept`, `unit`, ...) and shows the body syntax. It replaces the warning `unknown-frontmatter-key`, which no longer exists, for questions, exams and question blocks of an exam. The allowed keys come from the `frontmatter-<type>` schemas of the bundled `mdq.schema.json`. YAML and JSON are unchanged (an unknown key is a `schema-error`). The `accept` and `reject` of a short answer and the `unit` of a numeric question are no longer frontmatter fields: only the body sets them.
 - `id` in the frontmatter and as a slug (`[Q1]`) reports the new `redundant-id` warning, with equal or different values. The frontmatter value wins.
 - Removed: the `conflicting-accept` error (`ConflictingAnswerKey`) and the frontmatter `unit`, which overrode the unit of the tag.

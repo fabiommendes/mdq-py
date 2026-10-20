@@ -36,7 +36,7 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
     "multiple-choice": ("shuffle", "grading"),
     "multiple-selection": ("shuffle", "grading"),
     "true-false": ("shuffle", "grading"),
-    "numeric": ("domain", "decimalPlaces"),
+    "numeric": ("domain", "decimalPlaces", "incorrectFeedback"),
     "short-answer": (
         "preAccept",
         "preReject",
@@ -52,6 +52,8 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
         "preAccept",
         "preReject",
         "incorrectFeedback",
+        "domain",
+        "decimalPlaces",
     ),
     "ordering": (
         "content",

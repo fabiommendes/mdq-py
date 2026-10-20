@@ -226,10 +226,12 @@ def test_a_float_answer_is_a_decimal_not_a_fraction() -> None:
     """numeric.md, "Answer representation": with `domain: fraction`, the
     answer is a fraction string or an integer. A float that is not whole
     is a decimal only (see also test_numeric_domain_rules.py)."""
-    assert _paths(_numeric(answer=0.75, domain="decimal", tolerance={"absolute": 1}), "domain-mismatch") == []
-    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "domain-mismatch") == [
-        ("domain",)
+    assert _paths(_numeric(answer=0.75, domain="decimal", tolerance={"absolute": 1}), "answer-outside-domain") == []
+    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "answer-outside-domain") == [
+        ("answer",)
     ]
+    # A whole absolute tolerance is not a decimal: no `domain-mismatch`.
+    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "domain-mismatch") == []
 
 
 def test_a_float_answer_with_a_decimal_tolerance_is_not_a_fraction() -> None:
