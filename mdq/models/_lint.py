@@ -25,14 +25,12 @@ checks the old dict-based linter needed (`_iter_choices`, `_is_number`)
 are the model layer's job now, so there is nothing left to guard against
 here.
 
-One ``warning``-severity rule, ``unknown-frontmatter-key``, is not
-implemented here: an already-parsed document has no way to see a
-frontmatter key the parser dropped while building it. It is instead
-emitted by ``mdq._parser`` (``parse_question``/``parse_exam``, via an
-optional ``warnings`` sink) for every frontmatter key it does not
-recognize -- a typo like ``auther:``, or a field that
-never existed -- and merged into `mdq._loading`'s diagnostics ahead of
-the ones `lint()` produces.
+Two rules are not implemented here, because an already-parsed document
+cannot show them: ``invalid-frontmatter-field`` (a frontmatter key the
+parser dropped) and ``redundant-id`` (an ``id`` set in the frontmatter and
+as a slug). ``mdq._parser`` emits them (``parse_question``/``parse_exam``,
+via an optional ``warnings`` sink), and `mdq._loading` merges them ahead of
+the diagnostics `lint()` produces.
 """
 
 from __future__ import annotations
@@ -56,7 +54,13 @@ from .._letters import (
     normalize_value,
 )
 from ._query import is_standard_query
-from ._regex import IGNORED_FLAGS, InvalidRegexError, parse_regex
+from ._regex import (
+    IGNORED_FLAGS,
+    InvalidRegexError,
+    escaped_code_points,
+    normalize_text,
+    parse_regex,
+)
 
 if TYPE_CHECKING:
     from ..types import NumericDomain
@@ -742,7 +746,8 @@ def check_short_answer(
 ) -> list[Diagnostic]:
     """
     short-answer.md, "Additional Rules": the regex lints
-    (`redundant-regex-anchor`, `ignored-regex-flag`) over the four
+    (`redundant-regex-anchor`, `ignored-regex-flag`,
+    `unmatchable-regex-escape`) over the four
     pattern lists.
 
     Diagnostics use the frontmatter key: `path + ("preAccept", index)`.
@@ -798,6 +803,7 @@ def _check_pattern_list(
         item_path = path + (key, index)
         warnings.extend(_check_redundant_regex_anchor(pattern.pattern, item_path))
         warnings.extend(_check_ignored_regex_flags(pattern.pattern, item_path))
+        warnings.extend(_check_unmatchable_regex_escape(pattern.pattern, item_path))
     return warnings
 
 
@@ -862,6 +868,43 @@ def _check_ignored_regex_flags(
             message=f"flag(s) {flags_text} are accepted but have no effect on matching",
         )
     ]
+
+
+def _check_unmatchable_regex_escape(
+    pattern: str, path: tuple[Union[str, int], ...]
+) -> list[Diagnostic]:
+    """
+    patterns.md, "Regex flags": under `n`, an escape that denotes a code
+    point is never stripped. If the strip changes that code point, the
+    stripped response cannot contain it. One diagnostic per pattern.
+    """
+    if not pattern.strip().startswith("/"):
+        return []
+    try:
+        body, raw_flags = parse_regex(pattern)
+    except InvalidRegexError:
+        return []
+    if "n" not in raw_flags:
+        return []
+    if not any(_stripped_by_n(code_point) for code_point in escaped_code_points(body)):
+        return []
+    return [
+        Diagnostic(
+            severity="info",
+            code="unmatchable-regex-escape",
+            path=path,
+            message=(
+                "the 'n' flag strips diacritics from the response, so an escape "
+                "for a code point that the strip changes cannot match"
+            ),
+        )
+    ]
+
+
+def _stripped_by_n(code_point: int) -> bool:
+    """True if the `n` strip changes the code point."""
+    char = chr(code_point)
+    return normalize_text(char) != char
 
 
 _DOMAIN_RANK: dict[str, int] = {"integer": 0, "fraction": 1, "decimal": 2}

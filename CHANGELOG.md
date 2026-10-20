@@ -14,6 +14,18 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- A Markdown frontmatter may hold only the fields of its frontmatter table: any other key is the error `invalid-frontmatter-field` and `load` returns no document. Its message says when the key is a field of the body (`stem`, `choices`, `accept`, `unit`, ...) and shows the body syntax. It replaces the warning `unknown-frontmatter-key`, which no longer exists, for questions, exams and question blocks of an exam. The allowed keys come from the `frontmatter-<type>` schemas of the bundled `mdq.schema.json`. YAML and JSON are unchanged (an unknown key is a `schema-error`). The `accept` and `reject` of a short answer and the `unit` of a numeric question are no longer frontmatter fields: only the body sets them.
+- `id` in the frontmatter and as a slug (`[Q1]`) reports the new `redundant-id` warning, with equal or different values. The frontmatter value wins.
+- Removed: the `conflicting-accept` error (`ConflictingAnswerKey`) and the frontmatter `unit`, which overrode the unit of the tag.
+- Converters (`literal_pattern`) join the lines of an imported answer with one space, as the continuation lines of a body block do, instead of leaving a line break in the pattern.
+- A pattern string with no visible character is `blank-text`: `"   "`, an exact literal of one space (`` ` ` ``) and a lone U+200B, in every pattern list and in fill-in blanks. For an exact literal, the text between the backticks is checked. Before, `"   "` was a `schema-error` and U+200B was accepted. `""` is still a `schema-error`.
+- The `patternString` schema uses explicit classes only (no `\s`), as `EXACT_TEXT` and `PLAIN_TEXT` do. A pattern string cannot contain CR or LF. Spaces and tabs at both ends of any pattern are removed before it is classified, so `"  `x`"` is the exact literal `x` (it was a `schema-error`).
+- A regex pattern loses the spaces and tabs after its flags, as it already did before the opening `/`. Before, `* /abc/i ` was an `invalid-regex` (`unknown regex flag: ' '`). The last `/` still closes the regex, so an unescaped `/` in the body is valid (`/a/b/` has the body `a/b`); patterns.md now states it.
+- A regex runs in code point mode and reads the shorthand classes as explicit classes (patterns.md, "Regex"): `\d` is `[0-9]`, `\w` is `[A-Za-z0-9_]`, `\s` is `UNICODE_SPACE` (no U+FEFF), `\b` and `\B` follow `\w`, inside a character class too. `i` does not widen them, so `/\w/i` rejects `ſ`. Before, Python `re` decided: `/\d/` accepted `٣`, and `\s` differed from JavaScript on U+0085, U+001C to U+001F and U+FEFF. `/\w+/` does not accept `José`: use `/\w+/n`. `\u{...}` is now valid (it was an `invalid-regex`). A shorthand class as the end of a range, such as `[a-\d]`, is an `invalid-regex`.
+- A regex pattern matches the response after two steps: NFC, then removal of the `UNICODE_SPACE` code points from both ends, as for an exact literal. The `n` flag applies after them. Before, the regex saw the raw response, so `/Brasília/` rejected `Brasília ` and an NFD `Brasília`.
+- A `>` line right after an empty short-answer tag (`[short-answer]:` then `> x`) is a `parse-error`, like a `!` line. Before, it went to the epilogue.
+- The error for `[short-answer]: X` followed by a `---` or `===` line says that the tag line became a setext heading and suggests a blank line. Before, it was "A required field is missing".
+- Short answer single-line content follows the CommonMark paragraph (also in `[^id/short-answer]` definitions). A lazy line continues the content, also after an empty tag (`[short-answer]:` then `Brasília` is `accept: ["Brasília"]`; `[short-answer/reject]:` then `Rio` is a valid reject). A continuation line is joined with one space, whatever its indentation. A line that starts with `>` or `!` (not `![`) right after the content is a `parse-error` that suggests the list form: before, `> x` went to the epilogue and `! x` was joined into the pattern. A heading, a fenced code block, an HTML block or a thematic break still ends the block and goes to the epilogue.
 - An id in a response that names nothing in the question is a `ResponseError`, never ignored: a tick of `MultipleSelectionQuestion` (an element that is not a string is one too), a key of a `TrueFalseQuestion` response, and a key of a `FillInQuestion` response. Multiple choice and the exam scoring already did so. The `MultipleSelectionResponse` docs no longer mention a missing key.
 - True/false letter sets follow the spec: TRUE `T V B D Đ` plus non-Latin letters, FALSE `F M` plus non-Latin letters, in `mdq._letters` (`TRUE_LETTERS`, `FALSE_LETTERS`). `S` is now a WARNING letter: it reads as true and gets `unlisted-true-false-marker`, so a marker `S` with `correct: false` is `true-false-marker-disagrees-with-correct`. `D`, `B` and `Đ` are TRUE and `M` is FALSE.
 - The locale table is one data structure (`mdq._letters.LOCALE_ROWS`, 27 languages) with the letters accepted and the false friends of each row. `false-friend-true-false-marker` is table-driven (`S` under `id`, `ms` and `vi`, `E` under `pt`, `W` under `en`, ...). The rule order is: false friend, accepted by the row (no warning, even for a WARNING letter), WARNING letter (`unlisted-true-false-marker`), no row (no warning), `locale-mismatched-true-false-marker`. `T`/`F` are canonical under every `locale`.
@@ -40,6 +52,10 @@ Implements the unreleased MDQ specification.
 - The lint code `non-nfc-true-false-marker` is renamed `non-nfkc-true-false-marker` (message "not its own NFKC form; read as X"). It also covers `Ｆ` and `ſ`.
 - New dependency `unicodedata2>=17,<18`: the letter category and NFKC of markers do not depend on the Unicode version of the interpreter.
 
+- Short answer, essay and short answer blank: a response that is not a string (a number, a boolean, a list, a mapping) is a `ResponseError`, as `docs/responses.md` says. Before, a short answer question coerced it and an essay raised `NotAutoGradable`. `""` and a string of only spaces are graded normally. `None` still skips at exam level.
+- An exact literal follows the CommonMark code span: ``` `` `date` `` ``` is the literal `` `date` ``. N backticks open it and the first run of exactly N backticks closes it, at the end of the pattern; one space is removed from each end when both ends have one. A pattern that opens with a backtick and is not a complete literal is a `schema-error` with a message that says so (it was the raw pattern of the schema). The type of the pydantic error is now `schema-error`, not `string_pattern_mismatch`. The `AnswerPattern` field `pattern` no longer carries a pydantic regex. `blank-text` checks the content of the literal after the removal of the space.
+- Export to an external format (`literal_answers`) returns the content of an exact literal as the new rule reads it. Import (`literal_pattern`) still refuses an answer that needs backticks and has one.
+
 ### Fixed
 
 - `load` validates a YAML/JSON/dict document by alias only. A Python field name such as `answer_key`, `pre_accept` or `include_all` was accepted silently; it is now a `schema-error` like any unknown key. Building a model in Python (`Essay(answer_key=...)`) still takes the field names. Requires pydantic 2.11.
@@ -50,6 +66,7 @@ Implements the unreleased MDQ specification.
 
 ### Added
 
+- Lint info `unmatchable-regex-escape`: under the `n` flag, a regex has an escape (`\uXXXX`, `\xXX`, `\u{...}`) for a code point that the diacritics strip changes, such as U+00E1 or a combining mark. The escape is always the exact code point and `n` never strips it, so it cannot match the stripped response. `/água/n` accepts `agua` and `água`; `/\u00e1gua/n` accepts neither.
 - Lint warning `stray-choice-marker`: an unordered list in the preamble, stem or epilogue in which some, not all, items start with a choice marker. One warning per item whose marker is a choice value (`[ ]`, `[x]`, `[*]`, a percentage, a letter) or empty (`[]`). It runs on the models, so YAML, JSON and dict documents are covered.
 - `mdq validate -` reads the document from stdin, as MDQ Markdown by default.
   The new `--format mdq|yaml|json` option sets the format of stdin, or
@@ -72,6 +89,9 @@ Implements the unreleased MDQ specification.
   questions and exams (`mdq.hypothesis`).
 - Lint code `non-ascii-whitespace` for Unicode spaces outside code. `load`
   reports it also when the document fails to parse.
+- `ShortAnswerQuestion.prevalidate(response)` returns `(valid, feedback)` by the pre-validation rules of short-answer.md. `ShortAnswerBlank.prevalidate(response, diacritics=...)` does the same for a fill-in blank.
+- `ShortAnswerBlank.incorrect_feedback` (`incorrectFeedback`): a fill-in short answer blank shows it for an incorrect response that no pattern gave feedback to. The fill-in frontmatter takes it as a map from blank id to string; an unknown id is `undefined-blank`. `frontmatter()` and `render()` write the map.
+- `tests/test_grading_examples.py` runs the `feedback` key of the short answer vectors and the new `examples/grading/short-answer-prevalidation.yaml`.
 
 ### Changed
 

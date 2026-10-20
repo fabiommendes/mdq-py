@@ -25,7 +25,7 @@ from ..errors import IncompleteQuestion, MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
 from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import _load_frontmatter_yaml, _normalize_tags, _split_frontmatter
-from ._frontmatter import _unknown_frontmatter_warnings
+from ._frontmatter import _invalid_frontmatter_fields
 from ._question import BRACKET_ITEM_RE, _matches_tag, parse_question
 
 __all__ = ["parse_exam", "is_exam", "INHERITED_FIELDS", "SEPARATOR"]
@@ -61,22 +61,11 @@ EXAM_PASSTHROUGH_KEYS = (
     "shuffle",
 )
 
-#: Every frontmatter key an exam accepts. `type` has no effect of its own
-#: -- an exam is recognized by its H1 title, not by declaring `type:
-#: exam` (docs/exam.md) -- but is accepted, not flagged as a mistake.
-EXAM_FRONTMATTER_KEYS = frozenset(EXAM_PASSTHROUGH_KEYS) | {
-    "tags",
-    "start",
-    "duration",
-    "type",
-}
-
 #: A block with no `include:`/`includeAll:` is an inline question
-#: instead, and its frontmatter is checked against `COMMON_QUESTION_KEYS`/
-#: `TYPE_QUESTION_KEYS` like any other question's, by `parse_question`. An
-#: include/includeAll block's own frontmatter is passed through
-#: verbatim instead (see `_parse_exam_block`): an extra field there is a
-#: model error (`unknown-include-field`), not a dropped-and-warned key.
+#: instead, and its frontmatter is checked like any other question's, by
+#: `parse_question`. An include/includeAll block's own frontmatter is
+#: passed through verbatim instead (see `_parse_exam_block`): an extra
+#: field there is a model error (`unknown-include-field`).
 
 
 def parse_exam(
@@ -93,11 +82,13 @@ def parse_exam(
 
     Args:
         text: MDQ source text for an exam (i.e. one with an H1 title).
-        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
-            is appended for every frontmatter key the parser does not
-            consume -- at the exam's own top level (`path=(key,)`) and
-            inside each question block (`path=("questions", i, key)`,
-            0-based). Parsing never fails because of them.
+        warnings: When given, an `invalid-frontmatter-field` error
+            `Diagnostic` is appended for every frontmatter key that is not
+            a field of the frontmatter table -- at the exam's own top
+            level (`path=(key,)`) and inside each question block
+            (`path=("questions", i, key)`, 0-based) -- with the warnings
+            about the source layout. Parsing never fails because of them;
+            the caller checks the severity.
 
     Returns:
         The parsed exam document, in the shape validated by
@@ -128,7 +119,7 @@ def parse_exam(
         front = _load_frontmatter_yaml(frontmatter_text, keep_null=("title",))
 
     if warnings is not None:
-        warnings.extend(_unknown_frontmatter_warnings(front, EXAM_FRONTMATTER_KEYS))
+        warnings.extend(_invalid_frontmatter_fields(front, "exam"))
 
     doc: dict[str, Any] = {"type": "exam"}
 
@@ -430,7 +421,7 @@ def _parse_exam_block(
     Turn one question block into an entry of the exam's `questions`.
 
     `index` is the block's 0-based position, used only to path-prefix any
-    `unknown-frontmatter-key` warning as `("questions", index, key)`.
+    `invalid-frontmatter-field` error as `("questions", index, key)`.
 
     A block with no explicit `id` gets none here -- the implicit,
     position-based id (`q<position>`, exam.md "Question ids") is
@@ -496,7 +487,7 @@ def _parse_exam_block(
         for w in block_warnings:
             if (
                 misspelled
-                and w.code == "unknown-frontmatter-key"
+                and w.code == "invalid-frontmatter-field"
                 and w.path == (misspelled[0],)
             ):
                 w = replace(w, message=w.message + hint)

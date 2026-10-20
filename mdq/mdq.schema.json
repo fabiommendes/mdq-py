@@ -148,7 +148,7 @@
           "additionalProperties": true
         },
         "grading": {
-          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy, translated for each question type by the table in docs/exam.md, or a mapping from question type to a strategy of that type. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely.",
+          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy, translated for each question type by the table in docs/exam.md, or a mapping from question type to a strategy of that type. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely. Short answer, numeric, essay and ordering questions have no `grading` field, so this field does not apply to them, and the mapping has no key for them.",
           "oneOf": [
             {
               "$ref": "#/$defs/GradingStrategy"
@@ -452,11 +452,11 @@
               "const": "short-answer"
             },
             "accept": {
-              "description": "Patterns matching a correct response. The canonical form of the `[^id/short-answer/accept]` block; a response is correct if it matches any entry.",
+              "description": "Patterns matching a correct response. In Markdown, the `[^id/short-answer/accept]` block sets it; a response is correct if it matches any entry.",
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "reject": {
-              "description": "Patterns matching a known incorrect response. The canonical form of the `[^id/short-answer/reject]` block. Rejecting never changes a score -- `accept` decides that, and wins when both match -- so this list exists to attach feedback to answers known to be wrong.",
+              "description": "Patterns matching a known incorrect response. In Markdown, the `[^id/short-answer/reject]` block sets it. A response that matches no `accept` pattern and matches a `reject` pattern is incorrect. So `reject` settles responses that `unmatched: manual` would leave pending, and it attaches feedback. `accept` wins when both match.",
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "preAccept": {
@@ -466,6 +466,10 @@
             "preReject": {
               "description": "Patterns a submission must not match to be considered valid. Like `preAccept`, never affects a score.",
               "$ref": "./short-answer.yaml#/$defs/patternList"
+            },
+            "incorrectFeedback": {
+              "type": "string",
+              "description": "Feedback for an incorrect response that no pattern gave feedback to, with the same meaning as the `incorrectFeedback` of a short-answer question (short-answer.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
             }
           },
           "required": [
@@ -1042,11 +1046,11 @@
               "const": "short-answer"
             },
             "accept": {
-              "description": "Patterns matching a correct response. The canonical form of the `[short-answer/accept]` block; a response is correct if it matches any entry. The content of a simple `[short-answer]` block is the first entry.",
+              "description": "Patterns matching a correct response. In Markdown, the `[short-answer]` block (alias `[short-answer/accept]`) sets it; a response is correct if it matches any entry. The single-line form gives a list of one entry.",
               "$ref": "#/$defs/patternList"
             },
             "reject": {
-              "description": "Patterns matching a known incorrect response. The canonical form of the `[short-answer/reject]` block. Rejecting never changes a score -- `accept` decides that, and wins when both match -- so this list exists to attach feedback to answers known to be wrong.",
+              "description": "Patterns matching a known incorrect response. In Markdown, the `[short-answer/reject]` block sets it. A response that matches no `accept` pattern and matches a `reject` pattern is incorrect. So `reject` settles responses that `unmatched: manual` would leave pending, and it attaches feedback. `accept` wins when both match.",
               "$ref": "#/$defs/patternList"
             },
             "preAccept": {
@@ -1111,7 +1115,7 @@
                 },
                 "feedback": {
                   "type": "string",
-                  "description": "Shown to the student whose response this pattern decided."
+                  "description": "Shown by the selection rule of short-answer.md, \"Feedback\": the first pattern that matches and has feedback, in the list that decided the outcome. For `preAccept` and `preReject`, see \"Pre-validation\"."
                 },
                 "comment": {
                   "type": "string",
@@ -1129,7 +1133,7 @@
           "type": "string",
           "description": "A regular expression when delimited by `/`, an exact literal when enclosed in backticks, and a plain literal compared inexactly otherwise.",
           "minLength": 1,
-          "pattern": "^(?:`[^`\\n]+`[ \\t]*|[^`\\s][\\s\\S]*|\\s+[^`\\s][\\s\\S]*)$"
+          "pattern": "^[ \\t]*(?:`[^\\r\\n]+`[ \\t]*|[^` \\t\\r\\n][^\\r\\n]*)?$"
         }
       },
       "unevaluatedProperties": false
@@ -1233,6 +1237,499 @@
           ]
         }
       }
+    },
+    "frontmatter-multiple-choice": {
+      "title": "Frontmatter of a multiple-choice",
+      "description": "The fields that the frontmatter of a multiple-choice in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml#/allOf/1/properties/type"
+        },
+        "shuffle": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml#/allOf/1/properties/shuffle"
+        },
+        "grading": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml#/allOf/1/properties/grading"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-multiple-selection": {
+      "title": "Frontmatter of a multiple-selection",
+      "description": "The fields that the frontmatter of a multiple-selection in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml#/allOf/1/properties/type"
+        },
+        "shuffle": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml#/allOf/1/properties/shuffle"
+        },
+        "grading": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-selection.yaml#/allOf/1/properties/grading"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-true-false": {
+      "title": "Frontmatter of a true-false",
+      "description": "The fields that the frontmatter of a true-false in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/true-false.yaml#/allOf/1/properties/type"
+        },
+        "shuffle": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/true-false.yaml#/allOf/1/properties/shuffle"
+        },
+        "grading": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/true-false.yaml#/allOf/1/properties/grading"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-essay": {
+      "title": "Frontmatter of a essay",
+      "description": "The fields that the frontmatter of a essay in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/type"
+        },
+        "input": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/input"
+        },
+        "highlight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/highlight"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-numeric": {
+      "title": "Frontmatter of a numeric",
+      "description": "The fields that the frontmatter of a numeric in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml#/allOf/1/properties/type"
+        },
+        "domain": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml#/allOf/1/properties/domain"
+        },
+        "decimalPlaces": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml#/allOf/1/properties/decimalPlaces"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-short-answer": {
+      "title": "Frontmatter of a short-answer",
+      "description": "The fields that the frontmatter of a short-answer in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/type"
+        },
+        "preAccept": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/preAccept"
+        },
+        "preReject": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/preReject"
+        },
+        "diacritics": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/diacritics"
+        },
+        "unmatched": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/unmatched"
+        },
+        "incorrectFeedback": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/allOf/1/properties/incorrectFeedback"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-fill-in": {
+      "title": "Frontmatter of a fill-in",
+      "description": "The fields that the frontmatter of a fill-in in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/allOf/1/properties/type"
+        },
+        "shuffle": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/allOf/1/properties/shuffle"
+        },
+        "grading": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/allOf/1/properties/grading"
+        },
+        "diacritics": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/allOf/1/properties/diacritics"
+        },
+        "unmatched": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/allOf/1/properties/unmatched"
+        },
+        "preAccept": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+          }
+        },
+        "preReject": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+          }
+        },
+        "incorrectFeedback": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-ordering": {
+      "title": "Frontmatter of a ordering",
+      "description": "The fields that the frontmatter of a ordering in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/type"
+        },
+        "content": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/content"
+        },
+        "highlight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/highlight"
+        },
+        "indentation": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/indentation"
+        },
+        "unmatched": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/unmatched"
+        },
+        "normalizations": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/normalizations"
+            },
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/$defs/Normalization"
+            }
+          ]
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-exam": {
+      "title": "Frontmatter of a exam",
+      "description": "The fields that the frontmatter of a exam in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/type"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/title"
+        },
+        "description": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/description"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/uuid"
+        },
+        "course": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/course"
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/locale"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/meta"
+        },
+        "penalty": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/penalty"
+        },
+        "grading": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/grading"
+        },
+        "shuffle": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/exam.yaml#/properties/shuffle"
+        },
+        "start": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

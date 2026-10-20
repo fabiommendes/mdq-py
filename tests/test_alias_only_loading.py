@@ -69,15 +69,13 @@ def test_python_construction_takes_field_names() -> None:
     assert EssayQuestion(stem="Explique.", answer_key="luz").answer_key == "luz"
 
 
-def test_markdown_frontmatter_snake_case_is_a_dropped_warning() -> None:
+def test_markdown_frontmatter_snake_case_is_an_invalid_field() -> None:
     source = "---\nanswer_key: luz\n---\n\nExplique.\n\n[essay]\n"
-    [d] = [
-        d
-        for d in load(source, format="mdq").diagnostics
-        if d.code == "unknown-frontmatter-key"
-    ]
+    loaded = load(source, format="mdq")
+    [d] = [d for d in loaded.diagnostics if d.code == "invalid-frontmatter-field"]
     assert (d.code, d.severity, d.path) == (
-        "unknown-frontmatter-key",
-        "warning",
+        "invalid-frontmatter-field",
+        "error",
         ("answer_key",),
     )
+    assert loaded.document is None

@@ -66,17 +66,16 @@ def test_unmatched_and_incorrect_feedback_default_to_none() -> None:
     assert document.incorrect_feedback is None
 
 
-def test_open_ended_in_markdown_frontmatter_is_an_unknown_key() -> None:
-    """Like any unknown key of a Markdown frontmatter: a warning, and it is dropped."""
+def test_open_ended_in_markdown_frontmatter_is_an_invalid_field() -> None:
+    """Like any unknown key of a Markdown frontmatter: an error."""
     source = (
         "---\nopenEnded: true\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n"
     )
     loaded = _load(source)
-    assert _errors(loaded) == []
-    assert ("unknown-frontmatter-key", ("openEnded",)) in [
-        (d.code, tuple(d.path)) for d in loaded.diagnostics
+    assert loaded.document is None
+    assert [(d.code, tuple(d.path)) for d in _errors(loaded)] == [
+        ("invalid-frontmatter-field", ("openEnded",))
     ]
-    assert "openEnded" not in loaded.document.to_dict()
 
 
 @pytest.mark.parametrize("tag", ["[short-answer]:", "[short-answer/accept]:"])

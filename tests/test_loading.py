@@ -77,14 +77,13 @@ Explique, em uma frase, o que é o efeito Coriolis.
 Ele desvia o movimento de fluidos devido a rotação da Terra.
 """
 
-#: `auther` is a deliberate typo of `author`, for the `unknown-frontmatter-
-#: key` tests below; `id`/`title` are defined so pairing it with `ESSAY_MD`
+#: `id` in the frontmatter and as a slug gives the `redundant-id` warning
+#: for the tests below; `id`/`title` are defined so pairing it with `ESSAY_MD`
 #: (which itself defines `answerKey`) produces exactly one diagnostic --
-#: the typo warning -- and nothing from the newer `missing-id`/
+#: the warning -- and nothing from the newer `missing-id`/
 #: `missing-title`/`missing-answer-key` info rules.
-ESSAY_MD_WITH_TYPO = (
-    "---\nid: coriolis\ntitle: O efeito Coriolis\nauther: Machado de Assis\n---\n\n"
-    + ESSAY_MD
+ESSAY_MD_WITH_WARNING = (
+    "---\nid: coriolis\ntitle: O efeito Coriolis\n---\n\n[coriolis] " + ESSAY_MD
 )
 
 ESSAY_DATA = {
@@ -326,9 +325,9 @@ def test_loaded_is_falsy_when_no_document_was_built() -> None:
 
 
 def test_loaded_with_only_warnings_is_still_truthy() -> None:
-    # An unknown frontmatter key produces a warning, not an error; the
-    # document is still built.
-    loaded = load(ESSAY_MD_WITH_TYPO)
+    # A redundant id produces a warning, not an error; the document is
+    # still built.
+    loaded = load(ESSAY_MD_WITH_WARNING)
     assert any(d.severity == "warning" for d in loaded.diagnostics)
     assert bool(loaded) is True
     assert loaded.document is not None
@@ -345,7 +344,7 @@ def test_validate_returns_the_document_when_clean() -> None:
 
 
 def test_validate_default_raises_on_error_but_not_on_warning() -> None:
-    loaded = load(ESSAY_MD_WITH_TYPO)
+    loaded = load(ESSAY_MD_WITH_WARNING)
     assert any(d.severity == "warning" for d in loaded.diagnostics)
     # default raise_on="error": warnings alone must not raise.
     document = loaded.validate()
@@ -353,7 +352,7 @@ def test_validate_default_raises_on_error_but_not_on_warning() -> None:
 
 
 def test_validate_raise_on_warning_raises_when_a_warning_is_present() -> None:
-    loaded = load(ESSAY_MD_WITH_TYPO)
+    loaded = load(ESSAY_MD_WITH_WARNING)
     with pytest.raises(InvalidDocument):
         loaded.validate(raise_on="warning")
 
@@ -372,7 +371,7 @@ def test_validate_raise_on_info_also_raises_on_a_plain_warning() -> None:
     anything "at or above" `raise_on`. "info" is the lowest rank, so
     every diagnostic -- including a plain warning -- is at or above it.
     """
-    loaded = load(ESSAY_MD_WITH_TYPO)
+    loaded = load(ESSAY_MD_WITH_WARNING)
     diagnostics = loaded.diagnostics
     assert any(d.severity == "warning" for d in diagnostics)
     assert not any(d.severity in ("error", "info") for d in diagnostics)
@@ -397,7 +396,7 @@ def test_validate_always_raises_when_there_is_no_document() -> None:
 
 
 def test_validate_error_raised_carries_every_diagnostic() -> None:
-    loaded = load(ESSAY_MD_WITH_TYPO)
+    loaded = load(ESSAY_MD_WITH_WARNING)
     try:
         loaded.validate(raise_on="warning")
     except InvalidDocument as exc:
@@ -428,7 +427,7 @@ def test_parse_raises_invalid_document_on_error() -> None:
 
 def test_parse_raise_on_warning_raises_on_a_warning() -> None:
     with pytest.raises(InvalidDocument):
-        parse(ESSAY_MD_WITH_TYPO, raise_on="warning")
+        parse(ESSAY_MD_WITH_WARNING, raise_on="warning")
 
 
 def test_parse_never_leaks_parse_error_or_pydantic_validation_error() -> None:
@@ -587,21 +586,27 @@ def test_lint_runs_only_when_the_model_was_built() -> None:
     assert len(loaded.diagnostics) == 1  # just the parse-failure diagnostic
 
 
-def test_unknown_frontmatter_warnings_come_before_lint_diagnostics() -> None:
-    text = "---\nauther: Machado de Assis\nlocale: cn\n---\n\nExplique.\n\n[essay]\n"
+def test_parser_warnings_come_before_lint_diagnostics() -> None:
+    text = "---\nid: coriolis\nlocale: cn\n---\n\n[coriolis] Explique.\n\n[essay]\n"
     loaded = load(text)
     assert loaded
     codes = _codes(loaded.diagnostics)
-    assert "unknown-frontmatter-key" in codes
+    assert "redundant-id" in codes
     assert "locale-lookalike-language" in codes
-    assert codes.index("unknown-frontmatter-key") < codes.index("locale-lookalike-language")
+    assert codes.index("redundant-id") < codes.index("locale-lookalike-language")
 
 
-def test_unknown_frontmatter_warning_severity_is_warning() -> None:
-    loaded = load(ESSAY_MD_WITH_TYPO)
-    matching = [d for d in loaded.diagnostics if d.code == "unknown-frontmatter-key"]
+def test_redundant_id_severity_is_warning() -> None:
+    loaded = load(ESSAY_MD_WITH_WARNING)
+    matching = [d for d in loaded.diagnostics if d.code == "redundant-id"]
     assert len(matching) == 1
     assert matching[0].severity == "warning"
+
+
+def test_invalid_frontmatter_field_is_an_error_without_a_document() -> None:
+    loaded = load("---\nauther: Machado de Assis\n---\n\nExplique.\n\n[essay]\n")
+    assert loaded.document is None
+    assert _codes(loaded.diagnostics) == ["invalid-frontmatter-field"]
 
 
 # ---------------------------------------------------------------------

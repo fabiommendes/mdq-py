@@ -39,7 +39,15 @@ def test_bundle_is_compliant_jsonschema() -> None:
 def test_bundle_has_one_def_per_schema_file() -> None:
     schema_dir = Path(__file__).resolve().parent.parent.parent / "schema"
     expected = {p.stem for p in schema_dir.glob("*.yaml")}
-    assert set(BUNDLE["$defs"]) == expected
+    # The frontmatter schemas (`frontmatter-<type>`) come from the docs.
+    schemas = {name for name in BUNDLE["$defs"] if not name.startswith("frontmatter-")}
+    assert schemas == expected
+
+
+def test_bundle_has_one_frontmatter_schema_per_document_type() -> None:
+    assert {name for name in BUNDLE["$defs"] if name.startswith("frontmatter-")} == {
+        f"frontmatter-{question_type}" for question_type in BUNDLED_TYPES
+    }
 
 
 @pytest.mark.parametrize(

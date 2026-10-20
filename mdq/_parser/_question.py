@@ -48,7 +48,6 @@ from .._diagnostics import Diagnostic
 from .._letters import FALSE_LETTERS, normalize_value
 from .._markdown import UNICODE_SPACE, md, split_lines
 from ..errors import (
-    ConflictingAnswerKey,
     ForeignChoiceMarker,
     IncompleteQuestion,
     MissingField,
@@ -89,7 +88,7 @@ from ._frontmatter import (
     _load_frontmatter_yaml,
     _normalize_list,
     _normalize_tags,
-    _question_frontmatter_warnings,
+    _invalid_frontmatter_fields,
     _split_frontmatter,
 )
 from ._numeric import _parse_numeric_expression
@@ -134,6 +133,8 @@ NUMERIC_TAG_RE = re.compile(
 BLANK_RE = re.compile(
     rf"^\[\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>[^\]]+))?\][ \t]*:[ \t]*(?P<rest>.*)$"
 )
+#: The text after the colon of a short-answer tag line.
+TAG_REST_RE = re.compile(r"^[ \t]*\[[^\n]*?\][ \t]*:[ \t]*(?P<rest>.*)$")
 # Validates that suffix. Units attach to `numeric` and to nothing else,
 # and the accept/reject sublists to `short-answer` and nothing else --
 # both restrictions are enforced by this alternation's shape rather than
@@ -169,10 +170,11 @@ def parse_question(
     Args:
         text: MDQ source text for a single question, with or without YAML
             frontmatter.
-        warnings: When given, an `unknown-frontmatter-key` `Diagnostic`
-            is appended for every frontmatter key the parser does not
-            consume, given the question's own type. Parsing never fails
-            because of them.
+        warnings: When given, the parser appends its diagnostics: an
+            `invalid-frontmatter-field` error for every frontmatter key
+            that is not in the frontmatter table of the question's type,
+            and the warnings about the source layout. Parsing never
+            fails because of them; the caller checks the severity.
 
     Returns:
         The parsed question document, in the shape validated by
@@ -198,9 +200,23 @@ def parse_question(
     parser = MDQParser(text)
     doc = parser.parse_question()
     if warnings is not None:
-        warnings.extend(_question_frontmatter_warnings(parser.frontmatter, doc["type"]))
+        warnings.extend(_invalid_frontmatter_fields(parser.frontmatter, doc["type"]))
         warnings.extend(parser.diagnostics)
     return doc
+
+
+def _redundant_id(front_id: Any, slug: str) -> Diagnostic:
+    """The `redundant-id` warning: `id` in the frontmatter and as a slug."""
+    if front_id == slug:
+        detail = "with the same value"
+    else:
+        detail = f"with the value {slug!r}; the frontmatter value {front_id!r} wins"
+    return Diagnostic(
+        severity="warning",
+        code="redundant-id",
+        path=("id",),
+        message=f"`id` is set in the frontmatter and as a slug {detail}",
+    )
 
 
 #
@@ -463,16 +479,36 @@ class MDQParser:
         known body tag, or the first bracket-led bullet list.
 
         Raises:
-            MissingField: If no body node is found.
+            MissingField: If no body node is found. The message says so when
+                a tag line became a setext heading (CommonMark: a `---` or
+                `===` line right under a paragraph makes it a heading).
         """
 
+        setext_tag: str | None = None
         for i, child in enumerate(self.children):
+            if (
+                setext_tag is None
+                and child.type == "heading"
+                and child.markup in ("-", "=")
+            ):
+                first_line = self.raw_lines(child)[:1]
+                if first_line and _matches_tag(first_line[0].strip()):
+                    setext_tag = first_line[0].strip()
             if child.type == "paragraph":
                 text = self.raw_text(child)
                 if _matches_tag(text):
                     return i
             elif self.is_choice_list(child):
                 return i
+        if setext_tag is not None:
+            raise MissingField(
+                "body",
+                message=(
+                    f"the tag line {setext_tag!r} became a setext heading "
+                    "because the next line is '---' or '==='; add a blank "
+                    "line between the tag and that line"
+                ),
+            )
         raise MissingField("body")
 
     #
@@ -763,8 +799,6 @@ class MDQParser:
         Raises:
             ParseError: a block is repeated (the two accept spellings
                 count as one block), or a block has a pattern and a list.
-            ConflictingAnswerKey: `accept`/`reject` is declared both in the
-                frontmatter and in the body.
         """
         front = self.frontmatter
         doc = self.state
@@ -786,11 +820,6 @@ class MDQParser:
                 tag_node, m.group("rest"), reject=variant == "reject"
             )
             if patterns:
-                if variant in front:
-                    raise ConflictingAnswerKey(
-                        f"'{variant}' is declared both in the frontmatter and "
-                        "in a [short-answer] body block"
-                    )
                 doc[variant] = patterns
 
             node = self.seek()
@@ -803,6 +832,23 @@ class MDQParser:
 
         _copy_pattern_lists(front, doc)
 
+    def _join_content_lines(self, tag_node: Node, rest: str) -> str:
+        """
+        The content of a short-answer tag: the text after the colon and the
+        continuation lines, joined with one U+0020 each. A line ending and
+        the indentation of the next line become that space
+        (docs/references/patterns.md, "Continuation lines"). `rest` is the
+        text `raw_text` gave, whose line endings already are spaces.
+        """
+        lines = self.raw_lines(tag_node)
+        if len(lines) < 2:
+            return rest.strip(" \t")
+        first = TAG_REST_RE.match(lines[0])
+        if first is None:  # pragma: no cover - the caller matched a tag
+            return rest.strip(" \t")
+        parts = [first.group("rest"), *(line.lstrip(" \t") for line in lines[1:])]
+        return " ".join(part for part in parts if part.strip(" \t")).strip(" \t")
+
     def parse_answer_block(
         self, tag_node: Node, rest: str, *, reject: bool
     ) -> list[PatternEntry]:
@@ -814,8 +860,21 @@ class MDQParser:
             ParseError: the tag has text and an attached list, or a reject
                 tag has no pattern but is followed by a detached list.
         """
-        rest = rest.strip(" \t")
+        rest = self._join_content_lines(tag_node, rest)
+        # The tag paragraph also holds the lazy continuation lines of the
+        # content. A `!` line is not lazy (a comment), so it is an error.
+        for line in self.raw_lines(tag_node)[1:]:
+            if _is_comment_line(line):
+                raise ParseError(_OBSERVATION_AFTER_CONTENT)
         node = self.seek()
+        if (
+            node is not None
+            and node.type == "blockquote"
+            and node.map is not None
+            and tag_node.map is not None
+            and node.map[0] == tag_node.map[1]
+        ):
+            raise ParseError(_OBSERVATION_AFTER_CONTENT)
         if node is None or node.type != "bullet_list":
             if reject and not rest:
                 raise ParseError("a [short-answer/reject] block has no pattern")
@@ -859,7 +918,7 @@ class MDQParser:
         doc = self.state
 
         doc["answer"] = parsed["answer"]
-        if unit and "unit" not in front:
+        if unit:
             doc["unit"] = unit
         if "domain" in front:
             doc["domain"] = front["domain"]
@@ -872,8 +931,6 @@ class MDQParser:
             doc["decimalPlaces"] = front["decimalPlaces"]
         elif doc.get("domain") == "decimal":
             doc["decimalPlaces"] = parsed["decimalPlaces"]
-        if "unit" in front:
-            doc["unit"] = front["unit"]
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
 
@@ -1028,27 +1085,34 @@ class MDQParser:
         front: Mapping[str, Any], blanks: dict[str, BlankDict]
     ) -> None:
         """
-        Move the frontmatter `preAccept`/`preReject` maps onto the blanks
-        they key (fill-in.md, "Frontmatter"). Each map goes from a blank
-        id to a pattern list; the list becomes the field of the same name
+        Move the frontmatter `preAccept`/`preReject`/`incorrectFeedback`
+        maps onto the blanks they key (fill-in.md, "Frontmatter"). Each map
+        goes from a blank id to a pattern list (a string for
+        `incorrectFeedback`); the value becomes the field of the same name
         of that blank, whatever its kind -- the schema rejects it on a
         choice or numeric blank.
 
         Raises:
             UndefinedBlank: a key is not the id of a blank in `blanks`.
-            ParseError: a map is not a mapping of lists.
+            ParseError: a map is not a mapping of lists (of strings for
+                `incorrectFeedback`).
         """
-        for key in ("preAccept", "preReject"):
+        for key in ("preAccept", "preReject", "incorrectFeedback"):
             if key not in front:
                 continue
             mapping = front[key]
+            is_text = key == "incorrectFeedback"
             if not isinstance(mapping, Mapping):
                 raise ParseError(
                     f"frontmatter {key!r} of a fill-in question must map "
-                    "blank ids to pattern lists"
+                    f"blank ids to {'strings' if is_text else 'pattern lists'}"
                 )
-            for blank_id, patterns in mapping.items():
-                if not isinstance(patterns, list):
+            for blank_id, value in mapping.items():
+                if is_text and not isinstance(value, str):
+                    raise ParseError(
+                        f"frontmatter {key!r} entry {blank_id!r} must be a string"
+                    )
+                if not is_text and not isinstance(value, list):
                     raise ParseError(
                         f"frontmatter {key!r} entry {blank_id!r} must be "
                         "a list of patterns"
@@ -1056,7 +1120,7 @@ class MDQParser:
                 blank = blanks.get(blank_id)
                 if blank is None:
                     raise UndefinedBlank(str(blank_id), key)
-                cast("dict[str, Any]", blank)[key] = patterns
+                cast("dict[str, Any]", blank)[key] = value
 
     @staticmethod
     def _add_blank(blanks: dict[str, BlankDict], new: BlankDict) -> None:
@@ -1155,7 +1219,9 @@ class MDQParser:
         intro_blocks = [self.read() for _ in range(body_start)]
         stem_text, preamble_text, inline_slug = self.split_intro(intro_blocks)
 
-        if "id" not in self.state and inline_slug:
+        if inline_slug and "id" in self.state:
+            self.diagnostics.append(_redundant_id(self.state["id"], inline_slug))
+        elif inline_slug:
             self.state["id"] = inline_slug
         if preamble_text:
             self.state["preamble"] = preamble_text
@@ -1212,6 +1278,19 @@ class MDQParser:
         self.apply_type_specific_frontmatter(question_type)
 
         return cast(QuestionDict, self.state)
+
+
+_OBSERVATION_AFTER_CONTENT = (
+    "a line that starts with '>' or '!' cannot follow the content of a "
+    "short answer tag; use the list form ('* pattern' with the '>' or '!' "
+    "lines indented under it)"
+)
+
+
+def _is_comment_line(line: str) -> bool:
+    """Whether `line` starts a comment: `!` but not an image, `![`."""
+    stripped = line.lstrip(" \t")
+    return stripped.startswith("!") and not stripped.startswith("![")
 
 
 def _matches_tag(text: str) -> str | None:

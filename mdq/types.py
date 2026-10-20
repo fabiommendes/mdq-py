@@ -310,6 +310,7 @@ class ShortAnswerBlankDict(TypedDict, total=False):
     reject: list[PatternEntry]
     preAccept: list[PatternEntry]
     preReject: list[PatternEntry]
+    incorrectFeedback: str
 
 
 class NumericBlankDict(TypedDict, total=False):

@@ -13,6 +13,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError as PydanticValidationError
 
+from mdq.models._lint import has_visible_character
 from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert._moodle_xml import (
     MoodleAnswer,
@@ -56,11 +57,16 @@ from mdq.models import (
 def _plain_pattern() -> st.SearchStrategy[str]:
     """
     An `accept` pattern that is a plain literal and survives a Moodle round trip: no
-    leading `/` or backtick, and not a lone `*` (Moodle imports `*` with fraction 100
+    leading `/` or backtick, no line ending (a pattern string is one line), a
+    visible character, and not a lone `*` (Moodle imports `*` with fraction 100
     as the regex `/.*/`).
     """
     return mdq_text(max_size=15).filter(
-        lambda text: not text.startswith(("/", "`")) and text != "*"
+        lambda text: not text.startswith(("/", "`"))
+        and text != "*"
+        and "\n" not in text
+        and "\r" not in text
+        and has_visible_character(text)
     )
 
 

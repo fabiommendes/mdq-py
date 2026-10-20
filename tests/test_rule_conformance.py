@@ -642,20 +642,12 @@ def test_true_false_marker_disagreeing_with_correct_is_an_error() -> None:
     assert any(d.severity == "error" for d in loaded.diagnostics)
 
 
-def test_accept_as_both_body_block_and_frontmatter_field_is_an_error() -> None:
+def test_accept_in_the_frontmatter_is_an_error() -> None:
     """
-    short-answer.md:379: `accept`/`reject` must not be written as a body
-    block and a frontmatter field at the same time. Built from real
-    Markdown source (not a dict): the ambiguity only exists when a
-    document is parsed, since a `dict`/YAML document has no "body
-    block" spelling to collide with. The spec gives no code, so a small
-    set of plausible codes is accepted -- see `_DOUBLE_ANSWER_KEY_CODES`.
+    short-answer.md, "Frontmatter": `accept` and `reject` are set by body
+    blocks only. Built from real Markdown source (not a dict): in YAML
+    and JSON they are fields of the schema.
     """
-    _DOUBLE_ANSWER_KEY_CODES = {
-        "duplicate-answer-key",
-        "accept-block-and-field",
-        "conflicting-accept",
-    }
     source = (
         "---\n"
         "id: sa-capital\n"
@@ -670,10 +662,7 @@ def test_accept_as_both_body_block_and_frontmatter_field_is_an_error() -> None:
     )
     loaded = load(source, kind="question", format="mdq")
     assert loaded.document is None, (
-        "short-answer.md:379 (accept/reject as both a body block and a "
-        f"frontmatter field) is not enforced: loaded cleanly with "
-        f"diagnostics {loaded.diagnostics!r}"
+        "short-answer.md (accept is not a frontmatter field) is not "
+        f"enforced: loaded cleanly with diagnostics {loaded.diagnostics!r}"
     )
-    assert any(d.severity == "error" for d in loaded.diagnostics)
-    codes = _codes(loaded.diagnostics)
-    assert codes & _DOUBLE_ANSWER_KEY_CODES, f"expected one of {_DOUBLE_ANSWER_KEY_CODES!r}, got {codes!r}"
+    assert _codes(loaded.diagnostics) == {"invalid-frontmatter-field"}

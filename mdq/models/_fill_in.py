@@ -29,6 +29,7 @@ from ..types import (
 from . import _lint, _render
 from ._base import (
     SlugId,
+    FreeText,
     MdqModel,
     BaseQuestion,
     _BLANK_MARKER_RE,
@@ -57,6 +58,7 @@ from ._text import (
     _pattern_entry,
     default_unmatched,
     first_feedback,
+    prevalidate_response,
     render_short_answer_patterns,
     settle_response,
     short_answer_automation,
@@ -89,6 +91,22 @@ class ShortAnswerBlank(MdqModel):
     reject: PatternList | None = None
     pre_accept: PatternList | None = None
     pre_reject: PatternList | None = None
+
+    #: Feedback for an incorrect response that no pattern gave feedback to
+    #: (short-answer.md, "Feedback"; fill-in.md, "Frontmatter").
+    incorrect_feedback: FreeText | None = None
+
+    def prevalidate(
+        self, response: str, *, diacritics: Diacritics = "fold"
+    ) -> tuple[bool, str | None]:
+        """
+        Pre-validate a response to this blank by the rules of a short answer
+        question (short-answer.md, "Pre-validation"). `diacritics` is the one
+        of the fill-in question. Returns `(valid, feedback)`.
+        """
+        return prevalidate_response(
+            self.pre_accept, self.pre_reject, response, diacritics=diacritics
+        )
 
     def effective_unmatched(self, unmatched: Unmatched | None) -> Unmatched:
         """
@@ -350,6 +368,13 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             }
             if lists:
                 data[key] = lists
+        texts = {
+            blank.id: blank.incorrect_feedback
+            for blank in self.blanks
+            if isinstance(blank, ShortAnswerBlank) and blank.incorrect_feedback is not None
+        }
+        if texts:
+            data["incorrectFeedback"] = texts
         return data
 
     def _render_body(self) -> Iterable[str]:
@@ -421,13 +446,14 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                         "no pattern and 'unmatched' is 'manual'"
                     )
                 scores.append(1.0 if outcome == "correct" else 0.0)
-                feedback.extend(
-                    first_feedback(
-                        (blank.accept if outcome == "correct" else blank.reject) or [],
-                        sub_response,
-                        diacritics=self.diacritics,
-                    )
+                blank_feedback = first_feedback(
+                    (blank.accept if outcome == "correct" else blank.reject) or [],
+                    sub_response,
+                    diacritics=self.diacritics,
                 )
+                if outcome == "incorrect" and not blank_feedback and blank.incorrect_feedback:
+                    blank_feedback = [blank.incorrect_feedback]
+                feedback.extend(blank_feedback)
             else:
                 if sub_response is None:
                     scores.append(0.0)

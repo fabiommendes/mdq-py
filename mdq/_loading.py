@@ -291,6 +291,11 @@ def _load_mdq_text(
     except MdqError as exc:
         return Loaded(None, [*collected, _parse_error(exc)])
 
+    # A key the frontmatter may not hold is an error of the parser: the
+    # document it built is not the one the source describes.
+    if any(d.severity == "error" for d in collected):
+        return Loaded(None, collected)
+
     if is_exam_doc:
         return _load_exam(data, collected, ids=ids)
     return _load_question(data, collected, ids=ids)

@@ -126,12 +126,28 @@ def test_numeric(case: dict[str, Any], example: dict[str, Any]) -> None:
 @pytest.mark.parametrize(("case", "example"), _binary_params("short-answer"))
 def test_short_answer(case: dict[str, Any], example: dict[str, Any]) -> None:
     question = _binary_question("short-answer", case)
+    if example["score"] == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(example["response"])
+        return
     if example["score"] == "pending":
         with pytest.raises(NotAutoGradable):
             question.score_response(example["response"])
         return
-    score = question.score_response(example["response"]).score
-    assert score == pytest.approx(_number(example["score"]))
+    result = question.score_response(example["response"])
+    assert result.score == pytest.approx(_number(example["score"]))
+    if "feedback" in example:
+        assert (result.feedback[0] if result.feedback else None) == example["feedback"]
+        assert len(result.feedback) <= 1
+
+
+@pytest.mark.parametrize(("case", "example"), _binary_params("short-answer-prevalidation"))
+def test_short_answer_prevalidation(case: dict[str, Any], example: dict[str, Any]) -> None:
+    question = _binary_question("short-answer", case)
+    assert question.prevalidate(example["response"]) == (
+        example["valid"],
+        example["feedback"],
+    )
 
 
 def test_every_grading_file_is_covered() -> None:
@@ -141,5 +157,6 @@ def test_every_grading_file_is_covered() -> None:
         "multiple-selection",
         "numeric",
         "short-answer",
+        "short-answer-prevalidation",
         "true-false",
     ]

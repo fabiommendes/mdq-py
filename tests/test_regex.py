@@ -255,14 +255,16 @@ def test_n_flag_normalizes_pattern_body_not_just_subject() -> None:
     assert rx.match("cafe") is True
 
 
-def test_precomposed_vs_decomposed_unicode_requires_n_flag() -> None:
-    precomposed = "café"  # NFC: c, a, f, LATIN SMALL LETTER E WITH ACUTE
-    decomposed = "café"  # NFD: c, a, f, e, COMBINING ACUTE ACCENT
+def test_precomposed_and_decomposed_unicode_both_match() -> None:
+    precomposed = "caf\u00e9"  # NFC: c, a, f, LATIN SMALL LETTER E WITH ACUTE
+    decomposed = "cafe\u0301"  # NFD: c, a, f, e, COMBINING ACUTE ACCENT
     assert precomposed != decomposed  # sanity: genuinely different code points
-    without_n = RegexPattern(f"/{precomposed}/")
-    assert without_n.match(decomposed) is False
-    with_n = RegexPattern(f"/{precomposed}/n")
-    assert with_n.match(decomposed) is True
+    # The response is normalized to NFC before matching, with or without `n`.
+    assert RegexPattern(f"/{precomposed}/").match(decomposed) is True
+    assert RegexPattern(f"/{precomposed}/n").match(decomposed) is True
+    # Only `n` strips the diacritics.
+    assert RegexPattern("/cafe/").match(decomposed) is False
+    assert RegexPattern("/cafe/n").match(decomposed) is True
 
 
 def test_ignored_flags_behave_like_no_flags() -> None:
@@ -382,7 +384,10 @@ REJECTED_BODIES = [
     pytest.param("\\cA", id="control-escape"),
     pytest.param("\\123", id="octal-escape"),
     pytest.param("(a)\\1", id="numbered-backreference"),
-    pytest.param("\\u{1F600}", id="unicode-braces-escape"),
+    pytest.param("\\u{110000}", id="unicode-braces-escape-out-of-range"),
+    pytest.param("\\u{}", id="unicode-braces-escape-empty"),
+    pytest.param("[a-\\d]", id="shorthand-range-end"),
+    pytest.param("[\\d-z]", id="shorthand-range-start"),
     pytest.param("a(", id="python-cannot-compile-unbalanced-paren"),
     pytest.param("[a-", id="python-cannot-compile-unterminated-class"),
     pytest.param("*abc", id="python-cannot-compile-nothing-to-repeat"),
@@ -465,8 +470,8 @@ def test_fixed_quantifier() -> None:
 def test_word_and_space_classes() -> None:
     assert RegexPattern("\\w+").full_match("Amazonia123") is True
     assert RegexPattern("\\w+").full_match("a b") is False
-    assert RegexPattern("\\s").full_match(" ") is True
-    assert RegexPattern("\\s").full_match("a") is False
+    assert RegexPattern("a\\sb").full_match("a b") is True
+    assert RegexPattern("a\\sb").full_match("ab") is False
     assert RegexPattern("\\S+").full_match("abc") is True
     assert RegexPattern("\\S+").full_match("a b") is False
 
@@ -596,3 +601,117 @@ def test_escaped_literal_include_matches_when_padded(
 ) -> None:
     rx = RegexPattern(re.escape(literal))
     assert rx.include_match(pad_left + literal + pad_right) is True
+
+
+# Response preparation (patterns.md, "Regex"): NFC, then remove
+# `UNICODE_SPACE` from both ends, then the `n` flag.
+@pytest.mark.parametrize(
+    "response",
+    ["Brasília", "Brasília ", "Brasília\n", " \tBrasília", " Brasília　"],
+)
+def test_response_is_trimmed_before_matching(response: str) -> None:
+    assert RegexPattern("/Brasília/").match(response) is True
+
+
+def test_response_in_nfd_matches_an_nfc_regex() -> None:
+    assert RegexPattern("/Brasília/").match("Brasília") is True
+
+
+def test_interior_spaces_still_count() -> None:
+    assert RegexPattern("/Brasília/f").match("capital Brasília aqui") is True
+    assert RegexPattern("/Rio Negro/").match("Rio  Negro") is False
+    assert RegexPattern("/Rio Negro/").match(" Rio Negro\n") is True
+
+
+def test_n_flag_applies_after_trimming() -> None:
+    assert RegexPattern("/brasilia/n").match(" Brasília"[:0] + "brasília ") is True
+
+
+#
+# Code point mode and explicit shorthand classes (patterns.md, "Regex")
+#
+SEMANTICS = [
+    pytest.param("/./", "\U0001f600", True, id="dot-one-code-point"),
+    pytest.param("/../", "\U0001f600", False, id="dot-not-two-units"),
+    pytest.param("/\\u{1F600}/", "\U0001f600", True, id="braced-escape"),
+    pytest.param("/[\\u{1F600}x]/", "\U0001f600", True, id="braced-escape-in-class"),
+    pytest.param("/s/i", "\u017f", True, id="fold-long-s"),
+    pytest.param("/k/i", "\u212a", True, id="fold-kelvin"),
+    pytest.param("/\\d/", "\u0663", False, id="digit-not-arabic-indic"),
+    pytest.param("/\\d+/", "123", True, id="digit-ascii"),
+    pytest.param("/\\D/", "\u0663", True, id="non-digit-arabic-indic"),
+    pytest.param("/\\w+/", "Jos\u00e9", False, id="word-not-accented"),
+    pytest.param("/\\w+/n", "Jos\u00e9", True, id="word-with-n-flag"),
+    pytest.param("/\\w/i", "\u017f", False, id="word-i-not-long-s"),
+    pytest.param("/\\W/i", "\u017f", True, id="non-word-i-long-s"),
+    pytest.param("/[\\w]/i", "\u017f", False, id="class-word-i-not-long-s"),
+    pytest.param("/a\\sb/", "a\u00a0b", True, id="space-nbsp"),
+    pytest.param("/a\\sb/", "a\u0085b", True, id="space-nel"),
+    pytest.param("/a\\sb/", "a\ufeffb", False, id="space-not-bom"),
+    pytest.param("/a\\sb/", "a\x1cb", False, id="space-not-fs"),
+    pytest.param("/a\\Sb/", "a\ufeffb", True, id="non-space-bom"),
+    pytest.param("/a\\Sb/", "a b", False, id="non-space-space"),
+    pytest.param("/[\\d_]+/", "1_2", True, id="class-digit"),
+    pytest.param("/[\\d_]+/", "\u0663", False, id="class-digit-not-arabic-indic"),
+    pytest.param("/[^\\d]/", "a", True, id="negated-class-digit-other"),
+    pytest.param("/[^\\d]/", "7", False, id="negated-class-digit"),
+    pytest.param("/[^\\da]/", "a", False, id="negated-class-digit-and-plain"),
+    pytest.param("/[^\\W]+/", "ab_1", True, id="negated-class-non-word"),
+    pytest.param("/[\\S]+/", "a\ufeffb", True, id="class-non-space"),
+    pytest.param("/[\\s^]+/", "^ ", True, id="class-space-and-caret"),
+    pytest.param("/[\\d-]+/", "1-2", True, id="class-digit-and-hyphen"),
+    pytest.param("/\\bab\\b/f", "x ab y", True, id="boundary"),
+    pytest.param("/\\bab\\b/f", "xab y", False, id="boundary-inside-word"),
+    pytest.param("/\\bab\\b/f", "\u00e9ab", True, id="boundary-after-accent"),
+    pytest.param("/\\Bb/f", "ab", True, id="not-boundary"),
+    pytest.param("/\\Bb/f", "a b", False, id="not-boundary-at-word-start"),
+    pytest.param("/\\\\d/", "\\d", True, id="escaped-backslash-then-d"),
+    pytest.param("/\\\\d/", "5", False, id="escaped-backslash-not-digit"),
+    pytest.param("/[\\\\d]+/", "\\d", True, id="class-escaped-backslash-then-d"),
+    pytest.param("/[\\\\d]+/", "5", False, id="class-escaped-backslash-not-digit"),
+    pytest.param("/\\\\u{41}/", "\\uA", False, id="escaped-backslash-before-u-brace"),
+]
+
+
+@pytest.mark.parametrize(("pattern", "response", "expected"), SEMANTICS)
+def test_code_point_mode_and_explicit_classes(
+    pattern: str, response: str, expected: bool
+) -> None:
+    assert RegexPattern(pattern).match(response) is expected
+
+
+def test_kelvin_sign_reaches_the_regex_as_ascii_k() -> None:
+    # NFC maps U+212A to "K" before matching, so `\\w` accepts it.
+    assert RegexPattern("/\\w/").match("\u212a")
+
+
+def test_u_and_v_flags_change_nothing() -> None:
+    assert RegexPattern("/./u").match("\U0001f600")
+    assert RegexPattern("/\\d/v").match("\u0663") is False
+
+
+@pytest.mark.parametrize(
+    ("pattern", "body", "flags"),
+    [
+        ("/a/b/", "a/b", ""),
+        ("/https?://www\\.gov\\.br/i", "https?://www\\.gov\\.br", "i"),
+        ("/usr/bin", "usr", "bin"),
+        ("/abc/i ", "abc", "i"),
+        (" \t/abc/i\t ", "abc", "i"),
+    ],
+)
+def test_parse_regex_last_slash_closes_and_ends_are_stripped(
+    pattern: str, body: str, flags: str
+) -> None:
+    assert parse_regex(pattern) == (body, flags)
+
+
+def test_regex_pattern_accepts_unescaped_slash_and_space_after_flags() -> None:
+    regex = RegexPattern("/gov\\.br/a/i  ")
+    assert regex.match("GOV.BR/A")
+    assert not regex.match("gov.br")
+
+
+def test_parse_regex_unclosed_with_trailing_space_is_an_error() -> None:
+    with pytest.raises(InvalidRegexError):
+        parse_regex("/abc ")

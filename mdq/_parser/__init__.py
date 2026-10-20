@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from ._choices import SLUG_BODY_RE, SLUG_PREFIX_RE
 from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
-from ._frontmatter import COMMON_QUESTION_KEYS, dump_yaml, load_yaml
+from ._frontmatter import dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer
 from ._question import (
     find_forbidden_elements,
@@ -49,7 +49,6 @@ __all__ = [
     "SLUG_BODY_RE",
     "SLUG_PREFIX_RE",
     "SEPARATOR",
-    "COMMON_QUESTION_KEYS",
     "reconstruct_blocks",
     "find_forbidden_elements",
     "find_stray_choice_markers",

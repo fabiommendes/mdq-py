@@ -3,18 +3,20 @@ Frontmatter parsing shared by every question type and by exams.
 
 Splitting the leading `---`-fenced YAML block from the body
 (`_split_frontmatter`), loading it (`_load_frontmatter_yaml`), and
-flagging keys nothing consumes (`_unknown_frontmatter_warnings`) are
-generic enough that `_question.MDQParser` and `_exam.parse_exam` both
-need them as-is. The per-question-type "which keys are known" tables
-(`COMMON_QUESTION_KEYS`/`TYPE_QUESTION_KEYS`) live here too, next to the
-warnings helper that reads them; the exam equivalents
-(`EXAM_FRONTMATTER_KEYS` & co.) live in `_exam` instead, since nothing
-outside exam parsing needs them.
+flagging the keys a frontmatter may not hold
+(`_invalid_frontmatter_fields`) are generic enough that
+`_question.MDQParser` and `_exam.parse_exam` both need them as-is. The
+allowed keys come from the frontmatter schemas of the bundle
+(`$defs/frontmatter-<type>`), which the spec builds from the frontmatter
+tables.
 """
 
 from __future__ import annotations
 
+import json
 import re
+from functools import cache
+from importlib import resources
 from typing import Any, Mapping
 
 import yaml
@@ -24,19 +26,9 @@ from .._markdown import split_lines, strip_bom
 from ..errors import ParseError
 
 __all__ = [
-    "COMMON_QUESTION_KEYS",
     "GRADED_QUESTION_TYPES",
     "PATTERN_LIST_KEYS",
-    "TYPE_QUESTION_KEYS",
 ]
-
-#: Frontmatter keys every question type accepts, read by
-#: `MDQParser.apply_common_frontmatter` -- except `type`, which is read
-#: directly in `MDQParser.parse_question` to pick the parsing path before
-#: any state exists to apply frontmatter onto.
-COMMON_QUESTION_KEYS = frozenset(
-    {"type", "id", "uuid", "title", "author", "locale", "tags", "meta", "weight"}
-)
 
 #: The question types that choose a grading strategy and may be shuffled,
 #: read by `MDQParser.apply_type_specific_frontmatter`. Mirrors
@@ -247,34 +239,108 @@ def _load_frontmatter_yaml(
     return {k: v for k, v in data.items() if v is not None or k in keep_null}
 
 
-def _unknown_frontmatter_warnings(
+@cache
+def _bundle() -> dict[str, Any]:
+    """The bundled schema shipped with the package (`mdq.schema.json`)."""
+    text = resources.files("mdq").joinpath("mdq.schema.json").read_text("utf-8")
+    bundle: dict[str, Any] = json.loads(text)
+    return bundle
+
+
+@cache
+def _frontmatter_fields(document_type: str) -> frozenset[str]:
+    """
+    The keys a frontmatter may hold, from the frontmatter schema of the
+    bundle (`$defs/frontmatter-<type>`, built from the frontmatter tables).
+    """
+    schema = _bundle()["$defs"][f"frontmatter-{document_type}"]
+    return frozenset(schema["properties"])
+
+
+@cache
+def _schema_fields(document_type: str) -> frozenset[str]:
+    """
+    Every field of the document type in the bundle, wherever its schema
+    declares it. The fields that are not in the frontmatter schema are the
+    ones the body sets.
+    """
+    defs = _bundle()["$defs"]
+    fields: set[str] = set()
+    for stem in (document_type, "question-base"):
+        schema = defs[stem]
+        fields.update(schema.get("properties", {}))
+        for member in schema.get("allOf", []):
+            if isinstance(member, dict):
+                fields.update(member.get("properties", {}))
+    return frozenset(fields)
+
+
+#: How the body sets each field a frontmatter cannot hold, as a hint for
+#: the `invalid-frontmatter-field` message. A `(type, field)` entry takes
+#: precedence over the entry of the `field` alone.
+_BODY_SYNTAX: dict[str | tuple[str, str], str] = {
+    "stem": "the stem is the last paragraph before the body",
+    "preamble": "the preamble is the text before the stem",
+    "epilogue": "the epilogue is the text after the body",
+    "comment": "the comment is the leading `#` lines of the frontmatter",
+    "choices": "write the choices as the items of a list, such as `* [*] Brasília`",
+    "answer": "write `[numeric(unit)]: value +- tolerance`",
+    "tolerance": "write `[numeric(unit)]: value +- tolerance`",
+    "unit": "write `[numeric(unit)]: value`",
+    ("short-answer", "accept"): "write a `[short-answer]:` block",
+    ("short-answer", "reject"): "write a `[short-answer/reject]:` block",
+    ("ordering", "accept"): "write a `## [accept]` section",
+    ("ordering", "reject"): "write a `## [reject]` section",
+    "lines": "write the lines under the `[ordering]` tag",
+    "extra": "write a `## [extra]` section",
+    "blanks": "write `[^id]` markers in the stem and `[^id]:` definitions",
+    "answerKey": "write a `## [answer-key]` section",
+    "instructions": "write the text between the title and the first question",
+    "questions": "write the questions as blocks separated by `===`",
+}
+
+
+def _invalid_frontmatter_fields(
     front: Mapping[str, Any],
-    known: frozenset[str],
+    document_type: str,
     path_prefix: tuple[str | int, ...] = (),
 ) -> list[Diagnostic]:
     """
-    One `unknown-frontmatter-key` `Diagnostic` per key of `front` that is
-    not in `known`, in frontmatter order.
+    One `invalid-frontmatter-field` error `Diagnostic` per key of `front`
+    that is not in the frontmatter schema of `document_type`, in
+    frontmatter order (base.md, "Frontmatter"). A `document_type` with no
+    schema, such as `quiz`, has no diagnostic here.
 
-    The parser is the only component that knows which keys it actually
-    consumes, so it is the one reporting the ones it doesn't -- a typo
-    like `auther:`, or a field that simply does not exist, otherwise
-    vanishes without a trace.
+    The message says when the key is a field the body sets, and how.
     """
-    return [
-        Diagnostic(
-            severity="warning",
-            code="unknown-frontmatter-key",
-            path=path_prefix + (key,),
-            message=f"{key!r} is not a recognized frontmatter field and is ignored",
+    if f"frontmatter-{document_type}" not in _bundle()["$defs"]:
+        return []  # not a document type: the schema reports the `type`
+    allowed = _frontmatter_fields(document_type)
+    body_fields = _schema_fields(document_type) - allowed
+    diagnostics = []
+    for key in front:
+        if key in allowed:
+            continue
+        if key in body_fields:
+            hint = _BODY_SYNTAX.get((document_type, key)) or _BODY_SYNTAX.get(key)
+            message = f"{key!r} is a field the body sets, not a frontmatter field"
+            message += f": {hint}" if hint else ""
+        else:
+            message = f"{key!r} is not a frontmatter field of a {document_type}"
+        diagnostics.append(
+            Diagnostic(
+                severity="error",
+                code="invalid-frontmatter-field",
+                path=path_prefix + (key,),
+                message=message,
+            )
         )
-        for key in front
-        if key not in known
-    ]
+    return diagnostics
 
 
-#: Frontmatter keys holding pattern lists, copied through verbatim.
-PATTERN_LIST_KEYS = ("accept", "reject", "preAccept", "preReject")
+#: Frontmatter keys holding pattern lists, copied through verbatim. The
+#: `accept` and `reject` lists are set by body blocks only.
+PATTERN_LIST_KEYS = ("preAccept", "preReject")
 
 
 def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
@@ -282,47 +348,6 @@ def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
     for key in PATTERN_LIST_KEYS:
         if key in front and key not in doc:
             doc[key] = front[key]
-
-
-#: Per-type frontmatter keys, one entry per question type that reads
-#: fields of its own beyond `COMMON_QUESTION_KEYS`. Each set is declared
-#: next to the method that actually consumes it:
-#:
-#: * multiple-choice/multiple-selection/true-false/fill-in `shuffle` and
-#:   `grading`: `MDQParser.apply_type_specific_frontmatter` (fill-in also
-#:   reads its own `shuffle` and `diacritics` directly in
-#:   `MDQParser.parse_fill_in_body`). Fill-in `preAccept`/`preReject` are
-#:   maps from blank id to pattern list:
-#:   `MDQParser.distribute_blank_pattern_lists` moves them onto the blanks.
-#: * essay `input`/`highlight`: `MDQParser.parse_essay_body`.
-#: * ordering: `MDQParser.parse_ordering_body`.
-#: * short-answer `diacritics`/`unmatched`/`incorrectFeedback`/pattern lists:
-#:   `MDQParser.parse_short_answer_body` and `_copy_pattern_lists`.
-#: * numeric `domain`/`decimalPlaces`/`unit`: `MDQParser.parse_numeric_body`.
-TYPE_QUESTION_KEYS: dict[str, frozenset[str]] = {
-    "multiple-choice": frozenset({"shuffle", "grading"}),
-    "multiple-selection": frozenset({"shuffle", "grading"}),
-    "true-false": frozenset({"shuffle", "grading"}),
-    "fill-in": frozenset(
-        {"shuffle", "grading", "diacritics", "unmatched", "preAccept", "preReject"}
-    ),
-    "essay": frozenset({"input", "highlight"}),
-    "ordering": frozenset(
-        {"content", "highlight", "indentation", "unmatched", "normalizations"}
-    ),
-    "short-answer": frozenset(
-        {"diacritics", "unmatched", "incorrectFeedback", *PATTERN_LIST_KEYS}
-    ),
-    "numeric": frozenset({"domain", "decimalPlaces", "unit"}),
-}
-
-
-def _question_frontmatter_warnings(
-    front: Mapping[str, Any], question_type: str
-) -> list[Diagnostic]:
-    """`unknown-frontmatter-key` warnings for one question's frontmatter."""
-    known = COMMON_QUESTION_KEYS | TYPE_QUESTION_KEYS.get(question_type, frozenset())
-    return _unknown_frontmatter_warnings(front, known)
 
 
 def _normalize_tags(tags: Any) -> Any:

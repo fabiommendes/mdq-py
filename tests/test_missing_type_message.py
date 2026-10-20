@@ -53,8 +53,8 @@ def _exam_md(block: str) -> str:
     return f"# Biomas\n\n{block}"
 
 
-def _unknown_key(loaded) -> list:
-    return [d for d in loaded.diagnostics if d.code == "unknown-frontmatter-key"]
+def _invalid_field(loaded) -> list:
+    return [d for d in loaded.diagnostics if d.code == "invalid-frontmatter-field"]
 
 
 def test_md_block_with_misspelled_include_key_and_no_body() -> None:
@@ -69,16 +69,16 @@ def test_md_block_with_misspelled_include_key_and_no_body() -> None:
 def test_md_block_with_misspelled_include_key_and_body() -> None:
     source = _exam_md("---\ninclude_all: biome\n---\n\nQual bioma?\n\n[essay]\n")
     loaded = load(source, format="mdq")
-    assert loaded.document is not None
-    [d] = _unknown_key(loaded)
-    assert (d.code, d.severity) == ("unknown-frontmatter-key", "warning")
+    assert loaded.document is None
+    [d] = _invalid_field(loaded)
+    assert (d.code, d.severity) == ("invalid-frontmatter-field", "error")
     assert d.path == ("questions", 0, "include_all")
     assert "did you mean `includeAll` instead of `include_all`?" in d.message
 
 
 def test_md_block_without_include_like_key_has_no_hint() -> None:
     loaded = load(_exam_md("---\nautor: Ana\n---\n\nQual bioma?\n\n[essay]\n"), format="mdq")
-    [d] = _unknown_key(loaded)
+    [d] = _invalid_field(loaded)
     assert "did you mean" not in d.message
 
 

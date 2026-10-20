@@ -216,16 +216,12 @@ def test_b1_json_source_with_one_of_is_a_schema_error() -> None:
     ["regex: Bras[ií]lia\n", "oneOf: [Brasília]\n"],
     ids=["regex", "oneOf"],
 )
-def test_b1_markdown_frontmatter_one_of_or_regex_is_dropped_as_unknown_key(
+def test_b1_markdown_frontmatter_one_of_or_regex_is_an_invalid_field(
     frontmatter: str,
 ) -> None:
     loaded = load(_md("[short-answer]: Brasília\n", frontmatter), format="mdq")
-    assert loaded.document is not None
-    assert "unknown-frontmatter-key" in _codes(loaded.diagnostics)
-    document = loaded.document.to_dict()
-    assert "oneOf" not in document
-    assert "regex" not in document
-    assert _patterns(document["accept"]) == ["Brasília"]
+    assert loaded.document is None
+    assert _codes(_errors(loaded.diagnostics)) == ["invalid-frontmatter-field"]
 
 
 #
@@ -249,32 +245,19 @@ def test_b2_bullet_list_answers_all_score_one() -> None:
 
 
 #
-# AC5: content plus frontmatter `accept`
+# AC5: `accept` in the frontmatter is an invalid field, whatever the body
 #
-def test_b2_bare_content_with_frontmatter_accept_is_conflicting_accept() -> None:
-    source = _md("[short-answer]: Brasília\n", "accept: [Distrito Federal]\n")
-    loaded = load(source, format="mdq")
+@pytest.mark.parametrize(
+    "body",
+    ["[short-answer]: Brasília\n", "[short-answer]: `DF`\n", "[short-answer]:\n"],
+    ids=["bare", "backtick", "empty"],
+)
+def test_b2_frontmatter_accept_is_an_invalid_field(body: str) -> None:
+    loaded = load(_md(body, "accept: [Distrito Federal]\n"), format="mdq")
     assert loaded.document is None
-    assert "conflicting-accept" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b2_backtick_content_with_frontmatter_accept_is_conflicting_accept() -> None:
-    source = _md("[short-answer]: `DF`\n", "accept: [Brasília]\n")
-    loaded = load(source, format="mdq")
-    assert loaded.document is None
-    assert "conflicting-accept" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b2_empty_block_with_frontmatter_accept_is_valid() -> None:
-    source = _md("[short-answer]:\n", "accept: [Brasília]\n")
-    loaded = load(source, format="mdq")
-    assert "conflicting-accept" not in _codes(loaded.diagnostics)
-    assert not _errors(loaded.diagnostics)
-    question = _question(source)
-    document = question.to_dict()
-    assert _patterns(document["accept"]) == ["Brasília"]
-    assert not document.get("openEnded")
-    assert question.score_response("brasilia").score == 1.0
+    assert [(d.code, d.path) for d in _errors(loaded.diagnostics)] == [
+        ("invalid-frontmatter-field", ("accept",))
+    ]
 
 
 def test_b2_empty_block_with_accept_block_is_a_parse_error() -> None:

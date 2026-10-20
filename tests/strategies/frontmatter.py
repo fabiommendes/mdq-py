@@ -1,8 +1,7 @@
 """
-Hypothesis strategies for the `unknown-frontmatter-key` lint rule (see
-`dev/specs/to-do/unknown-frontmatter-keys.md`,
-`docs/question-types/base.md` and each type's own "Frontmatter" section,
-and `docs/exam.md` §§ Frontmatter and Question block).
+Hypothesis strategies for the `invalid-frontmatter-field` rule (see
+`docs/question-types/question-base.md`, each type's own "Frontmatter"
+section and `docs/exam.md` §§ Frontmatter and Question block).
 
 The known-key lists below are transcribed from the documented frontmatter
 tables, not from `mdq._parser`'s own registry -- so a test built on them
@@ -37,9 +36,23 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
     "multiple-choice": ("shuffle", "grading"),
     "multiple-selection": ("shuffle", "grading"),
     "true-false": ("shuffle", "grading"),
-    "numeric": ("unit", "domain", "decimalPlaces"),
-    "short-answer": ("accept", "reject", "preAccept", "preReject", "diacritics"),
-    "fill-in": ("shuffle", "grading", "diacritics"),
+    "numeric": ("domain", "decimalPlaces"),
+    "short-answer": (
+        "preAccept",
+        "preReject",
+        "diacritics",
+        "unmatched",
+        "incorrectFeedback",
+    ),
+    "fill-in": (
+        "shuffle",
+        "grading",
+        "diacritics",
+        "unmatched",
+        "preAccept",
+        "preReject",
+        "incorrectFeedback",
+    ),
     "ordering": (
         "content",
         "highlight",
@@ -63,6 +76,7 @@ EXAM_KEYS: tuple[str, ...] = (
     "meta",
     "penalty",
     "grading",
+    "shuffle",
     "start",
     "duration",
 )

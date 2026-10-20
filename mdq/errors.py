@@ -167,16 +167,3 @@ class ForeignChoiceMarker(ParseError):
         self.value = value
         self.question_type = question_type
         self.path = path
-
-
-class ConflictingAnswerKey(ParseError):
-    """
-    short-answer.md:379: `accept`/`reject` (or their `pre*` counterparts)
-    are declared both as a frontmatter field and as a `[short-answer/
-    accept]`/`[short-answer/reject]` body block -- two spellings of the
-    same list that would otherwise silently disagree about which one
-    wins. Carries its own `code` so `mdq._loading._parse_error` can report
-    it as something more specific than the generic `parse-error`.
-    """
-
-    code = "conflicting-accept"

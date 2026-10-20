@@ -119,7 +119,7 @@ def bundled_types(bundle: dict[str, Any]) -> set[str]:
 #: `.lint.json` but can never report them.
 PARSER_ONLY_CODES = frozenset(
     {
-        "unknown-frontmatter-key",
+        "redundant-id",
         "separator-before-include",
         "non-ascii-whitespace",
         "non-ascii-whitespace-in-prose",

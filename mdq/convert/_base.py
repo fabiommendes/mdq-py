@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import re
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any, ClassVar, Literal
 
 from .. import _parser
+from .._exact import exact_literal
 from ..errors import ParseError
 from ..models import (
     AnswerPattern,
@@ -204,10 +206,14 @@ def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[
                 f"cannot convert to {format}: the pattern {pattern!r} is a "
                 "regex, and only literal answers are supported"
             )
-        if len(pattern) >= 2 and pattern.startswith("`") and pattern.endswith("`"):
-            pattern = pattern[1:-1]
-        texts.append(pattern)
+        content = exact_literal(pattern)
+        texts.append(pattern if content is None else content)
     return texts
+
+
+#: A line ending and the indentation of the next line, which a pattern string
+#: replaces with one space (patterns.md, "Continuation lines").
+_LINE_BREAK_RE = re.compile(r"(?:\r\n|\r|\n)[ \t]*")
 
 
 def literal_pattern(text: str, *, format: str) -> AnswerPattern:
@@ -217,10 +223,17 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
     (a regex or a backtick span) is enclosed in backticks. A lone `*` is an
     ordinary plain literal.
 
+    A pattern string has no line ending, so each line ending in `text`,
+    with the indentation of the next line, becomes one space, as in the
+    continuation lines of a body block.
+
     Raises:
         ValueError: `text` needs backticks but contains one.
     """
     stripped = text.strip(" \t\r\n")
+    multiline = _LINE_BREAK_RE.search(stripped) is not None
+    if multiline:
+        stripped = _LINE_BREAK_RE.sub(" ", stripped)
     if stripped.startswith(("/", "`")):
         if "`" in stripped:
             raise ValueError(
@@ -228,7 +241,7 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
                 "a backtick and cannot be written as a literal pattern"
             )
         return AnswerPattern(pattern=f"`{stripped}`")
-    return AnswerPattern(pattern=text)
+    return AnswerPattern(pattern=stripped if multiline else text)
 
 
 class ConversionBase[Q]:

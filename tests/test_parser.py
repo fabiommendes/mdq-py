@@ -393,18 +393,16 @@ def test_numeric_unit_with_slash_does_not_break_fill_in_blank_syntax() -> None:
     assert blank.answer == 80
 
 
-@pytest.mark.parametrize(
-    "src",
-    [
-        "---\naccept: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
-        "---\nreject: [Rio de Janeiro]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n",
-    ],
-)
-def test_bare_short_answer_with_frontmatter_patterns_keeps_them(src: str) -> None:
-    # short-answer.md, "Block with no pattern": an empty block adds nothing.
-    document = load(src, format="mdq").validate().to_dict()
-    assert "openEnded" not in document
-    assert ("accept" in document) != ("reject" in document)
+@pytest.mark.parametrize("key", ["accept", "reject"])
+def test_bare_short_answer_with_frontmatter_patterns_is_an_invalid_field(key: str) -> None:
+    # short-answer.md, "Frontmatter": `accept` and `reject` are set by body
+    # blocks only.
+    src = f"---\n{key}: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n"
+    loaded = load(src, format="mdq")
+    assert loaded.document is None
+    assert [(d.code, d.path) for d in loaded.diagnostics] == [
+        ("invalid-frontmatter-field", (key,))
+    ]
 
 
 def test_bare_short_answer_without_patterns_has_no_accept_and_no_open_ended() -> None:
@@ -414,11 +412,11 @@ def test_bare_short_answer_without_patterns_has_no_accept_and_no_open_ended() ->
 
 
 def test_bare_short_answer_with_dropped_regex_frontmatter_has_no_pattern() -> None:
-    """`regex` is no longer a short-answer field: the key is dropped as unknown,
-    so the question has no pattern at all."""
+    """`regex` is no longer a short-answer field: the key is an invalid
+    frontmatter field."""
     src = "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n"
     loaded = load(src, format="mdq")
-    assert loaded.document is not None
-    document = loaded.document.to_dict()
-    assert "openEnded" not in document
-    assert "accept" not in document
+    assert loaded.document is None
+    assert [(d.code, d.path) for d in loaded.diagnostics] == [
+        ("invalid-frontmatter-field", ("regex",))
+    ]

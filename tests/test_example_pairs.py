@@ -113,9 +113,14 @@ def test_frontmatter_agrees_with_the_parsed_document(source: Path) -> None:
         # base.md, "Frontmatter": a null value is the same as an absent field.
         if value is None:
             continue
-        # fill-in.md, "Frontmatter": the `preAccept`/`preReject` maps are
-        # spread over the blanks they key, so the question has no such field.
-        if parsed.get("type") == "fill-in" and key in ("preAccept", "preReject"):
+        # fill-in.md, "Frontmatter": the `preAccept`, `preReject` and
+        # `incorrectFeedback` maps are spread over the blanks they key, so the
+        # question has no such field.
+        if parsed.get("type") == "fill-in" and key in (
+            "preAccept",
+            "preReject",
+            "incorrectFeedback",
+        ):
             continue
         # A key the parser does not know is dropped with
         # `unknown-frontmatter-key`, which the source's `.lint.json` pins.

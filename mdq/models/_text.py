@@ -15,12 +15,14 @@ import unicodedata
 from importlib import resources
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 from .. import types as t
+from .._exact import exact_literal
 from .._markdown import UNICODE_SPACE
 from .._diagnostics import Diagnostic
-from ..errors import NotAutoGradable
+from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Diacritics, EssayInput, Unmatched
 from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
@@ -28,9 +30,6 @@ from ._regex import InvalidRegexError, RegexPattern
 from ._score import QuestionScore
 
 __all__ = ["AnswerPattern", "ShortAnswerQuestion", "EssayQuestion"]
-
-
-PATTERN_STRING_RE = r"^(?:`[^`\n]+`[ \t]*|[^`\s][\s\S]*|\s+[^`\s][\s\S]*)$"
 
 
 class AnswerPattern(MdqModel):
@@ -43,10 +42,11 @@ class AnswerPattern(MdqModel):
 
     #: A regex when delimited by `/`, an exact literal when enclosed in
     #: backticks, and an inexact plain literal otherwise. The pattern
-    #: mirrors `patternString` in schema/short-answer.yaml: at least one
-    #: visible character, and a pattern that opens with a backtick is a
-    #: complete backtick-enclosed span (short-answer.md, "Content").
-    pattern: Annotated[str, Field(min_length=1, pattern=PATTERN_STRING_RE)]
+    #: mirrors `patternString` in schema/short-answer.yaml: a pattern that
+    #: opens with a backtick is a complete code span (`exact_literal`,
+    #: short-answer.md, "Content"). A pattern with no visible character is
+    #: `blank-text` (`check_pattern_has_visible_character`).
+    pattern: Annotated[str, Field(min_length=1)]
     feedback: FreeText | None = None
     comment: FreeText | None = None
 
@@ -55,6 +55,52 @@ class AnswerPattern(MdqModel):
     def _accept_bare_string(cls, value: Any) -> Any:
         """Expand the bare-string shorthand into the object form."""
         return {"pattern": value} if isinstance(value, str) else value
+
+    @field_validator("pattern")
+    @classmethod
+    def check_pattern_string(cls, value: str) -> str:
+        """
+        patterns.md, "Pattern string": a pattern string has no line ending,
+        and one that opens with a backtick is a complete exact literal.
+        The schema checks the shape only: it cannot match the N of the
+        opening and of the closing run.
+        """
+        if "\r" in value or "\n" in value:
+            raise PydanticCustomError(
+                "schema-error", "a pattern string cannot contain a line ending"
+            )
+        if value.strip(" \t").startswith("`") and exact_literal(value) is None:
+            raise PydanticCustomError(
+                "schema-error",
+                "a pattern that opens with a backtick must be a complete exact "
+                "literal: a run of the same number of backticks closes it, "
+                "and nothing follows the closing run",
+            )
+        return value
+
+    @model_validator(mode="after")
+    def check_pattern_has_visible_character(self) -> Self:
+        """
+        patterns.md, "Pattern string": a pattern string must have a
+        visible character (`blank-text`). For an exact literal, the text
+        between the backticks is checked, so `` ` ` `` is blank.
+
+        Like `check_pattern_compiles`, the diagnostic points at the list
+        entry, not at `pattern`.
+        """
+        text = self.pattern.strip(" \t")
+        content = exact_literal(text)
+        if content is not None:
+            text = content
+        if not _lint.has_visible_character(text):
+            _raise_unique_id_error(
+                type(self).__name__,
+                "blank-text",
+                "pattern has no visible character",
+                (),
+                self.pattern,
+            )
+        return self
 
     @model_validator(mode="after")
     def check_pattern_compiles(self) -> Self:
@@ -68,7 +114,7 @@ class AnswerPattern(MdqModel):
         """
         # short-answer.md, "Pattern lines": the pattern is a regex if it
         # starts with `/` after stripping spaces and tabs.
-        if self.pattern.strip(" \t\r\n").startswith("/"):
+        if self.pattern.strip(" \t").startswith("/"):
             try:
                 RegexPattern(self.pattern)
             except InvalidRegexError as exc:
@@ -92,20 +138,33 @@ class AnswerPattern(MdqModel):
         does not affect it; a bare literal is compared after normalization, which
         `diacritics` tunes: `"fold"` strips diacritics as it always did,
         `"keep"` leaves them so `Maceió` rejects `Maceio`; a regex sees
-        the raw response and lets its own flags decide -- normalizing
-        first would make a case-sensitive regex impossible, and neither
-        it nor the backtick form consult `diacritics` at all.
+        the response in NFC with the `UNICODE_SPACE` ends removed, and
+        lets its own flags decide the rest (patterns.md, "Regex"). Neither
+        the regex nor the backtick form consults `diacritics`.
         """
-        pattern = self.pattern.strip(" \t\r\n")
+        pattern = self.pattern.strip(" \t")
         if pattern.startswith("/"):
             return RegexPattern(pattern).match(response)
-        if pattern.startswith("`") and pattern.endswith("`") and len(pattern) >= 2:
-            return _exact_form(response) == _exact_form(pattern[1:-1])
+        content = exact_literal(pattern)
+        if content is not None:
+            return _exact_form(response) == _exact_form(content)
         return normalize_text(response, diacritics=diacritics) == normalize_text(
             pattern, diacritics=diacritics
         )
 
 
+
+
+def check_text_response(response: object) -> None:
+    """
+    Raise `ResponseError` unless `response` is a string (responses.md,
+    "Short answer and essay"). A number is not converted: `1.0` and `1`
+    would become different texts.
+    """
+    if not isinstance(response, str):
+        raise ResponseError(
+            f"A text response must be a string, found {type(response).__name__}"
+        )
 
 
 #: A pattern list holds at least one entry (schema `patternList`, `minItems: 1`).
@@ -192,6 +251,19 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
         yield ""
         yield from render_short_answer_patterns(self.accept, self.reject)
 
+    def prevalidate(self, response: str) -> tuple[bool, str | None]:
+        """
+        Pre-validate a submission (short-answer.md, "Pre-validation").
+
+        Returns:
+            `(valid, feedback)`: `feedback` is the pattern feedback shown for
+            an invalid submission, `None` when the submission is valid or no
+            pattern has feedback. Grading never calls this.
+        """
+        return prevalidate_response(
+            self.pre_accept, self.pre_reject, response, diacritics=self.diacritics
+        )
+
     def effective_accept(self) -> list[AnswerPattern]:
         """Return the accept list grading uses: `accept`, or empty when unset."""
         return self.accept or []
@@ -206,9 +278,12 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
         `incorrect_feedback`, if set.
 
         Raises:
+            ResponseError: `response` is not a string (responses.md, "Short
+                answer and essay"). An empty string is graded like any other.
             NotAutoGradable: the response matches no pattern and
                 `effective_unmatched` is `"manual"`: it is pending.
         """
+        check_text_response(response)
         outcome = settle_response(
             self.accept,
             self.reject,
@@ -272,8 +347,10 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
         Never gradable automatically.
 
         Raises:
-            NotAutoGradable: always.
+            ResponseError: `response` is not a string.
+            NotAutoGradable: always, for a string.
         """
+        check_text_response(response)
         raise NotAutoGradable("essay questions require manual grading")
 
     def _render_lines(self) -> Iterable[str]:
@@ -363,6 +440,32 @@ def settle_response(
     if any(rule.matches(response, diacritics=diacritics) for rule in reject or []):
         return "incorrect"
     return "incorrect" if unmatched == "incorrect" else "pending"
+
+
+def prevalidate_response(
+    pre_accept: list[AnswerPattern] | None,
+    pre_reject: list[AnswerPattern] | None,
+    response: str,
+    *,
+    diacritics: Diacritics = "fold",
+) -> tuple[bool, str | None]:
+    """
+    Apply the pre-validation rules of short-answer.md. A response is invalid
+    when it matches a `preReject` pattern, or when `preAccept` is declared and
+    it matches none of its patterns. The feedback of an invalid response is,
+    in order: the first matching `preReject` pattern with feedback; else, if
+    no `preAccept` pattern matches, the first `preAccept` pattern with
+    feedback. Otherwise `None`.
+    """
+    if any(r.matches(response, diacritics=diacritics) for r in pre_reject or []):
+        feedback = first_feedback(pre_reject or [], response, diacritics=diacritics)
+        return False, feedback[0] if feedback else None
+    if pre_accept and not any(
+        r.matches(response, diacritics=diacritics) for r in pre_accept
+    ):
+        hints = [r.feedback for r in pre_accept if r.feedback is not None]
+        return False, hints[0] if hints else None
+    return True, None
 
 
 def _pattern_entry(rule: AnswerPattern) -> str | dict[str, str]:
