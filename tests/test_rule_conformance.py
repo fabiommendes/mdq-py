@@ -63,22 +63,6 @@ def _load_ok(doc: dict):
 # =======================================================================
 
 
-def test_stem_not_a_paragraph_is_a_warning() -> None:
-    """base.md:253. Uses a blockquote opener, not a heading: H1 is a
-    forbidden block element (base.md's "Forbidden elements"), which
-    would make the document uninterpretable as a mere non-paragraph
-    stem once Section D's forbidden-elements rule is enforced."""
-    doc = {
-        "type": "essay",
-        "stem": "> Isso não é um parágrafo comum.",
-        "input": "text",
-    }
-    question = _load_ok(doc)
-    matching = [d for d in question.lint() if d.code == "stem-not-a-paragraph"]
-    assert len(matching) == 1
-    assert matching[0].severity == "warning"
-
-
 def test_code_input_without_highlight_is_info() -> None:
     """essay.md:90."""
     doc = {"type": "essay", "stem": "Descreva o algoritmo.", "input": "code"}
@@ -587,7 +571,7 @@ def test_forbidden_block_element_in_stem_from_a_yaml_document_is_an_error() -> N
     }
     loaded = load(doc)
     assert loaded.document is None, (
-        "base.md:250 (forbidden block elements in preamble/epilogue/stem, "
+        "base.md:250 (forbidden block elements in stem/epilogue, "
         "also for YAML/JSON documents) is not enforced: the document loaded "
         f"cleanly with diagnostics {loaded.diagnostics!r}"
     )

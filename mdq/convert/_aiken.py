@@ -43,7 +43,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
 
         scores = effective_scores(question)
 
-        parts = [question.preamble, question.stem, question.epilogue]
+        parts = [question.stem, question.epilogue]
         return AikenQuestion(
             stem="\n\n".join(filter(None, parts)),
             choices=[choice.text for choice in question.choices],

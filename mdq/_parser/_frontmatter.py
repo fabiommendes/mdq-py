@@ -279,8 +279,7 @@ def _schema_fields(document_type: str) -> frozenset[str]:
 #: the `invalid-frontmatter-field` message. A `(type, field)` entry takes
 #: precedence over the entry of the `field` alone.
 _BODY_SYNTAX: dict[str | tuple[str, str], str] = {
-    "stem": "the stem is the last paragraph before the body",
-    "preamble": "the preamble is the text before the stem",
+    "stem": "the stem is the text before the body",
     "epilogue": "the epilogue is the text after the body",
     "comment": "the comment is the leading `#` lines of the frontmatter",
     "choices": "write the choices as the items of a list, such as `* [*] Brasília`",

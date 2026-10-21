@@ -220,11 +220,11 @@ def test_body_shape_matches_the_parsed_document(source: Path) -> None:
         return
 
     if isinstance(parsed.get("choices"), list):
-        # Items with a choice marker can also sit in a list of the preamble
+        # Items with a choice marker can also sit in a list of the stem
         # or the epilogue (`stray-choice-marker`): they are not choices.
         written = len(_CHOICE_ITEM_RE.findall(body)) - sum(
             len(_CHOICE_ITEM_RE.findall(parsed.get(field) or ""))
-            for field in ("preamble", "epilogue")
+            for field in ("stem", "epilogue")
         )
         assert written == len(parsed["choices"]), (
             f"{relative_id(source)}: the body has {written} choice item(s) "

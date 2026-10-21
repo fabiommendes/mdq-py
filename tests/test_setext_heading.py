@@ -44,10 +44,10 @@ def test_fence_glued_to_a_question_epilogue_warns() -> None:
     assert [c for c, _ in _codes(loaded)].count("setext-heading") == 1
 
 
-def test_fence_glued_to_a_question_preamble_warns() -> None:
+def test_fence_glued_to_a_question_stem_warns() -> None:
     source = "# Prova\n\n===\n\nIntro\n---\nid: q1\n---\n\nQual?\n\n* [*] a\n* [ ] b\n"
     loaded = mdq.load(source, kind="exam")
-    assert ("setext-heading", ("questions", 0, "preamble")) in _codes(loaded)
+    assert ("setext-heading", ("questions", 0, "stem")) in _codes(loaded)
 
 
 def test_blank_line_before_the_fence_is_clean() -> None:
@@ -72,9 +72,9 @@ def test_atx_heading_is_not_reported() -> None:
 
 
 def test_helper_reports_the_given_path() -> None:
-    [diag] = check_setext_heading("Texto\n---\nmais", ("questions", 2, "preamble"))
+    [diag] = check_setext_heading("Texto\n---\nmais", ("questions", 2, "stem"))
     assert diag.code == "setext-heading"
-    assert tuple(diag.path) == ("questions", 2, "preamble")
+    assert tuple(diag.path) == ("questions", 2, "stem")
 
 
 def test_standalone_question_is_not_linted() -> None:

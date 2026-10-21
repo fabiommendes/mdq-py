@@ -28,11 +28,11 @@ def test_h1_line_in_an_epilogue_code_block_does_not_make_an_exam(block: str) -> 
     assert loaded.document.epilogue == block
 
 
-def test_h1_line_in_a_preamble_code_block_does_not_make_an_exam() -> None:
+def test_h1_line_in_a_stem_code_block_does_not_make_an_exam() -> None:
     text = f"{_PYTHON_BLOCK}\n\nQuantos estados tem o Brasil?\n\n[numeric]: 26\n"
     loaded = load(text, kind="question")
     assert isinstance(loaded.document, NumericQuestion), loaded.diagnostics
-    assert loaded.document.preamble == _PYTHON_BLOCK
+    assert loaded.document.stem.startswith(_PYTHON_BLOCK)
 
 
 _EXAM_CODE = "```text\n# não é título\n\n===\n\n---\nid: nada\n---\n\n[numeric]: 7\n```"

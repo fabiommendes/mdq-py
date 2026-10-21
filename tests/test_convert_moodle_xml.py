@@ -933,9 +933,9 @@ def test_shuffle_field_carries_over_both_directions():
     assert roundtripped.shuffle is True
 
 
-def test_from_mdq_prepends_preamble_with_blank_line():
+def test_from_mdq_keeps_a_multi_block_stem():
     question = EssayQuestion(
-        preamble="Consider Brazilian ecosystems.", stem="Explain the Cerrado."
+        stem="Consider Brazilian ecosystems.\n\nExplain the Cerrado."
     )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks

@@ -66,6 +66,12 @@ class AnswerPattern(MdqModel):
         opening and of the closing run.
         """
         if "\r" in value or "\n" in value:
+            if value.strip(" \t\r\n").startswith("`"):
+                raise PydanticCustomError(
+                    "schema-error",
+                    "an exact literal cannot open at the end of a line, and "
+                    "its closing run cannot start a line",
+                )
             raise PydanticCustomError(
                 "schema-error", "a pattern string cannot contain a line ending"
             )

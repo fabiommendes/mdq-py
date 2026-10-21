@@ -178,7 +178,7 @@ def test_known_common_question_keys_are_never_reported(key: str) -> None:
         (
             "---\nstem: Qual é a capital?\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n",
             "stem",
-            "last paragraph",
+            "text before the body",
         ),
         (
             "---\naccept: [Brasília]\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n",

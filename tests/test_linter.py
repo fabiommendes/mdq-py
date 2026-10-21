@@ -38,8 +38,7 @@ def test_non_blank_text_fields_do_not_warn() -> None:
         "type": "essay",
         "id": "explain-x",
         "title": "Explain X",
-        "stem": "Explain X.",
-        "preamble": "Some context.",
+        "stem": "Some context.\n\nExplain X.",
         "epilogue": "Be concise.",
         "comment": "Internal note.",
         "input": "text",
@@ -53,7 +52,7 @@ def test_missing_text_fields_do_not_warn() -> None:
     fires on a defined-but-empty value, never on `None`. `id`/`title`/
     `answerKey` get their own rules for that (`missing-id`,
     `missing-title`, `missing-answer-key`), asserted elsewhere."""
-    doc = {"type": "essay", "stem": "Explain X.", "input": "text"}
+    doc = {"type": "essay", "stem": "Some context.\n\nExplain X.", "input": "text"}
     assert _rules(load(doc).diagnostics) == {
         "missing-id",
         "missing-title",
@@ -272,22 +271,6 @@ def test_ordinary_tags_do_not_warn() -> None:
         "tags": ["algorithms", "complexity"],
     }
     assert _rules(load(doc).diagnostics) == set()
-
-
-@pytest.mark.parametrize(
-    "stem",
-    [
-        "## A heading",
-        "* a list item",
-        "1. an ordered item",
-        "> a quote",
-        "| a | table |",
-        "```python",
-    ],
-)
-def test_non_paragraph_stem_warns_at_strict(stem: str) -> None:
-    doc = {"type": "essay", "stem": stem}
-    assert "stem-not-a-paragraph" in _rules(load(doc).diagnostics)
 
 
 def test_ordinary_stem_is_not_flagged_as_a_block() -> None:

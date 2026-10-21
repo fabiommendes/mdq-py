@@ -724,9 +724,9 @@ def test_from_mdq_fill_in_multiple_blanks_raises():
         Gift().from_mdq(question)
 
 
-def test_from_mdq_prepends_preamble_with_blank_line():
+def test_from_mdq_keeps_a_multi_block_stem():
     question = EssayQuestion(
-        preamble="Consider Brazilian ecosystems.", stem="Explain the Cerrado."
+        stem="Consider Brazilian ecosystems.\n\nExplain the Cerrado."
     )
     gift = Gift().from_mdq(question)
     [block] = gift.blocks

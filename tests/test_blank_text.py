@@ -68,7 +68,7 @@ def _choice_blank_fill_in(choice: dict[str, Any]) -> dict[str, Any]:
 #
 @pytest.mark.parametrize("value", BLANKS)
 @pytest.mark.parametrize(
-    "field_name", ["title", "author", "comment", "preamble", "stem", "epilogue", "answerKey"]
+    "field_name", ["title", "author", "comment", "stem", "epilogue", "answerKey"]
 )
 def test_question_free_text_field(field_name: str, value: str) -> None:
     _assert_blank_text(_essay(**{field_name: value}), (field_name,))

@@ -17,7 +17,7 @@ def _codes(loaded: mdq.Loaded) -> list[tuple[str, tuple[str | int, ...]]]:
 @pytest.mark.parametrize("line", ["---", "----", "- - -", " ---"])
 def test_dash_thematic_break_warns_with_the_field_path(line: str) -> None:
     loaded = mdq.load(f"Um.\n\n{line}\n\nDois.\n\nQual?\n\n[essay]\n")
-    assert _codes(loaded) == [("unsafe-thematic-break", ("preamble",))]
+    assert _codes(loaded) == [("unsafe-thematic-break", ("stem",))]
 
 
 @pytest.mark.parametrize("line", ["***", "___", "* * *"])

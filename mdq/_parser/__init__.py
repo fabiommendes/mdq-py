@@ -10,7 +10,7 @@ to tell which one a document is before parsing it.
 Split by concern, leaf modules first: `_frontmatter` (the `---` YAML
 block and its per-type known-keys tables), `_choices` (bracket-marker
 list items, shared by multiple-choice/-selection/true-false/fill-in),
-`_numeric` (the `sign? value abstol? reltol?` grammar) and `_ordering`
+`_numeric` (the `sign? numeric_value abstol? reltol?` grammar) and `_ordering`
 (indentation leveling). `_question` builds on all four for `MDQParser`,
 the recursive-descent parser for one question document. `_exam` builds
 on `_question` (it calls `parse_question` for each inline question
@@ -21,7 +21,7 @@ lint (`find_unicode_spaces`).
 `reconstruct_blocks`, `find_forbidden_elements` and
 `find_stray_choice_markers` are exposed here too, even though they read
 like `mdq.models` helpers: they replay a
-preamble/epilogue/stem field through `MDQParser` to canonicalize it or
+stem/epilogue field through `MDQParser` to canonicalize it or
 check it for constructs base.md forbids, so they belong next to the
 grammar they reuse, not in `mdq._markdown` (which only wraps the
 underlying `markdown_it.MarkdownIt` instance, `md`).

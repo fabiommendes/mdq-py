@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["exact_literal", "exact_span"]
+__all__ = ["exact_literal", "exact_span", "join_pattern_lines"]
 
 
 _BACKTICK_RUN_RE = re.compile(r"`+")
@@ -59,3 +59,34 @@ def exact_span(text: str) -> str:
     if needs_padding:
         text = f" {text} "
     return f"{fence}{text}{fence}"
+
+
+def join_pattern_lines(lines: list[str]) -> str:
+    """
+    Join the lines of a pattern in the body of a document with one space
+    each, as docs/references/patterns.md ("Continuation lines") defines.
+
+    An exact literal cannot open at the end of a line, and its closing run
+    cannot start a continuation line (patterns.md, "Exact literals"). The
+    line endings of a literal exist for word wrap, and an edge space would
+    need a rule on whether it is removed. For such a literal the lines are
+    joined with a line feed instead, which no pattern string can hold, so
+    the model reports a `schema-error` for it.
+    """
+    lines = [line.strip(" \t") for line in lines]
+    lines = [line for line in lines if line]
+    if not lines:
+        return ""
+    opening = _BACKTICK_RUN_RE.match(lines[0])
+    if opening is None or len(lines) == 1:
+        return " ".join(lines)
+    width = opening.end()
+    if width == len(lines[0]):
+        return "\n".join(lines)
+    text = "\n".join(lines)
+    for run in _BACKTICK_RUN_RE.finditer(text, width):
+        if run.end() - run.start() == width:
+            if text[run.start() - 1] == "\n":
+                return "\n".join(lines)
+            break
+    return " ".join(lines)

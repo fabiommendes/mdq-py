@@ -14,6 +14,7 @@ dependency -- `MDQParser.parse_choice_body` already imports from here.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
@@ -202,7 +203,11 @@ def join_paragraph_lines(lines: list[str]) -> str:
     return "\n\n".join(" ".join(p) for p in paragraphs if p)
 
 
-def split_item(first: str, lines: list[str]) -> RawChoice:
+def split_item(
+    first: str,
+    lines: list[str],
+    join_text: Callable[[list[str]], str] = join_paragraph_lines,
+) -> RawChoice:
     """
     Split the content of an element into its text, feedback and comment.
 
@@ -210,6 +215,8 @@ def split_item(first: str, lines: list[str]) -> RawChoice:
         first: The text on the first line, after the marker, value and id.
         lines: The other content lines of the element, relative to its
             content column.
+        join_text: Joins the lines of the text. A pattern joins them as
+            `join_pattern_lines` does.
 
     Returns:
         A `RawChoice` with an empty value and no id, which the caller
@@ -228,7 +235,7 @@ def split_item(first: str, lines: list[str]) -> RawChoice:
         text.append(content)
         index += 1
     feedback, comment = parse_observations(lines[index:])
-    return RawChoice("", None, join_paragraph_lines(text), feedback, comment)
+    return RawChoice("", None, join_text(text), feedback, comment)
 
 
 def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
@@ -318,7 +325,7 @@ def _infer_choice_type(values: list[str]) -> str | None:
     """
     Infer multiple-choice / multiple-selection / true-false from the
     bracket values used in a choice list, per generic.md's rule that a
-    bracket-led list is never valid preamble -- it is always a choice
+    bracket-led list is never valid stem -- it is always a choice
     body of one of these three kinds.
 
     A list whose markers are all blank is multiple-selection: nothing is

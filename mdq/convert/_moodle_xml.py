@@ -223,9 +223,7 @@ class MoodleXmlEncoder:
         ]
         return MoodleXmlBlock(
             type="multichoice",
-            questiontext=join_blocks(
-                question.preamble, question.stem, question.epilogue
-            ),
+            questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             single=True,
             shuffle_answers=_moodle_shuffle(question.shuffle),
@@ -254,9 +252,7 @@ class MoodleXmlEncoder:
             )
         return MoodleXmlBlock(
             type="multichoice",
-            questiontext=join_blocks(
-                question.preamble, question.stem, question.epilogue
-            ),
+            questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             single=False,
             shuffle_answers=_moodle_shuffle(question.shuffle),
@@ -271,7 +267,7 @@ class MoodleXmlEncoder:
     ) -> list[MoodleXmlBlock]:
         # The fallback stem stands for "no shared text", so it round-trips.
         stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
-        group_stem = join_blocks(question.preamble, stem, question.epilogue)
+        group_stem = join_blocks(stem, question.epilogue)
         blocks = []
         for i, statement in enumerate(question.choices):
             text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -303,9 +299,7 @@ class MoodleXmlEncoder:
         ]
         return MoodleXmlBlock(
             type="numerical",
-            questiontext=join_blocks(
-                question.preamble, question.stem, question.epilogue
-            ),
+            questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             unit=question.unit,
             name=question.title,
@@ -329,9 +323,7 @@ class MoodleXmlEncoder:
             )
         return MoodleXmlBlock(
             type="shortanswer",
-            questiontext=join_blocks(
-                question.preamble, question.stem, question.epilogue
-            ),
+            questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             name=question.title,
             idnumber=question.id,
@@ -342,9 +334,7 @@ class MoodleXmlEncoder:
     def block_from_essay(self, question: EssayQuestion) -> MoodleXmlBlock:
         return MoodleXmlBlock(
             type="essay",
-            questiontext=join_blocks(
-                question.preamble, question.stem, question.epilogue
-            ),
+            questiontext=join_blocks(question.stem, question.epilogue),
             grader_info=question.answer_key,
             response_format=essay_response_format_from_input(question.input),
             name=question.title,
@@ -389,9 +379,7 @@ class MoodleXmlEncoder:
             )
         return MoodleXmlBlock(
             type="multianswer",
-            questiontext=join_blocks(
-                question.preamble, questiontext, question.epilogue
-            ),
+            questiontext=join_blocks(questiontext, question.epilogue),
             shuffle_answers=_moodle_shuffle(question.shuffle),
             name=question.title,
             idnumber=question.id,
@@ -1019,7 +1007,7 @@ def common_prefix(strings: list[str]) -> str:
 
 
 def join_blocks(*parts: str | None) -> str:
-    """Join non-empty, stripped parts with a blank line, as preamble/stem/epilogue do."""
+    """Join non-empty, stripped parts with a blank line, as the stem and epilogue do."""
     stripped = [part.strip() for part in parts if part]
     return "\n\n".join(part for part in stripped if part)
 

@@ -6,7 +6,7 @@ models: that each one produces the specific CommonMark block it claims
 to (via `markdown_it`'s own tokenizer), and that it round-trips through
 `mdq._parser.reconstruct_blocks` -- the same reconstruction
 `mdq.models.normalize_paragraphs`/`normalize_intro` use to canonicalize a
-`preamble`/`epilogue`/`stem` field. `tests/test_render.py`'s
+`stem`/`epilogue` field. `tests/test_render.py`'s
 `test_render_question_roundtrip` already exercises these strategies
 end-to-end through real question models; this file is about the
 building blocks.
@@ -180,7 +180,7 @@ def test_safe_block_is_a_single_top_level_block(text: str) -> None:
 def test_safe_blocks_reconstruct_to_a_fixed_point(text: str) -> None:
     """
     `reconstruct_blocks` should already be idempotent on anything
-    `md_safe_blocks` can produce: normalizing a preamble/epilogue twice
+    `md_safe_blocks` can produce: normalizing a stem or epilogue twice
     must give the same result as normalizing it once (`mdq.models.
     BaseQuestion.normalize` relies on exactly this).
     """
@@ -194,31 +194,29 @@ def test_safe_blocks_reconstruct_to_a_fixed_point(text: str) -> None:
 #
 @given(
     id=st.none() | _st.slugs(),
-    preamble=st.none() | _st.md_safe_multi_blocks(),
     epilogue=st.none() | _st.md_safe_multi_blocks(),
-    stem=_st.md_paragraphs(),
+    stem=_st.md_safe_multi_blocks(),
 )
-@example(id="q1", preamble="```python\nx = 1\n```", epilogue=None, stem="A")
-@example(id="q1", preamble="- A\n- B", epilogue=None, stem="A")
-@example(id="q1", preamble="> A", epilogue=None, stem="A")
-@example(id="q1", preamble="## A", epilogue=None, stem="A")
+@example(id="q1", epilogue=None, stem="```python\nx = 1\n```\n\nA")
+@example(id="q1", epilogue=None, stem="- A\n- B\n\nA")
+@example(id="q1", epilogue=None, stem="> A\n\nA")
+@example(id="q1", epilogue=None, stem="## A\n\nA")
 def test_generated_blocks_round_trip_through_a_full_question(
     id: str | None,
-    preamble: str | None,
     epilogue: str | None,
     stem: str,
 ) -> None:
     """
     Regression coverage for the `[id]`-inlining bug `can_inline_id`
     fixes: when the only frontmatter field is `id`, `BaseQuestion.
-    _render_lines` used to always inline it into the preamble, which
-    corrupts a preamble that does not start with a plain paragraph (a
+    _render_lines` used to always inline it into the stem, which
+    corrupts a stem that does not start with a plain paragraph (a
     code block's opening fence, a list marker, ...). The `@example`s
     above pin exactly that scenario for every non-paragraph block kind
-    `md_safe_block` can produce as the first preamble block.
+    `md_safe_block` can produce as the first stem block.
     """
     question = models.EssayQuestion(
-        id=id, preamble=preamble, epilogue=epilogue, stem=stem
+        id=id, epilogue=epilogue, stem=stem
     ).normalize()
     src = question.render()
     round_tripped = parse(src, kind="question")

@@ -33,7 +33,7 @@ __all__ = ["Tolerance", "NumericQuestion"]
 _UNIT_PATTERN = rf"^[^()\[\]{UNICODE_SPACE}]+$"
 
 #: numeric.md, "Answer representation": a number, or a string in the
-#: `sign? value` grammar that keeps a value no float holds exactly
+#: `sign? numeric_value` grammar that keeps a value no float holds exactly
 #: ("1/3", "2.50", "3000000000"). Strict, so an `int` stays an `int`
 #: (it is not widened to a `float`) and a `bool` is not a number.
 NumericAnswer = StrictInt | StrictFloat | str
@@ -42,7 +42,7 @@ NumericAnswer = StrictInt | StrictFloat | str
 def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
     """
     numeric.md, "Answer representation": a string `answer` MUST be a
-    valid `sign? value` (an `INTEGER` or `DECIMAL` with an optional
+    valid `sign? numeric_value` (an `INTEGER` or `DECIMAL` with an optional
     exponent, or a fraction with a nonzero denominator) -- the same grammar a numeric body's value
     follows. A JSON/YAML number MUST be finite: `.inf` and `.nan` are
     rejected.

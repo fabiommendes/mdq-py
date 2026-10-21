@@ -30,8 +30,8 @@ return type. Five more private modules hold the non-model helpers each
 This package imports `mdq._parser` and `mdq._markdown` -- a new
 direction of coupling for the model layer, which otherwise knows
 nothing about how Markdown gets parsed. It is deliberate:
-`_base.normalize_paragraphs`/`normalize_intro` need to canonicalize
-`preamble`/`stem`/`epilogue` into the exact fixed point a
+`_base.normalize_paragraphs`/`normalize_stem` need to canonicalize
+`stem`/`epilogue` into the exact fixed point a
 render-then-parse round trip produces, and the only way to guarantee
 that without a second, drifting copy of the parser's reconstruction
 rules is to call the parser itself (`_parser.reconstruct_blocks`).

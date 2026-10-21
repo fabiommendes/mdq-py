@@ -170,6 +170,22 @@ def _with_choice_ids[C: (ScoredChoice, BooleanChoice, Statement)](
 
 
 
+def unspecified_choice_score(choices: Sequence[ScoredChoice], *, symmetric: bool) -> float:
+    """
+    The score of a picked choice that declares none (multiple-choice.md,
+    "Grading"). It is 0 under `partial`. Under `symmetric` it spreads the
+    negative of the declared scores evenly over the choices that declare
+    none, clamped to [-1, 0]. A fill-in choice blank uses it too.
+    """
+    if not symmetric:
+        return 0.0
+    declared = [c.score for c in choices if c.score is not None]
+    missing = len(choices) - len(declared)
+    if not missing:
+        return 0.0
+    return max(-1.0, min(0.0, -sum(declared) / missing))
+
+
 class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
     choices: Annotated[list[ScoredChoice], Field(min_length=2)]
     type: Literal["multiple-choice"] = "multiple-choice"
@@ -240,14 +256,9 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         that declare none, so picking at random averages zero, then clamps
         the result to [-1, 0].
         """
-        if self.effective_grading() != "symmetric":
-            return 0.0
-
-        declared = [c.score for c in self.choices if c.score is not None]
-        missing = len(self.choices) - len(declared)
-        if not missing:
-            return 0.0
-        return max(-1.0, min(0.0, -sum(declared) / missing))
+        return unspecified_choice_score(
+            self.choices, symmetric=self.effective_grading() == "symmetric"
+        )
 
 
 class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):

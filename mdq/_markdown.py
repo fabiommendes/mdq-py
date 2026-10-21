@@ -23,6 +23,7 @@ from markdown_it.token import Token
 
 __all__ = [
     "md",
+    "find_blank_markers",
     "find_misplaced_blank_markers",
     "UNICODE_SPACE",
     "split_lines",
@@ -79,33 +80,35 @@ md.block.ruler.before("table", "mdq_item_indent", _record_item_indent)
 
 
 #: `[^id]` markers, as written in a fill-in stem. The id is a `SLUG`
-#: (base.md, "Bracketed tags"): `[^ a]` and `[^-x]` are ordinary text.
+#: (base.md, "Bracketed tags"): `[^ a]` and `[^-x]` are ordinary text. A
+#: `]` followed by `(` or `[` starts a markdown link (`[^x](url)`,
+#: `[^x][ref]`), so that is not a blank (fill-in.md, "Stem").
 #: Duplicated from `mdq.models._BLANK_MARKER_RE` (structurally identical,
 #: kept separate since the two modules check different things:
 #: `mdq.models` cares only about which ids are referenced, this module
 #: about where in the markup a marker sits).
-_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\]")
+_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\](?![(\[])")
 
 
-def find_misplaced_blank_markers(text: str) -> list[str]:
+def find_blank_markers(text: str) -> list[tuple[str, bool]]:
     """
-    fill-in.md:301: a `[^id]` marker naming a blank may only appear in a
-    plain text run of a paragraph.
+    fill-in.md, "Where blanks may appear": find the `[^id]` markers of a
+    stem and tell which ones are misplaced.
 
-    At the block level, the paragraph must sit at the top of the stem: a
-    marker in a heading, list item, table cell or blockquote is misplaced.
-    At the inline level, a marker inside emphasis, a strong span, a link
-    or a code span is misplaced. Fenced code is a block of its own, so a
-    marker in it is literal text and is not reported.
+    The inline parse of each paragraph comes first (CommonMark). A marker
+    is misplaced if it sits in a heading, list item, table cell or
+    blockquote, or inside emphasis, a strong span, link text or image alt
+    text. Code (fenced, indented or a code span) is literal text: it
+    holds no marker. `[^x](url)` and `[^x][ref]` are links, not markers.
 
     Args:
         text: A fill-in question's stem.
 
     Returns:
-        The id of every marker found violating that, in source order (a
-        marker may appear more than once).
+        A `(id, misplaced)` pair for every marker, in source order (an id
+        may appear more than once).
     """
-    misplaced: list[str] = []
+    found: list[tuple[str, bool]] = []
     open_blocks: list[str] = []
     for block_token in md.parse(text):
         if block_token.nesting == 1:
@@ -114,26 +117,43 @@ def find_misplaced_blank_markers(text: str) -> list[str]:
             open_blocks.pop()
         elif block_token.type == "inline" and block_token.children:
             in_paragraph = open_blocks == ["paragraph_open"]
-            misplaced.extend(_misplaced_in_inline(block_token.children, in_paragraph))
-    return misplaced
+            found.extend(_markers_in_inline(block_token.children, not in_paragraph))
+    return found
 
 
-def _misplaced_in_inline(children: list[Token], in_paragraph: bool) -> list[str]:
-    """Markers of one inline run that are outside plain paragraph text."""
-    misplaced: list[str] = []
+def find_misplaced_blank_markers(text: str) -> list[str]:
+    """
+    The ids of the markers that `find_blank_markers` reports as misplaced.
+
+    Args:
+        text: A fill-in question's stem.
+
+    Returns:
+        The id of every misplaced marker, in source order.
+    """
+    return [name for name, misplaced in find_blank_markers(text) if misplaced]
+
+
+def _markers_in_inline(
+    children: list[Token], misplaced: bool
+) -> list[tuple[str, bool]]:
+    """Markers of one inline run, flagged when outside plain paragraph text."""
+    found: list[tuple[str, bool]] = []
     depth = 0
     for token in children:
         if token.nesting == 1:
             depth += 1
         elif token.nesting == -1:
             depth -= 1
-        elif token.type == "code_inline" or (
-            token.type == "text" and (depth > 0 or not in_paragraph)
-        ):
-            misplaced.extend(
-                match.group(1) for match in _BLANK_MARKER_RE.finditer(token.content)
+        elif token.type == "image":
+            # Alt text: the children are the inline tokens of the label.
+            found.extend(_markers_in_inline(token.children or [], True))
+        elif token.type == "text":
+            found.extend(
+                (match.group(1), misplaced or depth > 0)
+                for match in _BLANK_MARKER_RE.finditer(token.content)
             )
-    return misplaced
+    return found
 
 
 def split_lines(text: str, /, *, keepends: bool = False) -> list[str]:

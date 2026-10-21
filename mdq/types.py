@@ -196,7 +196,6 @@ class QuestionBaseDict(TypedDict, total=False):
     title: str
     author: str
     stem: Required[str]
-    preamble: str
     epilogue: str
     comment: str
     locale: str

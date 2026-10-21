@@ -22,7 +22,7 @@ blockquote's paragraph by CommonMark's lazy-continuation rule, which
 throws away exactly the split we need. So once we know a block's *line
 range* (`node.map`), we re-read those raw source lines ourselves for
 anything with MDQ-specific syntax, rather than trusting markdown-it's
-subtree for it. Plain prose blocks (preamble, stem, epilogue, choice/blank
+subtree for it. Plain prose blocks (stem, epilogue, choice/blank
 text) are just reconstructed from their raw lines, soft-wrapped lines
 joined with a single space -- the same collapsing a YAML folded (`>-`)
 scalar does, which is how every paired `.yaml` fixture represents them.
@@ -45,6 +45,7 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
+from .._exact import join_pattern_lines
 from .._letters import FALSE_LETTERS, normalize_value
 from .._markdown import UNICODE_SPACE, md, split_lines
 from ..errors import (
@@ -390,7 +391,7 @@ class MDQParser:
 
     def block_text(self, node: Node) -> str:
         """
-        A block's text as it reads in a `preamble`, `stem`, `epilogue` or
+        A block's text as it reads in a `stem`, `epilogue` or
         `answerKey` field: `raw_text`, plus the `#` markers of an ATX
         heading, which stay part of the field so a heading is still a
         heading when the field is parsed again.
@@ -470,6 +471,29 @@ class MDQParser:
             for item in node.children
         )
 
+    def check_no_setext_tag(self, node: Node | None, pattern: re.Pattern[str]) -> None:
+        """
+        Raise a `ParseError` if `node` is a setext heading whose first line
+        is a tag that `pattern` matches: the line after the tag content
+        was a setext underline (short-answer.md, "Pattern lines").
+        """
+        if node is None or node.type != "heading" or node.markup not in ("-", "="):
+            return
+        first_line = self.raw_lines(node)[:1]
+        if first_line and pattern.match(first_line[0].strip(" \t")):
+            raise ParseError(_setext_message(first_line[0].strip(" \t")))
+
+    def check_no_setext_item(self, item: Node) -> None:
+        """
+        Raise a `ParseError` if a setext underline follows the text of the
+        list item `item`: CommonMark turns the text into a heading
+        (grammar.md, "Feedback and comment lines").
+        """
+        for child in item.children:
+            if child.type == "heading" and child.markup in ("-", "="):
+                text = self.raw_lines(child)[:1]
+                raise ParseError(_setext_message(text[0].strip(" \t") if text else ""))
+
     def find_body_start(self) -> int:
         """
         Return the index of the first body node in `self.children`.
@@ -503,66 +527,42 @@ class MDQParser:
         if setext_tag is not None:
             raise MissingField(
                 "body",
-                message=(
-                    f"the tag line {setext_tag!r} became a setext heading "
-                    "because the next line is '---' or '==='; add a blank "
-                    "line between the tag and that line"
-                ),
+                message=_setext_message(setext_tag),
             )
         raise MissingField("body")
 
     #
-    # Intro / stem / preamble
+    # Intro / stem
     #
-    def split_intro(
-        self, intro_blocks: list[Node]
-    ) -> tuple[str, str | None, str | None]:
+    def split_intro(self, intro_blocks: list[Node]) -> tuple[str, str | None]:
         """
-        Split the blocks preceding the body into (stem, preamble, slug).
+        Split the blocks preceding the body into (stem, slug).
 
-        The stem is the last intro block; everything before it is the
-        preamble. An inline `[slug]` prefix, if present, only ever
-        appears on the *first* intro block -- which is the stem itself
-        when there's no preamble, and the preamble's first block
-        otherwise, in which case the stem is untouched.
+        The stem is every intro block, joined. An inline `[slug]` prefix,
+        if present, only ever appears on the *first* intro block and is
+        removed from the stem.
         """
-
-        stem_node = intro_blocks[-1]
-        preamble_blocks = intro_blocks[:-1]
 
         first_node = intro_blocks[0]
         first_text = self.raw_text(first_node)
         slug_match = (
             SLUG_PREFIX_RE.match(first_text) if first_node.type == "paragraph" else None
         )
-        inline_slug = None
-        if slug_match:
-            inline_slug = slug_match.group("slug")
-            stripped_first_text = first_text[slug_match.end() :]
-            stem_text = (
-                stripped_first_text
-                if first_node is stem_node
-                else self.block_text(stem_node)
-            )
-        else:
-            stem_text = self.block_text(stem_node)
+        if not slug_match:
+            return "\n\n".join(self.block_text(n) for n in intro_blocks), None
 
-        preamble_text = None
-        if preamble_blocks:
-            if slug_match and preamble_blocks[0] is first_node:
-                preamble_text = "\n\n".join(
-                    [first_text[slug_match.end() :]]
-                    + [self.block_text(n) for n in preamble_blocks[1:]]
-                )
-            else:
-                preamble_text = self.join_blocks(preamble_blocks)
-
-        return stem_text, preamble_text, inline_slug
+        stem_text = "\n\n".join(
+            [first_text[slug_match.end() :]]
+            + [self.block_text(n) for n in intro_blocks[1:]]
+        )
+        return stem_text, slug_match.group("slug")
 
     #
     # Choice/item-list parsing
     #
     def parse_item_list(self, node: Node) -> list[RawChoice]:
+        for item in node.children:
+            self.check_no_setext_item(item)
         return [self.parse_item(self.item_lines(item)) for item in node.children]
 
     def parse_item(self, item_lines: list[str]) -> RawChoice:
@@ -589,7 +589,7 @@ class MDQParser:
             ParseError: The lines after the text are not one feedback block
                 and one comment block.
         """
-        return split_item(item_lines[0], item_lines[1:])
+        return split_item(item_lines[0], item_lines[1:], join_pattern_lines)
 
     #
     # Per-type body fillers
@@ -823,6 +823,7 @@ class MDQParser:
                 doc[variant] = patterns
 
             node = self.seek()
+            self.check_no_setext_tag(node, SHORT_ANSWER_RE)
             if node is None or node.type != "paragraph":
                 break
             text = self.raw_text(node)
@@ -846,8 +847,7 @@ class MDQParser:
         first = TAG_REST_RE.match(lines[0])
         if first is None:  # pragma: no cover - the caller matched a tag
             return rest.strip(" \t")
-        parts = [first.group("rest"), *(line.lstrip(" \t") for line in lines[1:])]
-        return " ".join(part for part in parts if part.strip(" \t")).strip(" \t")
+        return join_pattern_lines([first.group("rest"), *lines[1:]])
 
     def parse_answer_block(
         self, tag_node: Node, rest: str, *, reject: bool
@@ -890,6 +890,8 @@ class MDQParser:
                     "followed by a list"
                 )
             self.read()
+            for item in node.children:
+                self.check_no_setext_item(item)
             return [
                 _pattern_entry(self.parse_plain_item(self.item_lines(item)))
                 for item in node.children
@@ -947,7 +949,7 @@ class MDQParser:
 
         Raises:
             ParseError: an unrecognized or misplaced tag suffix, a slug
-                whose definitions disagree about the blank's kind, or a
+                whose definitions disagree about the blank's kind, a
                 repeated definition of the same form.
         """
         front = self.frontmatter
@@ -1076,10 +1078,18 @@ class MDQParser:
                 elif patterns:
                     sa_blank["reject"] = patterns
                 self._add_blank(blanks, sa_blank)
+            elif blank_type is None:
+                raise ParseError(
+                    f"the tag line of the choice blank [^{blank_id}] must be empty "
+                    f"and the choice list must follow it; text after the colon is "
+                    f"not a choice. For a text answer, write "
+                    f"[^{blank_id}/short-answer]: {rest}"
+                )
             else:
                 raise ParseError(f"unrecognized blank definition: {text!r}")
 
             node = self.seek()
+            self.check_no_setext_tag(node, BLANK_RE)
             if node is None or node.type != "paragraph":
                 break
             text = self.raw_text(node)
@@ -1090,6 +1100,38 @@ class MDQParser:
         self.distribute_blank_pattern_lists(front, blanks)
         self.distribute_numeric_blank_maps(numeric_maps, blanks)
         self.state["blanks"] = list(blanks.values())
+
+    def report_detached_blank_definitions(self) -> None:
+        """
+        Report a blank definition tag line in the epilogue.
+
+        The definitions form one run of blocks, so the first other block
+        starts the epilogue and a tag line after it defines nothing
+        (fill-in.md, "Blank definitions"). Each such line is an error
+        `detached-blank-definition`. Code blocks are not paragraphs, so a
+        tag inside fenced code does not count. The error stops the load
+        before the model checks, so the stem reference of the blank
+        gives no `undefined-blank`.
+        """
+        for node in self.children[self.pos :]:
+            if node.type != "paragraph":
+                continue
+            for line in self.raw_lines(node):
+                m = BLANK_RE.match(line.lstrip(" \t"))
+                if m is None:
+                    continue
+                self.diagnostics.append(
+                    Diagnostic(
+                        severity="error",
+                        code="detached-blank-definition",
+                        path=("epilogue",),
+                        message=(
+                            f"the definition of [^{m.group('id')}] comes after a "
+                            "block that is not a blank definition, so it is part of "
+                            "the epilogue; move that block after the definitions"
+                        ),
+                    )
+                )
 
     @staticmethod
     def numeric_blank_maps(front: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -1272,14 +1314,12 @@ class MDQParser:
             raise MissingField("stem")
 
         intro_blocks = [self.read() for _ in range(body_start)]
-        stem_text, preamble_text, inline_slug = self.split_intro(intro_blocks)
+        stem_text, inline_slug = self.split_intro(intro_blocks)
 
         if inline_slug and "id" in self.state:
             self.diagnostics.append(_redundant_id(self.state["id"], inline_slug))
         elif inline_slug:
             self.state["id"] = inline_slug
-        if preamble_text:
-            self.state["preamble"] = preamble_text
         self.state["stem"] = stem_text
 
         question_type = self.frontmatter.get("type")
@@ -1315,6 +1355,7 @@ class MDQParser:
             elif tag == "blank":
                 question_type = question_type or "fill-in"
                 self.parse_fill_in_body(text, body_node)
+                self.report_detached_blank_definitions()
             else:  # pragma: no cover - find_body_start already filtered this
                 raise IncompleteQuestion()
 
@@ -1335,6 +1376,14 @@ class MDQParser:
         return cast(QuestionDict, self.state)
 
 
+def _setext_message(text: str) -> str:
+    """The error for a line of `text` that a setext underline turned into a heading."""
+    return (
+        f"the line {text!r} became a setext heading because the next line is "
+        "'---' or '==='; add a blank line between them"
+    )
+
+
 _OBSERVATION_AFTER_CONTENT = (
     "a line that starts with '>' or '!' cannot follow the content of a "
     "short answer tag; use the list form ('* pattern' with the '>' or '!' "
@@ -1343,7 +1392,12 @@ _OBSERVATION_AFTER_CONTENT = (
 
 
 def _is_comment_line(line: str) -> bool:
-    """Whether `line` starts a comment: `!` but not an image, `![`."""
+    """
+    Whether `line` starts a comment: `!` but not an image, `![`, with up to
+    three columns of indentation. With four or more, it is continuation text.
+    """
+    if indentation(line) >= CODE_INDENT:
+        return False
     stripped = line.lstrip(" \t")
     return stripped.startswith("!") and not stripped.startswith("![")
 
@@ -1377,12 +1431,12 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     parses into: a plain paragraph's soft-wrapped lines collapse to
     single spaces, while a list, blockquote, heading or code block is
     reproduced byte-for-byte. It exists so `mdq.models` can canonicalize
-    a `preamble`/`epilogue`/`stem` field into the fixed point a
+    a `stem`/`epilogue` field into the fixed point a
     render-then-parse round trip actually produces, using the parser's
     own reconstruction rules instead of a second, drifting copy of them.
 
     Args:
-        src: Markdown source for a preamble, epilogue, or stem -- a
+        src: Markdown source for a stem or epilogue -- a
             sequence of block elements with no YAML frontmatter of its
             own (a bare `---` at the very start would be misread as one,
             but no MDQ block legitimately starts with a thematic break).
@@ -1449,8 +1503,8 @@ def find_forbidden_elements(
 ) -> list[str]:
     """
     base.md, "Forbidden elements": return a human-readable description of
-    every forbidden top-level block construct in `src` -- a preamble,
-    stem, or epilogue field, checked on its own.
+    every forbidden top-level block construct in `src` -- a stem
+    or epilogue field, checked on its own.
 
     The forbidden constructs are: an H1 heading; a heading starting with
     optional whitespace and `[`; an unordered list whose items all start
@@ -1466,11 +1520,9 @@ def find_forbidden_elements(
     Args:
         src: Markdown source for one field -- no YAML frontmatter.
         allow_first_paragraph_bracket: Exempt a leading `[...]` paragraph
-            as a possible slug. Only the combined preamble+stem
-            sequence's own first block qualifies -- pass `True` for
-            whichever of `preamble`/`stem` is first when the other is
-            absent or empty, `False` for everything else (including the
-            epilogue, which is never that first block).
+            as a possible slug. Only the stem's own first block
+            qualifies -- pass `True` for the stem, `False` for the
+            epilogue, which is never that first block.
 
     Returns:
         One description per forbidden block found, in source order.
@@ -1518,7 +1570,7 @@ def find_forbidden_elements(
 def find_stray_choice_markers(src: str) -> list[str]:
     """
     question-base.md, "Forbidden elements": return the choice marker of
-    every stray item in `src`, a preamble, stem or epilogue field.
+    every stray item in `src`, a stem or epilogue field.
 
     A stray item belongs to a top-level unordered list in which some
     items, but not all, start with a choice marker, and its marker holds

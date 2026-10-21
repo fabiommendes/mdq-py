@@ -123,17 +123,16 @@ def test_from_mdq_picks_highest_scoring_choice():
     assert aiken.choices == ["wrong", "right"]
 
 
-def test_from_mdq_joins_preamble_and_stem():
+def test_from_mdq_keeps_a_multi_block_stem():
     question = MultipleChoiceQuestion(
-        preamble="Consider the following.",
-        stem="What is 2 + 2?",
+        stem="Consider the following.\n\nWhat is 2 + 2?",
         choices=[ScoredChoice(text="4", score=1.0), ScoredChoice(text="5", score=0.0)],
     )
     aiken = Aiken().from_mdq(question)
     assert aiken.stem == "Consider the following.\n\nWhat is 2 + 2?"
 
 
-def test_from_mdq_without_preamble_uses_stem_only():
+def test_from_mdq_uses_stem_only():
     question = MultipleChoiceQuestion(
         stem="What is 2 + 2?",
         choices=[ScoredChoice(text="4", score=1.0), ScoredChoice(text="5", score=0.0)],
@@ -215,8 +214,7 @@ def test_aiken_question_rejects_too_many_choices_directly():
 
 def test_from_mdq_appends_epilogue_to_stem():
     question = MultipleChoiceQuestion(
-        preamble="Consider the Brazilian biomes.",
-        stem="Which one is the largest?",
+        stem="Consider the Brazilian biomes.\n\nWhich one is the largest?",
         epilogue="Mark exactly one alternative.",
         choices=[
             ScoredChoice(text="Amazon", score=1.0),

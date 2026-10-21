@@ -98,18 +98,6 @@ _LOOKALIKE_LANGUAGE_SUBTAGS = {
     "ua": "uk",
 }
 
-# A stem is meant to be a single paragraph of prose (generic.md: "the
-# stem is a paragraph of text (and not other block elements such as
-# tables, lists, etc)"). These openers say otherwise.
-_NON_PARAGRAPH_STEM = (
-    (re.compile(r"^#{1,6}\s"), "a heading"),
-    (re.compile(r"^\s*[-*+]\s"), "a list"),
-    (re.compile(r"^\s*[0-9]+[.)]\s"), "an ordered list"),
-    (re.compile(r"^\s*>\s"), "a blockquote"),
-    (re.compile(r"^\s*\|"), "a table"),
-    (re.compile(r"^\s*(```|~~~)"), "a code fence"),
-)
-
 # generic.md: `uuid` MUST be `xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx`, where
 # M is the version and N the variant. The schema pattern checks the shape
 # and the hyphens but lets any nibble through, so the two meaningful
@@ -250,27 +238,6 @@ def check_tags(tags: Sequence[str]) -> list[Diagnostic]:
                 )
             )
     return warnings
-
-
-def check_stem_is_a_paragraph(stem: str) -> list[Diagnostic]:
-    """generic.md: implementations SHOULD require the stem to be a paragraph."""
-    if not stem.strip():
-        return []
-
-    for pattern, description in _NON_PARAGRAPH_STEM:
-        if pattern.match(stem.lstrip("\n")):
-            return [
-                Diagnostic(
-                    severity="warning",
-                    code="stem-not-a-paragraph",
-                    path=("stem",),
-                    message=(
-                        f"stem starts with what looks like {description}; "
-                        f"it should be a paragraph of text"
-                    ),
-                )
-            ]
-    return []
 
 
 def check_setext_heading(

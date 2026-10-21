@@ -46,7 +46,7 @@ mdq show
 
 Render a question or exam document for a human at a terminal, as a
 card like a quiz page would show it: a badge with the question type,
-rich-text fields (preamble, stem, choices, feedback, ...) as Markdown,
+rich-text fields (stem, choices, feedback, ...) as Markdown,
 choices as radio buttons and checkboxes, typed answers as empty input
 fields, and the rest of the metadata as chips. ``--no-answer-key`` hides
 anything that would reveal the correct answer, as when previewing a

@@ -22,7 +22,7 @@ import pytest
 
 from mdq import Diagnostic, load
 
-#: The code of a blank `preamble`/`epilogue`/`stem`.
+#: The code of a blank `epilogue`/`stem`.
 _BLANK_INTRO_CODES = frozenset({"blank-text"})
 
 
@@ -244,12 +244,12 @@ def test_non_reserved_true_false_marker_does_not_error() -> None:
 
 
 # ---------------------------------------------------------------------
-# blank-text: preamble, epilogue, stem, title, author, comment, answerKey.
+# blank-text: epilogue, stem, title, author, comment, answerKey.
 # Every free-text family is covered by tests/test_blank_text.py.
 # ---------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("field_name", ["preamble", "stem", "epilogue"])
+@pytest.mark.parametrize("field_name", ["stem", "epilogue"])
 def test_blank_intro_field_is_a_model_error(field_name: str) -> None:
     doc = {
         "type": "essay",
@@ -280,8 +280,7 @@ def test_blank_text_on_metadata_fields_is_a_model_error(field_name: str) -> None
 def test_non_blank_intro_fields_do_not_error() -> None:
     doc = {
         "type": "essay",
-        "stem": "Descreva o processo de fotossíntese na Mata Atlântica.",
-        "preamble": "Considere um ambiente de luz solar plena.",
+        "stem": "Considere um ambiente de luz solar plena.\n\nDescreva o processo de fotossíntese na Mata Atlântica.",
         "epilogue": "Seja objetivo.",
         "input": "text",
     }

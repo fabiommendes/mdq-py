@@ -158,7 +158,7 @@ def test_a_paragraph_that_starts_with_a_link_is_valid_in_the_epilogue() -> None:
     assert _codes(loaded) == []
 
 
-@pytest.mark.parametrize("field", ["preamble", "stem", "epilogue"])
+@pytest.mark.parametrize("field", ["stem", "epilogue"])
 def test_stray_choice_marker_on_a_yaml_document(field: str) -> None:
     data = {
         "type": "multiple-selection",

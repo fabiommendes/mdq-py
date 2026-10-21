@@ -1,7 +1,7 @@
 """
 Hypothesis strategies for generating MDQ questions, exams, and the
 Markdown fragments (paragraphs, lists, code blocks, ...) their
-`preamble`/`epilogue`/`stem` fields are made of.
+`stem`/`epilogue` fields are made of.
 
 The markdown-related strategies at the bottom of this module *construct*
 valid Markdown rather than generate arbitrary text and filter out what
@@ -310,13 +310,11 @@ def md_paragraphs() -> st.SearchStrategy[str]:
     module docstring). A draw is one or more `_safe_line`s joined by a
     single newline, so this also exercises multi-line, soft-wrapped
     paragraphs -- every line, not just the first, is guarded against
-    starting a different block. `mdq.models.normalize_intro` and
+    starting a different block. `mdq.models.normalize_stem` and
     `normalize_paragraphs` collapse the soft-wrapped newlines back to
     single spaces, exactly as a render/parse round trip does. A draw
     here is always a single Markdown block (no blank line ever appears
-    in it), so used as `stem` it never triggers `normalize_intro`'s
-    block-migration into `preamble` -- that only matters for a stem
-    constructed by hand, spanning more than one block.
+    in it).
     """
     return st.lists(_safe_line(), min_size=1, max_size=4).map("\n".join)
 
@@ -326,7 +324,7 @@ def md_headings() -> st.SearchStrategy[str]:
     Return a strategy for generating ATX headings, `##` through `######`.
 
     H1 (a single `#`) is excluded: `docs/question-types/generic.md`
-    forbids one in a preamble/epilogue outright, since that syntax is
+    forbids one in a stem or epilogue outright, since that syntax is
     reserved for an exam's title.
     """
     return st.builds(
@@ -463,7 +461,7 @@ def md_safe_blocks() -> st.SearchStrategy[str]:
     """
     Return a strategy for generating a single "safe" Markdown block --
     one that survives render -> parse -> normalize unchanged (see the
-    module docstring) -- suitable for any position in a preamble or
+    module docstring) -- suitable for any position in a stem or
     epilogue.
 
     Composes a paragraph, a fenced or indented code block, a bullet or
@@ -484,7 +482,7 @@ def md_safe_multi_blocks(
 ) -> st.SearchStrategy[str]:
     """
     Return a strategy for generating a sequence of safe Markdown blocks,
-    joined the way `mdq.models._render` joins a preamble/epilogue's blocks: two
+    joined the way `mdq.models._render` joins a stem or epilogue's blocks: two
     newlines apart.
 
     `mdq._parser.reconstruct_blocks` (and so `mdq.models.
@@ -585,8 +583,7 @@ def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
         "uuid": st.none() | uuids(),
         "title": st.none() | safe_texts(),
         "author": st.none() | safe_texts(),
-        "stem": md_paragraphs(),
-        "preamble": st.none() | md_safe_multi_blocks(),
+        "stem": md_safe_multi_blocks(),
         "epilogue": st.none() | md_safe_multi_blocks(),
         "comment": st.none() | safe_texts(multiline=True),
         "locale": st.none() | locales(),

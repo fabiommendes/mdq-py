@@ -36,8 +36,7 @@ What is the meaning of life?
 def test_render_multiple_choice_question() -> None:
     question = models.MultipleChoiceQuestion(
         id="life",
-        preamble="This is the preamble.",
-        stem="What is the meaning of life?",
+        stem="This is the context.\n\nWhat is the meaning of life?",
         choices=[
             models.ScoredChoice(text="42", score=1),
             models.ScoredChoice(text="Love"),
@@ -46,7 +45,7 @@ def test_render_multiple_choice_question() -> None:
     )
     src = question.render()
     expected = """
-[life] This is the preamble.
+[life] This is the context.
 
 What is the meaning of life?
 
@@ -60,8 +59,7 @@ What is the meaning of life?
 def test_render_multiple_selection_question() -> None:
     question = models.MultipleSelectionQuestion(
         id="life",
-        preamble="This is the preamble.",
-        stem="What is the meaning of life?",
+        stem="This is the context.\n\nWhat is the meaning of life?",
         choices=[
             models.BooleanChoice(text="42", correct=True),
             models.BooleanChoice(
@@ -74,7 +72,7 @@ def test_render_multiple_selection_question() -> None:
     )
     src = question.render()
     expected = """
-[life] This is the preamble.
+[life] This is the context.
 
 What is the meaning of life?
 
@@ -90,8 +88,7 @@ What is the meaning of life?
 def test_render_true_false_question() -> None:
     question = models.TrueFalseQuestion(
         id="life",
-        preamble="This is the preamble.",
-        stem="What is the meaning of life?",
+        stem="This is the context.\n\nWhat is the meaning of life?",
         choices=[
             models.Statement(text="Happiness", correct=True),
             models.Statement(text="Money", correct=False),
@@ -99,7 +96,7 @@ def test_render_true_false_question() -> None:
     )
     src = question.render()
     expected = """
-[life] This is the preamble.
+[life] This is the context.
 
 What is the meaning of life?
 
@@ -257,35 +254,15 @@ The capital is [^capital], the main river is [^river], and pi is [^pi].
 #
 # normalize() on a multi-block stem
 #
-# `stem` is just a non-empty string in the schema (`schema/
-# question-base.yaml`); `docs/question-types/generic.md` only
-# *recommends* -- "SHOULD" -- that it be a single paragraph, so a model
-# built by hand (not through `mdq.hypothesis`, which never generates a
-# multi-block stem) may legally carry more than one block in it.
-# `MDQParser.split_intro` always treats the *last* intro block as the
-# stem, so that is where normalize has to leave content too -- not the
-# first, and not both (silently dropping everything past the first
-# block used to be the bug here).
+# The stem is a sequence of blocks, so normalize keeps every block in it.
 #
-def test_normalize_moves_leading_stem_blocks_into_preamble() -> None:
+def test_normalize_keeps_every_stem_block_in_the_stem() -> None:
     question = models.EssayQuestion(
         id="x", stem="First paragraph.\n\nSecond paragraph."
     )
     normalized = question.normalize()
 
-    assert normalized.preamble == "First paragraph."
-    assert normalized.stem == "Second paragraph."
-
-    rt = parse(normalized.render(), kind="question")
-    assert rt == normalized
-
-
-def test_normalize_appends_leading_stem_blocks_after_existing_preamble() -> None:
-    question = models.EssayQuestion(preamble="Intro.", stem="Middle.\n\nLast one.")
-    normalized = question.normalize()
-
-    assert normalized.preamble == "Intro.\n\nMiddle."
-    assert normalized.stem == "Last one."
+    assert normalized.stem == "First paragraph.\n\nSecond paragraph."
 
     rt = parse(normalized.render(), kind="question")
     assert rt == normalized
@@ -293,12 +270,8 @@ def test_normalize_appends_leading_stem_blocks_after_existing_preamble() -> None
 
 def test_id_does_not_inline_onto_a_stem_that_leads_with_a_non_paragraph_block() -> None:
     """
-    Regression test for `can_inline_id`: with no preamble, the `[id]`
-    prefix would land on the *stem's* first block. Rendering directly
-    (no `.normalize()` first, which would otherwise migrate the leading
-    list into the preamble) exercises the check on an unnormalized
-    model, where a multi-block stem's first block need not be a
-    paragraph.
+    Regression test for `can_inline_id`: the `[id]` prefix would land on
+    the *stem's* first block, which need not be a paragraph.
     """
     question = models.EssayQuestion(id="x", stem="- a list item\n\nActual stem text.")
     src = question.render()

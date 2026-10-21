@@ -7,9 +7,9 @@ into the same model. This module is a different concern entirely -- a
 *view* for a human at a terminal, not a serializer. It draws each
 question as a card, the way a quiz page would show it: a type badge and a
 title on the border, metadata as chips, radio buttons and checkboxes for
-choices, empty input fields for typed answers. Rich-text fields (preamble,
-stem, epilogue, choice text, feedback, comment, an essay's answer key) go
-through `rich.markdown.Markdown` since they are Markdown themselves.
+choices, empty input fields for typed answers. Rich-text fields (stem, epilogue, choice text, feedback, comment, an
+essay's answer key) go through `rich.markdown.Markdown` since they are
+Markdown themselves.
 
 The answer key -- whichever shape it takes for a given question type -- is
 always set apart from the plain choices/blanks by color and, where it
@@ -218,9 +218,8 @@ class _View:
         chips = self._question_chips(question)
         if chips.plain:
             parts += [chips, _GAP]
-        for text in (question.preamble, question.stem):
-            if text:
-                parts.append(self._md(self._mark_blanks(text, question)))
+        if question.stem:
+            parts.append(self._md(self._mark_blanks(question.stem, question)))
         parts.append(_GAP)
         parts += self._body(question)
         if question.epilogue:
@@ -858,7 +857,7 @@ def show(
     """
     Show the parsed representation of a question or exam document.
 
-    Draws each question as a card: rich-text fields (preamble, stem,
+    Draws each question as a card: rich-text fields (stem,
     epilogue, choice text, feedback, ...) as Markdown, choices as radio
     buttons and checkboxes, typed answers as empty fields, and the rest
     as metadata chips, so the document's shape is easy to check at a glance.

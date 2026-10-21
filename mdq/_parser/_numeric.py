@@ -1,5 +1,5 @@
 """
-The `sign? value abstol? reltol?` numeric-body grammar
+The `sign? numeric_value abstol? reltol?` numeric-body grammar
 (docs/question-types/numeric.md), shared by a numeric question's own
 body (`[numeric]: ...`) and a numeric fill-in blank (`[^id/numeric]:
 ...`) -- both hand their tag's `rest` text to `_parse_numeric_expression`
@@ -49,7 +49,7 @@ _REJECTED_SPELLINGS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
 )
 
-#: The bare `sign? value` grammar (numeric.md) -- no tolerance terms.
+#: The bare `sign? numeric_value` grammar (numeric.md) -- no tolerance terms.
 #: Used to validate an `answer` written as a `str` (`mdq.models.
 #: _numeric`, `mdq.models._fill_in`), whether a dict/YAML/JSON document
 #: wrote it or `_parse_numeric_expression` below kept it as one.
@@ -102,7 +102,7 @@ def _check_double_range(value: str, text: str) -> None:
 def _parse_numeric_expression(expr: str) -> _NumericExpr:
     """
     Parse the value/tolerance grammar from docs/question-types/numeric.md:
-    `sign? value`, then at most one absolute and one relative tolerance,
+    `sign? numeric_value`, then at most one absolute and one relative tolerance,
     in either order (numeric/tolerances.mdq.md writes the relative one
     first).
 
@@ -190,7 +190,7 @@ def _written_places(number: str) -> int:
 def _answer_value(sign: str, value: str) -> int | float | str:
     """
     numeric.md, "Answer representation": the JSON value of a numeric
-    body's `sign? value`. A `+` sign is dropped, since it adds nothing.
+    body's `sign? numeric_value`. A `+` sign is dropped, since it adds nothing.
 
     * An integer is an `int` if it fits the 32-bit signed range, a
       string otherwise.
@@ -221,7 +221,7 @@ def _answer_value(sign: str, value: str) -> int | float | str:
 
 def parse_numeric_answer(text: str) -> int | float | str:
     """
-    Parse a bare `sign? value` (numeric.md's grammar for a numeric
+    Parse a bare `sign? numeric_value` (numeric.md's grammar for a numeric
     body's value, with no tolerance terms) into the representation a
     numeric body's value gets (numeric.md, "Answer representation"; see
     `_answer_value`). The importers use it, so an imported answer reads
@@ -247,7 +247,7 @@ def parse_numeric_string(text: str) -> tuple[Fraction, bool]:
     Read a response string as the exact rational it spells, and report
     whether it is written as a fraction (responses.md, "Numeric").
 
-    The string is exactly `sign? value`: not trimmed, no comma, no inner
+    The string is exactly `sign? numeric_value`: not trimmed, no comma, no inner
     space. A `number` MAY have an exponent (`"6.022e23"`).
 
     Raises:

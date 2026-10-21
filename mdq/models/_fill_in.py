@@ -33,7 +33,6 @@ from ._base import (
     FreeText,
     MdqModel,
     BaseQuestion,
-    _BLANK_MARKER_RE,
     _check_unique_choices,
     _raise_unique_id_error,
 )
@@ -42,6 +41,7 @@ from ._choice import (
     _with_choice_ids,
     effective_grading,
     effective_shuffle,
+    unspecified_choice_score,
     write_shuffle_and_grading,
 )
 from ._numeric import (
@@ -241,10 +241,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         names a declared blank (`undefined-blank`), and every declared
         blank is referenced by one (`unreferenced-blank`).
         """
-        referenced = [
-            marker.split("/", 1)[0].strip()
-            for marker in _BLANK_MARKER_RE.findall(self.stem)
-        ]
+        referenced = [name for name, _ in _markdown.find_blank_markers(self.stem)]
         declared = {blank.id for blank in self.blanks}
 
         for name in dict.fromkeys(referenced):
@@ -274,10 +271,10 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
     @model_validator(mode="after")
     def check_blank_markers_are_in_plain_text(self) -> Self:
         """
-        fill-in.md:301: a `[^id]` marker may only appear in a plain text
-        run of a paragraph -- not inside emphasis, a strong span, a
-        link, or a code span, where a student would not read it as the
-        blank it names.
+        fill-in.md, "Where blanks may appear": a `[^id]` marker may only
+        appear in a plain text run of a paragraph -- not in a heading,
+        list item, table cell or blockquote, nor inside emphasis, a
+        strong span, link text or image alt text. Code is literal text.
         """
         misplaced = _markdown.find_misplaced_blank_markers(self.stem)
         if misplaced:
@@ -286,11 +283,33 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                 "misplaced-blank",
                 (
                     f"[^{misplaced[0]}] must appear in a plain text run of "
-                    f"the stem, not inside emphasis, a link, or a code span"
+                    f"the stem, not inside a heading, list, table, quote, emphasis, or a link"
                 ),
                 ("stem",),
                 self.stem,
             )
+        return self
+
+    @model_validator(mode="after")
+    def check_blank_references_are_unique(self) -> Self:
+        """
+        fill-in.md, "Blank definitions": each blank id appears at most
+        once in the stem (`duplicate-blank-reference`).
+        """
+        seen: set[str] = set()
+        for name, _ in _markdown.find_blank_markers(self.stem):
+            if name in seen:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "duplicate-blank-reference",
+                    (
+                        f"the stem references [^{name}] more than once; "
+                        f"each blank id may appear only once in the stem"
+                    ),
+                    ("stem",),
+                    self.stem,
+                )
+            seen.add(name)
         return self
 
     def with_ids(self) -> Self:
@@ -416,16 +435,22 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         """
         Score each blank independently and combine by `grading`.
 
+        A blank with no key, or a `None` value, is empty and scores 0
+        (fill-in.md, "Grading"); `{}` is a response with every blank empty.
+
         Raises:
             ResponseError: a key of `response` names no blank, or a blank's
                 response doesn't match its type.
+            NotAutoGradable: a short answer blank response is pending.
         """
         known = {blank.id for blank in self.blanks}
         unknown = sorted(key for key in response if key not in known)
         if unknown:
             raise ResponseError(f"Blank ids {unknown!r} not found in the question")
+        symmetric = self.effective_grading() == "symmetric"
         scores: list[float] = []
         feedback: list[str] = []
+        pending: list[str] = []
 
         for blank in self.blanks:
             sub_response = response.get(blank.id)
@@ -438,7 +463,11 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                     raise ResponseError(
                         f"Response id {sub_response!r} not found in blank {blank.id!r}"
                     )
-                scores.append(choice.score or 0.0)
+                scores.append(
+                    choice.score
+                    if choice.score is not None
+                    else unspecified_choice_score(blank.choices, symmetric=symmetric)
+                )
                 if choice.feedback:
                     feedback.append(choice.feedback)
             elif isinstance(blank, ShortAnswerBlank):
@@ -457,10 +486,10 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                     diacritics=self.diacritics,
                 )
                 if outcome == "pending":
-                    raise NotAutoGradable(
-                        f"the response to blank {blank.id!r} is pending: it matches "
-                        "no pattern and 'unmatched' is 'manual'"
-                    )
+                    # The instructor scores a pending blank; the question
+                    # stays pending, but the other blanks are still checked.
+                    pending.append(blank.id)
+                    continue
                 scores.append(1.0 if outcome == "correct" else 0.0)
                 blank_feedback = first_feedback(
                     (blank.accept if outcome == "correct" else blank.reject) or [],
@@ -489,6 +518,12 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                 scores.append(1.0 if correct else 0.0)
                 if not correct and blank.incorrect_feedback:
                     feedback.append(blank.incorrect_feedback)
+
+        if pending:
+            raise NotAutoGradable(
+                f"the response to blank {pending[0]!r} is pending: it matches "
+                "no pattern and 'unmatched' is 'manual'"
+            )
 
         mean = sum(scores) / len(scores)
 

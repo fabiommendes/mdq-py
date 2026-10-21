@@ -12,12 +12,23 @@ that it implements.
 
 Implements the unreleased MDQ specification.
 
+### Removed
+
+- The lint code `stem-not-a-paragraph`: the stem may hold any block elements.
+
 ### Fixed
 
+- Short answer and fill-in short answer blank: a setext underline right after the content of a definition, or after the text of a pattern or choice item, is a `parse-error` (before, it was only found for the first tag, and a list item took `===` as text). A `!` line with four or more columns of indentation continues the content instead of being a `parse-error`. An exact literal that opens at the end of a line, or whose closing run starts a continuation line, is a `schema-error` (new `mdq._exact.join_pattern_lines`).
+- Fill-in: a `[^id]` repeated in the stem is the error `duplicate-blank-reference`. The `parse-error` for text on the tag line of a choice blank (`[^capital]: Brasília`) now says the tag line must be empty and suggests `[^capital/short-answer]:`.
+- Fill-in: a choice blank without a score on the picked choice scores like a multiple choice question (`partial`: 0; `symmetric`: the derived negative score), not always 0. `unspecified_choice_score` is shared with `MultipleChoiceQuestion`.
+- Fill-in: a pending short answer blank no longer hides a malformed response to a later blank; the `ResponseError` comes first.
+- Fill-in: a blank definition tag line in the epilogue is the error `detached-blank-definition`, and the stem reference of that id gives no `undefined-blank`.
+- Fill-in stem: a `[^id]` in a code span is literal text (no `misplaced-blank`, no reference to a blank), as in fenced and indented code. A `[^id]` in a heading, list item, table cell, blockquote, emphasis, strong, link text or image alt text is `misplaced-blank`. `[^id](url)` and `[^id][ref]` are links, not blanks. New `mdq._markdown.find_blank_markers`.
 - A numeric value with a huge exponent (`[numeric]: 1e999999999`) no longer hangs the parser: the range is checked before any `Fraction` exists. The exponent has at most 3 digits, and a value or tolerance above the largest finite double, or not zero but rounding to 0 as a double, is a `ParseError` in a body, `malformed-numeric-answer` in an `answer` and a `ResponseError` in a response (also a Python `int` beyond a double).
 
 ### Added
 
+- Tests for the grading corpus `examples/grading/fill-in.yaml`.
 - Scientific notation in a number (`6.022e23`, `1E-3`, `2.5e+4`, `1e05`): the Markdown body (value and both tolerances), `parse_numeric_string`, a string `answer` and the string of a response. A number with an exponent is `decimal`, and the inferred decimal places are `max(0, digits after the point - exponent)`, also for a string or a float (`1e-07` has 7). A value with an exponent is a float when the float gives back the digits and the mantissa has no trailing zero after the point (`1.50e3` stays a string). A fraction takes no exponent. The renderer still writes plain notation, so a large float comes back from `render()` as a string of the same value.
 - A `parse-error` for U+2212, `±`, a decimal comma or a digit group separator in a numeric body says which spelling to write (`use "-"`, `use "+-"`, `use "." as the decimal separator`, `remove the digit group separator`).
 - `NumericBlank.incorrect_feedback` (`incorrectFeedback` of the blank, from the fill-in frontmatter map): `FillInQuestion.score_response` adds it to the feedback of an incorrect numeric blank. A skipped blank and a correct one show none. A choice blank still rejects the map entry with a `schema-error`.
@@ -26,6 +37,8 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- The `preamble` field is removed. `stem` holds every block between the frontmatter (or the slug) and the body: one or more block elements, still required. `preamble` in YAML/JSON is a `schema-error`, and in the frontmatter an `invalid-frontmatter-field`. The converters (Moodle XML, GIFT, Aiken) read the question text from `stem`. The rules for forbidden elements, `blank-text`, `unsafe-thematic-break`, `stray-choice-marker` and `setext-heading` apply to `stem` and `epilogue`. `normalize_intro` is now `normalize_stem`.
+- Fill-in: a blank may appear in any ordinary paragraph of the stem, not only in its last paragraph.
 - Numeric lint: `answer-outside-domain` also reports a `fraction` domain with an answer that is neither whole nor a fraction string (`0.75`, `"0.75"`). `domain-mismatch` only reports a decimal absolute tolerance under `integer` or `fraction`. `missing-tolerance` only reports a `decimal` domain (declared or inferred), so a fraction without tolerance has no diagnostic and a declared `decimal` with an integer answer has one.
 - Numeric: a YAML/JSON number of whole value (`4.0`) counts 0 decimal places, as it already counted as `integer`. A number `answer` or tolerance that is not finite (`.inf`, `.nan`) is the `malformed-numeric-answer` error; before, `mdq validate` crashed with `OverflowError` or a raw error.
 - Numeric responses follow the table of `docs/responses.md`: a fraction (`"1/3"`, `"4/2"`, a `Fraction` that no finite decimal spells) is malformed in a `decimal` question, and a non-finite number or a `bool` is malformed in every domain. A response string is exactly `sign? value`: `"1e3"`, `"1,5"`, `" 5"` and `"1 000"` are a `ResponseError` (before, `Fraction` read some of them).

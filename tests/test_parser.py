@@ -32,7 +32,7 @@ from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 #: Keyed by the same id `relative_id` gives the pair (e.g.
 #: "multiple-choice.composite-ids.mdq.md").
 NOT_YET_SUPPORTED: dict[str, str] = {
-    # "numeric.table-preamble.mdq.md": (
+    # "numeric.table-stem.mdq.md": (
     #     "the parser uses plain CommonMark with no table extension, so a "
     #     "GFM pipe table is just an ordinary paragraph to it and its rows "
     #     "collapse into a single line of prose; see BACKLOG.md"
@@ -210,12 +210,12 @@ def test_numeric_blank_infers_domain_like_a_numeric_question() -> None:
 
 
 @pytest.mark.parametrize("question_type", ["multiple-selection", "short-answer"])
-def test_prose_list_in_preamble_has_no_trailing_blank_line(question_type: str) -> None:
+def test_prose_list_in_stem_has_no_trailing_blank_line(question_type: str) -> None:
     """
     markdown-it's `.map` for a list block that isn't the last block in the
     document extends one line past the list itself, into the blank line
     that follows it. `MDQParser.raw_text` must trim that trailing blank
-    line back off, or a plain (non-choice) list used as preamble prose
+    line back off, or a plain (non-choice) list used as stem prose
     ends up with a spurious trailing newline baked into the field.
     """
     if question_type == "multiple-selection":
@@ -224,15 +224,17 @@ def test_prose_list_in_preamble_has_no_trailing_blank_line(question_type: str) -
         body = "[short-answer]: 4\n"
     source = "Consider the following:\n\n* first\n* second\n\nWhat is 2 + 2?\n\n" + body
     document = parse_file_from_text(source)
-    assert document["preamble"] == "Consider the following:\n\n* first\n* second"
+    assert document["stem"] == (
+        "Consider the following:\n\n* first\n* second\n\nWhat is 2 + 2?"
+    )
 
 
-def test_exam_preamble_thematic_break_does_not_fence_a_later_question() -> None:
+def test_exam_stem_thematic_break_does_not_fence_a_later_question() -> None:
     """
     `_split_exam_blocks` looks for a `---` that fences a question's
     frontmatter without an explicit `===` separator (exam.md's own
     example chains two bare-frontmatter questions back to back). A
-    thematic break inside an earlier question's own preamble/epilogue
+    thematic break inside an earlier question's own stem/epilogue
     prose is also a lone, blank-line-preceded `---`, and must not be
     mistaken for the start of that fence just because some *later*
     question's real frontmatter closes with one too.
@@ -251,13 +253,14 @@ def test_exam_preamble_thematic_break_does_not_fence_a_later_question() -> None:
     )
     exam = parse_exam(source)
     assert [q["type"] for q in exam["questions"]] == ["short-answer", "essay"]
-    assert exam["questions"][0]["preamble"] == (
+    assert exam["questions"][0]["stem"] == (
         "Some background text.\n\n---\n\nMore background, after a thematic break."
+        "\n\nWhat is 2 + 2?"
     )
     assert load(exam)
 
 
-def test_colon_bearing_preamble_line_is_not_mistaken_for_frontmatter() -> None:
+def test_colon_bearing_stem_line_is_not_mistaken_for_frontmatter() -> None:
     """
     A content-only guess at whether a `---` fences YAML is not safe:
     ordinary prose regularly contains a colon (labeled notes like "Nota:
@@ -278,10 +281,10 @@ def test_colon_bearing_preamble_line_is_not_mistaken_for_frontmatter() -> None:
     )
     exam = parse_exam(source)
     assert len(exam["questions"]) == 1
-    assert exam["questions"][0]["preamble"] == (
+    assert exam["questions"][0]["stem"] == (
         "Considere o processo abaixo.\n\n---\n\nAtenção: a resposta deve ser justificada."
+        "\n\nExplique a seleção natural."
     )
-    assert exam["questions"][0]["stem"] == "Explique a seleção natural."
     assert load(exam)
 
 
@@ -314,8 +317,9 @@ def test_exam_separator_immediately_followed_by_frontmatter_is_one_question() ->
     # (dev/specs/to-do/derived-ids.md) -- `with_ids()` would give it `q1`.
     assert [q.get("id") for q in exam["questions"]] == [None, "q2"]
     assert [q["type"] for q in exam["questions"]] == ["essay", "essay"]
-    assert exam["questions"][0]["preamble"] == (
+    assert exam["questions"][0]["stem"] == (
         "Considere o processo abaixo.\n\n---\n\nAtenção: a resposta deve ser justificada."
+        "\n\nExplique a seleção natural."
     )
     assert exam["questions"][1]["stem"] == "Descreva a fotossíntese."
     assert load(exam)

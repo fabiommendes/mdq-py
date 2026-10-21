@@ -153,9 +153,51 @@ def test_short_answer_prevalidation(case: dict[str, Any], example: dict[str, Any
     )
 
 
+_STRATEGIES = ("partial", "no-mistakes", "all-or-nothing", "symmetric")
+
+
+def _fill_in_params() -> list[Any]:
+    params = []
+    for case in _cases("fill-in"):
+        for example in case["examples"]:
+            expected = example.get("scores") or {s: example["score"] for s in _STRATEGIES}
+            for strategy, score in expected.items():
+                params.append(
+                    pytest.param(
+                        case,
+                        example,
+                        strategy,
+                        score,
+                        id=f"{strategy}/{case['name']}/{example['response']!r}",
+                    )
+                )
+    return params
+
+
+@pytest.mark.parametrize(("case", "example", "strategy", "expected"), _fill_in_params())
+def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, expected: Any) -> None:
+    doc = {"type": "fill-in", "grading": strategy, **case["question"]}
+    loaded = mdq.load(doc, kind="question")
+    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
+    question = loaded.document
+    if expected == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(example["response"])
+        return
+    if expected == "pending":
+        with pytest.raises(NotAutoGradable):
+            question.score_response(example["response"])
+        return
+    result = question.score_response(example["response"])
+    assert result.score == pytest.approx(_number(expected))
+    if "feedback" in example:
+        assert result.feedback == example["feedback"]
+
+
 def test_every_grading_file_is_covered() -> None:
     names = sorted(p.stem for p in GRADING_ROOT.glob("*.yaml"))
     assert names == [
+        "fill-in",
         "multiple-choice",
         "multiple-selection",
         "numeric",

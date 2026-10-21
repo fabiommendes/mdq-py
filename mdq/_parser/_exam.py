@@ -200,7 +200,7 @@ def is_exam(text: str) -> bool:
     An exam is recognized by its H1 title, which starts the document or
     follows the frontmatter (exam.md, "The title"). An H1 anywhere else
     does not make an exam: it is one of the block elements a question's
-    preamble rejects (base.md, "Forbidden elements").
+    stem rejects (base.md, "Forbidden elements").
 
     Args:
         text: MDQ source text, with or without YAML frontmatter.
@@ -245,7 +245,7 @@ def _split_exam_blocks(
     Split the text below the title into (instructions, question blocks,
     glued fences).
 
-    The third item maps a block index to the field (`preamble` or
+    The third item maps a block index to the field (`stem` or
     `epilogue`) in which a `---` line sits right after a text line. Such
     a line is a setext heading underline in CommonMark, not a fence
     (exam.md, "Questions"), so the block it meant to open was swallowed;
@@ -254,7 +254,7 @@ def _split_exam_blocks(
     A block starts at a `===` separator -- always, unconditionally -- or
     at a bare `---` frontmatter fence. Telling a fence-that-opens-a-new-
     question apart from a thematic break sitting in some other question's
-    own preamble/epilogue prose (which generic.md allows outright) can't
+    own stem/epilogue prose (which generic.md allows outright) can't
     be done by content alone: an entirely ordinary prose line like "Nota:
     leia com atenção." parses as a YAML mapping just as readily as real
     frontmatter fields do, so a bare `---` only opens a *new* question
@@ -288,7 +288,7 @@ def _split_exam_blocks(
     close is fair game again.
 
     Before any body tag has appeared for the current question, a bare
-    `---` is necessarily still inside its own preamble/stem, and no
+    `---` is necessarily still inside its own stem, and no
     signal available from raw lines can tell a thematic break there from
     a genuine fence -- so it is never treated as one.
     """
@@ -328,7 +328,7 @@ def _split_exam_blocks(
             continue
 
         if line == "---" and not blank_before and lines[index - 1].strip(" \t"):
-            glued.append((index, "epilogue" if body_seen else "preamble"))
+            glued.append((index, "epilogue" if body_seen else "stem"))
 
         if line == "---" and blank_before:
             adjacent = all(not gap.strip(" \t") for gap in lines[boundary:index])

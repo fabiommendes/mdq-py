@@ -233,7 +233,7 @@ class GiftEncoder:
             for choice, score in zip(question.choices, effective_scores(question))
         ]
         return GiftBlock(
-            stem=join_blocks(question.preamble, question.stem),
+            stem=question.stem,
             answer=GiftChoice(options=options),
             tail=question.epilogue or "",
             title=question.title,
@@ -248,7 +248,7 @@ class GiftEncoder:
             for answer in literal_answers(question.accept, format="GIFT")
         ]
         return GiftBlock(
-            stem=join_blocks(question.preamble, question.stem),
+            stem=question.stem,
             answer=GiftShort(options=options),
             tail=question.epilogue or "",
             title=question.title,
@@ -260,7 +260,7 @@ class GiftEncoder:
         value = float_answer(question.answer, question.tolerance, format="GIFT")
         tolerance = gift_numeric_tolerance(value, question.tolerance)
         return GiftBlock(
-            stem=join_blocks(question.preamble, question.stem),
+            stem=question.stem,
             answer=GiftNumeric(
                 options=[GiftNumericOption(value=value, tolerance=tolerance)]
             ),
@@ -272,7 +272,7 @@ class GiftEncoder:
 
     def block_from_essay(self, question: EssayQuestion) -> GiftBlock:
         return GiftBlock(
-            stem=join_blocks(question.preamble, question.stem),
+            stem=question.stem,
             answer=GiftEssay(),
             tail=question.epilogue or "",
             title=question.title,
@@ -284,7 +284,7 @@ class GiftEncoder:
     def blocks_from_true_false(self, question: TrueFalseQuestion) -> list[GiftBlock]:
         # The fallback stem stands for "no shared text", so it round-trips.
         stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
-        group_stem = join_blocks(question.preamble, stem)
+        group_stem = join_blocks(stem)
         blocks = []
         for i, statement in enumerate(question.choices):
             stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -339,7 +339,7 @@ class GiftEncoder:
             )
 
         return GiftBlock(
-            stem=join_blocks(question.preamble, stem_part),
+            stem=join_blocks(stem_part),
             answer=answer,
             tail=join_blocks(tail_part, question.epilogue),
             title=question.title,
@@ -890,7 +890,7 @@ def common_prefix(strings: list[str]) -> str:
 
 
 def join_blocks(*parts: str | None) -> str:
-    """Join non-empty, stripped parts with a blank line, as preamble/stem/epilogue do."""
+    """Join non-empty, stripped parts with a blank line, as the stem and epilogue do."""
     stripped = [part.strip() for part in parts if part]
     return "\n\n".join(part for part in stripped if part)
 

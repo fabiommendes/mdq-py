@@ -358,7 +358,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value (or its `fill-in` entry when that value is a map), and is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -377,7 +377,7 @@
             },
             "unmatched": {
               "$ref": "./short-answer.yaml#/$defs/unmatched",
-              "description": "Applies to every short answer blank of the question, with the same meaning as in a short answer question."
+              "description": "Applies to every short answer blank of the question, with the same meaning as in a short answer question. If absent, each blank takes its own default: `incorrect` with an accept pattern and `manual` without one."
             }
           },
           "required": [
@@ -390,7 +390,7 @@
       "$defs": {
         "Blank": {
           "title": "Blank",
-          "description": "A single blank. `type` discriminates the three kinds; it is required here even though the surface syntax may leave it implicit (`[^capital]:` infers its kind from the definition that follows, while `[^size/numeric]:` states it).",
+          "description": "A single blank. `type` discriminates the three kinds; it is required here even though the surface syntax may leave it implicit (`[^capital]:` is a choice blank, while `[^size/numeric]:` and `[^city/short-answer]:` state their kind).",
           "oneOf": [
             {
               "$ref": "#/$defs/ChoiceBlank"
@@ -442,7 +442,7 @@
         "ShortAnswerBlank": {
           "type": "object",
           "title": "Short answer blank",
-          "description": "A blank the student answers by typing a short piece of text, graded exactly like a short-answer question. Carries the same answer machinery: a list of accepted responses, a regular expression, or `accept`/`reject` pattern lists that can attach feedback.",
+          "description": "A blank the student answers by typing a short piece of text, graded exactly like a short-answer question. Carries the same answer machinery: `accept` and `reject` pattern lists, which can attach feedback.",
           "additionalProperties": false,
           "properties": {
             "id": {
@@ -452,7 +452,7 @@
               "const": "short-answer"
             },
             "accept": {
-              "description": "Patterns matching a correct response. In Markdown, the `[^id/short-answer/accept]` block sets it; a response is correct if it matches any entry.",
+              "description": "Patterns matching a correct response. In Markdown, the `[^id/short-answer]` block (alias `[^id/short-answer/accept]`) sets it; a response is correct if it matches any entry.",
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "reject": {
@@ -991,11 +991,7 @@
         },
         "stem": {
           "type": "string",
-          "description": "The main command shown to the students (e.g. \"Select all correct answers\", \"Write a program that...\"). This is the sentence that tells the student what to do and is always shown to them."
-        },
-        "preamble": {
-          "type": "string",
-          "description": "One or more paragraphs of context shown before the stem. May contain Markdown markup."
+          "description": "The text shown to the students before the question body: one or more block elements (paragraphs, tables, lists, ...), such as the context of the question and the command (\"Select all correct answers\", \"Write a program that...\"). Always shown to them. May contain Markdown markup."
         },
         "epilogue": {
           "type": "string",

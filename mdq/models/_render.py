@@ -37,19 +37,10 @@ def yield_introduction(
     model: _base.BaseQuestion, id: str | None = None
 ) -> Iterable[str]:
     """
-    Yield lines of the introductory sections (preamble, stem) as strings.
+    Yield lines of the introductory section (the stem) as strings.
 
     The `id` is passed to `mdq.models._render.yield_introduction()`.
     """
-
-    if model.preamble:
-        if id is not None:
-            yield f"[{id}] {model.preamble}"
-            id = None
-        else:
-            yield model.preamble
-        if model.stem:
-            yield ""
 
     if id is not None:
         yield f"[{id}] {model.stem}"

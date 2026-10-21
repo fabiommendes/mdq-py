@@ -6,7 +6,7 @@ Also home to generic helpers with no question-type of their own: the
 unique-id machinery shared by every "duplicate choice/id" rule
 (dev/specs/to-do/unique-ids.md), the `locale`/`blank-text`/regex
 validators reused across question and blank types, and the
-preamble/stem/epilogue normalization helpers `BaseQuestion._normalize`
+stem/epilogue normalization helpers `BaseQuestion._normalize`
 calls.
 """
 
@@ -269,10 +269,6 @@ _UUID_SHAPE_RE = re.compile(
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
-#: `[^blank-id]` markers, as written in a fill-in stem.
-_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\]")
-
-
 def _validate_locale(value: str | None) -> str | None:
     """generic.md [^4]: raise `malformed-locale` for an ill-formed tag."""
     if value is None:
@@ -331,7 +327,6 @@ class BaseQuestion[R](MdqModel):
     title: FreeText | None = None
     author: FreeText | None = None
     stem: FreeText
-    preamble: FreeText | None = None
     epilogue: FreeText | None = None
     comment: FreeText | None = None
     locale: str | None = None
@@ -360,7 +355,7 @@ class BaseQuestion[R](MdqModel):
     @model_validator(mode="after")
     def check_no_forbidden_block_elements(self) -> Self:
         """
-        base.md:250, "Forbidden elements": `preamble`, `stem` and
+        base.md:250, "Forbidden elements": `stem` and
         `epilogue` may not hold an H1 heading, a heading or paragraph
         starting with `[` (the syntax a body tag or a fill-in blank
         marker use), or an unordered list whose items all start with
@@ -370,12 +365,11 @@ class BaseQuestion[R](MdqModel):
         does (dev/specs/to-do/rule-conformance.md, section D).
 
         A leading `[slug]` prefix is exempt only on the very first block
-        of the combined preamble+stem sequence (generic.md, "Slug") --
+        of the stem (generic.md, "Slug") --
         the epilogue, which is never that first block, gets no exemption.
         """
         fields = (
-            ("preamble", self.preamble, bool(self.preamble)),
-            ("stem", self.stem, not self.preamble),
+            ("stem", self.stem, True),
             ("epilogue", self.epilogue, False),
         )
         for field_name, text, allow_leading_bracket in fields:
@@ -453,7 +447,7 @@ class BaseQuestion[R](MdqModel):
         skip_frontmatter = (
             frontmatter.keys() == {"id"}
             and re.fullmatch(_parser.SLUG_BODY_RE, str(self.id)) is not None
-            and can_inline_id(self.preamble, self.stem)
+            and can_inline_id(self.stem)
             and not self.comment
         )
         if not skip_frontmatter:
@@ -488,19 +482,19 @@ class BaseQuestion[R](MdqModel):
         """
         Normalize *inplace*.
 
-        Runs `mdq._parser`'s Markdown parser over `preamble`/`stem`/
-        `epilogue` (via `normalize_intro`/`normalize_paragraphs`) to
+        Runs `mdq._parser`'s Markdown parser over `stem`/
+        `epilogue` (via `normalize_stem`/`normalize_paragraphs`) to
         canonicalize them, so this is no longer a handful of cheap
         string operations -- fine at this project's scale, but worth
         knowing if it ever shows up in a profile.
         """
-        # `preamble`/`epilogue`/`comment` are rendered as the mere
+        # `epilogue`/`comment` are rendered as the mere
         # presence of raw lines (prose blocks, `#`-comment lines) with
         # no field marker of their own, so an empty string and no value
         # at all render identically and a parse can only ever produce
         # the latter. Collapsing an all-whitespace value to None here
         # keeps normalization a fixed point of that round trip.
-        self.preamble, self.stem = normalize_intro(self.preamble, self.stem)
+        self.stem = normalize_stem(self.stem)
         self.epilogue = opt.map(normalize_paragraphs, self.epilogue) or None
         self.comment = opt.map(remove_trailing_ws, self.comment) or None
         self.tags = [tag.strip() for tag in self.tags if tag.strip()]
@@ -542,10 +536,9 @@ class BaseQuestion[R](MdqModel):
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
         diagnostics.extend(_lint.check_tags(self.tags))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
-        diagnostics.extend(_lint.check_stem_is_a_paragraph(self.stem))
         diagnostics.extend(_lint.check_id_is_url_safe(self.id))
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
-        for field_name in ("preamble", "stem", "epilogue"):
+        for field_name in ("stem", "epilogue"):
             diagnostics.extend(
                 _lint.check_unsafe_thematic_break(
                     getattr(self, field_name), (field_name,)
@@ -615,21 +608,15 @@ def clear_nones(d: dict[str, Any]) -> dict[str, Any]:
 
 
 
-def can_inline_id(preamble: str | None, stem: str) -> bool:
+def can_inline_id(stem: str) -> bool:
     """
     Report whether an inline `[id]` prefix would parse back correctly.
 
     See the comment in `BaseQuestion._render_lines` for why: it only
     round-trips when the block receiving the prefix -- the *first* block
-    of the combined preamble+stem sequence, per `MDQParser.split_intro`
-    -- is a plain paragraph. That is the preamble's own first block when
-    there is a preamble; otherwise it's the stem's first block, which is
-    not guaranteed to be a paragraph either -- a `stem` may legally span
-    more than one Markdown block (see `normalize_intro`) unless the
-    caller already normalized the model.
+    of the stem, per `MDQParser.split_intro` -- is a plain paragraph.
     """
-    combined = f"{preamble}\n\n{stem}" if preamble else stem
-    blocks = _parser.reconstruct_blocks(combined.strip())
+    blocks = _parser.reconstruct_blocks(stem.strip())
     return bool(blocks) and blocks[0][0] == "paragraph"
 
 
@@ -642,7 +629,7 @@ def normalize_paragraphs(src: str) -> str:
     Normalize a string that is a Markdown paragraph or series of
     paragraphs.
 
-    This is used to normalize the `preamble` and `epilogue` fields of
+    This is used to normalize the `epilogue` field of
     questions, which are Markdown blocks but not full documents. Naively
     splitting on blank lines and stripping each chunk is not enough: a
     plain paragraph's soft-wrapped lines collapse to a single space once
@@ -655,33 +642,21 @@ def normalize_paragraphs(src: str) -> str:
     return "\n\n".join(text for _, text in _parser.reconstruct_blocks(src))
 
 
-def normalize_intro(preamble: str | None, stem: str) -> tuple[str | None, str]:
+def normalize_stem(stem: str) -> str:
     """
-    Normalize a question's `preamble` and `stem` fields together.
+    Normalize a question's `stem` field.
 
-    `MDQParser.split_intro` does not care which field a block came from:
-    it always assigns the *last* intro block to the stem and everything
-    before it to the preamble. A `stem` spanning more than one Markdown
-    block is legal per the schema (`schema/question-base.yaml`'s `stem`
-    is just a non-empty string; `docs/question-types/generic.md` only
-    *recommends* -- "SHOULD" -- a single paragraph), so it does not
-    stay put on a render/parse round trip: every block but the last
-    migrates into the preamble. Normalizing has to do the same to stay a
-    fixed point of that round trip -- keeping only the first block
-    (dropping the rest) or only the last would both be lossy, and either
-    way would put the surviving block in the wrong field. Reconstructing
-    `preamble` and `stem` together, rather than field by field, is what
-    makes that possible.
+    The stem is a sequence of block elements. Like `normalize_paragraphs`,
+    this reconstructs each block with the parser's own rule, so the result
+    is a fixed point of render-then-parse. A stem with no block (only
+    whitespace) is returned trimmed.
     """
-    combined = f"{preamble}\n\n{stem}" if preamble else stem
     # Trim only ASCII whitespace: a Unicode space is text (grammar.md,
     # "Unicode spaces"), and `str.strip()` would remove U+00A0 and others.
-    blocks = _parser.reconstruct_blocks(combined.strip(_ASCII_WS))
+    blocks = _parser.reconstruct_blocks(stem.strip(_ASCII_WS))
     if not blocks:
-        return None, stem.strip(_ASCII_WS)
-    new_stem = blocks[-1][1]
-    new_preamble = "\n\n".join(text for _, text in blocks[:-1]) or None
-    return new_preamble, new_stem
+        return stem.strip(_ASCII_WS)
+    return "\n\n".join(text for _, text in blocks)
 
 
 def remove_trailing_ws(src: str) -> str:
