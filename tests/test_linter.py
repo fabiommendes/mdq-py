@@ -24,7 +24,7 @@ def test_whitespace_only_text_field_is_an_error(field_name: str) -> None:
     doc = {
         "type": "essay",
         "stem": "A perfectly fine stem.",
-        "input": "text",
+        "content": "text",
         field_name: "   \n\t  ",
     }
     diagnostics = load(doc).diagnostics
@@ -41,7 +41,7 @@ def test_non_blank_text_fields_do_not_warn() -> None:
         "stem": "Some context.\n\nExplain X.",
         "epilogue": "Be concise.",
         "comment": "Internal note.",
-        "input": "text",
+        "content": "text",
         "answerKey": "X is Y.",
     }
     assert load(doc).diagnostics == []
@@ -52,7 +52,7 @@ def test_missing_text_fields_do_not_warn() -> None:
     fires on a defined-but-empty value, never on `None`. `id`/`title`/
     `answerKey` get their own rules for that (`missing-id`,
     `missing-title`, `missing-answer-key`), asserted elsewhere."""
-    doc = {"type": "essay", "stem": "Some context.\n\nExplain X.", "input": "text"}
+    doc = {"type": "essay", "stem": "Some context.\n\nExplain X.", "content": "text"}
     assert _rules(load(doc).diagnostics) == {
         "missing-id",
         "missing-title",
@@ -108,7 +108,7 @@ def test_choice_checks_do_not_apply_to_essay_or_numeric() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
     }
     numeric_doc = {
@@ -220,7 +220,7 @@ def test_well_formed_uuid_does_not_warn() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
         "uuid": "123e4567-e89b-12d3-a456-426614174000",
     }
@@ -239,7 +239,7 @@ def test_malformed_uuid_is_a_model_error() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
         "uuid": "nope",
     }
@@ -266,7 +266,7 @@ def test_ordinary_tags_do_not_warn() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
         "tags": ["algorithms", "complexity"],
     }
@@ -279,7 +279,7 @@ def test_ordinary_stem_is_not_flagged_as_a_block() -> None:
         "id": "q",
         "title": "Q",
         "stem": "Explain why 2 + 2 = 4.",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
     }
     assert _rules(load(doc).diagnostics) == set()
@@ -291,7 +291,7 @@ def test_locale_lookalike_warns_but_real_locale_does_not() -> None:
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "text",
+        "content": "text",
         "answerKey": "y",
     }
     bad = {**common, "locale": "cn"}
@@ -534,7 +534,7 @@ def test_choices_without_markers_are_not_flagged() -> None:
 
 
 def test_highlight_without_code_input_warns() -> None:
-    doc = {"type": "essay", "stem": "x", "input": "text", "highlight": "python"}
+    doc = {"type": "essay", "stem": "x", "content": "text", "highlight": "python"}
     assert "ignored-highlight" in _rules(load(doc).diagnostics)
 
 
@@ -545,18 +545,18 @@ def test_highlight_is_ignored_by_default_input_too() -> None:
     assert "ignored-highlight" in _rules(load(doc).diagnostics)
 
 
-def test_code_input_without_highlight_warns() -> None:
-    doc = {"type": "essay", "stem": "x", "input": "code"}
-    assert "code-input-without-highlight" in _rules(load(doc).diagnostics)
+def test_code_content_without_highlight_warns() -> None:
+    doc = {"type": "essay", "stem": "x", "content": "code"}
+    assert "code-content-without-highlight" in _rules(load(doc).diagnostics)
 
 
-def test_code_input_with_highlight_does_not_warn() -> None:
+def test_code_content_with_highlight_does_not_warn() -> None:
     doc = {
         "type": "essay",
         "id": "q",
         "title": "Q",
         "stem": "x",
-        "input": "code",
+        "content": "code",
         "highlight": "python",
         "answerKey": "y",
     }

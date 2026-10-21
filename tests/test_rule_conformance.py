@@ -63,11 +63,11 @@ def _load_ok(doc: dict):
 # =======================================================================
 
 
-def test_code_input_without_highlight_is_info() -> None:
+def test_code_content_without_highlight_is_info() -> None:
     """essay.md:90."""
-    doc = {"type": "essay", "stem": "Descreva o algoritmo.", "input": "code"}
+    doc = {"type": "essay", "stem": "Descreva o algoritmo.", "content": "code"}
     question = _load_ok(doc)
-    matching = [d for d in question.lint() if d.code == "code-input-without-highlight"]
+    matching = [d for d in question.lint() if d.code == "code-content-without-highlight"]
     assert len(matching) == 1
     assert matching[0].severity == "info"
 
@@ -127,7 +127,7 @@ def test_unsafe_id_warns() -> None:
         "type": "essay",
         "id": "capital do Brasil",
         "stem": "Descreva a Baía de Guanabara.",
-        "input": "text",
+        "content": "text",
     }
     question = _load_ok(doc)
     assert _PROPOSED_CODES["unsafe-id"] in _codes(question.lint())
@@ -138,7 +138,7 @@ def test_url_safe_id_does_not_warn() -> None:
         "type": "essay",
         "id": "capital-do-brasil",
         "stem": "Descreva a Baía de Guanabara.",
-        "input": "text",
+        "content": "text",
     }
     question = _load_ok(doc)
     assert _PROPOSED_CODES["unsafe-id"] not in _codes(question.lint())
@@ -148,7 +148,7 @@ def test_url_safe_id_does_not_warn() -> None:
 
 
 def test_missing_id_and_title_report_info() -> None:
-    doc = {"type": "essay", "stem": "Descreva a Baía de Guanabara.", "input": "text"}
+    doc = {"type": "essay", "stem": "Descreva a Baía de Guanabara.", "content": "text"}
     question = _load_ok(doc)
     codes = _codes(question.lint())
     assert _PROPOSED_CODES["missing-id"] in codes
@@ -161,7 +161,7 @@ def test_defined_id_and_title_do_not_warn() -> None:
         "id": "baia-de-guanabara",
         "title": "A Baía de Guanabara",
         "stem": "Descreva a Baía de Guanabara.",
-        "input": "text",
+        "content": "text",
     }
     question = _load_ok(doc)
     codes = _codes(question.lint())
@@ -393,7 +393,7 @@ def test_essay_unrecognized_highlight_language_reports_info() -> None:
     doc = {
         "type": "essay",
         "stem": "Escreva uma função que calcule o MDC.",
-        "input": "code",
+        "content": "code",
         "highlight": "not-a-real-pygments-lexer-xyz",
     }
     question = _load_ok(doc)
@@ -404,7 +404,7 @@ def test_essay_recognized_highlight_language_does_not_warn() -> None:
     doc = {
         "type": "essay",
         "stem": "Escreva uma função que calcule o MDC.",
-        "input": "code",
+        "content": "code",
         "highlight": "python",
     }
     question = _load_ok(doc)
@@ -439,7 +439,7 @@ def test_ordering_recognized_highlight_language_does_not_warn() -> None:
 
 
 def test_missing_answer_key_reports_info() -> None:
-    doc = {"type": "essay", "stem": "Descreva o bioma da Caatinga.", "input": "text"}
+    doc = {"type": "essay", "stem": "Descreva o bioma da Caatinga.", "content": "text"}
     question = _load_ok(doc)
     assert _PROPOSED_CODES["missing-answer-key"] in _codes(question.lint())
 
@@ -448,7 +448,7 @@ def test_defined_answer_key_does_not_warn() -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o bioma da Caatinga.",
-        "input": "text",
+        "content": "text",
         "answerKey": "Vegetação xerófila adaptada à semiaridez.",
     }
     question = _load_ok(doc)
@@ -567,7 +567,7 @@ def test_forbidden_block_element_in_stem_from_a_yaml_document_is_an_error() -> N
     doc = {
         "type": "essay",
         "stem": "# Bioma predominante no Nordeste",
-        "input": "text",
+        "content": "text",
     }
     loaded = load(doc)
     assert loaded.document is None, (

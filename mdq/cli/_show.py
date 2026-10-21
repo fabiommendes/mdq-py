@@ -615,8 +615,8 @@ class _View:
     #
     def _essay(self, question: models.EssayQuestion) -> list[RenderableType]:
         rows: list[tuple[str, str]] = []
-        if question.input != "text":
-            rows.append(("input", question.input))
+        if question.content != "text":
+            rows.append(("content", question.content))
         if question.highlight:
             rows.append(("highlight", question.highlight))
         parts: list[RenderableType] = []

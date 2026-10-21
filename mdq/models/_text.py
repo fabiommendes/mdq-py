@@ -18,12 +18,13 @@ from typing import Annotated, Any, Iterable, Literal, Self
 from pydantic import Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from .. import _parser
 from .. import types as t
 from .._exact import exact_literal
 from .._markdown import UNICODE_SPACE
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
-from ..types import Automation, Diacritics, EssayInput, Unmatched
+from ..types import Automation, Diacritics, EssayContent, Unmatched
 from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
 from ._regex import InvalidRegexError, RegexPattern
@@ -317,12 +318,29 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
 
 class EssayQuestion(BaseQuestion[t.TextResponse]):
     type: Literal["essay"] = "essay"
-    input: EssayInput = "text"
+    content: EssayContent = "text"
     highlight: Annotated[str | None, Field(default=None, min_length=1)] = None
 
     #: A model answer for the human grading this. Carrying one does not
     #: make the question auto-gradable.
     answer_key: FreeText | None = None
+
+    @model_validator(mode="after")
+    def check_answer_key_has_no_h1(self) -> Self:
+        """essay.md, "Answer key": the section holds any block except an H1."""
+        if self.answer_key:
+            for description in _parser.find_answer_key_forbidden_elements(
+                self.answer_key
+            ):
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "forbidden-block-element",
+                    f"'answerKey' holds {description}, which essay.md's "
+                    f"\"Answer key\" does not allow",
+                    ("answerKey",),
+                    self.answer_key,
+                )
+        return self
 
     @property
     def automation(self) -> Automation:
@@ -332,14 +350,14 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_essay_highlight(self.input, self.highlight))
+        diagnostics.extend(_lint.check_essay_highlight(self.content, self.highlight))
         diagnostics.extend(_lint.check_missing_answer_key(self.answer_key))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
         data = super().frontmatter(skip_defaults=skip_defaults)
-        if self.input != "text":
-            data["input"] = self.input
+        if self.content != "text":
+            data["content"] = self.content
         if self.highlight is not None:
             data["highlight"] = self.highlight
         return data

@@ -570,7 +570,7 @@ def test_to_mdq_numerical_zero_tolerance_omits_tolerance_field():
 
 
 @pytest.mark.parametrize(
-    "response_format, expected_input",
+    "response_format, expected_content",
     [
         ("editor", "text"),
         ("plain", "plain"),
@@ -580,7 +580,7 @@ def test_to_mdq_numerical_zero_tolerance_omits_tolerance_field():
     ],
 )
 def test_to_mdq_essay_response_format_mapping(
-    response_format: str | None, expected_input: str
+    response_format: str | None, expected_content: str
 ) -> None:
     block = MoodleXmlBlock(
         type="essay",
@@ -591,7 +591,7 @@ def test_to_mdq_essay_response_format_mapping(
     question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
     assert isinstance(question, EssayQuestion)
     assert question.answer_key == "Look for variation, heredity, selection."
-    assert question.input == expected_input
+    assert question.content == expected_content
 
 
 def test_to_mdq_multianswer_becomes_fill_in():
@@ -844,7 +844,7 @@ def test_from_mdq_essay():
     question = EssayQuestion(
         stem="Explain natural selection using an example from Brazilian fauna.",
         answer_key="Look for variation, heredity, selection.",
-        input="code",
+        content="code",
     )
     moodle = MoodleXml().from_mdq(question)
     [block] = moodle.blocks

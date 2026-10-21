@@ -34,6 +34,7 @@ from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
 from ._frontmatter import dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer, parse_numeric_string
 from ._question import (
+    find_answer_key_forbidden_elements,
     find_forbidden_elements,
     find_stray_choice_markers,
     parse_question,
@@ -51,6 +52,7 @@ __all__ = [
     "SEPARATOR",
     "reconstruct_blocks",
     "find_forbidden_elements",
+    "find_answer_key_forbidden_elements",
     "find_stray_choice_markers",
     "parse_numeric_answer",
     "parse_numeric_string",

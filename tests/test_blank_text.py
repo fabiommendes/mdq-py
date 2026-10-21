@@ -219,7 +219,7 @@ def test_null_tag_entry_is_a_schema_error() -> None:
     ("doc", "path"),
     [
         (_essay(id=""), ("id",)),
-        (_essay(input="code", highlight=""), ("highlight",)),
+        (_essay(content="code", highlight=""), ("highlight",)),
         ({"type": "exam", "id": "", "questions": []}, ("id",)),
         ({"type": "exam", "questions": [{"include": ""}]}, ("questions", 0, "include")),
         ({"type": "exam", "questions": [{"includeAll": ""}]}, ("questions", 0, "includeAll")),

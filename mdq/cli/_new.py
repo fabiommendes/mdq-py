@@ -294,7 +294,7 @@ type: essay
 tags: [programming, python, algorithms]
 author: Ada Lovelace
 locale: en-US
-input: code
+content: code
 highlight: python
 meta:
   difficulty: medium

@@ -37,7 +37,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml",
       "title": "Essay question",
-      "description": "An open-ended question where the student writes a free-form answer, rather than choosing among predefined options. Extends the common question-base schema with an `input` field describing how the answer should be edited, and an optional answer key.",
+      "description": "An open-ended question where the student writes a free-form answer, rather than choosing among predefined options. Extends the common question-base schema with a `content` field describing how the answer should be edited, and an optional answer key.",
       "allOf": [
         {
           "$ref": "./question-base.yaml"
@@ -48,9 +48,9 @@
             "type": {
               "const": "essay"
             },
-            "input": {
+            "content": {
               "type": "string",
-              "description": "The kind of editor shown to the student. `text` is a formatted (rich text) editor, `plain` a plain text box, and `code` a code editor, which is normally paired with `highlight`.",
+              "description": "The kind of response the student writes, and so the kind of editor shown. `text` is a formatted (rich text) editor, `plain` a plain text box, and `code` a code editor, which is normally paired with `highlight`.",
               "enum": [
                 "code",
                 "text",
@@ -60,7 +60,7 @@
             },
             "highlight": {
               "type": "string",
-              "description": "Programming language used for syntax highlighting and, where supported, validation. Only applicable when `input` is `code`; it is ignored (and the linter warns) for any other input.",
+              "description": "Programming language used for syntax highlighting. Only applicable when `content` is `code`; it SHOULD be omitted for any other content (the linter warns, and the value is ignored). An empty string is a `schema-error`.",
               "minLength": 1,
               "examples": [
                 "python",
@@ -70,7 +70,7 @@
             },
             "answerKey": {
               "type": "string",
-              "description": "A model answer. It guides the instructor while grading and MAY be shown to students as feedback afterwards. An empty or whitespace-only value is a `blank-text` error, like `title`."
+              "description": "A model answer, written as Markdown. In a Markdown source it is the content of the `## [answer-key]` section, without the heading. It guides the instructor while grading. A host MUST NOT show it to the student before the student submits the response, and MAY show it after, even while the response is pending. An empty or whitespace-only value is a `blank-text` error, like `title`."
             }
           },
           "required": [
@@ -1394,8 +1394,8 @@
         "type": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/type"
         },
-        "input": {
-          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/input"
+        "content": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/content"
         },
         "highlight": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/highlight"

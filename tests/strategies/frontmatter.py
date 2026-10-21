@@ -32,7 +32,7 @@ COMMON_QUESTION_KEYS: tuple[str, ...] = (
 #: `COMMON_QUESTION_KEYS` (each type's own "## Frontmatter" section under
 #: docs/question-types/*.md).
 TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
-    "essay": ("input", "highlight"),
+    "essay": ("content", "highlight"),
     "multiple-choice": ("shuffle", "grading"),
     "multiple-selection": ("shuffle", "grading"),
     "true-false": ("shuffle", "grading"),

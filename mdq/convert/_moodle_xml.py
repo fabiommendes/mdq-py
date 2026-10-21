@@ -25,7 +25,7 @@ from ..models import (
     Tolerance,
     TrueFalseQuestion,
 )
-from ..types import EssayInput
+from ..types import EssayContent
 from ._base import (
     effective_scores,
     TRUE_FALSE_FALLBACK_STEM,
@@ -336,7 +336,7 @@ class MoodleXmlEncoder:
             type="essay",
             questiontext=join_blocks(question.stem, question.epilogue),
             grader_info=question.answer_key,
-            response_format=essay_response_format_from_input(question.input),
+            response_format=essay_response_format_from_content(question.content),
             name=question.title,
             idnumber=question.id,
             tags=list(question.tags),
@@ -533,7 +533,7 @@ class MoodleXmlDecoder:
         return EssayQuestion(
             stem=block.questiontext,
             answer_key=block.grader_info,
-            input=essay_input_from_response_format(block.response_format),
+            content=essay_content_from_response_format(block.response_format),
             title=block.name,
             id=block.idnumber,
             tags=list(block.tags),
@@ -977,8 +977,8 @@ def statement_correct(block: MoodleXmlBlock) -> bool:
     return bool(block.answers) and block.answers[0].fraction > 0
 
 
-def essay_input_from_response_format(response_format: str | None) -> EssayInput:
-    """Map a Moodle `<responseformat>` value to an MDQ essay `input` kind."""
+def essay_content_from_response_format(response_format: str | None) -> EssayContent:
+    """Map a Moodle `<responseformat>` value to an MDQ essay `content` kind."""
     if response_format == "editor":
         return "text"
     if response_format == "plain":
@@ -988,9 +988,9 @@ def essay_input_from_response_format(response_format: str | None) -> EssayInput:
     return "text"
 
 
-def essay_response_format_from_input(input_: EssayInput) -> str:
-    """Inverse of `essay_input_from_response_format`."""
-    return {"text": "editor", "plain": "plain", "code": "monospaced"}[input_]
+def essay_response_format_from_content(content: EssayContent) -> str:
+    """Inverse of `essay_content_from_response_format`."""
+    return {"text": "editor", "plain": "plain", "code": "monospaced"}[content]
 
 
 def common_prefix(strings: list[str]) -> str:

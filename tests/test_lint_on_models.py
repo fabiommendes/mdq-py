@@ -53,7 +53,7 @@ def test_question_lint_returns_a_list_of_diagnostics() -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o bioma da Caatinga.",
-        "input": "text",
+        "content": "text",
     }
     question = _load_question(doc)
     result = question.lint()
@@ -66,7 +66,7 @@ def test_exam_lint_returns_a_list_of_diagnostics() -> None:
         "type": "exam",
         "title": "Prova de Geografia do Brasil",
         "questions": [
-            {"id": "q1", "type": "essay", "stem": "Descreva o Pantanal.", "input": "text"},
+            {"id": "q1", "type": "essay", "stem": "Descreva o Pantanal.", "content": "text"},
         ],
     }
     exam = _load_exam(doc)
@@ -99,7 +99,7 @@ def test_essay_lint_matches_load_diagnostics_for_ignored_highlight() -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o bioma do Cerrado.",
-        "input": "text",
+        "content": "text",
         "highlight": "python",
     }
     loaded = load(doc)
@@ -209,7 +209,7 @@ def test_exam_lint_prefixes_question_diagnostics_with_questions_index() -> None:
                 "title": "Fotossíntese",
                 "type": "essay",
                 "stem": "Descreva a fotossíntese.",
-                "input": "text",
+                "content": "text",
                 "answerKey": "Processo de conversão de luz em energia química nas plantas.",
             },
             {
@@ -270,7 +270,7 @@ def test_exam_with_questions_does_not_warn_exam_without_questions() -> None:
         "type": "exam",
         "title": "Prova de Biologia",
         "questions": [
-            {"id": "q1", "type": "essay", "stem": "Descreva a fotossíntese.", "input": "text"},
+            {"id": "q1", "type": "essay", "stem": "Descreva a fotossíntese.", "content": "text"},
         ],
     }
     exam = _load_exam(doc)

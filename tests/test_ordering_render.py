@@ -120,9 +120,10 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
     main_block, i = parse_content_block(lines, i)
 
     sections = []
-    i = skip_blank(lines, i)
-    # The sections end at the first line that is not a `## [...]` heading:
-    # what follows is the epilogue.
+    # The epilogue, if any, sits between the content block and the first
+    # section.
+    while i < len(lines) and not lines[i].startswith("## ["):
+        i += 1
     while i < len(lines) and lines[i].startswith("## ["):
         section, i = parse_section(lines, i)
         sections.append(section)

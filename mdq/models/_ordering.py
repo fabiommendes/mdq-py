@@ -94,6 +94,10 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         yield ""
         yield "[ordering]"
         yield from _render.yield_ordering_content(self.lines, self.content, self.highlight)
+
+    def _render_lines(self) -> Iterable[str]:
+        # The sections come after the epilogue (ordering.md, "Body").
+        yield from super()._render_lines()
         if self.extra:
             yield from _render.yield_ordering_section(
                 "extra", self.extra, self.content, self.highlight

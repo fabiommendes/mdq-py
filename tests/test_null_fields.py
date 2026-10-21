@@ -52,10 +52,10 @@ def test_null_grading_and_shuffle_are_inherit() -> None:
     assert loaded.document.shuffle == "inherit"
 
 
-def test_null_essay_input_takes_the_default() -> None:
-    loaded = mdq.load("---\ninput: null\n---\n\nDisserte.\n\n[essay]\n", kind="question")
+def test_null_essay_content_takes_the_default() -> None:
+    loaded = mdq.load("---\ncontent: null\n---\n\nDisserte.\n\n[essay]\n", kind="question")
     assert _errors(loaded) == []
-    assert loaded.document.input == "text"
+    assert loaded.document.content == "text"
 
 
 def test_null_diacritics_takes_the_default() -> None:
@@ -71,13 +71,13 @@ def test_null_diacritics_takes_the_default() -> None:
 #
 def test_null_in_a_json_dict_is_absent() -> None:
     loaded = mdq.load(
-        {"type": "essay", "stem": "Disserte.", "weight": None, "title": None, "input": None},
+        {"type": "essay", "stem": "Disserte.", "weight": None, "title": None, "content": None},
         kind="question",
     )
     assert _errors(loaded) == []
     assert loaded.document.weight == 1
     assert loaded.document.title is None
-    assert loaded.document.input == "text"
+    assert loaded.document.content == "text"
 
 
 def test_null_in_a_nested_choice_is_absent() -> None:

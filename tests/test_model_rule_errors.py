@@ -167,7 +167,7 @@ def test_malformed_locale_is_a_model_error() -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva as características do bioma Cerrado.",
-        "input": "text",
+        "content": "text",
         "locale": "pt_BR",
     }
     loaded = load(doc)
@@ -181,7 +181,7 @@ def test_well_formed_locale_does_not_error(locale: str) -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva as características do bioma Cerrado.",
-        "input": "text",
+        "content": "text",
         "locale": locale,
     }
     loaded = load(doc)
@@ -254,7 +254,7 @@ def test_blank_intro_field_is_a_model_error(field_name: str) -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o processo de fotossíntese na Mata Atlântica.",
-        "input": "text",
+        "content": "text",
         field_name: "   \n\t  ",
     }
     loaded = load(doc)
@@ -268,7 +268,7 @@ def test_blank_text_on_metadata_fields_is_a_model_error(field_name: str) -> None
     doc = {
         "type": "essay",
         "stem": "Descreva o processo de fotossíntese na Mata Atlântica.",
-        "input": "text",
+        "content": "text",
         field_name: "   \n\t  ",
     }
     loaded = load(doc)
@@ -282,7 +282,7 @@ def test_non_blank_intro_fields_do_not_error() -> None:
         "type": "essay",
         "stem": "Considere um ambiente de luz solar plena.\n\nDescreva o processo de fotossíntese na Mata Atlântica.",
         "epilogue": "Seja objetivo.",
-        "input": "text",
+        "content": "text",
     }
     loaded = load(doc)
     assert loaded.document is not None
@@ -412,7 +412,7 @@ _MC = {
         (_ORDERING | {"accept": []}, ("accept",)),
         (_ORDERING | {"reject": []}, ("reject",)),
         (_ORDERING | {"highlight": ""}, ("highlight",)),
-        ({"type": "essay", "stem": "x", "input": "code", "highlight": ""}, ("highlight",)),
+        ({"type": "essay", "stem": "x", "content": "code", "highlight": ""}, ("highlight",)),
         (_MC | {"id": ""}, ("id",)),
         ({"type": "exam", "id": "", "questions": []}, ("id",)),
         ({"type": "exam", "questions": [{"include": ""}]}, ("questions", 0, "include")),

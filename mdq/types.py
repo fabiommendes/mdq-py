@@ -273,7 +273,7 @@ class EssayQuestionDict(QuestionBaseDict, total=False):
     """schema/essay.yaml"""
 
     type: Required[Literal["essay"]]
-    input: EssayInput
+    content: EssayContent
     highlight: str
     answerKey: str
 
@@ -399,7 +399,7 @@ class ToleranceDict(TypedDict, total=False):
 NumericDomain = Literal["integer", "decimal", "fraction"]
 
 #: schema/essay.yaml.
-EssayInput = Literal["code", "text", "plain"]
+EssayContent = Literal["code", "text", "plain"]
 
 #: How an ordering question's lines are written and presented: `code` for
 #: a fenced code block, `text` for an unordered list.

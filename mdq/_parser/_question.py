@@ -109,6 +109,7 @@ __all__ = [
     "parse_question",
     "reconstruct_blocks",
     "find_forbidden_elements",
+    "find_answer_key_forbidden_elements",
     "find_stray_choice_markers",
 ]
 
@@ -633,22 +634,26 @@ class MDQParser:
 
     def parse_essay_body(self) -> None:
         front = self.frontmatter
-        if "input" in front:
-            self.state["input"] = front["input"]
+        if "content" in front:
+            self.state["content"] = front["content"]
         if "highlight" in front:
             self.state["highlight"] = front["highlight"]
 
-    def parse_ordering_body(self) -> None:
+    def parse_ordering_body(self) -> list[Node]:
         """
         Fill `lines`, `extra`, `accept` and `reject` from an `[ordering]`
         block and its `## [extra]`/`## [accept]`/`## [reject]` sections.
+
+        The optional epilogue sits between the content block and the
+        first section; the sections are contiguous after it and nothing
+        follows the last one.
 
         The indentation unit is inferred once across every block of the
         question (ordering.md#indentation), so every block is read raw
         first and only converted to `[level, text]` pairs at the end. A
         declared `content`/`highlight`/`indentation`/`unmatched`/
         `normalizations` wins over what the body implies, the same way
-        `parse_essay_body` copies `input`/`highlight`.
+        `parse_essay_body` copies `content`/`highlight`.
 
         Raises:
             ParseError: the block after `[ordering]` (or a section) is
@@ -656,10 +661,25 @@ class MDQParser:
                 content is not the same kind as `[ordering]`'s, two
                 `## [extra]` sections are declared, or a section's
                 observations carry more than one feedback/comment block
-                or interleave the two, or an epilogue block comes before a
-                section.
+                or interleave the two, or a block that is not a section
+                follows the first section.
+
+        Returns:
+            The epilogue nodes, between the content block and the first
+            section.
         """
         main_kind, main_highlight, main_raw = self.parse_ordering_content()
+
+        first_section = next(
+            (
+                i
+                for i in range(self.pos, len(self.children))
+                if self.is_ordering_section(self.children[i])
+            ),
+            len(self.children),
+        )
+        epilogue_nodes = self.children[self.pos : first_section]
+        self.pos = first_section
 
         extra_raw: list[RawLine] | None = None
         accept_raw: list[RawAlternative] = []
@@ -692,17 +712,12 @@ class MDQParser:
                 target = accept_raw if name == "accept" else reject_raw
                 target.append(RawAlternative(raw, feedback, comment))
 
-        for node in self.children[self.pos :]:
-            if (
-                node.type == "heading"
-                and node.tag == "h2"
-                and ORDERING_SECTION_RE.match(self.raw_text(node))
-            ):
-                raise ParseError(
-                    "the epilogue comes after the [extra], [accept] and [reject] "
-                    "sections; a block between the content and a section is not allowed",
-                    node,
-                )
+        if self.pos < len(self.children):
+            raise ParseError(
+                "only [extra], [accept] and [reject] sections can follow the "
+                "first section; the epilogue goes before it",
+                self.children[self.pos],
+            )
 
         unit = ordering_unit(
             [indent for indent, _ in main_raw]
@@ -730,6 +745,15 @@ class MDQParser:
             doc["accept"] = [ordering_alternative(alt, unit) for alt in accept_raw]
         if reject_raw:
             doc["reject"] = [ordering_alternative(alt, unit) for alt in reject_raw]
+        return epilogue_nodes
+
+    def is_ordering_section(self, node: Node) -> bool:
+        """Whether `node` is an `## [extra]`, `## [accept]` or `## [reject]` heading."""
+        return (
+            node.type == "heading"
+            and node.tag == "h2"
+            and ORDERING_SECTION_RE.match(self.raw_text(node)) is not None
+        )
 
     def parse_ordering_content(self) -> tuple[str, str | None, list[RawLine]]:
         """
@@ -1325,6 +1349,7 @@ class MDQParser:
         question_type = self.frontmatter.get("type")
         node = self.seek()
         assert node is not None
+        epilogue_nodes: list[Node] | None = None
 
         if node.type == "bullet_list":
             # Ambiguous between multiple-choice / multiple-selection /
@@ -1345,7 +1370,7 @@ class MDQParser:
                 self.parse_essay_body()
             elif tag == "ordering":
                 question_type = question_type or "ordering"
-                self.parse_ordering_body()
+                epilogue_nodes = self.parse_ordering_body()
             elif tag == "short-answer":
                 question_type = question_type or "short-answer"
                 self.parse_short_answer_body(text, body_node)
@@ -1364,6 +1389,8 @@ class MDQParser:
         epilogue_blocks = (
             self.parse_answer_key()
             if question_type == "essay"
+            else epilogue_nodes
+            if epilogue_nodes is not None
             else self.children[self.pos :]
         )
         if epilogue_blocks:
@@ -1565,6 +1592,22 @@ def find_forbidden_elements(
             forbidden.append("a paragraph starting with '['")
 
     return forbidden
+
+
+def find_answer_key_forbidden_elements(src: str) -> list[str]:
+    """
+    essay.md, "Answer key": the section holds every block except an H1
+    heading. Return one description per H1 heading (ATX or setext) in
+    `src`, an `answerKey` field checked on its own, in source order.
+    """
+    if not src.strip():
+        return []
+    reader = MDQParser(src)
+    return [
+        "an H1 heading"
+        for node in reader.children
+        if node.type == "heading" and node.tag == "h1"
+    ]
 
 
 def find_stray_choice_markers(src: str) -> list[str]:

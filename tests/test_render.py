@@ -186,15 +186,15 @@ def test_render_essay_question_with_answer_key() -> None:
     question = models.EssayQuestion(
         stem="Explain the greenhouse effect.",
         epilogue="Use one paragraph.",
-        input="code",
+        content="code",
         highlight="python",
         answer_key="A model answer.",
     )
     src = question.render()
     expected = """
 ---
+content: code
 highlight: python
-input: code
 ---
 
 Explain the greenhouse effect.

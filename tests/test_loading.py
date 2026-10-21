@@ -561,7 +561,7 @@ def test_default_level_lint_rules_are_warnings() -> None:
     # choices as correct, see docs/lint-codes.md).
     data = {
         "type": "essay",
-        "input": "text",
+        "content": "text",
         "stem": "Qual das opções é a capital do Brasil?",
         "tags": ["cerrado,bioma"],
     }

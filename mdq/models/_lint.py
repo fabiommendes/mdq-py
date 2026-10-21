@@ -657,34 +657,34 @@ def check_highlight_language(highlight: str | None) -> list[Diagnostic]:
     return []
 
 
-def check_essay_highlight(input_kind: str, highlight: str | None) -> list[Diagnostic]:
-    """essay.md: `highlight` is ignored unless the input is `code`."""
-    if highlight is not None and input_kind != "code":
+def check_essay_highlight(content: str, highlight: str | None) -> list[Diagnostic]:
+    """essay.md: `highlight` is ignored unless `content` is `code`."""
+    if highlight is not None and content != "code":
         return [
             Diagnostic(
                 severity="warning",
                 code="ignored-highlight",
                 path=("highlight",),
                 message=(
-                    f"'highlight' is ignored because input is "
-                    f"{input_kind!r}, not 'code'"
+                    f"'highlight' is ignored because content is "
+                    f"{content!r}, not 'code'"
                 ),
             )
         ]
 
-    if input_kind == "code" and highlight is None:
+    if content == "code" and highlight is None:
         return [
             Diagnostic(
                 severity="info",
-                code="code-input-without-highlight",
+                code="code-content-without-highlight",
                 path=("highlight",),
                 message=(
-                    "input is 'code' but no 'highlight' language is given, "
+                    "content is 'code' but no 'highlight' language is given, "
                     "so the editor cannot highlight the answer"
                 ),
             )
         ]
-    if input_kind == "code" and highlight is not None:
+    if content == "code" and highlight is not None:
         return check_highlight_language(highlight)
     return []
 

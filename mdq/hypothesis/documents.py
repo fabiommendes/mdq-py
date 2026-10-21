@@ -28,7 +28,7 @@ from typing import Any, Callable, Literal, get_args
 from hypothesis import strategies as st
 
 from .. import models
-from ..types import EssayInput, QuestionType
+from ..types import EssayContent, QuestionType
 
 # QUESTION_TYPES = get_args(QuestionType)
 QUESTION_TYPES: tuple[QuestionType, ...] = ("essay",)
@@ -183,22 +183,23 @@ def short_answer_questions() -> st.SearchStrategy[models.Question]:
 
 def essay_questions(
     *,
-    input: EssayInput | None = None,
+    content: EssayContent | None = None,
 ) -> st.SearchStrategy[models.Question]:
     """
     Return a strategy for generating questions of the given type.
 
     If `type` is `None`, any question type is allowed.
     """
-    if input is None:
-        inputs = get_args(EssayInput)
-        return st.sampled_from(inputs).flatmap(lambda t: essay_questions(input=t))
+    if content is None:
+        contents = get_args(EssayContent)
+        return st.sampled_from(contents).flatmap(lambda t: essay_questions(content=t))
 
     return st.builds(
         models.EssayQuestion,
         highlight=code_highlight_formats() | st.none()
-        if input == "code"
+        if content == "code"
         else st.none(),
+        content=st.just(content),
         **_base_question_kwargs(),
     )
 

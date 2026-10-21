@@ -308,6 +308,31 @@ def test_two_extra_sections_is_a_parse_error() -> None:
         parse_question("Order.\n\n" + source)
 
 
+def test_epilogue_sits_between_the_content_block_and_the_first_section() -> None:
+    """ordering.md, "Body": the epilogue comes before the sections."""
+    source = "Order.\n\n[ordering]\n* a\n* b\n\nHint.\n\n## [extra]\n* c\n"
+    doc = parse_question(source)
+    assert doc["epilogue"] == "Hint."
+    assert doc["extra"] == [[0, "c"]]
+
+
+def test_epilogue_after_a_section_is_a_parse_error() -> None:
+    """ordering.md, "Body": nothing but sections follows the first one."""
+    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n"
+    with pytest.raises(ParseError, match="epilogue goes before"):
+        parse_question(source)
+
+
+def test_prose_between_two_sections_is_a_parse_error() -> None:
+    """ordering.md, "Body": sections are contiguous."""
+    source = (
+        "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n\n"
+        "## [reject]\n* b\n* a\n"
+    )
+    with pytest.raises(ParseError):
+        parse_question(source)
+
+
 def test_interleaved_feedback_and_comment_blocks_is_a_parse_error() -> None:
     """
     ordering.md#accepted-rejected-answers: "They MUST NOT interleave:
