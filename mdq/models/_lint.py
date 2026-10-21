@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import Counter
 from fractions import Fraction
 from typing import TYPE_CHECKING, Sequence, Union
 
@@ -126,7 +127,9 @@ def has_visible_character(value: str) -> bool:
     characters" defines it: not white space, and not a control (`Cc`) or
     format (`Cf`) character such as U+200B.
     """
-    return any(not (c.isspace() or unicodedata.category(c) in ("Cc", "Cf")) for c in value)
+    return any(
+        not (c.isspace() or unicodedata.category(c) in ("Cc", "Cf")) for c in value
+    )
 
 
 #: base.md:252, footnote [^2]: the url-safe shape a question `id` SHOULD have.
@@ -255,7 +258,11 @@ def check_setext_heading(
     if not text:
         return []
     for token in _RENDER_MD.parse(text):
-        if token.type == "heading_open" and token.level == 0 and token.markup in ("-", "="):
+        if (
+            token.type == "heading_open"
+            and token.level == 0
+            and token.markup in ("-", "=")
+        ):
             return [
                 Diagnostic(
                     severity="warning",
@@ -593,9 +600,7 @@ def check_true_false_marker_nfkc(
                     severity="info",
                     code="non-nfkc-true-false-marker",
                     path=("choices", index, "marker"),
-                    message=(
-                        f"{marker!r} is not its own NFKC form; read as {form!r}"
-                    ),
+                    message=(f"{marker!r} is not its own NFKC form; read as {form!r}"),
                 )
             )
     return warnings
@@ -632,7 +637,7 @@ def check_true_false_uniform_answers(
 # ----------------------------------------------------------------------
 def check_highlight_language(highlight: str | None) -> list[Diagnostic]:
     """
-    essay.md:89, ordering.md:343: `highlight` SHOULD name a language a
+    essay.md, ordering.md: `highlight` SHOULD name a language a
     highlighter can recognize. Any alias of a Pygments lexer is
     accepted as the reference list (`pygments.lexers.
     find_lexer_class_by_name`) -- `pygments` is a direct dependency for
@@ -666,8 +671,7 @@ def check_essay_highlight(content: str, highlight: str | None) -> list[Diagnosti
                 code="ignored-highlight",
                 path=("highlight",),
                 message=(
-                    f"'highlight' is ignored because content is "
-                    f"{content!r}, not 'code'"
+                    f"'highlight' is ignored because content is {content!r}, not 'code'"
                 ),
             )
         ]
@@ -948,7 +952,11 @@ def check_numeric(
                 path=path + ("answer",),
                 message=(
                     f"domain is {domain!r} but the answer {answer!r} is not "
-                    + ("a whole number" if domain == "integer" else "a whole number or a fraction")
+                    + (
+                        "a whole number"
+                        if domain == "integer"
+                        else "a whole number or a fraction"
+                    )
                 ),
             )
         )
@@ -1092,25 +1100,6 @@ def check_undeclared_id_after_include_all(
 # ----------------------------------------------------------------------
 
 
-def check_ordering_highlight(question: _ordering.OrderingQuestion) -> list[Diagnostic]:
-    """ordering.md: `highlight` must be omitted unless `content` is 'code'."""
-    if question.highlight is not None and question.content != "code":
-        return [
-            Diagnostic(
-                severity="warning",
-                code="ignored-highlight",
-                path=("highlight",),
-                message=(
-                    f"'highlight' is ignored because content is "
-                    f"{question.content!r}, not 'code'"
-                ),
-            )
-        ]
-    if question.content == "code" and question.highlight is not None:
-        return check_highlight_language(question.highlight)
-    return []
-
-
 def check_ordering_duplicate_alternatives(
     question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
@@ -1162,6 +1151,34 @@ def check_ordering_accept_repeats_answer_key(
                     message=(
                         f"accept[{index}] repeats the [ordering] block's own "
                         f"lines, once fully normalized"
+                    ),
+                )
+            )
+    return warnings
+
+
+def check_ordering_unreachable_reject(
+    question: _ordering.OrderingQuestion,
+) -> list[Diagnostic]:
+    """
+    ordering.md#acceptedrejected-answers: a `reject` entry that uses a
+    line, or more copies of a line, than the presented pool (`lines`
+    plus `extra`, fully normalized) offers can never match a response.
+    """
+    pool = Counter(question.comparison_key(question.lines))
+    pool.update(question.comparison_key(question.extra))
+    warnings = []
+    for index, alt in enumerate(question.reject):
+        if Counter(question.comparison_key(alt.lines)) - pool:
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="unreachable-alternative",
+                    path=("reject", index, "lines"),
+                    message=(
+                        f"reject[{index}] uses a line, or more copies of a "
+                        f"line, than the lines and extra blocks offer, so no "
+                        f"response can match it"
                     ),
                 )
             )

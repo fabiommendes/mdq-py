@@ -72,6 +72,12 @@ def yield_ordering_content(
     A line's indentation is `level * 4` spaces in a code block and
     `level * 2` spaces before the `* ` marker in a `ul`. A blank line
     carries no indentation of its own, regardless of its level.
+
+    A `ul` line deeper than one level below the previous one (or the first
+    line, when not at level 0) has no parent item to nest under. It is
+    written with one extra `* ` marker for each missing level, the way
+    CommonMark reads an item that only holds a nested list: `* * Bahia` is
+    level 1.
     """
     if content == "code":
         yield f"```{highlight}" if highlight else "```"
@@ -79,8 +85,11 @@ def yield_ordering_content(
             yield f"{' ' * (level * 4)}{text}" if text else ""
         yield "```"
     else:
+        previous = -1
         for level, text in lines:
-            yield f"{' ' * (level * 2)}* {text}"
+            nested = min(level, previous + 1)
+            yield f"{' ' * (nested * 2)}{'* ' * (level - nested + 1)}{text}"
+            previous = level
 
 
 def yield_ordering_section(

@@ -297,6 +297,7 @@ def test_non_blank_intro_fields_do_not_error() -> None:
 def test_ordering_accept_reject_overlap_is_a_model_error() -> None:
     doc = {
         "type": "ordering",
+        "content": "text",
         "stem": "Ordene as linhas do algoritmo de Euclides para o MDC.",
         "lines": [[0, "a, b = b, a % b"], [0, "return a"]],
         "accept": [{"lines": [[0, "a, b = b, a % b"], [0, "return a"]]}],
@@ -312,6 +313,7 @@ def test_ordering_accept_reject_overlap_is_a_model_error() -> None:
 def test_ordering_disjoint_accept_and_reject_does_not_error() -> None:
     doc = {
         "type": "ordering",
+        "content": "text",
         "stem": "Ordene as linhas do algoritmo de Euclides para o MDC.",
         "lines": [[0, "a, b = b, a % b"], [0, "return a"]],
         "accept": [{"lines": [[0, "return a"], [0, "a, b = b, a % b"]]}],
@@ -380,7 +382,7 @@ _FILL_IN_CHOICE_BLANK = {
     "type": "multiple-choice",
     "choices": [{"id": "amazonia", "text": "Amazônia", "score": 1}],
 }
-_ORDERING = {"type": "ordering", "stem": "Ordene.", "lines": [[0, "a"], [0, "b"]]}
+_ORDERING = {"type": "ordering", "content": "text", "stem": "Ordene.", "lines": [[0, "a"], [0, "b"]]}
 _SHORT = {"type": "short-answer", "stem": "Capital?", "accept": ["Brasília"]}
 _MC = {
     "type": "multiple-choice",

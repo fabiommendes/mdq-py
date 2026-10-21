@@ -290,6 +290,8 @@ _BODY_SYNTAX: dict[str | tuple[str, str], str] = {
     ("short-answer", "reject"): "write a `[short-answer/reject]:` block",
     ("ordering", "accept"): "write a `## [accept]` section",
     ("ordering", "reject"): "write a `## [reject]` section",
+    ("ordering", "content"): "a code block implies `code`, a list implies `text`",
+    ("ordering", "highlight"): "the language of the `[ordering]` fence is the highlight",
     "lines": "write the lines under the `[ordering]` tag",
     "extra": "write a `## [extra]` section",
     "blanks": "write `[^id]` markers in the stem and `[^id]:` definitions",

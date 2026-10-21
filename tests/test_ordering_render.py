@@ -17,6 +17,7 @@ handoff).
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import NamedTuple
 
 import pytest
@@ -70,7 +71,9 @@ def parse_content_block(lines: list[str], i: int) -> tuple[ContentBlock, int]:
     return ContentBlock("ul", None, tuple(items)), i
 
 
-def parse_observation_block(lines: list[str], i: int, prefix: str) -> tuple[list[str], int]:
+def parse_observation_block(
+    lines: list[str], i: int, prefix: str
+) -> tuple[list[str], int]:
     collected = []
     while i < len(lines) and lines[i].lstrip().startswith(prefix):
         collected.append(lines[i].lstrip()[len(prefix) :])
@@ -99,6 +102,40 @@ def parse_section(lines: list[str], i: int) -> tuple[Section, int]:
     return Section(heading, tuple(feedback), tuple(comment), block), i
 
 
+SECTION_HEADING = re.compile(
+    r"^ {0,3}(?:##[ \t]+)?\[(extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
+)
+
+
+def normalize_section_headings(lines: list[str]) -> list[str]:
+    """
+    Rewrite every CommonMark form of a section heading (indented, with
+    trailing spaces, with a closing sequence, or setext) as `## [name]`,
+    and strip the indentation of the `[ordering]` tag line.
+    """
+    result: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        match = SECTION_HEADING.match(line)
+        if line.strip() == "[ordering]":
+            result.append("[ordering]")
+        elif match and (line.lstrip().startswith("##") or _is_setext(lines, i)):
+            result.append(f"## [{match.group(1)}]")
+            i += 2 if not line.lstrip().startswith("##") else 1
+            continue
+        else:
+            result.append(line)
+        i += 1
+    return result
+
+
+def _is_setext(lines: list[str], i: int) -> bool:
+    return (
+        i + 1 < len(lines) and re.fullmatch(r" {0,3}-+[ \t]*", lines[i + 1]) is not None
+    )
+
+
 def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
     """
     Parse everything from the `[ordering]` tag onward into the main
@@ -107,7 +144,7 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
     Raises:
         ValueError: no `[ordering]` tag line in `markdown`.
     """
-    lines = markdown.splitlines()
+    lines = normalize_section_headings(markdown.splitlines())
     try:
         start = lines.index("[ordering]")
     except ValueError as exc:
@@ -198,7 +235,15 @@ def expected_content_lines(
     """
     if content == "code":
         return tuple(" " * (4 * level) + text for level, text in lines)
-    return tuple(" " * (2 * level) + f"* {text}" for level, text in lines)
+    # A line more than one level below the previous one has no parent item:
+    # it gets one extra `* ` marker per missing level.
+    expected = []
+    previous = -1
+    for level, text in lines:
+        nested = min(level, previous + 1)
+        expected.append(" " * (2 * nested) + "* " * (level - nested + 1) + text)
+        previous = level
+    return tuple(expected)
 
 
 def expected_lines(feedback_or_comment: str | None) -> tuple[str, ...]:
@@ -332,6 +377,7 @@ def test_extra_and_alternative_fences_reuse_the_same_highlight() -> None:
 
 def test_feedback_renders_before_comment_regardless_of_field_order() -> None:
     question = OrderingQuestion(
+        content="text",
         stem="s",
         lines=[(0, "a"), (0, "b")],
         reject=[
@@ -352,6 +398,7 @@ def test_feedback_renders_before_comment_regardless_of_field_order() -> None:
 
 def test_multiline_feedback_prefixes_every_line() -> None:
     question = OrderingQuestion(
+        content="text",
         stem="s",
         lines=[(0, "a"), (0, "b")],
         accept=[
@@ -368,6 +415,7 @@ def test_multiline_feedback_prefixes_every_line() -> None:
 
 def test_sections_render_in_extra_accept_reject_order() -> None:
     question = OrderingQuestion(
+        content="text",
         stem="s",
         lines=[(0, "a"), (0, "b")],
         extra=[(0, "c")],
@@ -399,6 +447,7 @@ def test_frontmatter_emits_non_default_indentation_unmatched_and_normalizations(
     None
 ):
     question = OrderingQuestion(
+        content="text",
         stem="s",
         lines=[(0, "a"), (0, "b")],
         indentation="strict",
@@ -413,6 +462,7 @@ def test_frontmatter_emits_non_default_indentation_unmatched_and_normalizations(
 
 def test_frontmatter_normalizations_is_always_a_list_never_bare_string() -> None:
     question = OrderingQuestion(
+        content="text",
         stem="s", lines=[(0, "a"), (0, "b")], normalizations=["skip-blanks"]
     )
     frontmatter = question.frontmatter(skip_defaults=True)
@@ -427,4 +477,3 @@ def test_frontmatter_skip_defaults_omits_default_indentation_unmatched_normaliza
     assert "indentation" not in frontmatter
     assert "unmatched" not in frontmatter
     assert "normalizations" not in frontmatter
-

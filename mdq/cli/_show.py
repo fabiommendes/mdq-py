@@ -651,8 +651,15 @@ class _View:
             # A real presentation layer shuffles randomly; this output is
             # tested, so it sorts instead -- deterministic, and it does not
             # reveal the answer key's order.
+            # Only `fixed` shows the authored level: under `lenient` and
+            # `strict` it would give away part of the answer.
+            flat = question.indentation != "fixed"
             shuffled = sorted(
-                [*question.lines, *question.extra], key=lambda line: (line[1], line[0])
+                [
+                    (0 if flat else level, text)
+                    for level, text in [*question.lines, *question.extra]
+                ],
+                key=lambda line: (line[1], line[0]),
             )
             parts.append(
                 self._ordering_panel(

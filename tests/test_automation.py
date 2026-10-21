@@ -346,6 +346,7 @@ def test_ordering_automation_follows_unmatched() -> None:
     incorrect = mdq.load(
         {
             "type": "ordering",
+            "content": "text",
             "stem": "Ordene.",
             "lines": lines,
             "unmatched": "incorrect",
@@ -353,7 +354,13 @@ def test_ordering_automation_follows_unmatched() -> None:
         kind="question",
     ).document
     manual = mdq.load(
-        {"type": "ordering", "stem": "Ordene.", "lines": lines, "unmatched": "manual"},
+        {
+            "type": "ordering",
+            "content": "text",
+            "stem": "Ordene.",
+            "lines": lines,
+            "unmatched": "manual",
+        },
         kind="question",
     ).document
     assert incorrect.automation == "automatic"

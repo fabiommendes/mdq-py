@@ -5,9 +5,10 @@ and `OrderingQuestion` itself.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from .. import types as t
 from .._diagnostics import Diagnostic
@@ -54,7 +55,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     extra: list[OrderingLine] = Field(default_factory=list)
     accept: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
     reject: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
-    content: OrderingContent = "text"
+    content: OrderingContent
     highlight: Annotated[str | None, Field(default=None, min_length=1)] = None
     indentation: Indentation = "fixed"
     unmatched: Unmatched = "manual"
@@ -71,9 +72,10 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_ordering_highlight(self))
+        diagnostics.extend(_lint.check_highlight_language(self.highlight))
         diagnostics.extend(_lint.check_ordering_duplicate_alternatives(self))
         diagnostics.extend(_lint.check_ordering_accept_repeats_answer_key(self))
+        diagnostics.extend(_lint.check_ordering_unreachable_reject(self))
         diagnostics.extend(_lint.check_ordering_redundant_strict_indentation(self))
         diagnostics.extend(_lint.check_ordering_blank_lines(self))
         diagnostics.extend(_lint.check_ordering_reject_without_feedback(self))
@@ -93,7 +95,9 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     def _render_body(self) -> Iterable[str]:
         yield ""
         yield "[ordering]"
-        yield from _render.yield_ordering_content(self.lines, self.content, self.highlight)
+        yield from _render.yield_ordering_content(
+            self.lines, self.content, self.highlight
+        )
 
     def _render_lines(self) -> Iterable[str]:
         # The sections come after the epilogue (ordering.md, "Body").
@@ -104,16 +108,43 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             )
         for alt in self.accept:
             yield from _render.yield_ordering_section(
-                "accept", alt.lines, self.content, self.highlight, alt.feedback, alt.comment
+                "accept",
+                alt.lines,
+                self.content,
+                self.highlight,
+                alt.feedback,
+                alt.comment,
             )
         for alt in self.reject:
             yield from _render.yield_ordering_section(
-                "reject", alt.lines, self.content, self.highlight, alt.feedback, alt.comment
+                "reject",
+                alt.lines,
+                self.content,
+                self.highlight,
+                alt.feedback,
+                alt.comment,
             )
+
+    @field_validator("highlight")
+    @classmethod
+    def check_highlight_needs_code(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """
+        Raises:
+            ValueError: `highlight` is set but `content` is not "code" (the
+                `if`/`then` of the schema), which `load` reports as
+                `schema-error`.
+        """
+        if value is not None and info.data.get("content") != "code":
+            raise ValueError("highlight is only allowed when content is 'code'")
+        return value
 
     @field_validator("normalizations")
     @classmethod
-    def check_normalizations_unique(cls, value: list[Normalization]) -> list[Normalization]:
+    def check_normalizations_unique(
+        cls, value: list[Normalization]
+    ) -> list[Normalization]:
         """
         Raises:
             ValueError: an entry repeats (JSON Schema `uniqueItems`), which
@@ -128,10 +159,13 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         """
         A question MUST NOT declare the same lines as both accepted and
         rejected, once fully normalized (ordering.md#additional-rules).
+        The answer key is an accepted answer, so a `reject` entry that
+        equals it is an overlap too.
 
         Raises:
             PydanticCustomError: `accept-reject-overlap` -- some `accept`
-                entry holds the same lines as some `reject` entry.
+                entry, or the `lines` block, holds the same lines as
+                some `reject` entry.
         """
         reject_keys = {self.comparison_key(alt.lines) for alt in self.reject}
         for index, alt in enumerate(self.accept):
@@ -142,6 +176,68 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
                     "the same lines must not be declared in both accept and reject",
                     ("accept", index),
                     alt.lines,
+                )
+        answer_key = self.comparison_key(self.lines)
+        for index, alt in enumerate(self.reject):
+            if self.comparison_key(alt.lines) == answer_key:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "accept-reject-overlap",
+                    "a reject entry must not hold the same lines as the answer key",
+                    ("reject", index),
+                    alt.lines,
+                )
+        return self
+
+    @model_validator(mode="after")
+    def check_accept_within_answer_key(self) -> Self:
+        """
+        The lines of an `accept` entry MUST be a sub-multiset of the
+        `lines` block, once fully normalized: it may leave lines out,
+        but it may not hold a distractor, a foreign line or more copies
+        of a line than the answer key has (ordering.md#additional-rules).
+
+        Raises:
+            PydanticCustomError: `accept-outside-answer-key` -- some
+                `accept` entry holds a line the answer key lacks.
+        """
+        available = Counter(self.comparison_key(self.lines))
+        for index, alt in enumerate(self.accept):
+            if Counter(self.comparison_key(alt.lines)) - available:
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "accept-outside-answer-key",
+                    "an accept entry must not hold a line the answer key lacks",
+                    ("accept", index),
+                    alt.lines,
+                )
+        return self
+
+    @model_validator(mode="after")
+    def check_text_outline_levels(self) -> Self:
+        """
+        With `content: text`, the `lines` block and every `accept` and
+        `reject` entry MUST be a valid outline: the first line is at
+        level 0 and no line is more than one level deeper than the one
+        before it. `extra` is exempt, since it is a pool of loose lines
+        (ordering.md#additional-rules). Code content is not checked.
+
+        Raises:
+            PydanticCustomError: `invalid-outline-level` -- some block
+                breaks the rule.
+        """
+        if self.content != "text":
+            return self
+        blocks: list[tuple[tuple[str | int, ...], list[OrderingLine]]] = [
+            (("lines",), self.lines)
+        ]
+        blocks += [(("accept", i, "lines"), a.lines) for i, a in enumerate(self.accept)]
+        blocks += [(("reject", i, "lines"), a.lines) for i, a in enumerate(self.reject)]
+        for loc, block in blocks:
+            problem = outline_problem(block)
+            if problem is not None:
+                _raise_unique_id_error(
+                    type(self).__name__, "invalid-outline-level", problem, loc, block
                 )
         return self
 
@@ -182,18 +278,68 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             key.append((level if graded else 0, text))
         return tuple(key)
 
+    def check_response_lines(self, lines: Iterable[OrderingLine]) -> None:
+        """
+        Check that `lines` can come from this question's presented pool:
+        the `lines` and `extra` blocks together (ordering.md, "Response").
+
+        Under `"fixed"` a line is identified by level and text, so a line
+        at a level other than the authored one is not in the pool. Under
+        `"lenient"` and `"strict"` the student may change levels, so only
+        the text identifies a line. With `skip-blanks`, blank lines are
+        left out on both sides. Leaving pool lines out is valid.
+
+        With `content: text`, the response must also be a valid outline
+        (`outline_problem`).
+
+        Raises:
+            ResponseError: a line is not in the pool, a line is used
+                more times than the pool offers it, or a text response
+                is not a valid outline.
+        """
+        lines = list(lines)
+        if self.content == "text":
+            problem = outline_problem(lines)
+            if problem is not None:
+                raise ResponseError(problem)
+        skip_blanks = "skip-blanks" in self.effective_normalizations()
+        by_text = self.indentation != "fixed"
+
+        def identify(entries: Iterable[OrderingLine]) -> list[OrderingLine]:
+            return [
+                (0, text) if by_text else (level, text)
+                for level, text in entries
+                if not (skip_blanks and text.strip() == "")
+            ]
+
+        pool = Counter(identify([*self.lines, *self.extra]))
+        for line in identify(lines):
+            if pool[line] <= 0:
+                raise ResponseError(
+                    f"Line {list(line)!r} is not in the pool, or is used more "
+                    "often than the question offers it"
+                )
+            pool[line] -= 1
+
     def score_response(self, response: t.OrderingResponse) -> QuestionScore:
         """
         Score 1 for the answer key or an accepted ordering, 0 for a
-        rejected one, and otherwise whatever `unmatched` dictates.
+        rejected one, and otherwise whatever `unmatched` dictates. When
+        several declared answers match, the first in document order
+        wins: the `lines` block, then the `accept` entries, then the
+        `reject` entries (an accepted and a rejected answer cannot match
+        the same response, since they never hold the same lines).
 
         Raises:
             ResponseError: `response` is not a sequence of
-                `[indentation level, text]` pairs.
+                `[indentation level, text]` pairs, or holds a line the
+                question did not present (`check_response_lines`).
             NotAutoGradable: nothing matched and `unmatched` is
                 "manual", so the response is for a human to score.
         """
-        key = self.comparison_key(coerce_ordering_lines(response))
+        lines = coerce_ordering_lines(response)
+        self.check_response_lines(lines)
+        key = self.comparison_key(lines)
 
         if key == self.comparison_key(self.lines):
             return QuestionScore(score=1.0)
@@ -214,9 +360,29 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             "ordering response matched no answer key and requires manual grading"
         )
 
+
 #
 # Utilities
 #
+
+
+def outline_problem(lines: Iterable[OrderingLine]) -> str | None:
+    """
+    Why `lines` is not a valid outline, or `None` when it is: the first
+    line must be at level 0 and each level is at most one more than the
+    level before it.
+    """
+    previous = -1
+    for index, (level, text) in enumerate(lines):
+        if level > previous + 1:
+            where = "the first line" if index == 0 else f"line {index}"
+            return (
+                f"{where} {[level, text]!r} is at level {level}, but the "
+                f"deepest level allowed there is {previous + 1}"
+            )
+        previous = level
+    return None
+
 
 def coerce_ordering_lines(lines: t.OrderingResponse) -> list[OrderingLine]:
     """
@@ -236,5 +402,3 @@ def coerce_ordering_lines(lines: t.OrderingResponse) -> list[OrderingLine]:
             raise ResponseError(f"Line text {text!r} is not a string")
         result.append((level, text))
     return result
-
-

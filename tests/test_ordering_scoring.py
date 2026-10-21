@@ -71,6 +71,8 @@ def test_ungraded_levels_can_be_remapped_freely(
     question: OrderingQuestion, shift: int
 ) -> None:
     assume(not question.grades_indentation())
+    # Under "fixed" the student cannot change levels (ResponseError).
+    assume(question.indentation != "fixed")
     response: t.OrderingResponse = [
         [level + shift, text] for level, text in question.lines
     ]
@@ -89,7 +91,10 @@ def test_score_is_always_binary(
     question: OrderingQuestion, response: list[tuple[int, str]]
 ) -> None:
     question = question.model_copy(update={"unmatched": "incorrect"})
-    result = question.score_response(as_response(response))
+    try:
+        result = question.score_response(as_response(response))
+    except ResponseError:
+        return  # a line outside the pool is malformed, not scored
     assert result.score in (0.0, 1.0)
 
 
@@ -192,11 +197,11 @@ def test_empty_response_is_unmatched() -> None:
         MINIMAL.score_response([])
 
 
-def test_a_duplicated_line_is_a_non_match() -> None:
+def test_a_duplicated_line_beyond_the_pool_is_malformed() -> None:
     question = MINIMAL.model_copy(update={"unmatched": "incorrect"})
     response = as_response(question.lines) + [as_response(question.lines)[-1]]
-    result = question.score_response(response)
-    assert result.score == 0.0
+    with pytest.raises(ResponseError):
+        question.score_response(response)
 
 
 def test_a_response_holding_an_extra_distractor_is_a_non_match() -> None:
@@ -296,3 +301,133 @@ def test_corpus_extra_distractors_rejects_the_level_only_distractor() -> None:
     swapped = key[:-1] + [[1, key[-1][1]]]
     with pytest.raises(NotAutoGradable):
         question.score_response(swapped)
+
+
+#
+# Response validation against the presented pool (ordering.md, "Response")
+#
+def make_question(**update: object) -> OrderingQuestion:
+    base = {
+        "type": "ordering",
+        # Code content: levels are free, a `text` response must be an outline.
+        "content": "code",
+        "stem": "Order me",
+        "lines": [[0, "a"], [1, "b"], [1, "b"], [0, "c"]],
+        "extra": [[0, "d"], [2, "c"]],
+        "unmatched": "incorrect",
+    }
+    return OrderingQuestion.model_validate({**base, **update})
+
+
+def test_a_response_with_a_foreign_line_is_malformed() -> None:
+    with pytest.raises(ResponseError):
+        make_question().score_response([[0, "a"], [0, "zzz"]])
+
+
+def test_a_response_with_too_many_copies_is_malformed() -> None:
+    with pytest.raises(ResponseError):
+        make_question().score_response([[0, "a"], [0, "a"]])
+
+
+def test_a_response_may_use_the_copies_the_pool_offers() -> None:
+    result = make_question().score_response([[1, "b"], [1, "b"], [0, "d"]])
+    assert result.score == 0.0
+
+
+def test_a_response_leaving_lines_out_is_graded_normally() -> None:
+    result = make_question().score_response([[0, "a"]])
+    assert result.score == 0.0
+
+
+def test_fixed_rejects_a_changed_level() -> None:
+    with pytest.raises(ResponseError):
+        make_question().score_response([[1, "a"]])
+
+
+def test_fixed_pool_includes_the_extra_lines_at_their_own_level() -> None:
+    question = make_question()
+    assert question.score_response([[2, "c"]]).score == 0.0
+    with pytest.raises(ResponseError):
+        question.score_response([[1, "c"]])
+
+
+@pytest.mark.parametrize("indentation", ["lenient", "strict"])
+def test_lenient_and_strict_compare_the_pool_by_text(indentation: str) -> None:
+    question = make_question(indentation=indentation)
+    # level 5 was never authored, but the student may change levels
+    assert question.score_response([[5, "a"], [3, "c"]]).score == 0.0
+    with pytest.raises(ResponseError):
+        question.score_response([[0, "c"], [0, "c"], [0, "c"]])
+    with pytest.raises(ResponseError):
+        question.score_response([[0, "zzz"]])
+
+
+def test_skip_blanks_leaves_blank_lines_out_of_the_pool_check() -> None:
+    question = make_question(normalizations=["skip-blanks"])
+    assert question.score_response([[0, ""], [0, "a"]]).score == 0.0
+
+
+def test_the_first_matching_answer_wins_in_document_order() -> None:
+    lines = [[0, "a"], [0, "b"]]
+    alternative = {"lines": [[0, "b"], [0, "a"]]}
+    question = OrderingQuestion.model_validate(
+        {
+            "type": "ordering",
+            "content": "text",
+            "stem": "Order me",
+            "lines": lines,
+            "accept": [
+                {**alternative, "feedback": "first"},
+                {**alternative, "feedback": "second"},
+            ],
+        }
+    )
+    result = question.score_response([[0, "b"], [0, "a"]])
+    assert result == QuestionScore(score=1.0, feedback=["first"])
+    # the answer key comes before every section
+    repeated = question.model_copy(
+        update={"accept": [{"lines": lines, "feedback": "late"}]}
+    )
+    assert repeated.score_response(lines) == QuestionScore(score=1.0)
+
+
+#
+# Outline levels of a text response (ordering.md, "Response")
+#
+def make_text_question(**update: object) -> OrderingQuestion:
+    base = {
+        "type": "ordering",
+        "content": "text",
+        "stem": "Order me",
+        "lines": [[0, "a"], [1, "b"], [2, "c"], [0, "d"]],
+        "extra": [[2, "e"]],
+        "unmatched": "incorrect",
+    }
+    return OrderingQuestion.model_validate({**base, **update})
+
+
+def test_a_text_response_that_is_an_outline_is_graded() -> None:
+    question = make_text_question()
+    assert (
+        question.score_response([[0, "a"], [1, "b"], [2, "c"], [0, "d"]]).score == 1.0
+    )
+
+
+def test_a_text_response_starting_below_level_zero_is_malformed() -> None:
+    with pytest.raises(ResponseError, match="first line"):
+        make_text_question().score_response([[2, "c"], [0, "d"]])
+
+
+def test_a_text_response_with_a_level_jump_is_malformed() -> None:
+    with pytest.raises(ResponseError, match="level 2"):
+        make_text_question().score_response([[0, "a"], [2, "c"]])
+
+
+def test_an_extra_line_alone_at_its_level_is_malformed_in_a_text_response() -> None:
+    with pytest.raises(ResponseError):
+        make_text_question().score_response([[2, "e"]])
+
+
+def test_a_code_response_may_jump_levels() -> None:
+    question = make_text_question(content="code")
+    assert question.score_response([[0, "a"], [2, "c"]]).score == 0.0

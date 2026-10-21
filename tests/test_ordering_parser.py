@@ -28,6 +28,8 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+import mdq
+from mdq import Diagnostic
 from mdq.errors import ParseError
 from mdq.hypothesis import documents as doc_st
 from mdq.models import (
@@ -104,18 +106,32 @@ def _lines(
     below cover multi-level inference directly instead.
     """
     line = st.tuples(st.integers(min_value=0, max_value=1), _word(tag))
+    # A `ul` level is a nesting depth, so a block cannot start indented.
     return st.lists(
         line, min_size=min_size, max_size=max_size, unique_by=lambda pair: pair
-    )
+    ).filter(lambda lines: not lines or lines[0][0] == 0)
 
 
 def _alternatives(
-    tag: str, max_size: int = 2
+    tag: str,
+    max_size: int = 2,
+    within: list[tuple[int, str]] | None = None,
 ) -> st.SearchStrategy[list[OrderingAlternative]]:
+    """
+    Alternatives with their own tagged lines or, given `within`, a
+    non-empty sub-multiset of it (an `accept` entry may only leave
+    lines of the answer key out).
+    """
+    if within is None:
+        alt_lines = _lines(tag)
+    else:
+        alt_lines = st.permutations(within).flatmap(
+            lambda perm: st.integers(1, len(perm)).map(lambda n: list(perm[:n]))
+        ).filter(lambda lines: lines[0][0] == 0)
     return st.lists(
         st.builds(
             OrderingAlternative,
-            lines=_lines(tag),
+            lines=alt_lines,
             feedback=st.none() | _word(f"{tag}-feedback"),
             comment=st.none() | _word(f"{tag}-comment"),
         ),
@@ -136,16 +152,15 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
     """
     content = draw(st.sampled_from(["code", "text"]))
     highlight = (
-        draw(doc_st.code_highlight_formats() | st.none())
-        if content == "code"
-        else None
+        draw(doc_st.code_highlight_formats() | st.none()) if content == "code" else None
     )
     # An empty `accept`/`reject` list is invalid (`minItems: 1`): the
     # model only takes the default, so leave out an empty draw.
+    main = draw(_lines("main"))
     alternatives = {
         tag: st.just(draws)
         for tag in ("accept", "reject")
-        if (draws := draw(_alternatives(tag)))
+        if (draws := draw(_alternatives(tag, within=main if tag == "accept" else None)))
     }
     return draw(
         st.builds(
@@ -153,7 +168,7 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
             stem=doc_st.md_paragraphs(),
             content=st.just(content),
             highlight=st.just(highlight),
-            lines=_lines("main"),
+            lines=st.just(main),
             extra=_lines("extra", min_size=0, max_size=3),
             indentation=st.sampled_from(["fixed", "lenient", "strict"]),
             unmatched=st.sampled_from(["manual", "incorrect"]),
@@ -190,7 +205,7 @@ def test_render_parse_is_a_fixed_point(question: OrderingQuestion) -> None:
 #
 def test_tab_counts_as_four_spaces() -> None:
     """
-    ordering.md#indentation: "normalizes a tabulation as 4 spaces".
+    ordering.md#indentation: a tab advances to the next multiple of 4.
     A single tab-indented line is the whole indented set, so its width
     (4, once expanded) is also the unit -- level 1.
     """
@@ -254,24 +269,60 @@ def test_normalizations_bare_string_parses_to_a_list() -> None:
     assert document["normalizations"] == ["dedent"]
 
 
-def test_declared_content_and_highlight_override_the_body() -> None:
+def test_content_and_highlight_come_from_the_body() -> None:
     """
-    ordering.md#frontmatter (footnotes 1-2): `content`/`highlight` are
-    inferred from the body when omitted, but "when given they override
-    what the body implies". The body here is a `ul` list -- which on
-    its own infers `content: text` and no `highlight` at all -- yet the
-    declared frontmatter must win.
+    ordering.md#body: a fence implies `content: code` and its language
+    as `highlight`; a fence with no language leaves `highlight` out; a
+    `ul` implies `content: text` and no `highlight`.
     """
+    fenced = parse_ordering("Order.\n\n[ordering]\n```python\na\nb\n```\n")
+    assert (fenced["content"], fenced["highlight"]) == ("code", "python")
+    bare = parse_ordering("Order.\n\n[ordering]\n```\na\nb\n```\n")
+    assert bare["content"] == "code"
+    assert "highlight" not in bare
+    listed = parse_ordering("Order.\n\n[ordering]\n* a\n* b\n")
+    assert listed["content"] == "text"
+    assert "highlight" not in listed
+
+
+def test_frontmatter_content_and_highlight_are_invalid_fields() -> None:
+    """
+    ordering.md#frontmatter: the frontmatter cannot declare `content` or
+    `highlight` (`invalid-frontmatter-field`), and the body still decides.
+    """
+    source = "---\ncontent: code\nhighlight: c\n---\n\nOrder.\n\n[ordering]\n* a\n* b\n"
+    warnings: list[Diagnostic] = []
+    document = cast(OrderingQuestionDict, parse_question(source, warnings=warnings))
+    assert [(w.code, w.path) for w in warnings] == [
+        ("invalid-frontmatter-field", ("content",)),
+        ("invalid-frontmatter-field", ("highlight",)),
+    ]
+    assert document["content"] == "text"
+    assert "highlight" not in document
+
+
+@pytest.mark.parametrize("tag", ["extra", "accept", "reject"])
+def test_section_fence_with_another_language_is_a_parse_error(tag: str) -> None:
+    """ordering.md#body: a section fence has the `[ordering]` language or none."""
+    source = f"[ordering]\n```python\na\nb\n```\n\n## [{tag}]\n```c\na\n```\n"
+    with pytest.raises(ParseError, match="language"):
+        parse_question("Order.\n\n" + source)
+
+
+def test_section_fence_language_is_inherited_or_repeated() -> None:
     source = (
-        "---\ncontent: code\nhighlight: c\n---\n\nOrder.\n\n[ordering]\n* a\n* b\n"
+        "[ordering]\n```python\na\nb\n```\n\n"
+        "## [extra]\n```\nc\n```\n\n## [accept]\n```python\nb\na\n```\n"
     )
-    document = parse_ordering(source)
-    assert document["content"] == "code"
-    assert document["highlight"] == "c"
-    # The body is still read as a `ul` for line extraction -- overriding
-    # `content` is a metadata override, not a re-interpretation of the
-    # actual block that follows the tag.
-    assert document["lines"] == [[0, "a"], [0, "b"]]
+    document = parse_ordering("Order.\n\n" + source)
+    assert document["highlight"] == "python"
+    assert document["extra"] == [[0, "c"]]
+
+
+def test_section_fence_language_needs_one_on_the_main_fence() -> None:
+    source = "[ordering]\n```\na\nb\n```\n\n## [extra]\n```python\nc\n```\n"
+    with pytest.raises(ParseError, match="language"):
+        parse_question("Order.\n\n" + source)
 
 
 #
@@ -301,9 +352,7 @@ def test_section_with_a_different_block_kind_than_main_is_a_parse_error() -> Non
 
 def test_two_extra_sections_is_a_parse_error() -> None:
     """ordering.md#extra-lines: "at most one `## [extra]` section"."""
-    source = (
-        "[ordering]\n* a\n* b\n\n## [extra]\n* c\n\n## [extra]\n* d\n"
-    )
+    source = "[ordering]\n* a\n* b\n\n## [extra]\n* c\n\n## [extra]\n* d\n"
     with pytest.raises(ParseError):
         parse_question("Order.\n\n" + source)
 
@@ -367,3 +416,106 @@ def test_render_parse_keeps_trailing_unicode_space_in_stem() -> None:
     rebuilt = QuestionRoot.model_validate(parse_question(question.render())).root
     assert rebuilt == question.normalize()
     assert rebuilt.stem == "A\xa0"
+
+
+def test_setext_section_in_an_exam_is_reported_at_the_section() -> None:
+    import mdq
+
+    exam = (
+        "---\ntitle: T\n---\n# Exam\n\n---\nid: q1\n---\nOrder.\n\n[ordering]\n"
+        "* a\n* b\n\n[accept]\n---\n* a\n\n[reject]\n---\n* b\n\n"
+        "---\nid: q2\n---\nEssay.\n\n[essay]\n\n[answer-key]\n---\nKey.\n"
+    )
+    paths = [
+        d.path
+        for d in mdq.load(exam, kind="exam", format="mdq").diagnostics
+        if d.code == "setext-heading"
+    ]
+    assert paths == [
+        ("questions", 0, "accept", 0),
+        ("questions", 1, "answerKey"),
+    ]
+
+
+#
+# ordering.md#indentation: lists, whitespace and tab stops.
+#
+def test_ul_level_is_the_nesting_depth() -> None:
+    """A nested `ul` item is a line of its own at its nesting depth."""
+    source = "[ordering]\n* a\n   * b\n      - c\n* d\n"
+    document = parse_ordering("Order.\n\n" + source)
+    assert document["lines"] == [[0, "a"], [1, "b"], [2, "c"], [0, "d"]]
+
+
+def test_nested_ordered_list_is_a_parse_error() -> None:
+    with pytest.raises(ParseError):
+        parse_ordering("Order.\n\n[ordering]\n* a\n  1. b\n* c\n")
+
+
+def test_item_holding_only_a_nested_list_adds_a_level_without_being_a_line() -> None:
+    """ordering.md#lists: `- - Bahia` is the line `[1, "Bahia"]`."""
+    source = "[ordering]\n* a\n* b\n\n## [extra]\n- - Bahia\n- - - Salvador\n- c\n"
+    document = parse_ordering("Order.\n\n" + source)
+    assert document["extra"] == [[1, "Bahia"], [2, "Salvador"], [0, "c"]]
+
+
+def test_empty_parent_item_with_a_nested_list_on_the_next_line_is_not_a_line() -> None:
+    document = parse_ordering("Order.\n\n[ordering]\n* a\n*\n  * b\n")
+    assert document["lines"] == [[0, "a"], [1, "b"]]
+
+
+def test_nested_ordered_list_on_the_marker_line_is_a_parse_error() -> None:
+    with pytest.raises(ParseError):
+        parse_ordering("Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n- 1. c\n")
+
+
+def test_empty_item_without_content_is_still_a_parse_error() -> None:
+    with pytest.raises(ParseError):
+        parse_ordering("Order.\n\n[ordering]\n* a\n*\n* b\n")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "* a\n* * * b\n",  # level jump through an empty parent
+        "* * a\n* b\n",  # first line at level 1
+        "* a\n  * b\n    * c\n\n## [accept]\n* a\n* * * c\n",  # jump in an accept
+        "* a\n* b\n\n## [reject]\n* * b\n* a\n",  # reject starts nested
+    ],
+)
+def test_text_outline_levels_are_an_error_in_markdown(body: str) -> None:
+    loaded = mdq.load("Order.\n\n[ordering]\n" + body, kind="question", format="mdq")
+    assert loaded.document is None
+    assert [d.code for d in loaded.diagnostics if d.severity == "error"] == [
+        "invalid-outline-level"
+    ]
+
+
+def test_extra_is_exempt_from_the_outline_rule() -> None:
+    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* * * c\n"
+    assert mdq.load(source, kind="question", format="mdq").document is not None
+
+
+def test_nested_extra_lines_render_and_parse_back_unchanged() -> None:
+    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* * c\n* * * d\n* e\n"
+    question = mdq.parse(source, kind="question", format="mdq")
+    assert isinstance(question, OrderingQuestion)
+    assert question.extra == [(1, "c"), (2, "d"), (0, "e")]
+    rendered = question.render()
+    assert "* * c\n" in rendered
+    again = mdq.parse(rendered, kind="question", format="mdq")
+    assert isinstance(again, OrderingQuestion)
+    assert again.extra == question.extra
+
+
+def test_trailing_whitespace_is_removed() -> None:
+    source = "[ordering]\n```\na  \n\tb \t\n \t \nc\n```\n"
+    document = parse_ordering("Order.\n\n" + source)
+    assert document["lines"] == [[0, "a"], [1, "b"], [0, ""], [0, "c"]]
+
+
+def test_tabs_follow_commonmark_tab_stops() -> None:
+    """`"  \\t"` is 4 columns and `" \\t  "` is 6, so the unit is 2."""
+    source = "[ordering]\n```\na\n  \tb\n\tc\n \t  d\n```\n"
+    document = parse_ordering("Order.\n\n" + source)
+    assert document["lines"] == [[0, "a"], [2, "b"], [2, "c"], [3, "d"]]

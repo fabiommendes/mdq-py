@@ -121,7 +121,7 @@ def test_fill_in_choice_blank_field(field_name: str, value: str) -> None:
 @pytest.mark.parametrize("section", ["accept", "reject"])
 def test_ordering_alternative_field(section: str, field_name: str, value: str) -> None:
     alternative = {"lines": [[0, "b"], [0, "a"]], field_name: value}
-    doc = {"type": "ordering", "stem": "Ordene.", "lines": _LINES, section: [alternative]}
+    doc = {"type": "ordering", "content": "text", "stem": "Ordene.", "lines": _LINES, section: [alternative]}
     _assert_blank_text(doc, (section, 0, field_name))
 
 
@@ -342,7 +342,7 @@ def test_markdown_feedback_with_text_after_an_empty_marker_line_is_kept() -> Non
 
 def test_markdown_ordering_alternative_with_empty_feedback_block() -> None:
     source = (
-        "---\nid: q\ntitle: T\n---\n\nOrdene.\n\n[ordering]\n\n* a\n* b\n\n"
+        "---\nid: q\ntitle: T\n---\n\nOrdene.\n\n[ordering]\n* a\n* b\n\n"
         "## [accept]\n\n>\n\n* b\n* a\n"
     )
     _assert_blank_text(source, ("accept", 0, "feedback"))

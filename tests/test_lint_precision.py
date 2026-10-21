@@ -3,6 +3,9 @@ Rules made more precise after the lint-codes audit:
 
 * `accept-reject-overlap` compares ordering lines after all forms of
   normalization (ordering.md, "Accepted/rejected answers").
+* `accept-outside-answer-key` and `unreachable-alternative` compare
+  `accept`/`reject` lines with the `lines`/`extra` pool after
+  normalization (ordering.md, "Accepted/rejected answers").
 * `domain-mismatch` infers the domain from the answer and the absolute
   tolerance (numeric.md, "Number type/domain").
 * `redundant-regex-anchor` reports only an anchor that is already
@@ -33,6 +36,7 @@ def _paths(doc: dict, code: str) -> list[tuple]:
 def _ordering(accept: list, reject: list, **fields: object) -> dict:
     return {
         "type": "ordering",
+        "content": "code",
         "id": "ciclo",
         "title": "Ciclo da água",
         "stem": "Ordene as etapas do ciclo da água na Amazônia.",
@@ -75,6 +79,136 @@ def test_lines_that_differ_after_normalization_do_not_overlap() -> None:
     )
     loaded = load(doc, kind="question")
     assert loaded.document is not None, loaded.diagnostics
+
+
+def _errors(doc: dict) -> list[tuple[str, tuple]]:
+    loaded = load(doc, kind="question")
+    return [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"]
+
+
+def test_reject_equal_to_the_answer_key_is_an_overlap() -> None:
+    doc = _ordering(accept=[[0, "evaporação"]], reject=[[0, "evaporação"]])
+    doc["reject"] = [{"lines": [list(line) for line in doc["lines"]]}]
+    assert _errors(doc) == [("accept-reject-overlap", ("reject", 0))]
+
+
+def test_reject_equal_to_the_answer_key_after_dedent_is_an_overlap() -> None:
+    doc = {
+        "type": "ordering",
+        "content": "text",
+        "stem": "Ordene as linhas.",
+        "lines": [[0, "for i in range(3):"], [1, "print(i)"]],
+        "reject": [{"lines": [[0, "for i in range(3):"], [0, "print(i)"]]}],
+        "indentation": "lenient",
+    }
+    assert _errors(doc) == [("accept-reject-overlap", ("reject", 0))]
+
+
+def test_reject_equal_to_the_answer_key_under_strict_is_fine() -> None:
+    doc = {
+        "type": "ordering",
+        "content": "text",
+        "stem": "Ordene as linhas.",
+        "lines": [[0, "for i in range(3):"], [1, "print(i)"]],
+        "reject": [{"lines": [[0, "for i in range(3):"], [0, "print(i)"]]}],
+        "indentation": "strict",
+    }
+    assert _errors(doc) == []
+
+
+# ---------------------------------------------------------------------
+# accept-outside-answer-key: an accept is a sub-multiset of the key
+# ---------------------------------------------------------------------
+
+
+def _with_accept(accept: list, **fields: object) -> dict:
+    return {
+        "type": "ordering",
+        "content": "code",
+        "stem": "Ordene as etapas do ciclo da água na Amazônia.",
+        "lines": [[0, "evaporação"], [0, "condensação"], [0, "precipitação"]],
+        "extra": [[0, "erosão"]],
+        "accept": [{"lines": accept}],
+        **fields,
+    }
+
+
+def test_accept_may_leave_lines_out() -> None:
+    doc = _with_accept([[0, "precipitação"], [0, "evaporação"]])
+    assert _errors(doc) == []
+
+
+def test_accept_with_a_distractor_is_an_error() -> None:
+    doc = _with_accept([[0, "evaporação"], [0, "erosão"]])
+    assert _errors(doc) == [("accept-outside-answer-key", ("accept", 0))]
+
+
+def test_accept_with_a_foreign_line_is_an_error() -> None:
+    doc = _with_accept([[0, "evaporação"], [0, "transpiração"]])
+    assert _errors(doc) == [("accept-outside-answer-key", ("accept", 0))]
+
+
+def test_accept_with_an_extra_copy_of_a_line_is_an_error() -> None:
+    doc = _with_accept([[0, "evaporação"], [0, "evaporação"]])
+    assert _errors(doc) == [("accept-outside-answer-key", ("accept", 0))]
+
+
+def test_accept_may_use_as_many_copies_as_the_key_has() -> None:
+    doc = _with_accept(
+        [[0, "a"], [0, "a"]],
+        lines=[[0, "a"], [0, "a"], [0, "b"]],
+        extra=[],
+    )
+    assert _errors(doc) == []
+
+
+def test_accept_is_compared_after_normalization() -> None:
+    doc = _with_accept([[2, "condensação"]], indentation="lenient")
+    assert _errors(doc) == []
+    doc = _with_accept([[2, "condensação"]], indentation="strict")
+    assert _errors(doc) == [("accept-outside-answer-key", ("accept", 0))]
+    doc = _with_accept([[0, "condensação"], [0, ""]], normalizations=["skip-blanks"])
+    assert _errors(doc) == []
+
+
+# ---------------------------------------------------------------------
+# unreachable-alternative: reject needs lines the pool lacks
+# ---------------------------------------------------------------------
+
+
+def _with_reject(reject: list, **fields: object) -> dict:
+    return {
+        "type": "ordering",
+        "content": "code",
+        "stem": "Ordene as etapas do ciclo da água na Amazônia.",
+        "lines": [[0, "evaporação"], [0, "condensação"], [0, "precipitação"]],
+        "extra": [[0, "erosão"]],
+        "reject": [{"lines": reject}],
+        **fields,
+    }
+
+
+def test_reject_with_a_foreign_line_is_unreachable() -> None:
+    doc = _with_reject([[0, "evaporação"], [0, "transpiração"]])
+    assert _errors(doc) == []
+    assert _paths(doc, "unreachable-alternative") == [("reject", 0, "lines")]
+
+
+def test_reject_with_more_copies_than_the_pool_is_unreachable() -> None:
+    doc = _with_reject([[0, "erosão"], [0, "erosão"]])
+    assert _paths(doc, "unreachable-alternative") == [("reject", 0, "lines")]
+
+
+def test_reject_may_use_a_distractor() -> None:
+    doc = _with_reject([[0, "evaporação"], [0, "erosão"]])
+    assert _paths(doc, "unreachable-alternative") == []
+
+
+def test_reject_reachability_uses_the_normalized_pool() -> None:
+    doc = _with_reject([[3, "erosão"]], indentation="lenient")
+    assert _paths(doc, "unreachable-alternative") == []
+    doc = _with_reject([[3, "erosão"]])
+    assert _paths(doc, "unreachable-alternative") == [("reject", 0, "lines")]
 
 
 # ---------------------------------------------------------------------
@@ -146,7 +280,9 @@ def _short_answer(**fields: object) -> dict:
     ["/^Negro/", "/Negro$/i", "/^Negro/b", "/^Rio Negro$/n"],
 )
 def test_implicit_anchor_in_regex_is_redundant(regex: str) -> None:
-    assert _paths(_short_answer(accept=[regex]), "redundant-regex-anchor") == [("accept", 0)]
+    assert _paths(_short_answer(accept=[regex]), "redundant-regex-anchor") == [
+        ("accept", 0)
+    ]
 
 
 def test_implicit_anchor_in_a_simple_block_pattern_is_redundant() -> None:
@@ -175,7 +311,9 @@ def test_explicit_or_literal_anchor_in_regex_is_not_redundant(regex: str) -> Non
 
 @pytest.mark.parametrize("section", ["accept", "reject"])
 def test_implicit_anchor_in_a_delimited_pattern_is_redundant(section: str) -> None:
-    fields: dict[str, object] = {section: [{"pattern": "Negro"}, {"pattern": "/^Solimões/"}]}
+    fields: dict[str, object] = {
+        section: [{"pattern": "Negro"}, {"pattern": "/^Solimões/"}]
+    }
     if section == "reject":
         fields["accept"] = ["Negro"]
     doc = _short_answer(**fields)
@@ -226,12 +364,25 @@ def test_a_float_answer_is_a_decimal_not_a_fraction() -> None:
     """numeric.md, "Answer representation": with `domain: fraction`, the
     answer is a fraction string or an integer. A float that is not whole
     is a decimal only (see also test_numeric_domain_rules.py)."""
-    assert _paths(_numeric(answer=0.75, domain="decimal", tolerance={"absolute": 1}), "answer-outside-domain") == []
-    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "answer-outside-domain") == [
-        ("answer",)
-    ]
+    assert (
+        _paths(
+            _numeric(answer=0.75, domain="decimal", tolerance={"absolute": 1}),
+            "answer-outside-domain",
+        )
+        == []
+    )
+    assert _paths(
+        _numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}),
+        "answer-outside-domain",
+    ) == [("answer",)]
     # A whole absolute tolerance is not a decimal: no `domain-mismatch`.
-    assert _paths(_numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}), "domain-mismatch") == []
+    assert (
+        _paths(
+            _numeric(answer=0.75, domain="fraction", tolerance={"absolute": 1}),
+            "domain-mismatch",
+        )
+        == []
+    )
 
 
 def test_a_float_answer_with_a_decimal_tolerance_is_not_a_fraction() -> None:

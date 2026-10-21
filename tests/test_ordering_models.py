@@ -45,10 +45,23 @@ def lines(
     return st.lists(line, min_size=min_size, max_size=max_size)
 
 
-def alternatives(tag: str) -> st.SearchStrategy[list[OrderingAlternative]]:
+def alternatives(
+    tag: str, within: list[OrderingLine] | None = None
+) -> st.SearchStrategy[list[OrderingAlternative]]:
+    """
+    Alternatives with their own tagged lines or, given `within`, a
+    non-empty sub-multiset of it (an `accept` entry may only leave
+    lines of the answer key out).
+    """
+    if within is None:
+        alt_lines = lines(tag)
+    else:
+        alt_lines = st.permutations(within).flatmap(
+            lambda perm: st.integers(1, len(perm)).map(lambda n: list(perm[:n]))
+        )
     alternative = st.builds(
         OrderingAlternative,
-        lines=lines(tag),
+        lines=alt_lines,
         feedback=st.none() | st.text(alphabet="abcde", min_size=1, max_size=8),
         comment=st.none() | st.text(alphabet="abcde", min_size=1, max_size=8),
     )
@@ -58,15 +71,18 @@ def alternatives(tag: str) -> st.SearchStrategy[list[OrderingAlternative]]:
 
 @st.composite
 def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
+    main = draw(lines("main", min_size=2))
     return draw(
         st.builds(
             OrderingQuestion,
             # Plain prose: a blank stem or one that starts a forbidden
             # block (an H1, say) is a model error, not what this tests.
             stem=st.from_regex(r"[A-Za-z][A-Za-z ]{0,9}", fullmatch=True),
-            lines=lines("main", min_size=2),
+            # Levels are arbitrary: `content: text` would require an outline.
+            content=st.just("code"),
+            lines=st.just(main),
             extra=lines("extra", min_size=0, max_size=3),
-            accept=alternatives("accept"),
+            accept=alternatives("accept", within=main),
             reject=alternatives("reject"),
             indentation=st.sampled_from(INDENTATIONS),
             normalizations=st.lists(
@@ -98,13 +114,12 @@ def test_effective_normalizations_equals_declared_plus_lenient_dedent(
 #
 # Defaults and to_dict() omissions
 #
-MINIMAL = OrderingQuestion(stem="Order me", lines=[(0, "a"), (0, "b")])
+MINIMAL = OrderingQuestion(content="text", stem="Order me", lines=[(0, "a"), (0, "b")])
 
 
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        ("content", "text"),
         ("indentation", "fixed"),
         ("unmatched", "manual"),
         ("extra", []),
@@ -121,6 +136,7 @@ def test_defaults(field: str, expected: object) -> None:
 def test_minimal_to_dict_omits_every_default_but_the_discriminator() -> None:
     assert MINIMAL.to_dict() == {
         "type": "ordering",
+        "content": "text",
         "stem": "Order me",
         "lines": [(0, "a"), (0, "b")],
     }
@@ -128,7 +144,9 @@ def test_minimal_to_dict_omits_every_default_but_the_discriminator() -> None:
 
 def test_empty_accept_is_rejected_like_the_schema_min_items() -> None:
     with pytest.raises(ValidationError):
-        OrderingQuestion(stem="s", lines=[(0, "a"), (0, "b")], accept=[])
+        OrderingQuestion(
+            content="text", stem="s", lines=[(0, "a"), (0, "b")], accept=[]
+        )
 
 
 #
@@ -155,12 +173,12 @@ def test_fixture_round_trips_through_the_model(path: Path) -> None:
 #
 def test_single_line_is_rejected() -> None:
     with pytest.raises(ValidationError):
-        OrderingQuestion(stem="s", lines=[(0, "a")])
+        OrderingQuestion(content="text", stem="s", lines=[(0, "a")])
 
 
 def test_negative_indentation_level_is_rejected() -> None:
     with pytest.raises(ValidationError):
-        OrderingQuestion(stem="s", lines=[(-1, "a"), (0, "b")])
+        OrderingQuestion(content="text", stem="s", lines=[(-1, "a"), (0, "b")])
 
 
 def test_three_element_line_is_rejected() -> None:
@@ -174,6 +192,7 @@ def test_same_lines_in_accept_and_reject_is_rejected() -> None:
     shared = [(0, "a"), (0, "b")]
     with pytest.raises(ValidationError):
         OrderingQuestion(
+            content="text",
             stem="s",
             lines=[(0, "x"), (0, "y")],
             accept=[OrderingAlternative(lines=shared)],
@@ -182,10 +201,85 @@ def test_same_lines_in_accept_and_reject_is_rejected() -> None:
 
 
 def test_same_lines_repeated_across_two_accept_entries_is_allowed() -> None:
-    shared = [(0, "a"), (0, "b")]
+    shared = [(0, "x"), (0, "y")]
     question = OrderingQuestion(
+        content="text",
         stem="s",
-        lines=[(0, "x"), (0, "y")],
+        lines=[(0, "x"), (0, "y"), (0, "z")],
         accept=[OrderingAlternative(lines=shared), OrderingAlternative(lines=shared)],
     )
     assert len(question.accept) == 2
+
+
+#
+# `content` and `highlight` (ordering.md#body, D19)
+#
+def test_content_is_required() -> None:
+    with pytest.raises(ValidationError, match="content"):
+        OrderingQuestion.model_validate({"stem": "s", "lines": [(0, "a"), (0, "b")]})
+
+
+def test_highlight_with_text_content_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="highlight"):
+        OrderingQuestion(
+            content="text", highlight="python", stem="s", lines=[(0, "a"), (0, "b")]
+        )
+
+
+def test_empty_highlight_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="highlight"):
+        OrderingQuestion(
+            content="code", highlight="", stem="s", lines=[(0, "a"), (0, "b")]
+        )
+
+
+def test_code_content_without_highlight_is_valid_and_lints_clean() -> None:
+    question = OrderingQuestion(content="code", stem="s", lines=[(0, "a"), (0, "b")])
+    codes = {d.code for d in question.lint()}
+    assert not codes & {"code-content-without-highlight", "ignored-highlight"}
+
+
+#
+# Outline levels with `content: text` (ordering.md, "Additional Rules")
+#
+def _text_doc(**fields: object) -> dict:
+    return {
+        "type": "ordering",
+        "content": "text",
+        "stem": "Order me",
+        "lines": [[0, "a"], [1, "b"], [2, "c"]],
+        **fields,
+    }
+
+
+@pytest.mark.parametrize(
+    ("fields", "path"),
+    [
+        ({"lines": [[0, "a"], [2, "b"]]}, ("lines",)),
+        ({"lines": [[1, "a"], [1, "b"]]}, ("lines",)),
+        (
+            {"accept": [{"lines": [[0, "a"], [2, "c"]]}]},
+            ("accept", 0, "lines"),
+        ),
+        (
+            {"reject": [{"lines": [[1, "a"]]}]},
+            ("reject", 0, "lines"),
+        ),
+    ],
+)
+def test_text_blocks_must_be_outlines(fields: dict, path: tuple) -> None:
+    from mdq import load
+
+    loaded = load(_text_doc(**fields), kind="question")
+    assert loaded.document is None
+    assert [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"] == [
+        ("invalid-outline-level", path)
+    ]
+
+
+def test_text_extra_and_code_blocks_may_jump() -> None:
+    from mdq import load
+
+    assert load(_text_doc(extra=[[3, "z"]]), kind="question").document is not None
+    code = _text_doc(content="code", lines=[[0, "a"], [3, "b"]])
+    assert load(code, kind="question").document is not None

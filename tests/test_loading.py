@@ -99,6 +99,7 @@ ESSAY_DATA = {
 # (ordering.md#additional-rules); JSON Schema alone would accept this.
 ORDERING_OVERLAP_DATA = {
     "type": "ordering",
+    "content": "text",
     "stem": "Ordene as linhas do algoritmo de Euclides para o MDC.",
     "lines": [[0, "a, b = b, a % b"], [0, "return a"]],
     "accept": [{"lines": [[0, "a, b = b, a % b"], [0, "return a"]]}],

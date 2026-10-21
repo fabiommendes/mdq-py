@@ -131,6 +131,7 @@ def test_true_false_lint_matches_load_diagnostics_for_unlisted_marker() -> None:
 def test_ordering_lint_matches_load_diagnostics_for_reject_without_feedback() -> None:
     doc = {
         "type": "ordering",
+        "content": "text",
         "stem": "Ordene as etapas da fotossíntese.",
         "lines": [[0, "Absorção de luz"], [0, "Produção de glicose"]],
         "reject": [{"lines": [[0, "Produção de glicose"], [0, "Absorção de luz"]]}],

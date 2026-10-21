@@ -99,6 +99,7 @@ from ._ordering import (
     RawLine,
     is_comment_block,
     ordering_alternative,
+    collect_item_depths,
     ordering_code_lines,
     ordering_leveled,
     ordering_ul_lines,
@@ -639,7 +640,7 @@ class MDQParser:
         if "highlight" in front:
             self.state["highlight"] = front["highlight"]
 
-    def parse_ordering_body(self) -> list[Node]:
+    def parse_ordering_body(self, tag_node: Node) -> list[Node]:
         """
         Fill `lines`, `extra`, `accept` and `reject` from an `[ordering]`
         block and its `## [extra]`/`## [accept]`/`## [reject]` sections.
@@ -650,15 +651,22 @@ class MDQParser:
 
         The indentation unit is inferred once across every block of the
         question (ordering.md#indentation), so every block is read raw
-        first and only converted to `[level, text]` pairs at the end. A
-        declared `content`/`highlight`/`indentation`/`unmatched`/
-        `normalizations` wins over what the body implies, the same way
-        `parse_essay_body` copies `content`/`highlight`.
+        first and only converted to `[level, text]` pairs at the end.
+        `content` and `highlight` always come from the body (a code
+        fence implies `code` and its language, a list implies `text`);
+        the frontmatter cannot declare them.
+
+        Args:
+            tag_node: the `[ordering]` tag paragraph; the content block
+                must start on the line right after it.
 
         Raises:
             ParseError: the block after `[ordering]` (or a section) is
-                neither a fenced code block nor a `ul` list, a section's
-                content is not the same kind as `[ordering]`'s, two
+                neither a fenced code block nor a `ul` list, a blank
+                line separates `[ordering]` from its block, a section
+                has no content block, a section's
+                content is not the same kind as `[ordering]`'s or its
+                fence names another language than the `[ordering]` fence, two
                 `## [extra]` sections are declared, or a section's
                 observations carry more than one feedback/comment block
                 or interleave the two, or a block that is not a section
@@ -668,7 +676,9 @@ class MDQParser:
             The epilogue nodes, between the content block and the first
             section.
         """
-        main_kind, main_highlight, main_raw = self.parse_ordering_content()
+        main_kind, main_highlight, main_raw = self.parse_ordering_content(
+            tag_node=tag_node
+        )
 
         first_section = next(
             (
@@ -697,18 +707,20 @@ class MDQParser:
             if name == "extra":
                 if extra_raw is not None:
                     raise ParseError("a question defines at most one [extra] section")
-                kind, _highlight, extra_raw = self.parse_ordering_content()
+                kind, highlight, extra_raw = self.parse_ordering_content(section=name)
                 if kind != main_kind:
                     raise ParseError(
                         "[extra] must use the same content type as [ordering]"
                     )
+                self.check_section_highlight(name, highlight, main_highlight)
             else:
                 feedback, comment = self.parse_ordering_observations()
-                kind, _highlight, raw = self.parse_ordering_content()
+                kind, highlight, raw = self.parse_ordering_content(section=name)
                 if kind != main_kind:
                     raise ParseError(
                         f"[{name}] must use the same content type as [ordering]"
                     )
+                self.check_section_highlight(name, highlight, main_highlight)
                 target = accept_raw if name == "accept" else reject_raw
                 target.append(RawAlternative(raw, feedback, comment))
 
@@ -719,18 +731,26 @@ class MDQParser:
                 self.children[self.pos],
             )
 
-        unit = ordering_unit(
-            [indent for indent, _ in main_raw]
-            + [indent for indent, _ in (extra_raw or [])]
-            + [indent for alt in (*accept_raw, *reject_raw) for indent, _ in alt.lines]
+        # A `ul` line already holds its nesting depth: no unit applies.
+        unit = (
+            1
+            if main_kind == "text"
+            else ordering_unit(
+                [indent for indent, _ in main_raw]
+                + [indent for indent, _ in (extra_raw or [])]
+                + [
+                    indent
+                    for alt in (*accept_raw, *reject_raw)
+                    for indent, _ in alt.lines
+                ]
+            )
         )
 
         front = self.frontmatter
         doc = self.state
-        doc["content"] = front.get("content", main_kind)
-        highlight = front["highlight"] if "highlight" in front else main_highlight
-        if highlight:
-            doc["highlight"] = highlight
+        doc["content"] = main_kind
+        if main_highlight:
+            doc["highlight"] = main_highlight
         if "indentation" in front:
             doc["indentation"] = front["indentation"]
         if "unmatched" in front:
@@ -747,6 +767,23 @@ class MDQParser:
             doc["reject"] = [ordering_alternative(alt, unit) for alt in reject_raw]
         return epilogue_nodes
 
+    @staticmethod
+    def check_section_highlight(
+        name: str, highlight: str | None, main_highlight: str | None
+    ) -> None:
+        """
+        A section's fence MUST name the language of the `[ordering]` fence
+        or none, which inherits it (ordering.md#body).
+
+        Raises:
+            ParseError: the section's fence names another language.
+        """
+        if highlight is not None and highlight != main_highlight:
+            raise ParseError(
+                f"the fence of [{name}] must use the language of the [ordering] "
+                f"fence ({main_highlight or 'none'}) or none, found {highlight!r}"
+            )
+
     def is_ordering_section(self, node: Node) -> bool:
         """Whether `node` is an `## [extra]`, `## [accept]` or `## [reject]` heading."""
         return (
@@ -755,26 +792,58 @@ class MDQParser:
             and ORDERING_SECTION_RE.match(self.raw_text(node)) is not None
         )
 
-    def parse_ordering_content(self) -> tuple[str, str | None, list[RawLine]]:
+    def parse_ordering_content(
+        self, *, tag_node: Node | None = None, section: str | None = None
+    ) -> tuple[str, str | None, list[RawLine]]:
         """
         Read the fenced code block or `ul` list holding one content
         block's raw `(indent, text)` lines, along with the content kind
         and highlight language it implies.
 
+        Args:
+            tag_node: the `[ordering]` tag paragraph, when reading the
+                main block: the block must start on the next line.
+            section: the name of the `extra`/`accept`/`reject` section
+                whose block is read, when reading a section.
+
         Raises:
             ParseError: the current node is neither a fence nor a
-                bullet list.
+                bullet list, or a blank line separates the main block
+                from its tag.
         """
         node = self.seek()
         if node is None or node.type not in ("fence", "bullet_list"):
+            if section is not None:
+                raise ParseError(
+                    f"the ## [{section}] section has no content block", node
+                )
             raise ParseError(
                 "an [ordering] block must be followed by a code block or a list",
+                node,
+            )
+        if (
+            tag_node is not None
+            and node.map is not None
+            and tag_node.map is not None
+            and node.map[0] != tag_node.map[1]
+        ):
+            raise ParseError(
+                "the [ordering] block must start on the line right after its "
+                "tag, with no blank line in between",
                 node,
             )
         self.read()
         if node.type == "fence":
             return "code", node.info.strip() or None, ordering_code_lines(node.content)
-        return "text", None, ordering_ul_lines(self.raw_lines(node))
+        depths: dict[int, int] = {}
+        parents: set[int] = set()
+        collect_item_depths(node, 0, depths, parents)
+        first_line = node.map[0] if node.map is not None else 0
+        return (
+            "text",
+            None,
+            ordering_ul_lines(self.raw_lines(node), depths, first_line, parents),
+        )
 
     def parse_ordering_observations(self) -> tuple[str | None, str | None]:
         """
@@ -1370,7 +1439,7 @@ class MDQParser:
                 self.parse_essay_body()
             elif tag == "ordering":
                 question_type = question_type or "ordering"
-                epilogue_nodes = self.parse_ordering_body()
+                epilogue_nodes = self.parse_ordering_body(body_node)
             elif tag == "short-answer":
                 question_type = question_type or "short-answer"
                 self.parse_short_answer_body(text, body_node)

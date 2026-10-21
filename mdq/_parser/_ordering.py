@@ -14,7 +14,8 @@ from typing import Any, NamedTuple
 from ..errors import ParseError
 
 #: A line before its indentation is reduced to a level -- the leading
-#: whitespace measured in columns (tabs counted as 4), and the text.
+#: whitespace measured in columns (tab stops of 4) for a code line, or the
+#: nesting depth for a `ul` item, and the text.
 RawLine = tuple[int, str]
 
 # `## [extra]` / `## [accept]` / `## [reject]`, matched the way
@@ -23,6 +24,11 @@ ORDERING_SECTION_RE = re.compile(r"^\[(?P<name>extra|accept|reject)\]$")
 # An ordering `ul` item's line: leading whitespace (the indentation to be
 # measured), the marker, and the item's raw markdown source verbatim.
 ORDERING_ITEM_RE = re.compile(r"^(?P<indent>[ \t]*)[*+-][ \t]+(?P<text>.*)$")
+# A bare marker with no text.
+EMPTY_ITEM_RE = re.compile(r"^[ \t]*[*+-][ \t]*$")
+# Markers of nested lists opened on the same source line (`- - Bahia`).
+NESTED_MARKER_RE = re.compile(r"^[*+-][ \t]+")
+NESTED_ORDERED_RE = re.compile(r"^\d{1,9}[.)](?:[ \t]|$)")
 
 
 class RawAlternative(NamedTuple):
@@ -41,36 +47,97 @@ def ordering_code_lines(content: str) -> list[RawLine]:
     return [ordering_line_indent(line) for line in raw_lines]
 
 
-def ordering_ul_lines(raw_lines: list[str]) -> list[RawLine]:
+def collect_item_depths(
+    node: Any, depth: int, depths: dict[int, int], parents: set[int] | None = None
+) -> None:
     """
-    Split a `ul` block's raw source lines into `(indent, text)` pairs.
+    Record the nesting depth of every item of a list node, by source line.
+
+    Args:
+        node: a markdown-it syntax tree node holding list items.
+        depth: the depth of the items directly under `node`.
+        depths: filled with `{0-based source line: depth}`.
+        parents: when given, filled with the source lines of the items
+            that hold a nested list.
+    """
+    for item in node.children:
+        if item.type != "list_item":
+            continue
+        if item.map is not None:
+            depths[item.map[0]] = depth
+        for child in item.children:
+            if child.type in ("bullet_list", "ordered_list"):
+                if parents is not None and item.map is not None:
+                    parents.add(item.map[0])
+                collect_item_depths(child, depth + 1, depths, parents)
+
+
+def ordering_ul_lines(
+    raw_lines: list[str],
+    depths: dict[int, int],
+    first_line: int,
+    parents: set[int] | None = None,
+) -> list[RawLine]:
+    """
+    Split a `ul` block's raw source lines into `(depth, text)` pairs.
+
+    The first element of a pair is the item's nesting depth, not a column
+    (ordering.md#body): top-level items are 0, their children 1, and so on.
+
+    Args:
+        raw_lines: the source lines of the whole list block.
+        depths: nesting depth of each list item, by its 0-based source line.
+        first_line: the 0-based source line of `raw_lines[0]`.
+        parents: the source lines of the items that hold a nested list. An
+            item with no text of its own among them is not a line.
 
     Raises:
-        ParseError: a non-blank line is not a list item, i.e. an item has
-            a continuation line or a second paragraph (an ordering item is
-            exactly one line).
+        ParseError: a non-blank line is not a bullet list item, i.e. an item
+            has a continuation line or a second paragraph, or a nested list
+            is ordered (an ordering item is exactly one line).
     """
     items = []
-    for line in raw_lines:
+    for offset, line in enumerate(raw_lines):
         if not line.strip(" \t"):
             continue
+        if (
+            parents is not None
+            and first_line + offset in parents
+            and EMPTY_ITEM_RE.match(line)
+        ):
+            continue
         m = ORDERING_ITEM_RE.match(line)
-        if m is None:
+        depth = depths.get(first_line + offset)
+        if m is None or depth is None:
             raise ParseError(
-                f"an ordering item is exactly one line, found extra line: {line!r}"
+                "an ordering item is exactly one line and a nested list is "
+                f"a `ul`, found: {line!r}"
             )
-        items.append((len(m.group("indent").expandtabs(4)), m.group("text")))
+        text = m.group("text").rstrip(" \t")
+        # An item holding only a nested list is not a line: it adds a level
+        # of depth, which `depths` already holds (`- - Bahia`).
+        while nested := NESTED_MARKER_RE.match(text):
+            text = text[nested.end() :]
+        if NESTED_ORDERED_RE.match(text):
+            raise ParseError(
+                "an ordering item is exactly one line and a nested list is "
+                f"a `ul`, found: {line!r}"
+            )
+        items.append((depth, text))
     return items
 
 
 def ordering_line_indent(line: str) -> RawLine:
     """
-    A code line's `(indent, text)`, tabs expanded to 4 spaces.
+    A code line's `(indent, text)`.
 
-    A blank line (spaces and tabs only) carries no indentation of its own,
-    regardless of any accidental leading whitespace.
+    Trailing spaces and tabs are removed. The leading whitespace is
+    measured in columns, with CommonMark tab stops: a tab advances to the
+    next multiple of 4. A blank line (spaces and tabs only) is level 0 with
+    empty text, regardless of any accidental whitespace.
     """
-    if not line.strip(" \t"):
+    line = line.rstrip(" \t")
+    if not line:
         return 0, ""
     expanded = line.expandtabs(4)
     stripped = expanded.lstrip(" ")

@@ -56,8 +56,6 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
         "decimalPlaces",
     ),
     "ordering": (
-        "content",
-        "highlight",
         "indentation",
         "unmatched",
         "normalizations",

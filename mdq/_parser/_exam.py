@@ -176,7 +176,7 @@ def parse_exam(
                 Diagnostic(
                     severity="warning",
                     code="setext-heading",
-                    path=("questions", block_index, field),
+                    path=("questions", block_index, *field),
                     message=(
                         "a '---' line right after text is a setext heading, "
                         "not a block boundary; put a blank line before the "
@@ -238,15 +238,59 @@ def _code_line_indices(lines: list[str]) -> set[int]:
     return covered
 
 
+_SECTION_LINE_RE = re.compile(
+    r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
+)
+
+
+def _glued_field(
+    lines: list[str],
+    index: int,
+    body_seen: bool,
+    starts: list[int],
+    code_lines: set[int],
+) -> tuple[str | int, ...]:
+    """
+    The path, inside its question, of the field that holds the `---`
+    line at `lines[index]`, glued to the text line before it.
+
+    When that text line is a type-specific section heading (`[extra]`,
+    `[accept]`, `[reject]` or `[answer-key]`), the path points at the
+    section; otherwise it is `stem` before the body tag and `epilogue`
+    after it.
+    """
+    if not body_seen:
+        return ("stem",)
+    match = _SECTION_LINE_RE.match(lines[index - 1].rstrip(" \t"))
+    if match is None:
+        return ("epilogue",)
+    name = match.group("name")
+    if name == "answer-key":
+        return ("answerKey",)
+    if name == "extra":
+        return ("extra",)
+    first = starts[-1] if starts else 0
+    position = 0
+    for i in range(first, index - 1):
+        if i in code_lines:
+            continue
+        earlier = _SECTION_LINE_RE.match(lines[i].rstrip(" \t"))
+        if earlier is not None and earlier.group("name") == name:
+            position += 1
+    return (name, position)
+
+
 def _split_exam_blocks(
     lines: list[str],
-) -> tuple[str | None, list[list[str]], dict[int, str]]:
+) -> tuple[str | None, list[list[str]], dict[int, tuple[str | int, ...]]]:
     """
     Split the text below the title into (instructions, question blocks,
     glued fences).
 
-    The third item maps a block index to the field (`stem` or
-    `epilogue`) in which a `---` line sits right after a text line. Such
+    The third item maps a block index to the path (inside the question)
+    of the field in which a `---` line sits right after a text line: `stem`,
+    `epilogue`, or the type-specific section the line underlines
+    (`answerKey`, `extra`, `accept`/`reject` and the section index). Such
     a line is a setext heading underline in CommonMark, not a fence
     (exam.md, "Questions"), so the block it meant to open was swallowed;
     `parse_exam` reports it as a `setext-heading` warning.
@@ -294,7 +338,7 @@ def _split_exam_blocks(
     """
 
     starts: list[int] = []
-    glued: list[tuple[int, str]] = []
+    glued: list[tuple[int, tuple[str | int, ...]]] = []
     code_lines = _code_line_indices(lines)
     index = 0
     #: Position right after the most recently accepted block boundary.
@@ -328,7 +372,12 @@ def _split_exam_blocks(
             continue
 
         if line == "---" and not blank_before and lines[index - 1].strip(" \t"):
-            glued.append((index, "epilogue" if body_seen else "stem"))
+            glued.append(
+                (
+                    index,
+                    _glued_field(lines, index, body_seen, starts, code_lines),
+                )
+            )
 
         if line == "---" and blank_before:
             adjacent = all(not gap.strip(" \t") for gap in lines[boundary:index])
@@ -361,8 +410,8 @@ def _split_exam_blocks(
                 # docs/exam.md, "Question and include blocks": after the
                 # body, a `---` can only start the next block.
                 raise ParseError(
-                    f"line {index + 1}: a question's epilogue cannot use '---' "
-                    "as a thematic break inside an exam; use '***' or '___'"
+                    f"line {index + 1}: a question's epilogue or section cannot use "
+                    "'---' as a thematic break inside an exam; use '***' or '___'"
                 )
 
         index += 1
@@ -373,7 +422,7 @@ def _split_exam_blocks(
     instructions = _clean_block("\n".join(lines[: starts[0]]))
     bounds = starts + [len(lines)]
     blocks = [lines[bounds[i] : bounds[i + 1]] for i in range(len(starts))]
-    glued_by_block: dict[int, str] = {}
+    glued_by_block: dict[int, tuple[str | int, ...]] = {}
     for line_index, field in glued:
         for block_index in range(len(starts)):
             if bounds[block_index] <= line_index < bounds[block_index + 1]:
