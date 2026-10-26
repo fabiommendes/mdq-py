@@ -449,13 +449,24 @@ def _md_indented_code_block() -> st.SearchStrategy[str]:
     belong to the block -- simpler to just never generate one. The same
     goes for a line of only spaces/tabs, which CommonMark reads as blank;
     other Unicode whitespace (NBSP) is not blank and stays possible.
+
+    The first line starts with a letter. `normalize_stem` strips the
+    stem's leading whitespace, so an indented block drawn as the first
+    block of a stem loses its indent; with any other first character
+    (`#`, `[`, `>`, `-`) the remaining text would become a different
+    block, such as an empty H1 heading, forbidden in a stem.
     """
     line = (
         st.text(alphabet=_LINE_ALPHABET, min_size=1, max_size=40)
         .filter(lambda s: s.strip(" \t") != "")
         .map(lambda s: "    " + s)
     )
-    return st.lists(line, min_size=1, max_size=4).map("\n".join)
+    first = _safe_line().map(lambda s: "    " + s)
+    return st.builds(
+        lambda head, tail: "\n".join([head, *tail]),
+        first,
+        st.lists(line, max_size=3),
+    )
 
 
 def md_safe_blocks() -> st.SearchStrategy[str]:
@@ -586,7 +597,9 @@ def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
         "author": st.none() | safe_texts(),
         "stem": md_safe_multi_blocks(),
         "epilogue": st.none() | md_safe_multi_blocks(),
-        "comment": st.none() | safe_texts(multiline=True),
+        # The Markdown frontmatter strips the comment string, so a comment
+        # with outer whitespace would not round-trip.
+        "comment": st.none() | safe_texts(multiline=True).map(str.strip).filter(bool),
         "locale": st.none() | locales(),
         "tags": st.lists(tags(), min_size=1, unique=True),
         "weight": weights(),

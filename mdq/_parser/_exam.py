@@ -36,6 +36,15 @@ __all__ = ["parse_exam", "is_exam", "INHERITED_FIELDS", "SEPARATOR"]
 #: H1, which is the exam-title syntax.
 SEPARATOR = "==="
 
+#: A line of only `=`, spaces and tabs with at least three `=` that is not
+#: a separator reads as text. `parse_exam` warns about it
+#: (`malformed-separator`).
+_NEAR_SEPARATOR_RE = re.compile(r"[ \t]*=[ \t]*=[ \t]*=[ \t=]*")
+
+#: A setext underline of CommonMark: `setext-heading` reports it, so it is
+#: not a `malformed-separator` right after a text line.
+_SETEXT_UNDERLINE_RE = re.compile(r" {0,3}=+[ \t]*")
+
 #: `# Title` or `# [slug] Title`.
 H1_RE = re.compile(r"^#[ \t]+(?P<rest>.*?)[ \t]*$")
 
@@ -167,10 +176,23 @@ def parse_exam(
             # Kept as written: the model reports `invalid-duration`.
             doc["duration"] = front["duration"]
 
-    instructions, blocks, glued = _split_exam_blocks(lines[title_index + 1 :])
+    instructions, blocks, glued, malformed = _split_exam_blocks(lines[title_index + 1 :])
     if instructions:
         doc["instructions"] = instructions
     if warnings is not None:
+        for path, line_number in malformed:
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="malformed-separator",
+                    path=path,
+                    message=(
+                        f"line {title_index + 1 + line_number}: a line of '=' "
+                        "that is not exactly '===' at column 0 is text, not a "
+                        "separator"
+                    ),
+                )
+            )
         for block_index, field in glued.items():
             warnings.append(
                 Diagnostic(
@@ -282,10 +304,20 @@ def _glued_field(
 
 def _split_exam_blocks(
     lines: list[str],
-) -> tuple[str | None, list[list[str]], dict[int, tuple[str | int, ...]]]:
+) -> tuple[
+    str | None,
+    list[list[str]],
+    dict[int, tuple[str | int, ...]],
+    list[tuple[tuple[str | int, ...], int]],
+]:
     """
     Split the text below the title into (instructions, question blocks,
-    glued fences).
+    glued fences, malformed separators).
+
+    The fourth item lists the lines that look like a `===` separator and
+    are not one, as the path of the text they sit in (`("instructions",)`
+    or `("questions", i)`) and the 1-based line number below the title.
+    `parse_exam` reports them as `malformed-separator` warnings.
 
     The third item maps a block index to the path (inside the question)
     of the field in which a `---` line sits right after a text line: `stem`,
@@ -339,6 +371,7 @@ def _split_exam_blocks(
 
     starts: list[int] = []
     glued: list[tuple[int, tuple[str | int, ...]]] = []
+    near: list[int] = []
     code_lines = _code_line_indices(lines)
     index = 0
     #: Position right after the most recently accepted block boundary.
@@ -362,6 +395,13 @@ def _split_exam_blocks(
             _matches_tag(stripped) or BRACKET_ITEM_RE.match(stripped)
         ):
             body_seen = True
+
+        if (
+            line != SEPARATOR
+            and _NEAR_SEPARATOR_RE.fullmatch(line)
+            and (blank_before or not _SETEXT_UNDERLINE_RE.fullmatch(line))
+        ):
+            near.append(index)
 
         if line == SEPARATOR and blank_before:
             starts.append(index)
@@ -417,7 +457,12 @@ def _split_exam_blocks(
         index += 1
 
     if not starts:
-        return _clean_block("\n".join(lines)), [], {}
+        return (
+            _clean_block("\n".join(lines)),
+            [],
+            {},
+            [(("instructions",), i + 1) for i in near],
+        )
 
     instructions = _clean_block("\n".join(lines[: starts[0]]))
     bounds = starts + [len(lines)]
@@ -428,7 +473,15 @@ def _split_exam_blocks(
             if bounds[block_index] <= line_index < bounds[block_index + 1]:
                 glued_by_block.setdefault(block_index, field)
                 break
-    return instructions, blocks, glued_by_block
+    malformed: list[tuple[tuple[str | int, ...], int]] = []
+    for line_index in near:
+        path: tuple[str | int, ...] = ("instructions",)
+        for block_index in range(len(starts)):
+            if bounds[block_index] <= line_index < bounds[block_index + 1]:
+                path = ("questions", block_index)
+                break
+        malformed.append((path, line_index + 1))
+    return instructions, blocks, glued_by_block, malformed
 
 
 def _looks_like_frontmatter(lines: list[str]) -> bool:

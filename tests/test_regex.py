@@ -24,7 +24,6 @@ The interesting corner cases fall into a few buckets:
 
 from __future__ import annotations
 
-import re
 
 import pytest
 from hypothesis import given, settings
@@ -569,7 +568,7 @@ def test_normalize_regex_is_idempotent(pattern: str) -> None:
     assert normalize_regex(once) == once
 
 
-# `re.escape` never touches "/" or whitespace, so a literal containing
+# `escape_syntax` never touches "/" or whitespace, so a literal containing
 # either can produce an escaped body that (a) gets misread as a delimited
 # pattern (leading "/") or (b) gets trimmed by the pattern-level whitespace
 # strip (leading/trailing space). Neither is a bug in the property being
@@ -583,10 +582,15 @@ ESCAPABLE_LITERAL = st.text(
 )
 
 
+def escape_syntax(literal: str) -> str:
+    """Escape only the syntax characters: other escapes are `invalid-regex`."""
+    return "".join("\\" + ch if ch in "^$\\.*+?()[]{}|" else ch for ch in literal)
+
+
 @given(literal=ESCAPABLE_LITERAL)
 @settings(max_examples=200)
 def test_escaped_literal_full_matches_itself(literal: str) -> None:
-    rx = RegexPattern(re.escape(literal))
+    rx = RegexPattern(escape_syntax(literal))
     assert rx.full_match(literal) is True
 
 
@@ -599,7 +603,7 @@ def test_escaped_literal_full_matches_itself(literal: str) -> None:
 def test_escaped_literal_include_matches_when_padded(
     literal: str, pad_left: str, pad_right: str
 ) -> None:
-    rx = RegexPattern(re.escape(literal))
+    rx = RegexPattern(escape_syntax(literal))
     assert rx.include_match(pad_left + literal + pad_right) is True
 
 

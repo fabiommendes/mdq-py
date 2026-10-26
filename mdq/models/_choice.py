@@ -116,14 +116,15 @@ class Statement(MdqModel):
     @classmethod
     def check_marker(cls, value: str | None) -> str | None:
         """
-        true-false.md, "Additional Rules": a marker is a single letter,
-        one code point in `LETTER` (`malformed-true-false-marker`). `X`/`x`,
-        also in a compatibility form such as `Ｘ`, marks a selected multiple-selection choice and never means true
-        or false (`reserved-true-false-marker`).
+        true-false.md, "Additional Rules": a marker is a single letter:
+        its normalized value is one code point in `LETTER`
+        (`malformed-true-false-marker`). `X`/`x`, also in a compatibility
+        form such as `Ｘ`, marks a selected multiple-selection choice and
+        never means true or false (`reserved-true-false-marker`).
         """
         if value is None:
             return value
-        if not is_letter(value):
+        if not is_letter(normalize_value(value)):
             raise PydanticCustomError(
                 "malformed-true-false-marker",
                 f"{value!r} is not a true/false marker: a marker is a single letter",

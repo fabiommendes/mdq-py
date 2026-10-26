@@ -45,7 +45,7 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
-from .._exact import join_pattern_lines
+from .._exact import exact_literal, join_pattern_lines
 from .._letters import FALSE_LETTERS, normalize_value
 from .._markdown import UNICODE_SPACE, md, split_lines
 from ..errors import (
@@ -97,6 +97,7 @@ from ._ordering import (
     ORDERING_SECTION_RE,
     RawAlternative,
     RawLine,
+    fence_language,
     is_comment_block,
     ordering_alternative,
     collect_item_depths,
@@ -123,6 +124,9 @@ ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
 SHORT_ANSWER_RE = re.compile(
     r"^\[short-answer(?:/(?P<variant>accept|reject))?\][ \t]*:[ \t]*(?P<rest>.*)$"
 )
+#: The tag of a short answer with no pattern, written without a colon
+#: (question-base.md, "Body tags").
+SHORT_ANSWER_BARE_RE = re.compile(r"^\[short-answer(?:/(?P<variant>accept|reject))?\]$")
 #: The `UNIT` terminal of docs/references/grammar.md: any character
 #: except a `UNICODE_SPACE` and the brackets `(`, `)`, `[`, `]`. It admits
 #: `µm`, `°C`, `km/h`, `Ω`.
@@ -135,6 +139,10 @@ NUMERIC_TAG_RE = re.compile(
 # not fail to match and get swallowed by the epilogue.
 BLANK_RE = re.compile(
     rf"^\[\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>[^\]]+))?\][ \t]*:[ \t]*(?P<rest>.*)$"
+)
+#: The tag of a short answer blank with no pattern, written without a colon.
+BLANK_BARE_RE = re.compile(
+    rf"^\[\^(?P<id>{SLUG_BODY_RE})/short-answer(?:/(?P<variant>accept|reject))?\]$"
 )
 #: The text after the colon of a short-answer tag line.
 TAG_REST_RE = re.compile(r"^[ \t]*\[[^\n]*?\][ \t]*:[ \t]*(?P<rest>.*)$")
@@ -155,9 +163,46 @@ ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
 # The markers around the text of an ATX heading.
 ATX_OPENING_RE = re.compile(r"^[ \t]*#{1,6}")
 ATX_CLOSING_RE = re.compile(r"(?:[ \t]+#+)?[ \t]*$")
-ORDERING_TAG_RE = re.compile(r"^\[ordering\]$")
+ORDERING_TAG_RE = re.compile(r"^\[ordering\](?:[ \t]*:[ \t]*(?P<rest>.*))?$")
 #: Reads link reference definitions, which `md` leaves as paragraphs.
 _REFERENCE_MD = MarkdownIt("commonmark")
+#: The names of the question types. A tag label that starts with one of them,
+#: or that is a fill-in label `^id/...`, is reserved (question-base.md,
+#: "Body tags").
+TYPE_NAMES = (
+    "essay",
+    "numeric",
+    "short-answer",
+    "ordering",
+    "true-false",
+    "multiple-choice",
+    "multiple-selection",
+    "fill-in",
+)
+#: A reserved tag label: a type name followed by the end of the label, `/` or
+#: `(`, or a fill-in label `^id/kind`. Case does not matter here, so that a
+#: tag in the wrong case is found.
+RESERVED_LABEL_RE = re.compile(
+    rf"^(?:\^(?P<id>[^/]*)/(?P<kind>.*)|(?:{'|'.join(TYPE_NAMES)})(?:[/(].*)?)$",
+    re.IGNORECASE,
+)
+#: A line in link reference definition form: a bracketed label and a colon.
+TAG_COLON_LINE_RE = re.compile(r"^[ \t]*\[(?P<label>[^\[\]\r\n]+)\][ \t]*:")
+#: A paragraph that holds only a bracketed label: a tag without a colon.
+TAG_BARE_RE = re.compile(r"^[ \t]*\[(?P<label>[^\[\]\r\n]+)\][ \t]*$")
+#: The label of a tag in lower case, with its form: `colon` or `bare`. Both
+#: forms are valid for a short answer tag; the others have one form.
+KNOWN_LABEL_RE = re.compile(
+    rf"^(?:(?P<essay>essay)|(?P<ordering>ordering)"
+    rf"|(?P<numeric>numeric(?:\({UNIT_RE}\))?)"
+    r"|(?P<short>short-answer(?:/(?:accept|reject))?))$"
+)
+KNOWN_BLANK_KIND_RE = re.compile(
+    rf"^(?:(?P<numeric>numeric(?:\({UNIT_RE}\))?)"
+    r"|(?P<short>short-answer(?:/(?:accept|reject))?))$"
+)
+#: The frontmatter fields that look like a tag suffix.
+FRONTMATTER_ONLY_SUFFIXES = {"preaccept": "preAccept", "prereject": "preReject"}
 
 
 #
@@ -496,6 +541,23 @@ class MDQParser:
                 text = self.raw_lines(child)[:1]
                 raise ParseError(_setext_message(text[0].strip(" \t") if text else ""))
 
+    def check_pattern_item_paragraph(self, item: Node) -> None:
+        """
+        Raise a `ParseError` if the content of the pattern item `item` starts
+        with a block that is not a paragraph in CommonMark: a block quote, a
+        heading, a list, a fenced or indented code block, an HTML block or a
+        thematic break (patterns.md, "Pattern items").
+        """
+        if not item.children or item.children[0].type == "paragraph":
+            return
+        line = self.item_lines(item)[0].strip(" \t")
+        raise ParseError(
+            f"the pattern line {line!r} starts a block of its own "
+            f"({_BLOCK_NAMES.get(item.children[0].type, item.children[0].type)}) "
+            f"in markdown, so it is not a pattern: write an exact literal "
+            f"instead, e.g. `{line}`"
+        )
+
     def find_body_start(self) -> int:
         """
         Return the index of the first body node in `self.children`.
@@ -640,6 +702,25 @@ class MDQParser:
         if "highlight" in front:
             self.state["highlight"] = front["highlight"]
 
+    @staticmethod
+    def check_ordering_tag(text: str) -> None:
+        """
+        Raise a `ParseError` unless `text` is `[ordering]:` alone: the tag
+        has a colon and no text after it (question-base.md, "Body tags").
+        """
+        m = ORDERING_TAG_RE.match(text)
+        assert m
+        if m.group("rest") is None:
+            raise ParseError(
+                "the tag of an ordering question is `[ordering]:`, with a colon; "
+                "the code block or list follows on the next line"
+            )
+        if m.group("rest"):
+            raise ParseError(
+                "the line of `[ordering]:` has no text after the colon; the "
+                "code block or list starts on the next line"
+            )
+
     def parse_ordering_body(self, tag_node: Node) -> list[Node]:
         """
         Fill `lines`, `extra`, `accept` and `reject` from an `[ordering]`
@@ -755,6 +836,8 @@ class MDQParser:
             doc["indentation"] = front["indentation"]
         if "unmatched" in front:
             doc["unmatched"] = front["unmatched"]
+        if "incorrectFeedback" in front:
+            doc["incorrectFeedback"] = front["incorrectFeedback"]
         if front.get("normalizations") is not None:
             doc["normalizations"] = _normalize_list(front["normalizations"])
 
@@ -828,13 +911,15 @@ class MDQParser:
             and node.map[0] != tag_node.map[1]
         ):
             raise ParseError(
-                "the [ordering] block must start on the line right after its "
-                "tag, with no blank line in between",
+                "the content of [ordering]: must start on the line right after "
+                "the tag, with no blank line in between",
                 node,
             )
         self.read()
+        if node.type == "bullet_list":
+            self.check_no_adjacent_list(node)
         if node.type == "fence":
-            return "code", node.info.strip() or None, ordering_code_lines(node.content)
+            return "code", fence_language(node.info), ordering_code_lines(node.content)
         depths: dict[int, int] = {}
         parents: set[int] = set()
         collect_item_depths(node, 0, depths, parents)
@@ -886,12 +971,14 @@ class MDQParser:
 
         `[short-answer]` (alias `[short-answer/accept]`) gives `accept` and
         `[short-answer/reject]` gives `reject`, in any order and at most
-        once each. An answer list detached from its tag by a blank line
-        is left to the epilogue (warning `detached-answer-list`).
+        once each. `[short-answer]` without a colon is a block with no
+        pattern (question-base.md, "Body tags").
 
         Raises:
             ParseError: a block is repeated (the two accept spellings
-                count as one block), or a block has a pattern and a list.
+                count as one block), a block has a pattern and a list, a
+                tag with a colon has no content or a blank line separates
+                it from its list, or a reject tag has no colon.
         """
         front = self.frontmatter
         doc = self.state
@@ -902,15 +989,20 @@ class MDQParser:
         text = tag_text
         seen: set[str] = set()
         while True:
-            m = SHORT_ANSWER_RE.match(text)
-            if m is None:
+            tag = _match_short_answer(text)
+            if tag is None:
                 break
-            variant = "reject" if m.group("variant") == "reject" else "accept"
+            tag_variant, rest = tag
+            variant = "reject" if tag_variant == "reject" else "accept"
             if variant in doc or variant in seen:
                 raise ParseError(f"repeated [short-answer] {variant} block")
             seen.add(variant)
             patterns = self.parse_answer_block(
-                tag_node, m.group("rest"), reject=variant == "reject"
+                tag_node,
+                rest,
+                reject=variant == "reject",
+                tag="short-answer",
+                path=(variant,),
             )
             if patterns:
                 doc[variant] = patterns
@@ -920,7 +1012,7 @@ class MDQParser:
             if node is None or node.type != "paragraph":
                 break
             text = self.raw_text(node)
-            if not SHORT_ANSWER_RE.match(text):
+            if _match_short_answer(text) is None:
                 break
             tag_node = self.read()
 
@@ -942,17 +1034,62 @@ class MDQParser:
             return rest.strip(" \t")
         return join_pattern_lines([first.group("rest"), *lines[1:]])
 
+    def _warn_multi_line_pattern(
+        self, path: tuple[str | int, ...], pattern: str, lines: int
+    ) -> None:
+        """
+        Report an exact literal or a regex of the body that spans more than
+        one line: the line ending becomes a significant U+0020
+        (patterns.md, "Continuation lines").
+        """
+        if lines > 1 and pattern.startswith(("`", "/")):
+            self.diagnostics.append(
+                Diagnostic(
+                    severity="warning",
+                    code="multi-line-pattern",
+                    path=path,
+                    message=(
+                        "an exact literal or a regex spans more than one line, so "
+                        "each line ending becomes a space that is part of the "
+                        f"pattern: write it on one line: {pattern!r}"
+                    ),
+                )
+            )
+
     def parse_answer_block(
-        self, tag_node: Node, rest: str, *, reject: bool
+        self,
+        tag_node: Node,
+        rest: str | None,
+        *,
+        reject: bool,
+        tag: str,
+        path: tuple[str | int, ...],
     ) -> list[PatternEntry]:
         """
         Read the patterns of one short-answer tag: the text on its line,
-        or the list on the lines right after it. Empty when it has none.
+        or the list on the lines right after it.
+
+        Args:
+            tag_node: the paragraph of the tag.
+            rest: the text after the colon, or `None` for a tag without a
+                colon.
+            reject: whether the tag is a `reject` tag.
+            tag: the tag without brackets (`short-answer` or
+                `^id/short-answer`), for the messages.
+            path: the path of the pattern list in the document, for the
+                `multi-line-pattern` warning.
+
+        Returns:
+            The patterns. Empty for a tag without a colon.
 
         Raises:
-            ParseError: the tag has text and an attached list, or a reject
-                tag has no pattern but is followed by a detached list.
+            ParseError: the tag has text and an attached list; a tag with a
+                colon has no text and no list on the next line (a blank
+                line before the list included); a tag without a colon is a
+                `reject` tag, or has a list on the next line.
         """
+        if rest is None:
+            return self._bare_answer_block(tag_node, reject=reject, tag=tag)
         rest = self._join_content_lines(tag_node, rest)
         # The tag paragraph also holds the lazy continuation lines of the
         # content. A `!` line is not lazy (a comment), so it is an error.
@@ -968,41 +1105,69 @@ class MDQParser:
             and node.map[0] == tag_node.map[1]
         ):
             raise ParseError(_OBSERVATION_AFTER_CONTENT)
-        if node is None or node.type != "bullet_list":
-            if reject and not rest:
-                raise ParseError("a [short-answer/reject] block has no pattern")
-            return [rest] if rest else []
+        attached = (
+            node is not None
+            and node.type == "bullet_list"
+            and node.map is not None
+            and tag_node.map is not None
+            and node.map[0] == tag_node.map[1]
+        )
+        if not rest:
+            if not attached:
+                raise ParseError(_empty_answer_tag_message(tag, reject=reject))
+        elif attached:
+            raise ParseError(
+                f"a [{tag}] tag with a pattern on its line cannot be followed by a list"
+            )
+        if not attached:
+            check_exact_pattern(rest)
+            tag_line, *other_lines = self.raw_lines(tag_node)
+            first = TAG_REST_RE.match(tag_line)
+            content_lines = [first.group("rest") if first else "", *other_lines]
+            self._warn_multi_line_pattern(
+                (*path, 0), rest, sum(1 for line in content_lines if line.strip(" \t"))
+            )
+            return [rest]
+        assert node is not None
+        self.read()
+        self.check_no_adjacent_list(node)
+        for item in node.children:
+            self.check_no_setext_item(item)
+            self.check_pattern_item_paragraph(item)
+        raw_items = [self.parse_plain_item(self.item_lines(item)) for item in node.children]
+        entries = [_pattern_entry(item) for item in raw_items]
+        for index, (entry, raw_item) in enumerate(zip(entries, raw_items)):
+            pattern = entry if isinstance(entry, str) else entry["pattern"]
+            check_exact_pattern(pattern)
+            self._warn_multi_line_pattern((*path, index), pattern, raw_item.text_lines)
+        return entries
+
+    def _bare_answer_block(
+        self, tag_node: Node, *, reject: bool, tag: str
+    ) -> list[PatternEntry]:
+        """
+        Check a short-answer tag written without a colon. It has no
+        content, so it is no `reject` tag (that one needs patterns) and no
+        list starts on the line after it (the colon is missing).
+        """
+        if reject:
+            raise ParseError(
+                f"[{tag}/reject] needs patterns: write `[{tag}/reject]:` "
+                "followed by a pattern or a list"
+            )
+        node = self.seek()
         if (
-            node.map is not None
+            node is not None
+            and node.type == "bullet_list"
+            and node.map is not None
             and tag_node.map is not None
             and node.map[0] == tag_node.map[1]
         ):
-            if rest:
-                raise ParseError(
-                    "a [short-answer] tag with a pattern on its line cannot be "
-                    "followed by a list"
-                )
-            self.read()
-            for item in node.children:
-                self.check_no_setext_item(item)
-            return [
-                _pattern_entry(self.parse_plain_item(self.item_lines(item)))
-                for item in node.children
-            ]
-        if reject and not rest:
-            raise ParseError("a [short-answer/reject] block has no pattern")
-        self.diagnostics.append(
-            Diagnostic(
-                severity="warning",
-                code="detached-answer-list",
-                path=("epilogue",),
-                message=(
-                    "a blank line separates the list from its [short-answer] "
-                    "tag, so the list is part of the epilogue"
-                ),
+            raise ParseError(
+                f"[{tag}] without a colon has no content: write `[{tag}]:` "
+                "before a list of patterns"
             )
-        )
-        return [rest] if rest else []
+        return []
 
     def parse_numeric_body(self, tag_text: str) -> None:
         m = NUMERIC_TAG_RE.match(tag_text)
@@ -1024,7 +1189,7 @@ class MDQParser:
         # gives none.
         if "decimalPlaces" in front:
             doc["decimalPlaces"] = front["decimalPlaces"]
-        elif doc.get("domain") == "decimal":
+        elif doc.get("domain") == "decimal" and "decimalPlaces" in parsed:
             doc["decimalPlaces"] = parsed["decimalPlaces"]
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
@@ -1059,11 +1224,21 @@ class MDQParser:
         text = tag_text
         while True:
             m = BLANK_RE.match(text)
-            if not m:
-                break
-            blank_id = m.group("id")
-            kind = m.group("kind")
-            rest = m.group("rest").strip(" \t")
+            rest: str | None
+            if m:
+                blank_id = m.group("id")
+                kind = m.group("kind")
+                rest = m.group("rest").strip(" \t")
+            else:
+                # An open short answer blank, written without a colon.
+                bare = BLANK_BARE_RE.match(text)
+                if bare is None:
+                    break
+                blank_id = bare.group("id")
+                kind = "short-answer"
+                if bare.group("variant"):
+                    kind += "/" + bare.group("variant")
+                rest = None
 
             unit = variant = None
             if kind is None:
@@ -1093,6 +1268,7 @@ class MDQParser:
                         f"right after its tag, with no blank line in between"
                     )
                 self.read()
+                self.check_no_adjacent_list(next_node)
                 raw_choices = self.parse_item_list(next_node)
                 foreign = foreign_choice_index(
                     "multiple-choice", [c.value for c in raw_choices]
@@ -1127,6 +1303,7 @@ class MDQParser:
                     {"id": blank_id, "type": "multiple-choice", "choices": choices},
                 )
             elif blank_type == "numeric":
+                assert rest is not None
                 parsed = _parse_numeric_expression(rest)
                 # A numeric blank is graded exactly like a numeric
                 # question (fill-in.md), so the domain is inferred from
@@ -1147,7 +1324,7 @@ class MDQParser:
                     blank["domain"] = parsed["domain"]
                 if blank_id in numeric_maps["decimalPlaces"]:
                     blank["decimalPlaces"] = numeric_maps["decimalPlaces"][blank_id]
-                elif blank.get("domain") == "decimal":
+                elif blank.get("domain") == "decimal" and "decimalPlaces" in parsed:
                     blank["decimalPlaces"] = parsed["decimalPlaces"]
                 if "tolerance" in parsed:
                     blank["tolerance"] = parsed["tolerance"]
@@ -1160,7 +1337,15 @@ class MDQParser:
                     )
                 defined.add((blank_id, role))
                 patterns = self.parse_answer_block(
-                    tag_node, rest, reject=role == "reject"
+                    tag_node,
+                    rest,
+                    reject=role == "reject",
+                    tag=f"^{blank_id}/short-answer",
+                    path=(
+                        "blanks",
+                        list(blanks).index(blank_id) if blank_id in blanks else len(blanks),
+                        role,
+                    ),
                 )
                 sa_blank: ShortAnswerBlankDict = {
                     "id": blank_id,
@@ -1171,6 +1356,11 @@ class MDQParser:
                 elif patterns:
                     sa_blank["reject"] = patterns
                 self._add_blank(blanks, sa_blank)
+            elif blank_type is None and not rest:
+                raise ParseError(
+                    f"the choice blank [^{blank_id}]: has no choice list: the list "
+                    f"starts on the line right after the tag"
+                )
             elif blank_type is None:
                 raise ParseError(
                     f"the tag line of the choice blank [^{blank_id}] must be empty "
@@ -1186,7 +1376,7 @@ class MDQParser:
             if node is None or node.type != "paragraph":
                 break
             text = self.raw_text(node)
-            if not BLANK_RE.match(text):
+            if not (BLANK_RE.match(text) or BLANK_BARE_RE.match(text)):
                 break
             tag_node = self.read()
 
@@ -1194,37 +1384,81 @@ class MDQParser:
         self.distribute_numeric_blank_maps(numeric_maps, blanks)
         self.state["blanks"] = list(blanks.values())
 
-    def report_detached_blank_definitions(self) -> None:
+    def check_tag_lines(self) -> None:
         """
-        Report a blank definition tag line in the epilogue.
-
-        The definitions form one run of blocks, so the first other block
-        starts the epilogue and a tag line after it defines nothing
-        (fill-in.md, "Blank definitions"). Each such line is an error
-        `detached-blank-definition`. Code blocks are not paragraphs, so a
-        tag inside fenced code does not count. The error stops the load
-        before the model checks, so the stem reference of the blank
-        gives no `undefined-blank`.
+        Raise a `ParseError` for a reserved tag that is not a valid tag, in
+        any paragraph of the question: a tag in the wrong case, a tag with an
+        unknown suffix, a tag of the frontmatter such as `preAccept`
+        (question-base.md, "Body tags"). A label that does not start with a
+        type name is an ordinary link reference definition.
         """
-        for node in self.children[self.pos :]:
+        for node in self.children:
             if node.type != "paragraph":
                 continue
-            for line in self.raw_lines(node):
-                m = BLANK_RE.match(line.lstrip(" \t"))
-                if m is None:
+            for label, colon in tag_lines(self.raw_text(node), self.raw_lines(node)):
+                check_tag_label(label, colon)
+
+    def report_detached_tags(self, blocks: list[Node], *, fill_in: bool) -> None:
+        """
+        Report a tag in the epilogue.
+
+        The blocks of the body are one run, so the first other block starts
+        the epilogue, and a tag after it defines nothing. Each such tag is an
+        error `detached-tag`. Code blocks are not paragraphs, so a tag inside
+        fenced code does not count. The error stops the load before the model
+        checks, so the stem reference of a blank gives no `undefined-blank`.
+
+        Args:
+            blocks: The blocks of the epilogue.
+            fill_in: Whether the question is a fill-in question, where
+                `[^id]:` is the tag of a choice blank.
+        """
+        for node in blocks:
+            if node.type != "paragraph":
+                continue
+            for label, colon in tag_lines(self.raw_text(node), self.raw_lines(node)):
+                choice_blank = (
+                    fill_in and colon and re.fullmatch(rf"\^{SLUG_BODY_RE}", label)
+                )
+                if not (is_reserved_label(label) or choice_blank):
                     continue
                 self.diagnostics.append(
                     Diagnostic(
                         severity="error",
-                        code="detached-blank-definition",
+                        code="detached-tag",
                         path=("epilogue",),
                         message=(
-                            f"the definition of [^{m.group('id')}] comes after a "
-                            "block that is not a blank definition, so it is part of "
-                            "the epilogue; move that block after the definitions"
+                            f"the tag `[{label}]{':' if colon else ''}` comes after the "
+                            "epilogue started, so it is part of the epilogue; move "
+                            "the tag up, before the epilogue"
                         ),
                     )
                 )
+
+    def check_no_adjacent_list(self, content: Node) -> None:
+        """
+        Raise a `ParseError` if a list starts on the line right after the
+        content list `content`. In CommonMark a change of the list marker
+        (`*` to `-`, or to `1.`) starts a new list, and that list would go
+        to the epilogue with no sign: an item would leave the answer.
+        """
+        node = self.seek()
+        if node is None or content.map is None:
+            return
+        # The map of a list includes the blank lines inside it.
+        end = content.map[1]
+        while end > content.map[0] and not self.lines[end - 1].strip(" \t"):
+            end -= 1
+        if (
+            node.type in ("bullet_list", "ordered_list")
+            and node.map is not None
+            and node.map[0] == end
+        ):
+            raise ParseError(
+                "use the same list marker for every item, or separate the "
+                "epilogue with a blank line",
+                node,
+            )
 
     @staticmethod
     def numeric_blank_maps(front: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -1402,6 +1636,7 @@ class MDQParser:
         if not self.children:
             raise MissingField("stem")
 
+        self.check_tag_lines()
         body_start = self.find_body_start()
         if body_start == 0:
             raise MissingField("stem")
@@ -1439,6 +1674,7 @@ class MDQParser:
                 self.parse_essay_body()
             elif tag == "ordering":
                 question_type = question_type or "ordering"
+                self.check_ordering_tag(text)
                 epilogue_nodes = self.parse_ordering_body(body_node)
             elif tag == "short-answer":
                 question_type = question_type or "short-answer"
@@ -1449,7 +1685,6 @@ class MDQParser:
             elif tag == "blank":
                 question_type = question_type or "fill-in"
                 self.parse_fill_in_body(text, body_node)
-                self.report_detached_blank_definitions()
             else:  # pragma: no cover - find_body_start already filtered this
                 raise IncompleteQuestion()
 
@@ -1462,6 +1697,7 @@ class MDQParser:
             if epilogue_nodes is not None
             else self.children[self.pos :]
         )
+        self.report_detached_tags(epilogue_blocks, fill_in=question_type == "fill-in")
         if epilogue_blocks:
             epilogue_text = self.join_blocks(epilogue_blocks)
             if epilogue_text:
@@ -1470,6 +1706,134 @@ class MDQParser:
         self.apply_type_specific_frontmatter(question_type)
 
         return cast(QuestionDict, self.state)
+
+
+def _lower_label(label: str) -> str:
+    """
+    The label in lower case. The unit of `numeric(unit)` keeps its case:
+    `Pa` and `pa` are different units.
+    """
+    if label.lower().startswith("numeric("):
+        return "numeric" + label[len("numeric") :]
+    return label.lower()
+
+
+def tag_lines(text: str, lines: list[str]) -> list[tuple[str, bool]]:
+    """
+    The `(label, has_colon)` pairs of the tag-like lines of a paragraph: each
+    line in link reference definition form, and the whole paragraph when it
+    holds only a bracketed label.
+
+    Args:
+        text: The text of the paragraph, as `MDQParser.raw_text` gives it.
+        lines: The raw source lines of the paragraph.
+    """
+    found: list[tuple[str, bool]] = []
+    bare = TAG_BARE_RE.match(text)
+    if bare is not None:
+        found.append((bare.group("label"), False))
+    for line in lines:
+        colon = TAG_COLON_LINE_RE.match(line)
+        if colon is not None:
+            found.append((colon.group("label"), True))
+    return found
+
+
+def is_reserved_label(label: str) -> bool:
+    """Whether `label` is reserved: it starts with a type name or is `^id/...`."""
+    return RESERVED_LABEL_RE.match(label) is not None
+
+
+def check_tag_label(label: str, colon: bool) -> None:
+    """
+    Raise a `ParseError` if `label`, the text between the brackets of a
+    tag-like line, is reserved but is not a valid tag (question-base.md,
+    "Body tags"). Do nothing for a label that is not reserved, such as the
+    label of an ordinary link reference definition.
+
+    Args:
+        label: The text between the brackets.
+        colon: Whether a colon follows the closing bracket.
+
+    Raises:
+        ParseError: The label has the wrong case, has an unknown suffix, is
+            a frontmatter field, or has the wrong form for its tag.
+    """
+    reserved = RESERVED_LABEL_RE.match(label)
+    if reserved is None:
+        return
+    written = f"`[{label}]{':' if colon else ''}`"
+    blank_id = reserved.group("id")
+    if blank_id is not None:
+        if not re.fullmatch(SLUG_BODY_RE, blank_id):
+            raise ParseError(
+                f"{written} has an invalid blank id: it is a lower case slug, as in `[^capital/short-answer]:`"
+            )
+        kind = _lower_label(reserved.group("kind"))
+        known = KNOWN_BLANK_KIND_RE.match(kind)
+        fixed = f"^{blank_id}/{kind}"
+        needs_colon = bool(known and known.group("numeric"))
+    else:
+        fixed = _lower_label(label)
+        known = KNOWN_LABEL_RE.match(fixed)
+        needs_colon = bool(known and known.group("numeric"))
+    if known is None:
+        suffix = label.rsplit("/", 1)[-1].lower()
+        if suffix in FRONTMATTER_ONLY_SUFFIXES:
+            field = FRONTMATTER_ONLY_SUFFIXES[suffix]
+            raise ParseError(
+                f"unknown tag {written}: `{field}` is a field of the frontmatter "
+                "only, not a tag"
+            )
+        raise ParseError(
+            f"unknown tag {written}: a tag name that starts with a type name is "
+            "reserved, see the tags of the question types"
+        )
+    shown = f"[{fixed}]{':' if colon else ''}"
+    if fixed != label:
+        raise ParseError(f"tags are lower case: write `{shown}`")
+    if blank_id is None and known is not None and known.group("essay") and colon:
+        raise ParseError(
+            "the tag of an essay has no content: write `[essay]` without a colon"
+        )
+    if needs_colon and not colon:
+        raise ParseError(f"the tag `{shown}` needs a colon and its content: `{shown}:`")
+
+
+#: Readable names of the blocks that can start a pattern item.
+_BLOCK_NAMES = {
+    "blockquote": "block quote",
+    "heading": "heading",
+    "bullet_list": "list",
+    "ordered_list": "list",
+    "fence": "fenced code block",
+    "code_block": "code block",
+    "html_block": "HTML block",
+    "hr": "thematic break",
+}
+
+
+def check_exact_pattern(pattern: str) -> None:
+    """
+    Raise a `ParseError` if `pattern`, a pattern of the Markdown body, opens
+    with a backtick and is not a complete exact literal (patterns.md, "Exact
+    literals"). A literal that opens at the end of a line, or whose closing
+    run starts a continuation line, holds a line feed after the join of the
+    lines. The form of the YAML, JSON and frontmatter has no line ending and
+    stays a `schema-error`.
+    """
+    if not pattern.startswith("`"):
+        return
+    if "\n" in pattern:
+        raise ParseError(
+            f"an exact literal cannot open at the end of a line, nor close at "
+            f"the start of a line: {' '.join(pattern.split())!r}"
+        )
+    if exact_literal(pattern) is None:
+        raise ParseError(
+            f"a pattern that opens with a backtick must be a complete exact "
+            f"literal: {pattern!r}"
+        )
 
 
 def _setext_message(text: str) -> str:
@@ -1485,6 +1849,36 @@ _OBSERVATION_AFTER_CONTENT = (
     "short answer tag; use the list form ('* pattern' with the '>' or '!' "
     "lines indented under it)"
 )
+
+
+def _empty_answer_tag_message(tag: str, *, reject: bool) -> str:
+    """The error for a short-answer tag with a colon and no content."""
+    if reject:
+        return (
+            f"[{tag}/reject]: has no pattern: write it on the same line "
+            "or in a list on the line right after the tag"
+        )
+    return (
+        f"[{tag}]: has no content: write the answer on the same line or in a "
+        "list on the line right after the tag, with no blank line in between, "
+        f"or use `[{tag}]` for a manual question"
+    )
+
+
+def _match_short_answer(text: str) -> tuple[str | None, str | None] | None:
+    """
+    Read a short-answer tag line: `(variant, rest)`, where `variant` is
+    `accept`, `reject` or `None` (the bare tag) and `rest` is the text after
+    the colon, or `None` for a tag without a colon. `None` if `text` is no
+    short-answer tag.
+    """
+    m = SHORT_ANSWER_RE.match(text)
+    if m is not None:
+        return m.group("variant"), m.group("rest")
+    m = SHORT_ANSWER_BARE_RE.match(text)
+    if m is not None:
+        return m.group("variant"), None
+    return None
 
 
 def _is_comment_line(line: str) -> bool:
@@ -1505,11 +1899,11 @@ def _matches_tag(text: str) -> str | None:
         return "essay"
     if ORDERING_TAG_RE.match(text):
         return "ordering"
-    if SHORT_ANSWER_RE.match(text):
+    if SHORT_ANSWER_RE.match(text) or SHORT_ANSWER_BARE_RE.match(text):
         return "short-answer"
     if NUMERIC_TAG_RE.match(text):
         return "numeric"
-    if BLANK_RE.match(text):
+    if BLANK_RE.match(text) or BLANK_BARE_RE.match(text):
         return "blank"
     return None
 
@@ -1611,7 +2005,7 @@ def find_forbidden_elements(
     slug syntax, base.md "Slug"). A `[` that starts a markdown link
     (`[text](url)`, `[text][ref]`) does not count, and neither does a
     paragraph of CommonMark link reference definitions
-    (`[inpe]: https://www.inpe.br`) that is not an MDQ tag.
+    (`[inpe]: https://www.inpe.br`) with no reserved tag label.
 
     Args:
         src: Markdown source for one field -- no YAML frontmatter.
@@ -1650,7 +2044,11 @@ def find_forbidden_elements(
             stripped = text.lstrip(" \t")
             if not _starts_with_bracket(stripped):
                 continue
-            if not _matches_tag(stripped) and not _starts_with_bracket(
+            has_tag = any(
+                is_reserved_label(label)
+                for label, _ in tag_lines(text, reader.raw_lines(node))
+            )
+            if not has_tag and not _starts_with_bracket(
                 _after_reference_definitions("\n".join(reader.raw_lines(node)))
             ):
                 continue

@@ -118,8 +118,8 @@ def normalize_section_headings(lines: list[str]) -> list[str]:
     while i < len(lines):
         line = lines[i]
         match = SECTION_HEADING.match(line)
-        if line.strip() == "[ordering]":
-            result.append("[ordering]")
+        if line.strip() == "[ordering]:":
+            result.append("[ordering]:")
         elif match and (line.lstrip().startswith("##") or _is_setext(lines, i)):
             result.append(f"## [{match.group(1)}]")
             i += 2 if not line.lstrip().startswith("##") else 1
@@ -146,7 +146,7 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
     """
     lines = normalize_section_headings(markdown.splitlines())
     try:
-        start = lines.index("[ordering]")
+        start = lines.index("[ordering]:")
     except ValueError as exc:
         raise ValueError("no [ordering] tag found") from exc
 
@@ -174,7 +174,7 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
 @given(ordering_questions())
 def test_render_contains_exactly_one_ordering_tag(question: OrderingQuestion) -> None:
     src = question.render()
-    assert src.splitlines().count("[ordering]") == 1
+    assert src.splitlines().count("[ordering]:") == 1
 
 
 @given(ordering_questions())
@@ -213,7 +213,13 @@ def test_extra_and_alternative_line_counts_match_their_declarations(
 def test_no_heading_when_extra_accept_and_reject_are_all_empty(
     question: OrderingQuestion,
 ) -> None:
-    question = question.model_copy(update={"extra": [], "accept": [], "reject": []})
+    # "All empty" means all absent: an explicit empty list is invalid.
+    question = OrderingQuestion(
+        content=question.content,
+        highlight=question.highlight,
+        stem=question.stem,
+        lines=question.lines,
+    )
     src = question.render()
     assert "##" not in src
 
@@ -323,7 +329,7 @@ def test_render_never_emits_content_or_highlight(path: Path) -> None:
 def test_no_blank_line_between_tag_and_content_block() -> None:
     src = MINIMAL.render()
     lines = src.splitlines()
-    tag_index = lines.index("[ordering]")
+    tag_index = lines.index("[ordering]:")
     assert lines[tag_index + 1].strip() != ""
 
 
@@ -451,12 +457,12 @@ def test_frontmatter_emits_non_default_indentation_unmatched_and_normalizations(
         stem="s",
         lines=[(0, "a"), (0, "b")],
         indentation="strict",
-        unmatched="incorrect",
+        unmatched="manual",
         normalizations=["dedent"],
     )
     frontmatter = question.frontmatter(skip_defaults=True)
     assert frontmatter["indentation"] == "strict"
-    assert frontmatter["unmatched"] == "incorrect"
+    assert frontmatter["unmatched"] == "manual"
     assert frontmatter["normalizations"] == ["dedent"]
 
 

@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
-from .._letters import is_letter, normalize_value
+from .._letters import is_letter, normalize_value, strip_marker_space
 from ..errors import ParseError
 from ..types import PatternDict
 
@@ -42,13 +42,15 @@ CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]{_NOT_A_LINK}[ \t
 CHOICE_MARK_RE = re.compile(r"\[(?P<value>[^\]\r\n]*)\](?![(\[])")
 #: A bracket that starts a markdown link, `[text](url)` or `[text][ref]`.
 LINK_START_RE = re.compile(r"\[[^\]\r\n]*\][(\[]")
-PERCENT_RE = re.compile(r"^[+-]?[0-9]+(?:\.[0-9]+)?%$")
+#: The `percent` rule of multiple-choice.md: an `INTEGER` or a `DECIMAL`
+#: (no leading zeros) with an optional sign.
+PERCENT_RE = re.compile(r"^[+-]?(?:[1-9][0-9]*|0)(?:\.[0-9]+)?%$")
 #: The `LAZY_START` terminal of docs/references/grammar.md, for a line
 #: without its line ending: the first character of a line that continues
 #: the block before it. It is not a `>` or `!` marker, and it does not
 #: start a block that interrupts a paragraph.
 LAZY_START_RE = re.compile(
-    r"(?!>|!(?!\[)|[*+-][ \t]|1[.)][ \t]|#{1,6}(?:[ \t]|$)|`{3}|~{3}"
+    r"(?!>|!(?!\[)|[*+-][ \t]|0{0,8}1[.)][ \t]|#{1,6}(?:[ \t]|$)|`{3}|~{3}"
     r"|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|(?:_[ \t]*){3,}$)[^ \t\r\n]"
 )
 #: Columns of indentation that make a line code or a continuation line,
@@ -63,6 +65,8 @@ class RawChoice:
     text: str
     feedback: str | None = None
     comment: str | None = None
+    #: The number of source lines of `text`.
+    text_lines: int = 1
 
 
 class ParsedMarker(NamedTuple):
@@ -127,7 +131,7 @@ def parse_marker(line: str) -> ParsedMarker:
         raise ParseError(f"malformed choice item: {line!r}")
     if not m.group("value"):
         raise ParseError(f"empty choice marker `[]` (use `[ ]` for blank): {line!r}")
-    value = m.group("value").strip(" \t")
+    value = strip_marker_space(m.group("value"))
     rest = line.lstrip(" \t")[m.end() :].lstrip(" \t")
 
     id = None
@@ -146,12 +150,11 @@ def is_choice_value(value: str) -> bool:
     `*`, a percentage, a single letter, or `[]`. The value is normalized
     first (`normalize_value`), so `[＊]` is `*`.
     """
-    value = value.strip(" \t")
     normalized = normalize_value(value)
     return (
         normalized in ("", "*")
         or bool(PERCENT_RE.match(normalized))
-        or is_letter(value)
+        or is_letter(normalized)
     )
 
 
@@ -235,7 +238,7 @@ def split_item(
         text.append(content)
         index += 1
     feedback, comment = parse_observations(lines[index:])
-    return RawChoice("", None, join_text(text), feedback, comment)
+    return RawChoice("", None, join_text(text), feedback, comment, len(text))
 
 
 def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
@@ -304,7 +307,7 @@ def foreign_choice_index(question_type: str, values: list[str]) -> int | None:
     tabs, as `RawChoice.value` holds them. The rules apply to the
     normalized value (`normalize_value`): multiple-choice takes `""`, `*`
     or a percentage; multiple-selection `""` or `x`; true-false one
-    written letter (`LETTER`) that is not `x`.
+    letter (`LETTER`) that is not `x`.
     """
     for index, value in enumerate(values):
         normalized = normalize_value(value)
@@ -313,7 +316,7 @@ def foreign_choice_index(question_type: str, values: list[str]) -> int | None:
         elif question_type == "multiple-selection":
             ok = normalized in ("", "x")
         elif question_type == "true-false":
-            ok = is_letter(value) and normalized != "x"
+            ok = is_letter(normalized) and normalized != "x"
         else:
             continue
         if not ok:
@@ -339,8 +342,8 @@ def _infer_choice_type(values: list[str]) -> str | None:
             return "multiple-choice"
     if "x" in normalized:
         return "multiple-selection"
-    for v in values:
-        if is_letter(v):
+    for n in normalized:
+        if is_letter(n):
             return "true-false"
     return "multiple-selection"
 

@@ -405,7 +405,7 @@ def test_unlisted_marker_warns(marker: str) -> None:
     assert "unlisted-true-false-marker" in _rules(load(doc).diagnostics)
 
 
-@pytest.mark.parametrize(("locale", "marker"), [("id", "S"), ("vi", "S"), ("pt", "E")])
+@pytest.mark.parametrize(("locale", "marker"), [("id", "S"), ("vi", "S"), ("bn", "B")])
 def test_false_friend_marker_warns_only_as_false_friend(locale: str, marker: str) -> None:
     """true-false.md#locale: a letter that reads as true globally but means
     false in the language of the row gets only the false-friend warning."""
@@ -442,7 +442,10 @@ _MISMATCHED = {"locale-mismatched-true-false-marker"}
         ("pt-BR", "F", False, set()),
         ("pt-BR", "T", True, set()),
         ("pt-BR", "C", True, set()),
-        ("pt-BR", "E", True, _FALSE_FRIEND),
+        ("pt-BR", "E", False, set()),
+        ("bn", "B", True, _FALSE_FRIEND),
+        ("en", "B", True, _MISMATCHED),
+        ("tr", "Y", False, set()),
         ("pt-BR", "S", True, _UNLISTED),
         ("pt-BR", "B", True, _MISMATCHED),
         ("pt-BR", "K", True, _UNLISTED),
@@ -455,7 +458,7 @@ _MISMATCHED = {"locale-mismatched-true-false-marker"}
         ("vi", "S", True, _FALSE_FRIEND),
         ("vi", "Đ", True, set()),
         ("vi", "đ", True, set()),
-        ("hi", "S", True, set()),
+        ("hi", "S", True, _UNLISTED),
         ("hi", "स", True, set()),
         ("hi", "ग", False, set()),
         ("hi", "G", True, _FALSE_FRIEND),
@@ -533,16 +536,16 @@ def test_choices_without_markers_are_not_flagged() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_highlight_without_code_input_warns() -> None:
+def test_highlight_without_code_content_is_a_schema_error() -> None:
     doc = {"type": "essay", "stem": "x", "content": "text", "highlight": "python"}
-    assert "ignored-highlight" in _rules(load(doc).diagnostics)
+    assert "schema-error" in _rules(load(doc).diagnostics)
 
 
-def test_highlight_is_ignored_by_default_input_too() -> None:
-    """`input` defaults to "text", so an omitted input still makes
-    `highlight` a no-op."""
+def test_highlight_with_default_content_is_a_schema_error() -> None:
+    """`content` defaults to "text", so an omitted `content` still makes
+    `highlight` an error."""
     doc = {"type": "essay", "stem": "x", "highlight": "python"}
-    assert "ignored-highlight" in _rules(load(doc).diagnostics)
+    assert "schema-error" in _rules(load(doc).diagnostics)
 
 
 def test_code_content_without_highlight_warns() -> None:

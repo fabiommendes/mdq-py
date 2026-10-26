@@ -39,7 +39,7 @@ def _parse(source: str) -> dict:
 #
 @pytest.mark.parametrize("pattern", ["*", " * ", "\t*\n"], ids=["bare", "padded", "tab-newline"])
 def test_asterisk_is_a_plain_literal_not_a_wildcard(pattern: str) -> None:
-    question = models.ShortAnswerQuestion(stem="x", accept=["*"])
+    question = models.ShortAnswerQuestion(stem="x", accept=["`*`"])
     assert question.score_response(pattern).score == 1.0
     assert question.score_response("anything at all").score == 0.0
     assert question.score_response("").score == 0.0
@@ -507,7 +507,7 @@ def test_backtick_exact_pattern_ignores_diacritics(diacritics: models.Diacritics
 def test_asterisk_pattern_is_a_literal_under_both_modes(
     diacritics: models.Diacritics,
 ) -> None:
-    pattern = models.AnswerPattern(pattern="*")
+    pattern = models.AnswerPattern(pattern="`*`")
     assert pattern.matches("*", diacritics=diacritics) is True
     assert pattern.matches("anything at all", diacritics=diacritics) is False
 

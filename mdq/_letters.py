@@ -21,6 +21,7 @@ __all__ = [
     "is_letter",
     "nfkc",
     "normalize_value",
+    "strip_marker_space",
 ]
 
 #: General_Category values of a `LETTER` (grammar.md, "Regex dialect"):
@@ -40,12 +41,28 @@ def nfkc(text: str) -> str:
     return unicodedata2.normalize("NFKC", text)
 
 
+def strip_marker_space(value: str) -> str:
+    """
+    `value` without the `ws` at its ends, where a character is `ws` when it
+    is a space, a tab or its NFKC form is a space (U+00A0, U+2003, ...).
+    The choice marker is the one place where a non-ASCII space acts as `ws`
+    (docs/references/grammar.md, "Start and end of a block").
+    """
+    start, end = 0, len(value)
+    while start < end and nfkc(value[start]) in (" ", "\t"):
+        start += 1
+    while end > start and nfkc(value[end - 1]) in (" ", "\t"):
+        end -= 1
+    return value[start:end]
+
+
 def normalize_value(value: str) -> str:
     """
     The value of a choice marker as the parser reads it: NFKC, then ASCII
-    lowercase (`A` to `Z` only). `Ｆ` (U+FF26) becomes `f`.
+    lowercase (`A` to `Z` only), without the `ws` at its ends. `Ｆ` (U+FF26)
+    becomes `f` and U+00A0 becomes the empty string.
     """
-    return nfkc(value).translate(_ASCII_LOWER)
+    return nfkc(value).translate(_ASCII_LOWER).strip(" \t")
 
 
 def _both_cases(letters: str) -> frozenset[str]:
@@ -62,7 +79,7 @@ def _both_cases(letters: str) -> frozenset[str]:
 #: TRUE and FALSE letters of true-false.md, "Body", matched against the
 #: normalized value. Every other letter (but `x`) is a WARNING letter.
 TRUE_LETTERS = _both_cases("T V B D Đ 对 對 真 是 В 참 ص स স ब ఒ ச ถ સ")
-FALSE_LETTERS = _both_cases("F M 错 錯 偽 非 Н 거 خ غ ग ম च త த ผ ખ")
+FALSE_LETTERS = _both_cases("F M E Y 错 錯 偽 非 Н 거 خ غ ग ম च త த ผ ખ")
 
 
 class LocaleRow(NamedTuple):
@@ -72,7 +89,8 @@ class LocaleRow(NamedTuple):
     true: frozenset[str]
     #: Letters accepted for false.
     false: frozenset[str]
-    #: Letters that mean false in the language but true globally.
+    #: Letters that mean false in the language but true globally. A WARNING
+    #: letter, or a TRUE letter through a romanization (`B` under `bn`).
     false_friends: frozenset[str]
 
 
@@ -87,28 +105,28 @@ LOCALE_ROWS: dict[str, LocaleRow] = {
     "en": _row("T", "F", "W"),
     "zh": _row("T 对 對 是", "F 错 錯 非", "C"),
     "yue": _row("T 對", "F 錯", "C"),
-    "hi": _row("T S स", "F ग", "G"),
+    "hi": _row("T स", "F ग", "G"),
     "es": _row("T V", "F"),
-    "ar": _row("T S ص", "F خ", "K"),
+    "ar": _row("T ص", "F خ", "K"),
     "fr": _row("T V", "F"),
-    "bn": _row("T S স", "F M ম"),
-    "pt": _row("T V C", "F", "E"),
+    "bn": _row("T স", "F M ম", "B"),
+    "pt": _row("T V C", "F E"),
     "id": _row("T B", "F", "S"),
     "ms": _row("T B", "F", "S"),
-    "ur": _row("T S ص", "F غ", "G J"),
+    "ur": _row("T ص", "F غ", "G J"),
     "ru": _row("T V В", "F Н", "N"),
     "de": _row("T W R", "F"),
-    "ja": _row("T 真 O", "F 偽"),
+    "ja": _row("T 真 O", "F 偽", "B"),
     "mr": _row("T B ब", "F च", "C"),
     "vi": _row("T D Đ", "F", "S"),
     "te": _row("T ఒ", "F త"),
     "sw": _row("T K", "F", "S H"),
-    "tr": _row("T D", "F", "Y"),
+    "tr": _row("T D", "F Y"),
     "tl": _row("T", "F M"),
-    "ta": _row("T S ச", "F த"),
-    "fa": _row("T S D ص", "F غ", "G N"),
-    "ko": _row("T 참 O", "F 거"),
+    "ta": _row("T ச", "F த"),
+    "fa": _row("T ص", "F غ", "G N"),
+    "ko": _row("T 참 O", "F 거", "G"),
     "th": _row("T ถ", "F ผ", "P"),
-    "gu": _row("T સ", "F ખ"),
+    "gu": _row("T સ", "F ખ", "K"),
     "it": _row("T V", "F"),
 }

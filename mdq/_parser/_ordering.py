@@ -11,6 +11,8 @@ import math
 import re
 from typing import Any, NamedTuple
 
+from markdown_it.common.utils import unescapeAll
+
 from ..errors import ParseError
 
 #: A line before its indentation is reduced to a level -- the leading
@@ -37,6 +39,16 @@ class RawAlternative(NamedTuple):
     lines: list[RawLine]
     feedback: str | None
     comment: str | None
+
+
+def fence_language(info: str) -> str | None:
+    """
+    The language of a code fence: the first word of its info string, after
+    CommonMark backslash and entity processing. A word ends at the first
+    space or tab. `None` when the info string is empty.
+    """
+    text = unescapeAll(info).strip(" \t")
+    return re.split(r"[ \t]", text, maxsplit=1)[0] or None
 
 
 def ordering_code_lines(content: str) -> list[RawLine]:
@@ -94,7 +106,8 @@ def ordering_ul_lines(
     Raises:
         ParseError: a non-blank line is not a bullet list item, i.e. an item
             has a continuation line or a second paragraph, or a nested list
-            is ordered (an ordering item is exactly one line).
+            is ordered (an ordering item is exactly one line), or an item
+            has no text and holds no nested list.
     """
     items = []
     for offset, line in enumerate(raw_lines):
@@ -118,6 +131,8 @@ def ordering_ul_lines(
         # of depth, which `depths` already holds (`- - Bahia`).
         while nested := NESTED_MARKER_RE.match(text):
             text = text[nested.end() :]
+        if not text:
+            raise ParseError(f"an ordering item must have text, found: {line!r}")
         if NESTED_ORDERED_RE.match(text):
             raise ParseError(
                 "an ordering item is exactly one line and a nested list is "

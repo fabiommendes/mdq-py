@@ -64,8 +64,8 @@ def matches(pattern: str, response: str, mode: Mode = "fold") -> bool:
 #
 # Shared vectors
 #
-def test_vector_file_has_forty_cases() -> None:
-    assert len(_CASES) == 40
+def test_vector_file_case_count() -> None:
+    assert len(_CASES) == 41
 
 
 @pytest.mark.parametrize(("pattern", "response", "expected", "mode"), VECTORS)

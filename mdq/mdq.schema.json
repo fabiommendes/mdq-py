@@ -60,7 +60,7 @@
             },
             "highlight": {
               "type": "string",
-              "description": "Programming language used for syntax highlighting. Only applicable when `content` is `code`; it SHOULD be omitted for any other content (the linter warns, and the value is ignored). An empty string is a `schema-error`.",
+              "description": "Programming language used for syntax highlighting. Only allowed when `content` is `code`; with any other content, or with no `content` (which defaults to `text`), it is a `schema-error`. An empty string is a `schema-error` too.",
               "minLength": 1,
               "examples": [
                 "python",
@@ -75,7 +75,22 @@
           },
           "required": [
             "type"
-          ]
+          ],
+          "if": {
+            "required": [
+              "highlight"
+            ]
+          },
+          "then": {
+            "required": [
+              "content"
+            ],
+            "properties": {
+              "content": {
+                "const": "code"
+              }
+            }
+          }
         }
       ],
       "unevaluatedProperties": false
@@ -370,7 +385,7 @@
                 }
               ],
               "default": "inherit",
-              "description": "If true, the choices of every choice-based blank are safe to shuffle. If false, they should never be shuffled. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
+              "description": "If true, the choices of every choice-based blank may be shown in any order. If false, an implementation must not change their order. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
             },
             "diacritics": {
               "$ref": "./short-answer.yaml#/$defs/diacritics"
@@ -460,16 +475,16 @@
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "preAccept": {
-              "description": "Patterns a submission must match to be considered valid. A pre-submission validator; plays no part in grading.",
+              "description": "Patterns a submission must match to be considered valid. A pre-submission validator; plays no part in grading. In Markdown, the `preAccept` map of the frontmatter sets it, keyed by blank id (`preAccept: {<id>: [...]}`).",
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "preReject": {
-              "description": "Patterns a submission must not match to be considered valid. Like `preAccept`, never affects a score.",
+              "description": "Patterns a submission must not match to be considered valid. Like `preAccept`, never affects a score. When a response matches both, it is treated as rejected -- the opposite of the `accept`/`reject` precedence used when grading. In Markdown, the `preReject` map of the frontmatter sets it, keyed by blank id (`preReject: {<id>: [...]}`).",
               "$ref": "./short-answer.yaml#/$defs/patternList"
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response that no pattern gave feedback to, with the same meaning as the `incorrectFeedback` of a short-answer question (short-answer.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
+              "description": "Feedback for an incorrect response that no pattern gave feedback to, with the same meaning as the `incorrectFeedback` of a short-answer question (short-answer.md, \"Feedback\"). Inline markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
             }
           },
           "required": [
@@ -490,7 +505,7 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal whose digits as written differ from the shortest form of the nearest double (such as \"2.50\" or \"1.50e3\") stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"
@@ -512,19 +527,19 @@
                 "decimal",
                 "fraction"
               ],
-              "description": "The kind of number the response is. Inferred when absent: the widest of the answer and the absolute tolerance, ranked integer < fraction < decimal. It decides which responses are valid (docs/question-types/numeric.md, \"Number type/domain\")."
+              "description": "The kind of number the response is. Inferred when absent: the widest of the answer and the absolute tolerance, ranked integer < fraction < decimal. It decides which responses are valid (docs/question-types/numeric.md, \"Number type/domain\"). In Markdown, the `domain` map of the frontmatter sets it, keyed by blank id (`domain: {<id>: ...}`), and wins over the inferred value."
             },
             "decimalPlaces": {
               "type": "integer",
               "minimum": 0,
-              "description": "The precision of the comparison: the response and the answer are rounded to this many decimal places before the tolerance test. Ignored if domain is 'integer' or 'fraction'."
+              "description": "The precision of the comparison: the response and the answer are rounded to this many decimal places before the tolerance test. Ignored if domain is 'integer' or 'fraction'. In Markdown, the `decimalPlaces` map of the frontmatter sets it, keyed by blank id (`decimalPlaces: {<id>: ...}`), and wins over the inferred value."
             },
             "tolerance": {
               "$ref": "./numeric.yaml#/$defs/Tolerance"
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance, with the same meaning as the `incorrectFeedback` of a numeric question (numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
+              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance, with the same meaning as the `incorrectFeedback` of a numeric question (numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
             }
           },
           "required": [
@@ -565,7 +580,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value, and is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for multiple choice: its `multiple-choice` entry when it is a map, `symmetric` if the entry is missing, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -577,7 +592,7 @@
                 }
               ],
               "default": "inherit",
-              "description": "If true, the choices are safe to shuffle. If false, they should never be shuffled. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
+              "description": "If true, the choices may be shown in any order. If false, an implementation must not change their order. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
             }
           },
           "required": [
@@ -659,7 +674,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` value (its `multiple-selection` entry when it is a map, `symmetric` if the entry is missing), and is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for multiple selection: its `multiple-selection` entry when it is a map, `symmetric` if the entry is missing, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -671,7 +686,7 @@
                 }
               ],
               "default": "inherit",
-              "description": "If true, the choices are safe to shuffle. If false, they should never be shuffled. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
+              "description": "If true, the choices may be shown in any order. If false, an implementation must not change their order. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
             }
           },
           "required": [
@@ -737,7 +752,7 @@
               "const": "numeric"
             },
             "answer": {
-              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal that a float cannot hold digit by digit stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
+              "description": "The expected correct numeric value: a number, or a string in the same grammar as a numeric body's value, e.g. \"1/3\", \"2.50\", \"390000000000\" or \"6.022e23\" (docs/question-types/numeric.md, \"Answer representation\"). Parsed from Markdown, a fraction, an integer outside the 32-bit signed range and a decimal whose digits as written differ from the shortest form of the nearest double (such as \"2.50\" or \"1.50e3\") stay strings. Written directly, either form MAY be used. A fraction's denominator MUST NOT be zero.",
               "oneOf": [
                 {
                   "type": "number"
@@ -785,17 +800,18 @@
         "Tolerance": {
           "type": "object",
           "title": "Tolerance",
-          "description": "Acceptable margin of error around the expected answer. Both fields are optional; when both are given, a submitted value is accepted if it satisfies either one.",
+          "description": "Acceptable margin of error around the expected answer. At least one field is required (an empty mapping is not a tolerance); when both are given, a response is accepted if it satisfies either one.",
+          "minProperties": 1,
           "additionalProperties": false,
           "properties": {
             "absolute": {
               "type": "number",
-              "description": "Maximum allowed absolute difference between the submitted value and the answer, i.e. |submitted - answer| <= absolute.",
+              "description": "Maximum allowed absolute difference between the response and the answer, i.e. |response - answer| <= absolute.",
               "minimum": 0
             },
             "relative": {
               "type": "number",
-              "description": "Maximum allowed relative difference between the submitted value and the answer, expressed as a fraction (e.g. 0.05 for 5%), i.e. |submitted - answer| <= |answer| * relative.",
+              "description": "Maximum allowed relative difference between the response and the answer, expressed as a fraction (e.g. 0.05 for 5%), i.e. |response - answer| <= |answer| * relative.",
               "minimum": 0
             }
           }
@@ -818,7 +834,7 @@
               "const": "ordering"
             },
             "lines": {
-              "description": "The lines to be ordered, in the correct order -- this is the answer key. Students are always shown them shuffled, together with `extra`. The same line may appear more than once; each occurrence is a separate copy the student must place.",
+              "description": "The lines to be ordered, in the main correct order (part of the answer key, with `accept`). Students are always shown them shuffled, together with `extra`. The same line may appear more than once; each occurrence is a separate copy the student must place.",
               "$ref": "#/$defs/Lines",
               "minItems": 2
             },
@@ -836,7 +852,7 @@
             },
             "reject": {
               "type": "array",
-              "description": "Orderings known to be wrong, each scoring 0. They exist to attach feedback to a mistake the author expects. An alternative must not equal `lines` or an `accept` entry, and one that uses lines `lines` and `extra` do not offer can never match. Model rules, not expressed in this schema.",
+              "description": "Orderings known to be wrong, each scoring 0. They attach feedback to a mistake the author expects, and under `unmatched: manual` they settle a matching response that would otherwise be pending. An alternative must not equal `lines` or an `accept` entry, and one that uses lines `lines` and `extra` do not offer can never match. Model rules, not expressed in this schema.",
               "items": {
                 "$ref": "#/$defs/Alternative"
               },
@@ -872,13 +888,17 @@
                 "manual",
                 "incorrect"
               ],
-              "default": "manual",
-              "description": "What becomes of a response that matches neither `lines` nor any entry of `accept` or `reject`. `manual` leaves it ungraded, for the instructor to score by hand, the way an essay is; `incorrect` scores it 0. A response that does match is graded automatically either way."
+              "default": "incorrect",
+              "description": "What becomes of a response that matches neither `lines` nor any entry of `accept` or `reject`. `incorrect` (the default) scores it 0; `manual` leaves it ungraded, for the instructor to score by hand, the way an essay is. A response that does match is graded automatically either way."
+            },
+            "incorrectFeedback": {
+              "type": "string",
+              "description": "Feedback for an incorrect response that no `reject` entry gave feedback to: a response that matches nothing under `unmatched: incorrect`, or one that matches a `reject` entry with no feedback. Inline markdown, like the feedback of an entry. Never shown for a pending response."
             },
             "normalizations": {
               "type": "array",
               "uniqueItems": true,
-              "description": "Transformations applied to both sides of every comparison -- the response and each answer key alike -- before they are matched. They never change what the student is shown.",
+              "description": "Transformations applied to both sides of every comparison -- the response and each declared answer alike -- before they are matched. They never change what the student is shown.",
               "items": {
                 "$ref": "#/$defs/Normalization"
               },
@@ -935,7 +955,8 @@
             },
             {
               "type": "string",
-              "description": "The text of the line, with its leading indentation and its trailing whitespace removed."
+              "description": "The text of the line. It has no leading or trailing space or tab and no line break. The text is empty only for a blank line of a code block.",
+              "pattern": "^(?:[^ \\t\\r\\n](?:[^\\r\\n]*[^ \\t\\r\\n])?)?$"
             }
           ],
           "items": false,
@@ -1100,7 +1121,7 @@
             "keep"
           ],
           "default": "fold",
-          "description": "How plain literals, the patterns compared inexactly, treat diacritics. `fold` strips them from both the pattern and the response before comparing; `keep` preserves them. Regexes and backtick-enclosed literals are unaffected. See the `Diacritics` section of docs/question-types/short-answer.md."
+          "description": "How inexact literals treat diacritics. `fold` strips them from both the pattern and the response before comparing; `keep` preserves them. Regexes and backtick-enclosed literals are unaffected. See the `Diacritics` section of docs/question-types/short-answer.md."
         },
         "unmatched": {
           "enum": [
@@ -1147,7 +1168,7 @@
         },
         "patternString": {
           "type": "string",
-          "description": "A regular expression when delimited by `/`, an exact literal when enclosed in backticks, and a plain literal compared inexactly otherwise.",
+          "description": "A regular expression when delimited by `/`, an exact literal when enclosed in backticks, and an inexact literal otherwise.",
           "minLength": 1,
           "pattern": "^[ \\t]*(?:`[^\\r\\n]+`[ \\t]*|[^` \\t\\r\\n][^\\r\\n]*)?$"
         }
@@ -1186,7 +1207,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the exam's `grading` (its `true-false` entry when it is a map), and is `symmetric` outside an exam or when the exam sets none."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for true/false: its `true-false` entry when it is a map, `symmetric` if the entry is missing, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -1198,7 +1219,7 @@
                 }
               ],
               "default": "inherit",
-              "description": "If true, the statements are safe to shuffle. If false, they should never be shuffled. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
+              "description": "If true, the statements may be shown in any order. If false, an implementation must not change their order. `inherit`, the default, takes the exam's `shuffle` value, and is false outside an exam."
             }
           },
           "required": [
@@ -1234,9 +1255,8 @@
             },
             "marker": {
               "type": "string",
-              "description": "The letter of the bracket value in the source document (`T`, `F`, `V`, ...), without the whitespace around it. Only the letter and its case are kept. `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document. When present, its category (TRUE, FALSE or WARNING) must agree with `correct` (`true-false-marker-disagrees-with-correct`). The schema checks only the length. The letter check (one code point of category Lu, Ll, Lt or Lo, before NFKC normalization) and the reserved `X` are lint rules (`malformed-true-false-marker`, `reserved-true-false-marker`).",
-              "minLength": 1,
-              "maxLength": 1
+              "description": "The letter of the bracket value in the source document (`T`, `F`, `V`, ...), without the whitespace around it. Only the letter and its case are kept. `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document. When present, its category (TRUE, FALSE or WARNING) must agree with `correct` (`true-false-marker-disagrees-with-correct`). The schema checks only that it is not empty. The letter check (one code point of category Lu, Ll, Lt or Lo, after NFKC normalization and ASCII lowercase) and the reserved `X` are lint rules (`malformed-true-false-marker`, `reserved-true-false-marker`).",
+              "minLength": 1
             },
             "feedback": {
               "type": "string",
@@ -1652,13 +1672,16 @@
         "unmatched": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/unmatched"
         },
+        "incorrectFeedback": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/incorrectFeedback"
+        },
         "normalizations": {
           "anyOf": [
             {
               "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/allOf/1/properties/normalizations"
             },
             {
-              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/ordering.yaml#/$defs/Normalization"
+              "type": "string"
             }
           ]
         },

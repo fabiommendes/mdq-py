@@ -77,12 +77,12 @@ def test_regex_accept_still_cannot_be_exported(format: str) -> None:
 
 @pytest.mark.parametrize("format", FORMATS)
 def test_asterisk_exports_as_a_plain_literal(format: str) -> None:
-    output = export_question(_sa(accept=["Brasília", "*"]), format=format)
+    output = export_question(_sa(accept=["Brasília", "`*`"]), format=format)
     if format == "gift":
         assert "=*" in output
     else:
         assert [
-            a.findtext("text") for a in _moodle_answers(_sa(accept=["Brasília", "*"]))
+            a.findtext("text") for a in _moodle_answers(_sa(accept=["Brasília", "`*`"]))
         ] == [
             "Brasília",
             "*",
@@ -157,9 +157,9 @@ def test_moodle_import_keeps_other_texts_and_wraps_a_leading_slash() -> None:
     assert [p.pattern for p in question.accept] == ["Brasília", "`/usr/bin`", "Plano*"]
 
 
-def test_gift_import_keeps_a_lone_asterisk_as_a_plain_literal() -> None:
+def test_gift_import_writes_a_lone_asterisk_as_an_exact_literal() -> None:
     question = import_question(f"{STEM} {{=*}}", format="gift")
-    assert [p.pattern for p in question.accept] == ["*"]
+    assert [p.pattern for p in question.accept] == ["`*`"]
 
 
 @pytest.mark.parametrize(

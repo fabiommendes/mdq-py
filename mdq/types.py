@@ -340,6 +340,7 @@ class OrderingQuestionDict(QuestionBaseDict, total=False):
     highlight: str
     indentation: Indentation
     unmatched: Unmatched
+    incorrectFeedback: str
     normalizations: list[Normalization]
 
 

@@ -187,6 +187,8 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
     if expected == "pending":
         with pytest.raises(NotAutoGradable):
             question.score_response(example["response"])
+        # A pending response shows no feedback (responses.md, "Pending").
+        assert example.get("feedback", []) == []
         return
     result = question.score_response(example["response"])
     assert result.score == pytest.approx(_number(expected))
@@ -201,7 +203,25 @@ def test_every_grading_file_is_covered() -> None:
         "multiple-choice",
         "multiple-selection",
         "numeric",
+        "ordering",
         "short-answer",
         "short-answer-prevalidation",
         "true-false",
     ]
+
+
+@pytest.mark.parametrize(("case", "example"), _binary_params("ordering"))
+def test_ordering(case: dict[str, Any], example: dict[str, Any]) -> None:
+    question = _binary_question("ordering", case)
+    if example["score"] == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(example["response"])
+        return
+    if example["score"] == "pending":
+        with pytest.raises(NotAutoGradable):
+            question.score_response(example["response"])
+        return
+    result = question.score_response(example["response"])
+    assert result.score == pytest.approx(_number(example["score"]))
+    if "feedback" in example:
+        assert (result.feedback[0] if result.feedback else None) == example["feedback"]

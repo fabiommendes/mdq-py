@@ -83,8 +83,8 @@ def test_first_offender_index(
 @pytest.mark.parametrize(
     "question_type", ["multiple-choice", "multiple-selection", "true-false"]
 )
-@pytest.mark.parametrize("offender", ["?", "#", NBSP])
-def test_symbols_and_nbsp_are_foreign_in_every_type(
+@pytest.mark.parametrize("offender", ["?", "#"])
+def test_symbols_are_foreign_in_every_type(
     question_type: str, offender: str
 ) -> None:
     assert foreign_choice_index(question_type, [offender]) == 0
@@ -95,7 +95,7 @@ def test_symbols_and_nbsp_are_foreign_in_every_type(
     [("multiple-choice", "*"), ("multiple-selection", "x"), ("true-false", "T")],
 )
 def test_first_of_several_offenders_is_returned(question_type: str, good: str) -> None:
-    assert foreign_choice_index(question_type, [good, "?", "#", NBSP]) == 1
+    assert foreign_choice_index(question_type, [good, "?", "#"]) == 1
 
 
 #
@@ -204,3 +204,26 @@ def test_corpus_example_reports_its_lint_json(name: str) -> None:
         {"code": e["code"], "severity": e["severity"], "path": e["path"]}
         for e in expected
     ]
+
+
+#
+# F23, F24: normalize, then validate, then interpret
+#
+@pytest.mark.parametrize("space", [NBSP, "\u2003", "\u3000"])
+@pytest.mark.parametrize("question_type", ["multiple-choice", "multiple-selection"])
+def test_nfkc_space_is_a_blank_value(question_type: str, space: str) -> None:
+    assert foreign_choice_index(question_type, [space]) is None
+
+
+@pytest.mark.parametrize("space", [NBSP, "\u2003"])
+def test_nfkc_space_is_blank_and_foreign_in_true_false(space: str) -> None:
+    assert foreign_choice_index("true-false", ["T", space]) == 1
+
+
+@pytest.mark.parametrize("marker", ["\ufb01", "\u01c5", "\u0958"])
+def test_true_false_letter_with_long_nfkc_form_is_foreign(marker: str) -> None:
+    assert foreign_choice_index("true-false", ["T", marker]) == 1
+
+
+def test_true_false_fullwidth_letter_is_valid() -> None:
+    assert foreign_choice_index("true-false", ["\uff26", "T"]) is None

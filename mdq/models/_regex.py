@@ -1,7 +1,7 @@
 """
-Regexes in MDQ documents use a subset of JavaScript regex syntax, with some
-differences in the flags. They run in code point mode (JavaScript with the `u`
-flag), and the shorthand classes are fixed explicit classes, see
+Regexes in MDQ documents use a closed subset of JavaScript regex syntax, with
+some differences in the flags. They run in code point mode (JavaScript with the
+`u` flag), and `.` and the shorthand classes are fixed explicit classes, see
 docs/references/patterns.md.
 
 This module normalizes regexes to a canonical form, and provides Python
@@ -10,8 +10,10 @@ abstractions to use regexes from MDQ documents.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+from importlib import resources
 
 from .._markdown import UNICODE_SPACE
 
@@ -135,15 +137,26 @@ def normalize_regex(pattern: str) -> str:
     return f"/{body}/{flag_str}"
 
 
+def _load_nonspacing() -> dict[int, None]:
+    """The `nonspacing` table of `inexact-tables.json`, as a translate table."""
+    raw = json.loads(
+        resources.files("mdq").joinpath("inexact-tables.json").read_text("utf-8")
+    )
+    return {cp: None for first, last in raw["nonspacing"] for cp in range(first, last + 1)}
+
+
+#: The code points of the general category `Mn` in the pinned Unicode
+#: version, not the one of the runtime (patterns.md, "Inexact literals").
+_NONSPACING_TABLE = _load_nonspacing()
+
+
 def normalize_text(string: str) -> str:
     """
-    NFD-decompose `string`, drop combining marks, and recompose with NFC.
+    NFD-decompose `string`, remove the code points of the `nonspacing` table
+    (the marks of the general category `Mn`), and recompose with NFC.
     """
     decomposed = unicodedata.normalize("NFD", string)
-    without_marks = "".join(
-        ch for ch in decomposed if unicodedata.category(ch) != "Mn"
-    )
-    return unicodedata.normalize("NFC", without_marks)
+    return unicodedata.normalize("NFC", decomposed.translate(_NONSPACING_TABLE))
 
 
 _CODE_POINT_ESCAPE_RE = re.compile(
@@ -197,91 +210,18 @@ def effective_flags(flags: str) -> frozenset[str]:
 
 
 #
-# Body syntax validation
+# Body syntax: an allow-list
 #
-# A hand-written scanner, not a pile of independent regex searches: rejecting
-# these constructs correctly requires tracking escape state (so an escaped
-# "\\p" is not mistaken for a "\p{...}" property escape) and character-class
-# context (so "&&" is only an intersection operator inside an unescaped
-# "[...]" class).
+# `_Translator` reads the body with the grammar of the table in
+# docs/references/patterns.md ("Regex") and writes the equivalent Python
+# `re` pattern in the same pass. Whatever the table does not list raises
+# `InvalidRegexError`, so Python-only syntax never reaches `re`.
 #
-ALLOWED_GROUP_OPENERS = frozenset({":", "=", "!"})
-REJECTED_ESCAPE_LETTERS = frozenset({"p", "P", "k", "c"})
-
-
-def validate_regex_body(body: str) -> None:
-    """
-    Reject MDQ-unsupported constructs: class intersections, named/lookbehind
-    groups, inline flags, comment groups, and property/backreference escapes.
-    """
-    length = len(body)
-    index = 0
-    in_class = False
-    literal_bracket = -1
-
-    while index < length:
-        char = body[index]
-
-        if char == "\\":
-            if index + 1 < length:
-                check_escape(body, index)
-                index += 2
-            else:
-                index += 1
-            continue
-
-        if in_class:
-            if char == "]" and index != literal_bracket:
-                in_class = False
-            elif char == "&" and index + 1 < length and body[index + 1] == "&":
-                raise InvalidRegexError(
-                    f"character class intersection is not supported: {body!r}"
-                )
-            index += 1
-            continue
-
-        if char == "[":
-            in_class = True
-            # A ']' right after '[' or '[^' is a literal, not the closer.
-            literal_bracket = index + 1
-            if literal_bracket < length and body[literal_bracket] == "^":
-                literal_bracket += 1
-            index += 1
-            continue
-
-        if char == "(" and index + 1 < length and body[index + 1] == "?":
-            opener = body[index + 2] if index + 2 < length else ""
-            if opener not in ALLOWED_GROUP_OPENERS:
-                raise InvalidRegexError(
-                    f"unsupported group construct at position {index}: {body!r}"
-                )
-            index += 3
-            continue
-
-        index += 1
-
-
-def check_escape(body: str, index: int) -> None:
-    """Reject unsupported escapes at `body[index:index + 2]` ('\\' + letter)."""
-    letter = body[index + 1]
-    if letter.isdigit():
-        raise InvalidRegexError(
-            f"octal and backreference escapes are not supported: {body!r}"
-        )
-    if letter in REJECTED_ESCAPE_LETTERS:
-        raise InvalidRegexError(f"unsupported escape '\\{letter}': {body!r}")
-    if letter == "u" and index + 2 < len(body) and body[index + 2] == "{":
-        _read_braced_escape(body, index)
-
-
-#
-# Translation to Python `re`
-#
-# Python and JavaScript disagree on `\d`, `\w`, `\s` and `\b`, so the shorthand
-# classes are rewritten to the explicit classes of patterns.md before the body
-# is compiled. `re.ASCII` is not an option: it breaks `i` on non-ASCII text.
-# Each class is wrapped in `(?-i:...)`, so `i` never makes `\w` match U+017F
-# or U+212A, which Python `re.IGNORECASE` would otherwise do for `[A-Za-z]`.
+# Python and JavaScript disagree on `.`, `\d`, `\w`, `\s` and `\b`, so those
+# are written as explicit classes. `re.ASCII` is not an option: it breaks `i`
+# on non-ASCII text. Each shorthand class is wrapped in `(?-i:...)`, so `i`
+# never makes `\w` match U+017F or U+212A, which Python `re.IGNORECASE` would
+# otherwise do for `[A-Za-z]`.
 #
 _WORD = "A-Za-z0-9_"
 _SHORTHAND = {
@@ -293,14 +233,248 @@ _SHORTHAND = {
     "S": f"(?-i:[^{UNICODE_SPACE}])",
 }
 _BOUNDARY = {
-    "b": (
-        f"(?:(?<![{_WORD}])(?=[{_WORD}])|(?<=[{_WORD}])(?![{_WORD}]))"
-    ),
-    "B": (
-        f"(?:(?<![{_WORD}])(?![{_WORD}])|(?<=[{_WORD}])(?=[{_WORD}]))"
-    ),
+    "b": f"(?:(?<![{_WORD}])(?=[{_WORD}])|(?<=[{_WORD}])(?![{_WORD}]))",
+    "B": f"(?:(?<![{_WORD}])(?![{_WORD}])|(?<=[{_WORD}])(?=[{_WORD}]))",
 }
+#: `.` is any code point except the four line terminators of JavaScript.
+_DOT = "[^\\n\\r\\u2028\\u2029]"
+_SYNTAX_CHARACTERS = frozenset("^$\\.*+?()[]{}|")
+#: The escapes of a character that is not a syntax character.
+_CONTROL_ESCAPES = {"t": 0x09, "n": 0x0A, "v": 0x0B, "f": 0x0C, "r": 0x0D}
+_QUANTIFIER_RE = re.compile(r"\{([0-9]+)(?:(,)([0-9]*))?\}")
+_HEX4_RE = re.compile(r"[0-9A-Fa-f]{4}")
+_HEX2_RE = re.compile(r"[0-9A-Fa-f]{2}")
 _BRACED_ESCAPE_RE = re.compile(r"\\u\{([0-9A-Fa-f]{1,6})\}")
+
+
+def _code_point(value: int) -> str:
+    """A Python escape for one code point, valid in and out of a class."""
+    return f"\\U{value:08x}"
+
+
+class _Translator:
+    """Read an MDQ regex body, check it and translate it to Python `re`."""
+
+    def __init__(self, body: str) -> None:
+        self.body = body
+        self.index = 0
+
+    def translate(self) -> str:
+        try:
+            text = self._disjunction(top=True)
+        except RecursionError:
+            raise self._error("groups are nested too deeply") from None
+        return text
+
+    def _error(self, reason: str) -> InvalidRegexError:
+        return InvalidRegexError(
+            f"{reason} at position {self.index}: {self.body!r}"
+        )
+
+    def _peek(self, offset: int = 0) -> str:
+        position = self.index + offset
+        return self.body[position] if position < len(self.body) else ""
+
+    def _disjunction(self, *, top: bool = False) -> str:
+        alternatives = [self._alternative()]
+        while self._peek() == "|":
+            self.index += 1
+            alternatives.append(self._alternative())
+        if top and self.index < len(self.body):
+            raise self._error("unmatched ')'")
+        return "|".join(alternatives)
+
+    def _alternative(self) -> str:
+        terms: list[str] = []
+        while self.index < len(self.body) and self._peek() not in "|)":
+            terms.append(self._term())
+        return "".join(terms)
+
+    def _term(self) -> str:
+        char = self._peek()
+        if char == "^" or char == "$":
+            self.index += 1
+            return char
+        if char == "\\" and self._peek(1) in ("b", "B"):
+            self.index += 2
+            return _BOUNDARY[self.body[self.index - 1]]
+        if char == "(" and self._peek(1) == "?" and self._peek(2) in ("=", "!"):
+            opener = self.body[self.index : self.index + 3]
+            self.index += 3
+            return opener + self._close_group()
+        return self._atom() + self._quantifier()
+
+    def _atom(self) -> str:
+        char = self._peek()
+        if char == ".":
+            self.index += 1
+            return _DOT
+        if char == "(":
+            return self._group()
+        if char == "[":
+            return self._class()
+        if char == "\\":
+            return self._escape()
+        if char in "*+?":
+            raise self._error("nothing to repeat")
+        if char in "{}]":
+            raise self._error(f"{char!r} must be escaped here")
+        self.index += 1
+        return re.escape(char)
+
+    def _group(self) -> str:
+        self.index += 1
+        if self._peek() == "?":
+            if self._peek(1) != ":":
+                raise self._error("unsupported group construct")
+            self.index += 2
+            return "(?:" + self._close_group()
+        return "(" + self._close_group()
+
+    def _close_group(self) -> str:
+        inner = self._disjunction()
+        if self._peek() != ")":
+            raise self._error("missing ')'")
+        self.index += 1
+        return inner + ")"
+
+    def _quantifier(self) -> str:
+        char = self._peek()
+        if char in ("*", "+", "?"):
+            self.index += 1
+            text = char
+        elif char == "{":
+            found = _QUANTIFIER_RE.match(self.body, self.index)
+            if found is None:
+                raise self._error("'{' must be escaped or start a quantifier")
+            low, comma, high = found.groups()
+            if comma and high and int(low) > int(high):
+                raise self._error("quantifier range is out of order")
+            self.index = found.end()
+            text = found.group(0)
+        else:
+            return ""
+        if self._peek() == "?":
+            self.index += 1
+            text += "?"
+        return text
+
+    def _escape(self) -> str:
+        """An escape outside a class, other than `\\b` and `\\B`."""
+        letter = self._peek(1)
+        if letter in _SHORTHAND:
+            self.index += 2
+            return _SHORTHAND[letter]
+        return re.escape(chr(self._escaped_code_point(in_class=False)))
+
+    def _escaped_code_point(self, *, in_class: bool) -> int:
+        """
+        Read the escape at `self.index` that denotes one code point, and
+        move past it.
+        """
+        letter = self._peek(1)
+        if letter in _SYNTAX_CHARACTERS or letter == "/" or (in_class and letter == "-"):
+            self.index += 2
+            return ord(letter)
+        if letter in _CONTROL_ESCAPES:
+            self.index += 2
+            return _CONTROL_ESCAPES[letter]
+        if in_class and letter == "b":
+            self.index += 2
+            return 0x08
+        if letter == "x" and _HEX2_RE.fullmatch(self.body, self.index + 2, self.index + 4):
+            self.index += 4
+            return int(self.body[self.index - 2 : self.index], 16)
+        if letter == "u":
+            if self._peek(2) == "{":
+                found = _BRACED_ESCAPE_RE.match(self.body, self.index)
+                if found is None or int(found.group(1), 16) > 0x10FFFF:
+                    raise self._error("invalid \\u{...} escape")
+                self.index = found.end()
+                return int(found.group(1), 16)
+            if _HEX4_RE.fullmatch(self.body, self.index + 2, self.index + 6):
+                self.index += 6
+                return int(self.body[self.index - 4 : self.index], 16)
+        raise self._error(f"unsupported escape {self.body[self.index:self.index + 2]!r}")
+
+    def _class(self) -> str:
+        """Read the class that opens at `self.index` and translate it."""
+        self.index += 1
+        negated = self._peek() == "^"
+        if negated:
+            self.index += 1
+        if self._peek() == "]":
+            raise self._error("empty character class")
+        plain: list[str] = []
+        shorthands: list[str] = []
+        while self._peek() != "]":
+            if self.index >= len(self.body):
+                raise self._error("missing ']'")
+            low = self._class_atom()
+            if self._peek() == "-" and self._peek(1) not in ("]", ""):
+                self.index += 1
+                high = self._class_atom()
+                if isinstance(low, str) or isinstance(high, str):
+                    raise self._error("shorthand class in a range")
+                if low > high:
+                    raise self._error("class range is out of order")
+                plain.append(f"{_code_point(low)}-{_code_point(high)}")
+            elif isinstance(low, str):
+                shorthands.append(_SHORTHAND[low])
+            else:
+                plain.append(_code_point(low))
+        self.index += 1
+
+        plain_text = "".join(plain)
+        if not shorthands:
+            return f"[{'^' if negated else ''}{plain_text}]"
+        options = [f"[{plain_text}]"] if plain_text else []
+        union = "|".join(options + shorthands)
+        if negated:
+            return f"(?:(?!{union})(?s:.))"
+        return f"(?:{union})"
+
+    def _class_atom(self) -> int | str:
+        """
+        Read one atom of a class: a code point, or the letter of a shorthand
+        class (`d`, `D`, `w`, `W`, `s` or `S`).
+        """
+        char = self._peek()
+        if char == "\\":
+            letter = self._peek(1)
+            if letter in _SHORTHAND:
+                self.index += 2
+                return letter
+            return self._escaped_code_point(in_class=True)
+        if char == "&" and self._peek(1) == "&":
+            raise self._error("character class intersection is not supported")
+        if self.index >= len(self.body):
+            raise self._error("missing ']'")
+        self.index += 1
+        return ord(char)
+
+
+def translate_body(body: str) -> str:
+    """
+    Check `body` against the allow-list of docs/references/patterns.md and
+    translate it to syntax that Python `re` reads with the MDQ semantics.
+
+    Raises:
+        InvalidRegexError: `body` uses a construct that the table of the
+            spec does not list.
+    """
+    return _Translator(body).translate()
+
+
+def validate_regex_body(body: str) -> None:
+    """
+    Reject every construct that the table of docs/references/patterns.md
+    does not list.
+
+    Raises:
+        InvalidRegexError: `body` uses an unsupported construct.
+    """
+    translate_body(body)
 
 
 def compile_regex(body: str, flags: int, original: str) -> re.Pattern[str]:
@@ -308,119 +482,10 @@ def compile_regex(body: str, flags: int, original: str) -> re.Pattern[str]:
     Translate `body` to Python syntax and compile it.
 
     Raises:
-        InvalidRegexError: Python cannot compile the body.
+        InvalidRegexError: `body` is outside the allow-list, or Python cannot
+            compile it.
     """
     try:
         return re.compile(translate_body(body), flags)
     except re.error as exc:
         raise InvalidRegexError(f"invalid regex body: {original!r}") from exc
-
-
-def _read_braced_escape(body: str, index: int) -> tuple[str, int]:
-    """
-    Read the `\\u{...}` escape at `body[index:]`.
-
-    Returns the Python escape and the index after the closing brace.
-    """
-    found = _BRACED_ESCAPE_RE.match(body, index)
-    if found is None or int(found.group(1), 16) > 0x10FFFF:
-        raise InvalidRegexError(f"invalid \\u{{...}} escape: {body!r}")
-    return f"\\U{int(found.group(1), 16):08x}", found.end()
-
-
-def translate_body(body: str) -> str:
-    """
-    Rewrite the shorthand classes, the word boundaries and the `\\u{...}`
-    escapes of `body` to syntax that Python `re` reads with the MDQ semantics.
-
-    Raises:
-        InvalidRegexError: a shorthand class is an endpoint of a range.
-    """
-    out: list[str] = []
-    index = 0
-    length = len(body)
-    while index < length:
-        char = body[index]
-        if char == "[":
-            text, index = _translate_class(body, index)
-            out.append(text)
-        elif char == "\\" and index + 1 < length:
-            letter = body[index + 1]
-            if letter in _SHORTHAND:
-                out.append(_SHORTHAND[letter])
-            elif letter in _BOUNDARY:
-                out.append(_BOUNDARY[letter])
-            elif letter == "u" and body.startswith("{", index + 2):
-                text, index = _read_braced_escape(body, index)
-                out.append(text)
-                continue
-            else:
-                out.append(body[index : index + 2])
-            index += 2
-        else:
-            out.append(char)
-            index += 1
-    return "".join(out)
-
-
-def _translate_class(body: str, start: int) -> tuple[str, int]:
-    """
-    Translate the character class that opens at `body[start]`.
-
-    A class without shorthand escapes keeps its form. Otherwise it becomes
-    an alternation (a negated class becomes a lookahead), because the
-    complement shorthands and the `(?-i:...)` scope cannot live inside `[]`.
-    """
-    length = len(body)
-    index = start + 1
-    negated = index < length and body[index] == "^"
-    if negated:
-        index += 1
-    literal_bracket = index
-    plain: list[str] = []
-    shorthands: list[str] = []
-    while index < length:
-        char = body[index]
-        if char == "]" and index != literal_bracket:
-            break
-        if char == "\\" and index + 1 < length:
-            letter = body[index + 1]
-            if letter in _SHORTHAND:
-                _check_not_range_endpoint(body, index, plain)
-                shorthands.append(_SHORTHAND[letter])
-            elif letter == "u" and body.startswith("{", index + 2):
-                text, index = _read_braced_escape(body, index)
-                plain.append(text)
-                continue
-            else:
-                plain.append(body[index : index + 2])
-            index += 2
-            continue
-        plain.append(char)
-        index += 1
-    else:
-        # Unterminated: leave the rest as is, Python reports the error.
-        return body[start:], length
-
-    plain_text = "".join(plain)
-    if not shorthands:
-        return f"[{'^' if negated else ''}{plain_text}]", index + 1
-    options = list(shorthands)
-    if plain_text:
-        if plain_text.startswith("^"):
-            plain_text = "\\" + plain_text
-        options.insert(0, f"[{plain_text}]")
-    union = "|".join(options)
-    if negated:
-        return f"(?:(?!{union})(?s:.))", index + 1
-    return f"(?:{union})", index + 1
-
-
-def _check_not_range_endpoint(body: str, index: int, plain: list[str]) -> None:
-    """Reject `[a-\\d]` and `[\\d-z]`, as JavaScript does in `u` mode."""
-    before = "".join(plain)
-    if len(before) > 1 and before.endswith("-") and not before.endswith("\\-"):
-        raise InvalidRegexError(f"shorthand class in a range: {body!r}")
-    after = index + 2
-    if body.startswith("-", after) and not body.startswith("]", after + 1):
-        raise InvalidRegexError(f"shorthand class in a range: {body!r}")

@@ -73,8 +73,9 @@ class _NumericExpr(TypedDict, total=False):
     answer: Required[int | float | str]
     domain: NumericDomain
     #: The decimal places written in the value and the absolute tolerance,
-    #: whichever is larger (numeric.md, "Decimal places"). Always present;
-    #: the caller keeps it only when the question's domain is `decimal`.
+    #: whichever is larger (numeric.md, "Decimal places"). Absent when the
+    #: value is a fraction and the tolerance gives no places. The caller
+    #: keeps it only when the question's domain is `decimal`.
     decimalPlaces: int
     tolerance: ToleranceDict
 
@@ -97,6 +98,15 @@ def _check_double_range(value: str, text: str) -> None:
         mantissa = part.lower().split("e", 1)[0]
         if math.isinf(as_double) or (as_double == 0 and mantissa.strip("0.")):
             raise ParseError(f"number out of the range of a double: {text!r}")
+
+
+def _percent_to_fraction(spelling: str) -> float:
+    """
+    numeric.md, "Tolerances": `p / 100` in exact decimal arithmetic on the
+    spelling (the decimal point moves two places), stored as the nearest
+    double.
+    """
+    return float(Decimal(spelling).scaleb(-2))
 
 
 def _parse_numeric_expression(expr: str) -> _NumericExpr:
@@ -142,7 +152,7 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
         if kind in tolerance:
             raise ParseError(f"a numeric body takes one {kind} tolerance: {expr!r}")
         if kind == "relative":
-            tolerance["relative"] = num / 100
+            tolerance["relative"] = _percent_to_fraction(tol_match.group("num"))
         else:
             tolerance["absolute"] = num
             absolute_is_decimal = _is_decimal_spelling(tol_match.group("num"))
@@ -154,9 +164,13 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     if absolute_is_decimal:
         result["domain"] = "decimal"
     # numeric.md, "Decimal places": the places written in the value and in
-    # the absolute tolerance, whichever is larger.
-    value_places = _written_places(value_str)
-    result["decimalPlaces"] = max(value_places, absolute_places)
+    # the absolute tolerance, whichever is larger. A fraction has no places
+    # of its own: only the tolerance gives them, and a tolerance of 0 places
+    # gives none (the `missing-decimal-places` lint reports it).
+    if "/" not in value_str:
+        result["decimalPlaces"] = max(_written_places(value_str), absolute_places)
+    elif absolute_places > 0:
+        result["decimalPlaces"] = absolute_places
 
     return result
 

@@ -58,6 +58,7 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
     "ordering": (
         "indentation",
         "unmatched",
+        "incorrectFeedback",
         "normalizations",
     ),
 }

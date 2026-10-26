@@ -45,9 +45,10 @@ from ._choice import (
     write_shuffle_and_grading,
 )
 from ._numeric import (
-    _UNIT_PATTERN,
+    Unit,
     NumericAnswer,
     Tolerance,
+    check_decimal_places_given,
     infer_decimal_places,
     _validate_numeric_answer,
     numeric_matches,
@@ -132,7 +133,7 @@ class NumericBlank(MdqModel):
     id: SlugId
     type: Literal["numeric"] = "numeric"
     answer: NumericAnswer
-    unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
+    unit: Unit | None = None
     domain: NumericDomain | None = None
     decimal_places: Annotated[int | None, Field(ge=0)] = None
     tolerance: Tolerance | None = None
@@ -145,6 +146,14 @@ class NumericBlank(MdqModel):
     @classmethod
     def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
         return _validate_numeric_answer(value)
+
+    @model_validator(mode="after")
+    def check_decimal_places(self) -> Self:
+        """numeric.md, "Decimal places" (`missing-decimal-places`)."""
+        check_decimal_places_given(
+            self.answer, self.domain, self.decimal_places, self.tolerance
+        )
+        return self
 
     @property
     def effective_domain(self) -> NumericDomain:
@@ -246,11 +255,18 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
         for name in dict.fromkeys(referenced):
             if name not in declared:
+                hint = ""
+                variants = sorted(d for d in declared if d.lower() == name.lower())
+                if variants:
+                    hint = (
+                        f"; blank ids are case-sensitive, did you mean "
+                        f"[^{variants[0]}]?"
+                    )
                 _raise_unique_id_error(
                     type(self).__name__,
                     "undefined-blank",
                     f"the stem references [^{name}] but no blank with that "
-                    f"id is defined",
+                    f"id is defined{hint}",
                     ("stem",),
                     self.stem,
                 )
@@ -337,6 +353,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         blank.
         """
         diagnostics = super().lint()
+        diagnostics.extend(_lint.check_case_variant_blank_ids([b.id for b in self.blanks]))
         for index, blank in enumerate(self.blanks):
             path: tuple[str | int, ...] = ("blanks", index)
             if isinstance(blank, ChoiceBlank):

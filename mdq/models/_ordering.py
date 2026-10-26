@@ -8,7 +8,13 @@ from __future__ import annotations
 from collections import Counter
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    Field,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from .. import types as t
 from .._diagnostics import Diagnostic
@@ -24,10 +30,16 @@ __all__ = ["OrderingLine", "OrderingAlternative", "OrderingQuestion"]
 #
 # Ordering
 #
+#: The text of a line: no leading or trailing space or tab and no line
+#: break. The empty text of a blank line is allowed (schema `pattern`).
+LineText = Annotated[
+    str, StringConstraints(pattern=r"^(?:[^ \t\r\n](?:[^\r\n]*[^ \t\r\n])?)?$")
+]
+
 #: One line of an ordering question, as an `[indentation level, text]`
 #: pair. The level counts indentation units, not spaces, and the text
 #: carries no leading indentation of its own.
-OrderingLine = tuple[Annotated[int, Field(ge=0)], str]
+OrderingLine = tuple[Annotated[int, Field(ge=0)], LineText]
 
 
 class OrderingAlternative(MdqModel):
@@ -52,27 +64,31 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
 
     type: Literal["ordering"] = "ordering"
     lines: Annotated[list[OrderingLine], Field(min_length=2)]
-    extra: list[OrderingLine] = Field(default_factory=list)
+    extra: list[OrderingLine] = Field(default_factory=list, min_length=1)
     accept: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
     reject: list[OrderingAlternative] = Field(default_factory=list, min_length=1)
     content: OrderingContent
     highlight: Annotated[str | None, Field(default=None, min_length=1)] = None
     indentation: Indentation = "fixed"
-    unmatched: Unmatched = "manual"
+    unmatched: Unmatched = "incorrect"
+    #: Feedback for an incorrect response that no `reject` section gave
+    #: feedback to (ordering.md, "Feedback").
+    incorrect_feedback: FreeText | None = None
     normalizations: list[Normalization] = Field(default_factory=list)
 
     @property
     def automation(self) -> Automation:
         """
-        `automatic` under `unmatched: incorrect`, `semi-automatic` under
-        `unmatched: manual` (ordering.md, "Automation").
+        `automatic` under `unmatched: incorrect` (the default),
+        `semi-automatic` under `unmatched: manual` (ordering.md,
+        "Automation").
         """
         return "automatic" if self.unmatched == "incorrect" else "semi-automatic"
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_highlight_language(self.highlight))
+        diagnostics.extend(_lint.check_code_highlight(self.content, self.highlight))
         diagnostics.extend(_lint.check_ordering_duplicate_alternatives(self))
         diagnostics.extend(_lint.check_ordering_accept_repeats_answer_key(self))
         diagnostics.extend(_lint.check_ordering_unreachable_reject(self))
@@ -86,15 +102,17 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.indentation != "fixed":
             data["indentation"] = self.indentation
-        if self.unmatched != "manual":
+        if self.unmatched != "incorrect":
             data["unmatched"] = self.unmatched
+        if self.incorrect_feedback is not None:
+            data["incorrectFeedback"] = self.incorrect_feedback
         if self.normalizations:
             data["normalizations"] = self.normalizations
         return data
 
     def _render_body(self) -> Iterable[str]:
         yield ""
-        yield "[ordering]"
+        yield "[ordering]:"
         yield from _render.yield_ordering_content(
             self.lines, self.content, self.highlight
         )
@@ -155,6 +173,30 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         return value
 
     @model_validator(mode="after")
+    def check_text_lines_not_empty(self) -> Self:
+        """
+        With `content: text`, no line has empty text: only a code block
+        holds a blank line (ordering.md#whitespace).
+
+        Raises:
+            ValidationError: a line of a text question is empty
+                (`empty-ordering-line`).
+        """
+        if self.content != "text":
+            return self
+        blocks = [self.lines, self.extra]
+        blocks += [alt.lines for alt in (*self.accept, *self.reject)]
+        if any(text == "" for block in blocks for _, text in block):
+            _raise_unique_id_error(
+                type(self).__name__,
+                "empty-ordering-line",
+                "a line of a text ordering question must not be empty",
+                (),
+                self.lines,
+            )
+        return self
+
+    @model_validator(mode="after")
     def check_accept_and_reject_disjoint(self) -> Self:
         """
         A question MUST NOT declare the same lines as both accepted and
@@ -193,7 +235,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
     def check_accept_within_answer_key(self) -> Self:
         """
         The lines of an `accept` entry MUST be a sub-multiset of the
-        `lines` block, once fully normalized: it may leave lines out,
+        `lines` block, identifying lines as `identity_key` does: it may leave lines out,
         but it may not hold a distractor, a foreign line or more copies
         of a line than the answer key has (ordering.md#additional-rules).
 
@@ -201,9 +243,9 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             PydanticCustomError: `accept-outside-answer-key` -- some
                 `accept` entry holds a line the answer key lacks.
         """
-        available = Counter(self.comparison_key(self.lines))
+        available = Counter(self.identity_key(self.lines))
         for index, alt in enumerate(self.accept):
-            if Counter(self.comparison_key(alt.lines)) - available:
+            if Counter(self.identity_key(alt.lines)) - available:
                 _raise_unique_id_error(
                     type(self).__name__,
                     "accept-outside-answer-key",
@@ -278,6 +320,24 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             key.append((level if graded else 0, text))
         return tuple(key)
 
+    def identity_key(self, lines: Iterable[OrderingLine]) -> tuple[OrderingLine, ...]:
+        """
+        The form `lines` takes when checking which pool lines they use
+        (ordering.md, "Response"): the one definition of line identity.
+
+        Under `"fixed"` a line is the pair of level and text. Under
+        `"lenient"` and `"strict"` the student sets the levels, so only
+        the text identifies a line and every level is flattened to 0.
+        With `skip-blanks`, blank lines are left out.
+        """
+        skip_blanks = "skip-blanks" in self.effective_normalizations()
+        by_text = self.indentation != "fixed"
+        return tuple(
+            (0, text) if by_text else (level, text)
+            for level, text in lines
+            if not (skip_blanks and text.strip() == "")
+        )
+
     def check_response_lines(self, lines: Iterable[OrderingLine]) -> None:
         """
         Check that `lines` can come from this question's presented pool:
@@ -289,37 +349,34 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         the text identifies a line. With `skip-blanks`, blank lines are
         left out on both sides. Leaving pool lines out is valid.
 
-        With `content: text`, the response must also be a valid outline
-        (`outline_problem`).
+        With `content: text` under `"lenient"` and `"strict"`, the
+        response must also be a valid outline (`outline_problem`). Under
+        `"fixed"` the student cannot change levels, so an invalid outline
+        is a wrong answer: it is graded and matches no declared answer.
 
         Raises:
             ResponseError: a line is not in the pool, a line is used
-                more times than the pool offers it, or a text response
-                is not a valid outline.
+                more times than the pool offers it, or (under `"lenient"`
+                and `"strict"`) a text response is not a valid outline.
         """
         lines = list(lines)
-        if self.content == "text":
+        if self.content == "text" and self.indentation != "fixed":
             problem = outline_problem(lines)
             if problem is not None:
                 raise ResponseError(problem)
-        skip_blanks = "skip-blanks" in self.effective_normalizations()
-        by_text = self.indentation != "fixed"
 
-        def identify(entries: Iterable[OrderingLine]) -> list[OrderingLine]:
-            return [
-                (0, text) if by_text else (level, text)
-                for level, text in entries
-                if not (skip_blanks and text.strip() == "")
-            ]
-
-        pool = Counter(identify([*self.lines, *self.extra]))
-        for line in identify(lines):
+        pool = Counter(self.identity_key([*self.lines, *self.extra]))
+        for line in self.identity_key(lines):
             if pool[line] <= 0:
                 raise ResponseError(
                     f"Line {list(line)!r} is not in the pool, or is used more "
                     "often than the question offers it"
                 )
             pool[line] -= 1
+
+    def _incorrect(self) -> list[str]:
+        """`incorrect_feedback` as a feedback list, empty when unset."""
+        return [self.incorrect_feedback] if self.incorrect_feedback else []
 
     def score_response(self, response: t.OrderingResponse) -> QuestionScore:
         """
@@ -351,11 +408,11 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
 
         for alt in self.reject:
             if key == self.comparison_key(alt.lines):
-                feedback = [alt.feedback] if alt.feedback else []
+                feedback = [alt.feedback] if alt.feedback else self._incorrect()
                 return QuestionScore(score=0.0, feedback=feedback)
 
         if self.unmatched == "incorrect":
-            return QuestionScore(score=0.0)
+            return QuestionScore(score=0.0, feedback=self._incorrect())
         raise NotAutoGradable(
             "ordering response matched no answer key and requires manual grading"
         )

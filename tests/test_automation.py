@@ -467,7 +467,7 @@ def test_invalid_unmatched_value_is_an_error() -> None:
     [("*", 1.0), (" * ", 1.0), ("Brasília", 0.0), ("", 0.0), ("**", 0.0)],
 )
 def test_asterisk_pattern_is_a_plain_literal(response: str, score: float) -> None:
-    assert _sa(accept=["*"]).score_response(response).score == score
+    assert _sa(accept=["`*`"]).score_response(response).score == score
 
 
 @pytest.mark.parametrize(
@@ -479,7 +479,7 @@ def test_backtick_asterisk_is_the_exact_literal(response: str, score: float) -> 
 
 def test_asterisk_in_reject_matches_only_an_asterisk() -> None:
     question = _sa(
-        accept=["Brasília"], reject=[models.AnswerPattern(pattern="*", feedback="Não.")]
+        accept=["Brasília"], reject=[models.AnswerPattern(pattern="`*`", feedback="Não.")]
     )
     assert question.score_response("*").feedback == ["Não."]
     assert question.score_response("Salvador").feedback == []

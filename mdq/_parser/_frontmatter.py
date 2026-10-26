@@ -84,8 +84,8 @@ def _extract_comment(frontmatter_text: str) -> str | None:
         comment_lines.append(content)
         i += 1
 
-    # A joined string with no character is not stored; blank text is.
-    return " ".join(comment_lines) or None
+    # The joined string is stripped; an empty result is not stored.
+    return " ".join(comment_lines).strip() or None
 
 
 class _FrontmatterLoader(yaml.SafeLoader):
@@ -291,8 +291,8 @@ _BODY_SYNTAX: dict[str | tuple[str, str], str] = {
     ("ordering", "accept"): "write a `## [accept]` section",
     ("ordering", "reject"): "write a `## [reject]` section",
     ("ordering", "content"): "a code block implies `code`, a list implies `text`",
-    ("ordering", "highlight"): "the language of the `[ordering]` fence is the highlight",
-    "lines": "write the lines under the `[ordering]` tag",
+    ("ordering", "highlight"): "the language of the `[ordering]:` fence is the highlight",
+    "lines": "write the lines under the `[ordering]:` tag",
     "extra": "write a `## [extra]` section",
     "blanks": "write `[^id]` markers in the stem and `[^id]:` definitions",
     "answerKey": "write a `## [answer-key]` section",

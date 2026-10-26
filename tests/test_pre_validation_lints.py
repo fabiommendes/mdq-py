@@ -118,7 +118,7 @@ def test_effective_flags_are_not_reported_in_pre_patterns(
 
 
 @pytest.mark.parametrize("code", REMOVED_CODES)
-@pytest.mark.parametrize("pattern", ["*", {"pattern": "*", "feedback": "Inválido."}])
+@pytest.mark.parametrize("pattern", ["`*`", {"pattern": "`*`", "feedback": "Inválido."}])
 def test_asterisk_in_pre_patterns_reports_no_removed_code(
     code: str, pattern: object
 ) -> None:
@@ -173,14 +173,14 @@ def test_fill_in_blank_index_follows_the_blank_position() -> None:
 
 @pytest.mark.parametrize("code", ALL_CODES)
 def test_clean_pre_patterns_report_none_of_the_codes(code: str) -> None:
-    doc = _short_answer(preAccept=["/\\d{4}/"], preReject=["/[a-z]{40,}/i", "*"])
+    doc = _short_answer(preAccept=["/\\d{4}/"], preReject=["/[a-z]{40,}/i", "`*`"])
     assert _paths(doc, code) == []
-    assert _paths(_fill_in(preAccept=["/\\d{4}/"], preReject=["*"]), code) == []
+    assert _paths(_fill_in(preAccept=["/\\d{4}/"], preReject=["`*`"]), code) == []
 
 
 def test_existing_accept_reject_behavior_is_unchanged() -> None:
     doc = _short_answer(
-        accept=["Negro", "/^Negro/", "/Negro/g", "*"], reject=["*", "Solimões"]
+        accept=["Negro", "/^Negro/", "/Negro/g", "`*`"], reject=["`*`", "Solimões"]
     )
     assert _paths(doc, "redundant-regex-anchor") == [("accept", 1)]
     assert _paths(doc, "ignored-regex-flag") == [("accept", 2)]

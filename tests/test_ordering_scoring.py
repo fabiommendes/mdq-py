@@ -133,14 +133,15 @@ def test_a_rejected_alternative_scores_zero_with_its_feedback_but_not_its_commen
 
 
 def test_unmatched_incorrect_scores_zero_with_no_feedback() -> None:
-    question = load_fixture("unmatched-incorrect.yaml")
+    question = load_fixture("fibonacci.yaml")
+    assert question.unmatched == "incorrect"
     response = as_response(reversed(question.lines))
     result = question.score_response(response)
     assert result == QuestionScore(score=0.0)
 
 
 def test_unmatched_manual_raises_not_auto_gradable() -> None:
-    question = load_fixture("fibonacci.yaml")
+    question = load_fixture("unmatched-manual.yaml")
     assert question.unmatched == "manual"
     response = as_response(reversed(question.lines))
     with pytest.raises(NotAutoGradable):
@@ -192,9 +193,11 @@ def test_json_shaped_and_tuple_shaped_responses_score_the_same() -> None:
 # Edge cases
 #
 def test_empty_response_is_unmatched() -> None:
-    assert MINIMAL.unmatched == "manual"
+    assert MINIMAL.unmatched == "incorrect"
+    assert MINIMAL.score_response([]) == QuestionScore(score=0.0)
+    manual = MINIMAL.model_copy(update={"unmatched": "manual"})
     with pytest.raises(NotAutoGradable):
-        MINIMAL.score_response([])
+        manual.score_response([])
 
 
 def test_a_duplicated_line_beyond_the_pool_is_malformed() -> None:
@@ -232,8 +235,8 @@ def test_score_response_rejects_a_malformed_response() -> None:
 
 
 def test_manual_vs_incorrect_on_the_same_unmatched_response() -> None:
-    manual = MINIMAL
-    incorrect = MINIMAL.model_copy(update={"unmatched": "incorrect"})
+    manual = MINIMAL.model_copy(update={"unmatched": "manual"})
+    incorrect = MINIMAL
     response = as_response(reversed(MINIMAL.lines))
 
     with pytest.raises(NotAutoGradable):
@@ -299,8 +302,7 @@ def test_corpus_extra_distractors_rejects_the_level_only_distractor() -> None:
     key = [[level, text] for level, text in question.lines]
     assert question.score_response(key).score == 1.0
     swapped = key[:-1] + [[1, key[-1][1]]]
-    with pytest.raises(NotAutoGradable):
-        question.score_response(swapped)
+    assert question.score_response(swapped).score == 0.0
 
 
 #
@@ -413,19 +415,57 @@ def test_a_text_response_that_is_an_outline_is_graded() -> None:
     )
 
 
-def test_a_text_response_starting_below_level_zero_is_malformed() -> None:
+@pytest.mark.parametrize("indentation", ["lenient", "strict"])
+def test_a_text_response_starting_below_level_zero_is_malformed(
+    indentation: str,
+) -> None:
+    question = make_text_question(indentation=indentation)
     with pytest.raises(ResponseError, match="first line"):
-        make_text_question().score_response([[2, "c"], [0, "d"]])
+        question.score_response([[2, "c"], [0, "d"]])
 
 
-def test_a_text_response_with_a_level_jump_is_malformed() -> None:
+@pytest.mark.parametrize("indentation", ["lenient", "strict"])
+def test_a_text_response_with_a_level_jump_is_malformed(indentation: str) -> None:
+    question = make_text_question(indentation=indentation)
     with pytest.raises(ResponseError, match="level 2"):
-        make_text_question().score_response([[0, "a"], [2, "c"]])
+        question.score_response([[0, "a"], [2, "c"]])
 
 
-def test_an_extra_line_alone_at_its_level_is_malformed_in_a_text_response() -> None:
+@pytest.mark.parametrize("indentation", ["lenient", "strict"])
+def test_an_extra_line_alone_is_malformed_in_a_text_response(
+    indentation: str,
+) -> None:
+    question = make_text_question(indentation=indentation)
     with pytest.raises(ResponseError):
-        make_text_question().score_response([[2, "e"]])
+        question.score_response([[2, "e"]])
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        [[2, "c"], [0, "d"]],
+        [[0, "a"], [2, "c"]],
+        [[2, "e"]],
+    ],
+)
+def test_under_fixed_an_invalid_text_outline_is_a_wrong_answer(
+    response: list,
+) -> None:
+    # The student cannot change levels, so a bad order is graded, not malformed.
+    assert make_text_question().score_response(response).score == 0.0
+
+
+def test_under_fixed_an_invalid_text_outline_is_pending_when_unmatched_is_manual() -> (
+    None
+):
+    question = make_text_question(unmatched="manual")
+    with pytest.raises(NotAutoGradable):
+        question.score_response([[2, "c"], [0, "d"]])
+
+
+def test_under_fixed_a_text_response_at_another_level_is_still_malformed() -> None:
+    with pytest.raises(ResponseError):
+        make_text_question().score_response([[0, "a"], [0, "b"]])
 
 
 def test_a_code_response_may_jump_levels() -> None:

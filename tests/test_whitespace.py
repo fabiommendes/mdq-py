@@ -121,11 +121,23 @@ def test_tabs_are_ws_in_numeric_answer() -> None:
     assert doc["tolerance"] == {"relative": 0.05}  # type: ignore[typeddict-item]
 
 
-@pytest.mark.parametrize("ch", UNUSUAL)
-def test_unicode_space_is_not_an_empty_checkbox(ch: str) -> None:
+@pytest.mark.parametrize("ch", [NBSP, EM_SPACE])
+def test_nfkc_space_is_an_empty_checkbox(ch: str) -> None:
+    # choices.md, "Choice marker": the value is normalized first, so a
+    # character whose NFKC form is a space is `ws`, and `[U+00A0]` is `[ ]`.
+    doc = parse_question(f"...\n\n* [{ch}] Ipê\n* [x] Jatobá\n* [X] Buriti\n")
+    assert [(c["text"], c["correct"]) for c in doc["choices"]] == [  # type: ignore[typeddict-item]
+        ("Ipê", False),
+        ("Jatobá", True),
+        ("Buriti", True),
+    ]
+
+
+@pytest.mark.parametrize("ch", [BOM, NEL])
+def test_other_unicode_space_is_not_an_empty_checkbox(ch: str) -> None:
     # base.md, "Type inference": a value outside the type's grammar, such
     # as `[?]`, is a `foreign-choice-marker` error, never an unmarked
-    # choice. A Unicode space is such a value: only space and tab are blank.
+    # choice. These characters do not normalize to a space.
     body = "...\n\n* [{}] Ipê\n* [x] Jatobá\n* [X] Buriti\n"
     with pytest.raises(ForeignChoiceMarker):
         parse_question(body.format(ch))

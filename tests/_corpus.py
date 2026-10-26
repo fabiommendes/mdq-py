@@ -121,8 +121,10 @@ PARSER_ONLY_CODES = frozenset(
     {
         "redundant-id",
         "separator-before-include",
+        "malformed-separator",
         "non-ascii-whitespace",
         "non-ascii-whitespace-in-prose",
         "detached-answer-list",
+        "multi-line-pattern",
     }
 )

@@ -114,18 +114,18 @@ def test_marker_line_with_up_to_three_spaces_is_a_parse_error(
         "[short-answer]:\n* `math.sqrt\n  `\n",
     ],
 )
-def test_exact_literal_at_a_line_ending_is_a_schema_error(body: str) -> None:
-    assert codes(STEM + body) == [("schema-error", ("accept", 0))]
+def test_exact_literal_at_a_line_ending_is_a_parse_error(body: str) -> None:
+    assert codes(STEM + body) == [("parse-error", ())]
 
 
 def test_exact_literal_at_a_line_ending_in_an_item_with_feedback() -> None:
     source = STEM + "[short-answer]:\n* `math.sqrt\n  `\n  > Right.\n"
-    assert [code for code, _ in codes(source)] == ["schema-error"]
+    assert codes(source) == [("parse-error", ())]
 
 
 def test_exact_literal_at_a_line_ending_in_a_fill_in_blank() -> None:
     source = FILL_IN + "[^rio/short-answer]: `\nParaguai`\n"
-    assert [code for code, _ in codes(source)] == ["schema-error"]
+    assert codes(source) == [("parse-error", ())]
 
 
 @pytest.mark.parametrize(

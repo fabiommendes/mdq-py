@@ -195,3 +195,17 @@ def strip_bom(text: str, /) -> str:
         '# Prova'
     """
     return text.removeprefix(BOM)
+
+
+def starts_block(pattern: str) -> bool:
+    """
+    Report whether `pattern` is an inexact literal whose text starts a
+    CommonMark block other than a paragraph (patterns.md, "Pattern string").
+    An exact literal (opens with a backtick) and a regex (opens with `/`)
+    are never concerned.
+    """
+    text = pattern.strip(" \t")
+    if text.startswith(("`", "/")):
+        return False
+    tokens = md.parse(text)
+    return bool(tokens) and tokens[0].type != "paragraph_open"

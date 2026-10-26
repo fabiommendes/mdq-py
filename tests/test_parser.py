@@ -401,7 +401,7 @@ def test_numeric_unit_with_slash_does_not_break_fill_in_blank_syntax() -> None:
 def test_bare_short_answer_with_frontmatter_patterns_is_an_invalid_field(key: str) -> None:
     # short-answer.md, "Frontmatter": `accept` and `reject` are set by body
     # blocks only.
-    src = f"---\n{key}: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n"
+    src = f"---\n{key}: [Brasília]\n---\n\nQual é a capital do Brasil?\n\n[short-answer]\n"
     loaded = load(src, format="mdq")
     assert loaded.document is None
     assert [(d.code, d.path) for d in loaded.diagnostics] == [
@@ -410,7 +410,7 @@ def test_bare_short_answer_with_frontmatter_patterns_is_an_invalid_field(key: st
 
 
 def test_bare_short_answer_without_patterns_has_no_accept_and_no_open_ended() -> None:
-    document = load("Descreva o bioma Cerrado.\n\n[short-answer]:\n", format="mdq").validate().to_dict()
+    document = load("Descreva o bioma Cerrado.\n\n[short-answer]\n", format="mdq").validate().to_dict()
     assert "openEnded" not in document
     assert "accept" not in document
 
@@ -418,7 +418,7 @@ def test_bare_short_answer_without_patterns_has_no_accept_and_no_open_ended() ->
 def test_bare_short_answer_with_dropped_regex_frontmatter_has_no_pattern() -> None:
     """`regex` is no longer a short-answer field: the key is an invalid
     frontmatter field."""
-    src = "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]:\n"
+    src = "---\nregex: Bras[ií]lia\n---\n\nQual é a capital do Brasil?\n\n[short-answer]\n"
     loaded = load(src, format="mdq")
     assert loaded.document is None
     assert [(d.code, d.path) for d in loaded.diagnostics] == [

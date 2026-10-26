@@ -13,6 +13,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError as PydanticValidationError
 
+from mdq._markdown import starts_block
 from mdq.models._lint import has_visible_character
 from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert._moodle_xml import (
@@ -64,6 +65,7 @@ def _plain_pattern() -> st.SearchStrategy[str]:
     return mdq_text(max_size=15).filter(
         lambda text: not text.startswith(("/", "`"))
         and text != "*"
+        and not starts_block(text)
         and "\n" not in text
         and "\r" not in text
         and has_visible_character(text)

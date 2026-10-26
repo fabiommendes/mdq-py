@@ -162,6 +162,9 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
         for tag in ("accept", "reject")
         if (draws := draw(_alternatives(tag, within=main if tag == "accept" else None)))
     }
+    # Same for `extra`: omit it rather than pass an empty list.
+    if extra := draw(_lines("extra", max_size=3) | st.none()):
+        alternatives["extra"] = st.just(extra)
     return draw(
         st.builds(
             OrderingQuestion,
@@ -169,7 +172,6 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
             content=st.just(content),
             highlight=st.just(highlight),
             lines=st.just(main),
-            extra=_lines("extra", min_size=0, max_size=3),
             indentation=st.sampled_from(["fixed", "lenient", "strict"]),
             unmatched=st.sampled_from(["manual", "incorrect"]),
             normalizations=st.lists(
@@ -209,7 +211,7 @@ def test_tab_counts_as_four_spaces() -> None:
     A single tab-indented line is the whole indented set, so its width
     (4, once expanded) is also the unit -- level 1.
     """
-    source = "[ordering]\n```\na\n\tb\n```\n"
+    source = "[ordering]:\n```\na\n\tb\n```\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [1, "b"]]
 
@@ -222,7 +224,7 @@ def test_unit_is_inferred_from_a_non_four_space_indent() -> None:
     1 and 3 -- if the unit were hardcoded to 4, neither would even be
     a whole multiple of it.
     """
-    source = "[ordering]\n```\na\n  b\n      c\n```\n"
+    source = "[ordering]:\n```\na\n  b\n      c\n```\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [1, "b"], [3, "c"]]
 
@@ -236,7 +238,7 @@ def test_unit_defaults_to_four_spaces_when_nothing_is_indented() -> None:
     with every line at level 0, rather than raising or guessing a
     level for lines that were never indented at all.
     """
-    source = "[ordering]\n```\na\nb\nc\n```\n"
+    source = "[ordering]:\n```\na\nb\nc\n```\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [0, "b"], [0, "c"]]
 
@@ -248,7 +250,7 @@ def test_ul_line_keeps_its_raw_markdown_source_verbatim() -> None:
     render identically but are written differently -- `*emphasis*` and
     `_emphasis_`, say -- are two distinct lines."
     """
-    source = "[ordering]\n* *alpha*\n* _alpha_\n"
+    source = "[ordering]:\n* *alpha*\n* _alpha_\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["content"] == "text"
     assert document["lines"] == [[0, "*alpha*"], [0, "_alpha_"]]
@@ -264,7 +266,7 @@ def test_normalizations_bare_string_parses_to_a_list() -> None:
     same coercion for `dedent` instead, so the rule is checked
     independent of that one fixture.
     """
-    source = "---\nnormalizations: dedent\n---\n\nOrder.\n\n[ordering]\n* a\n* b\n"
+    source = "---\nnormalizations: dedent\n---\n\nOrder.\n\n[ordering]:\n* a\n* b\n"
     document = parse_ordering(source)
     assert document["normalizations"] == ["dedent"]
 
@@ -275,12 +277,12 @@ def test_content_and_highlight_come_from_the_body() -> None:
     as `highlight`; a fence with no language leaves `highlight` out; a
     `ul` implies `content: text` and no `highlight`.
     """
-    fenced = parse_ordering("Order.\n\n[ordering]\n```python\na\nb\n```\n")
+    fenced = parse_ordering("Order.\n\n[ordering]:\n```python\na\nb\n```\n")
     assert (fenced["content"], fenced["highlight"]) == ("code", "python")
-    bare = parse_ordering("Order.\n\n[ordering]\n```\na\nb\n```\n")
+    bare = parse_ordering("Order.\n\n[ordering]:\n```\na\nb\n```\n")
     assert bare["content"] == "code"
     assert "highlight" not in bare
-    listed = parse_ordering("Order.\n\n[ordering]\n* a\n* b\n")
+    listed = parse_ordering("Order.\n\n[ordering]:\n* a\n* b\n")
     assert listed["content"] == "text"
     assert "highlight" not in listed
 
@@ -290,7 +292,7 @@ def test_frontmatter_content_and_highlight_are_invalid_fields() -> None:
     ordering.md#frontmatter: the frontmatter cannot declare `content` or
     `highlight` (`invalid-frontmatter-field`), and the body still decides.
     """
-    source = "---\ncontent: code\nhighlight: c\n---\n\nOrder.\n\n[ordering]\n* a\n* b\n"
+    source = "---\ncontent: code\nhighlight: c\n---\n\nOrder.\n\n[ordering]:\n* a\n* b\n"
     warnings: list[Diagnostic] = []
     document = cast(OrderingQuestionDict, parse_question(source, warnings=warnings))
     assert [(w.code, w.path) for w in warnings] == [
@@ -304,14 +306,14 @@ def test_frontmatter_content_and_highlight_are_invalid_fields() -> None:
 @pytest.mark.parametrize("tag", ["extra", "accept", "reject"])
 def test_section_fence_with_another_language_is_a_parse_error(tag: str) -> None:
     """ordering.md#body: a section fence has the `[ordering]` language or none."""
-    source = f"[ordering]\n```python\na\nb\n```\n\n## [{tag}]\n```c\na\n```\n"
+    source = f"[ordering]:\n```python\na\nb\n```\n\n## [{tag}]\n```c\na\n```\n"
     with pytest.raises(ParseError, match="language"):
         parse_question("Order.\n\n" + source)
 
 
 def test_section_fence_language_is_inherited_or_repeated() -> None:
     source = (
-        "[ordering]\n```python\na\nb\n```\n\n"
+        "[ordering]:\n```python\na\nb\n```\n\n"
         "## [extra]\n```\nc\n```\n\n## [accept]\n```python\nb\na\n```\n"
     )
     document = parse_ordering("Order.\n\n" + source)
@@ -320,7 +322,7 @@ def test_section_fence_language_is_inherited_or_repeated() -> None:
 
 
 def test_section_fence_language_needs_one_on_the_main_fence() -> None:
-    source = "[ordering]\n```\na\nb\n```\n\n## [extra]\n```python\nc\n```\n"
+    source = "[ordering]:\n```\na\nb\n```\n\n## [extra]\n```python\nc\n```\n"
     with pytest.raises(ParseError, match="language"):
         parse_question("Order.\n\n" + source)
 
@@ -333,9 +335,32 @@ def test_ordering_tag_followed_by_a_paragraph_is_a_parse_error() -> None:
     """An `[ordering]` tag must be followed by a code block or a `ul`."""
     # The blank line matters: without it, the tag and the text are one
     # paragraph, the tag is never recognized, and the error is a different one.
-    source = "[ordering]\n\nJust a paragraph, not a block.\n"
+    source = "[ordering]:\n\nJust a paragraph, not a block.\n"
     with pytest.raises(ParseError, match="must be followed by a code block or a list"):
         parse_question("Order.\n\n" + source)
+
+
+def test_ordering_tag_without_a_colon_is_a_parse_error() -> None:
+    """question-base.md, "Body tags": `[ordering]` needs the colon."""
+    with pytest.raises(ParseError, match=r"`\[ordering\]:`"):
+        parse_question("Order.\n\n[ordering]\n* a\n* b\n")
+    with pytest.raises(ParseError, match=r"`\[ordering\]:`"):
+        parse_question("Order.\n\n[ordering]\n```\na\nb\n```\n")
+
+
+def test_ordering_tag_with_text_after_the_colon_is_a_parse_error() -> None:
+    with pytest.raises(ParseError, match="no text after the colon"):
+        parse_question("Order.\n\n[ordering]: a, b\n")
+
+
+def test_ordering_tag_with_a_blank_line_before_its_block_is_a_parse_error() -> None:
+    with pytest.raises(ParseError, match="right after the tag"):
+        parse_question("Order.\n\n[ordering]:\n\n* a\n* b\n")
+
+
+def test_ordering_tag_accepts_spaces_around_the_colon() -> None:
+    document = parse_ordering("Order.\n\n  [ordering] : \n* a\n* b\n")
+    assert document["lines"] == [[0, "a"], [0, "b"]]
 
 
 def test_section_with_a_different_block_kind_than_main_is_a_parse_error() -> None:
@@ -345,21 +370,21 @@ def test_section_with_a_different_block_kind_than_main_is_a_parse_error() -> Non
     `[ordering]` block. Here the main block is a fenced code block and
     `## [extra]` is a `ul`.
     """
-    source = "[ordering]\n```\na\nb\n```\n\n## [extra]\n* c\n* d\n"
+    source = "[ordering]:\n```\na\nb\n```\n\n## [extra]\n* c\n* d\n"
     with pytest.raises(ParseError):
         parse_question("Order.\n\n" + source)
 
 
 def test_two_extra_sections_is_a_parse_error() -> None:
     """ordering.md#extra-lines: "at most one `## [extra]` section"."""
-    source = "[ordering]\n* a\n* b\n\n## [extra]\n* c\n\n## [extra]\n* d\n"
+    source = "[ordering]:\n* a\n* b\n\n## [extra]\n* c\n\n## [extra]\n* d\n"
     with pytest.raises(ParseError):
         parse_question("Order.\n\n" + source)
 
 
 def test_epilogue_sits_between_the_content_block_and_the_first_section() -> None:
     """ordering.md, "Body": the epilogue comes before the sections."""
-    source = "Order.\n\n[ordering]\n* a\n* b\n\nHint.\n\n## [extra]\n* c\n"
+    source = "Order.\n\n[ordering]:\n* a\n* b\n\nHint.\n\n## [extra]\n* c\n"
     doc = parse_question(source)
     assert doc["epilogue"] == "Hint."
     assert doc["extra"] == [[0, "c"]]
@@ -367,7 +392,7 @@ def test_epilogue_sits_between_the_content_block_and_the_first_section() -> None
 
 def test_epilogue_after_a_section_is_a_parse_error() -> None:
     """ordering.md, "Body": nothing but sections follows the first one."""
-    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n"
+    source = "Order.\n\n[ordering]:\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n"
     with pytest.raises(ParseError, match="epilogue goes before"):
         parse_question(source)
 
@@ -375,7 +400,7 @@ def test_epilogue_after_a_section_is_a_parse_error() -> None:
 def test_prose_between_two_sections_is_a_parse_error() -> None:
     """ordering.md, "Body": sections are contiguous."""
     source = (
-        "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n\n"
+        "Order.\n\n[ordering]:\n* a\n* b\n\n## [extra]\n* c\n\nHint.\n\n"
         "## [reject]\n* b\n* a\n"
     )
     with pytest.raises(ParseError):
@@ -390,7 +415,7 @@ def test_interleaved_feedback_and_comment_blocks_is_a_parse_error() -> None:
     itself followed a first `>` block.
     """
     source = (
-        "[ordering]\n* a\n* b\n\n"
+        "[ordering]:\n* a\n* b\n\n"
         "## [reject]\n\n"
         "> first feedback\n\n"
         "! a comment\n\n"
@@ -422,7 +447,7 @@ def test_setext_section_in_an_exam_is_reported_at_the_section() -> None:
     import mdq
 
     exam = (
-        "---\ntitle: T\n---\n# Exam\n\n---\nid: q1\n---\nOrder.\n\n[ordering]\n"
+        "---\ntitle: T\n---\n# Exam\n\n---\nid: q1\n---\nOrder.\n\n[ordering]:\n"
         "* a\n* b\n\n[accept]\n---\n* a\n\n[reject]\n---\n* b\n\n"
         "---\nid: q2\n---\nEssay.\n\n[essay]\n\n[answer-key]\n---\nKey.\n"
     )
@@ -442,36 +467,36 @@ def test_setext_section_in_an_exam_is_reported_at_the_section() -> None:
 #
 def test_ul_level_is_the_nesting_depth() -> None:
     """A nested `ul` item is a line of its own at its nesting depth."""
-    source = "[ordering]\n* a\n   * b\n      - c\n* d\n"
+    source = "[ordering]:\n* a\n   * b\n      - c\n* d\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [1, "b"], [2, "c"], [0, "d"]]
 
 
 def test_nested_ordered_list_is_a_parse_error() -> None:
     with pytest.raises(ParseError):
-        parse_ordering("Order.\n\n[ordering]\n* a\n  1. b\n* c\n")
+        parse_ordering("Order.\n\n[ordering]:\n* a\n  1. b\n* c\n")
 
 
 def test_item_holding_only_a_nested_list_adds_a_level_without_being_a_line() -> None:
     """ordering.md#lists: `- - Bahia` is the line `[1, "Bahia"]`."""
-    source = "[ordering]\n* a\n* b\n\n## [extra]\n- - Bahia\n- - - Salvador\n- c\n"
+    source = "[ordering]:\n* a\n* b\n\n## [extra]\n- - Bahia\n- - - Salvador\n- c\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["extra"] == [[1, "Bahia"], [2, "Salvador"], [0, "c"]]
 
 
 def test_empty_parent_item_with_a_nested_list_on_the_next_line_is_not_a_line() -> None:
-    document = parse_ordering("Order.\n\n[ordering]\n* a\n*\n  * b\n")
+    document = parse_ordering("Order.\n\n[ordering]:\n* a\n*\n  * b\n")
     assert document["lines"] == [[0, "a"], [1, "b"]]
 
 
 def test_nested_ordered_list_on_the_marker_line_is_a_parse_error() -> None:
     with pytest.raises(ParseError):
-        parse_ordering("Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n- 1. c\n")
+        parse_ordering("Order.\n\n[ordering]:\n* a\n* b\n\n## [extra]\n- 1. c\n")
 
 
 def test_empty_item_without_content_is_still_a_parse_error() -> None:
     with pytest.raises(ParseError):
-        parse_ordering("Order.\n\n[ordering]\n* a\n*\n* b\n")
+        parse_ordering("Order.\n\n[ordering]:\n* a\n*\n* b\n")
 
 
 @pytest.mark.parametrize(
@@ -484,7 +509,7 @@ def test_empty_item_without_content_is_still_a_parse_error() -> None:
     ],
 )
 def test_text_outline_levels_are_an_error_in_markdown(body: str) -> None:
-    loaded = mdq.load("Order.\n\n[ordering]\n" + body, kind="question", format="mdq")
+    loaded = mdq.load("Order.\n\n[ordering]:\n" + body, kind="question", format="mdq")
     assert loaded.document is None
     assert [d.code for d in loaded.diagnostics if d.severity == "error"] == [
         "invalid-outline-level"
@@ -492,12 +517,12 @@ def test_text_outline_levels_are_an_error_in_markdown(body: str) -> None:
 
 
 def test_extra_is_exempt_from_the_outline_rule() -> None:
-    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* * * c\n"
+    source = "Order.\n\n[ordering]:\n* a\n* b\n\n## [extra]\n* * * c\n"
     assert mdq.load(source, kind="question", format="mdq").document is not None
 
 
 def test_nested_extra_lines_render_and_parse_back_unchanged() -> None:
-    source = "Order.\n\n[ordering]\n* a\n* b\n\n## [extra]\n* * c\n* * * d\n* e\n"
+    source = "Order.\n\n[ordering]:\n* a\n* b\n\n## [extra]\n* * c\n* * * d\n* e\n"
     question = mdq.parse(source, kind="question", format="mdq")
     assert isinstance(question, OrderingQuestion)
     assert question.extra == [(1, "c"), (2, "d"), (0, "e")]
@@ -509,13 +534,13 @@ def test_nested_extra_lines_render_and_parse_back_unchanged() -> None:
 
 
 def test_trailing_whitespace_is_removed() -> None:
-    source = "[ordering]\n```\na  \n\tb \t\n \t \nc\n```\n"
+    source = "[ordering]:\n```\na  \n\tb \t\n \t \nc\n```\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [1, "b"], [0, ""], [0, "c"]]
 
 
 def test_tabs_follow_commonmark_tab_stops() -> None:
     """`"  \\t"` is 4 columns and `" \\t  "` is 6, so the unit is 2."""
-    source = "[ordering]\n```\na\n  \tb\n\tc\n \t  d\n```\n"
+    source = "[ordering]:\n```\na\n  \tb\n\tc\n \t  d\n```\n"
     document = parse_ordering("Order.\n\n" + source)
     assert document["lines"] == [[0, "a"], [2, "b"], [2, "c"], [3, "d"]]

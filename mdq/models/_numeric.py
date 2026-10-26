@@ -11,9 +11,9 @@ import unicodedata
 from collections.abc import Mapping
 from decimal import Decimal
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Literal
+from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, StrictFloat, StrictInt, field_validator
+from pydantic import AfterValidator, Field, StrictFloat, StrictInt, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .. import _parser, types as t
@@ -31,6 +31,21 @@ __all__ = ["Tolerance", "NumericQuestion"]
 #: `UNICODE_SPACE`, no parentheses or brackets. Mirrors the `unit`
 #: pattern in `schema/numeric.yaml`.
 _UNIT_PATTERN = rf"^[^()\[\]{UNICODE_SPACE}]+$"
+
+
+def _validate_unit(value: str) -> str:
+    """numeric.md, "Unit conversion": a unit needs a visible character."""
+    if not _lint.has_visible_character(value):
+        raise PydanticCustomError(
+            "blank-text",
+            "'unit' is defined but has no visible characters",
+        )
+    return value
+
+
+#: A unit: the schema pattern plus at least one visible character
+#: (`blank-text`).
+Unit = Annotated[str, Field(pattern=_UNIT_PATTERN), AfterValidator(_validate_unit)]
 
 #: numeric.md, "Answer representation": a number, or a string in the
 #: `sign? numeric_value` grammar that keeps a value no float holds exactly
@@ -79,11 +94,49 @@ def _int_beyond_double(value: int) -> bool:
     return False
 
 
+def check_decimal_places_given(
+    answer: NumericAnswer,
+    domain: NumericDomain | None,
+    decimal_places: int | None,
+    tolerance: Tolerance | None,
+) -> None:
+    """
+    numeric.md, "Decimal places": a fraction answer has no decimal places
+    of its own. When the domain is `decimal` and `decimal_places` is not
+    given, the absolute tolerance must give them: a missing tolerance, or
+    one with 0 places, gives none.
+
+    Raises:
+        PydanticCustomError: `missing-decimal-places`.
+    """
+    if (
+        decimal_places is None
+        and is_fraction_answer(answer)
+        and _lint._effective_numeric_domain(answer, domain, tolerance) == "decimal"
+        and infer_decimal_places(answer, tolerance) == 0
+    ):
+        raise PydanticCustomError(
+            "missing-decimal-places",
+            f"the answer {answer!r} is a fraction in a decimal domain, and "
+            f"nothing gives its decimal places; declare 'decimalPlaces' or "
+            f"a decimal absolute tolerance",
+        )
+
+
 class Tolerance(MdqModel):
     """A distance from the answer, so neither bound is negative (schema)."""
 
     absolute: Annotated[float, Field(ge=0)] | None = None
     relative: Annotated[float, Field(ge=0)] | None = None
+
+    @model_validator(mode="after")
+    def check_not_empty(self) -> Self:
+        """numeric.md, "Tolerances": a tolerance has at least one field."""
+        if self.absolute is None and self.relative is None:
+            raise PydanticCustomError(
+                "schema-error", "a tolerance must have 'absolute' or 'relative'"
+            )
+        return self
 
     @field_validator("absolute", "relative", mode="before")
     @classmethod
@@ -102,7 +155,7 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     #: The correct value. See `NumericAnswer`.
     answer: NumericAnswer
     type: Literal["numeric"] = "numeric"
-    unit: Annotated[str, Field(pattern=_UNIT_PATTERN)] | None = None
+    unit: Unit | None = None
     domain: NumericDomain | None = None
     decimal_places: int | None = Field(default=None, ge=0)
     tolerance: Tolerance | None = None
@@ -114,6 +167,14 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
     @classmethod
     def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
         return _validate_numeric_answer(value)
+
+    @model_validator(mode="after")
+    def check_decimal_places(self) -> Self:
+        """numeric.md, "Decimal places" (`missing-decimal-places`)."""
+        check_decimal_places_given(
+            self.answer, self.domain, self.decimal_places, self.tolerance
+        )
+        return self
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
@@ -221,11 +282,18 @@ def infer_decimal_places(answer: NumericAnswer, tolerance: Tolerance | None) -> 
     is 2); a float counts the digits of its shortest repr, but a float
     of whole value has 0 (`4.0`), as the JS number `4.0` is `4`. An
     exponent moves the point: `"1.5e-3"` has 4 places, `"6.022e23"` has 0.
+    A fraction answer has no places of its own: only the tolerance gives
+    them, and 0 when it gives none (`missing-decimal-places` reports it).
     """
-    places = _written_places(answer)
+    places = 0 if is_fraction_answer(answer) else _written_places(answer)
     if tolerance is not None and tolerance.absolute is not None:
         places = max(places, _written_places(tolerance.absolute))
     return places
+
+
+def is_fraction_answer(answer: NumericAnswer) -> bool:
+    """Whether `answer` is a fraction string such as `"1/3"`."""
+    return isinstance(answer, str) and "/" in answer
 
 
 def _written_places(value: NumericAnswer) -> int:

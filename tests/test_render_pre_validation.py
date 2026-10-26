@@ -23,7 +23,7 @@ PATTERNS: list[Any] = [
         {"pattern": "Rio Negro", "comment": "Both rivers meet at Manaus."}, id="comment"
     ),
     pytest.param("`Manaus`", id="backtick-literal"),
-    pytest.param("*", id="asterisk-literal"),
+    pytest.param("`*`", id="asterisk-literal"),
     pytest.param("Amazonas: o maior estado", id="colon-space"),
     pytest.param("Cerrado # bioma", id="hash"),
     pytest.param("*Pantanal", id="leading-star"),

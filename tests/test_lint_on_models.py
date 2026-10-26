@@ -95,17 +95,16 @@ def test_multiple_choice_lint_matches_load_diagnostics() -> None:
     assert "no-correct-choice" in _codes(loaded.document.lint())
 
 
-def test_essay_lint_matches_load_diagnostics_for_ignored_highlight() -> None:
+def test_essay_lint_matches_load_diagnostics_for_code_without_highlight() -> None:
     doc = {
         "type": "essay",
         "stem": "Descreva o bioma do Cerrado.",
-        "content": "text",
-        "highlight": "python",
+        "content": "code",
     }
     loaded = load(doc)
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    assert "ignored-highlight" in _codes(loaded.document.lint())
+    assert "code-content-without-highlight" in _codes(loaded.document.lint())
 
 
 def test_true_false_lint_matches_load_diagnostics_for_unlisted_marker() -> None:

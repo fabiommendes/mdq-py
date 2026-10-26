@@ -154,18 +154,17 @@ def test_accept_with_an_extra_copy_of_a_line_is_an_error() -> None:
 
 
 def test_accept_may_use_as_many_copies_as_the_key_has() -> None:
-    doc = _with_accept(
-        [[0, "a"], [0, "a"]],
-        lines=[[0, "a"], [0, "a"], [0, "b"]],
-        extra=[],
-    )
+    doc = _with_accept([[0, "a"], [0, "a"]], lines=[[0, "a"], [0, "a"], [0, "b"]])
+    del doc["extra"]  # an explicit empty `extra` is invalid: omit it
     assert _errors(doc) == []
 
 
-def test_accept_is_compared_after_normalization() -> None:
+def test_accept_identifies_lines_as_the_response_check_does() -> None:
     doc = _with_accept([[2, "condensação"]], indentation="lenient")
     assert _errors(doc) == []
     doc = _with_accept([[2, "condensação"]], indentation="strict")
+    assert _errors(doc) == []
+    doc = _with_accept([[2, "condensação"]])
     assert _errors(doc) == [("accept-outside-answer-key", ("accept", 0))]
     doc = _with_accept([[0, "condensação"], [0, ""]], normalizations=["skip-blanks"])
     assert _errors(doc) == []
@@ -206,6 +205,8 @@ def test_reject_may_use_a_distractor() -> None:
 
 def test_reject_reachability_uses_the_normalized_pool() -> None:
     doc = _with_reject([[3, "erosão"]], indentation="lenient")
+    assert _paths(doc, "unreachable-alternative") == []
+    doc = _with_reject([[3, "erosão"]], indentation="strict")
     assert _paths(doc, "unreachable-alternative") == []
     doc = _with_reject([[3, "erosão"]])
     assert _paths(doc, "unreachable-alternative") == [("reject", 0, "lines")]

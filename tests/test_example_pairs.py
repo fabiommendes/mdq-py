@@ -34,7 +34,7 @@ _CHOICE_ITEM_RE = re.compile(
 
 #: `[^name]:` or `[^name/type]:` at the start of a line -- a fill-in
 #: blank definition.
-_BLANK_DEF_RE = re.compile(r"^\[\^([^\]]+)\]:", re.MULTILINE)
+_BLANK_DEF_RE = re.compile(r"^\[\^([^\]]+)\](?::|[ \t]*$)", re.MULTILINE)
 
 #: Frontmatter keys whose surface form is written differently from the
 #: parsed form, by a rule the spec spells out. Compared separately, or

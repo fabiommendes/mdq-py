@@ -49,7 +49,10 @@ def test_a_list_item_after_short_answer_content_is_a_parse_error() -> None:
 
 
 def test_a_change_of_bullet_character_starts_a_new_list() -> None:
-    question = parse_question(
-        "A capital é [^capital].\n\n[^capital/short-answer]:\n* Brasília\n- Brasilia\n"
-    )
+    source = "A capital é [^capital].\n\n[^capital/short-answer]:\n* Brasília\n- Brasilia\n"
+    with pytest.raises(errors.ParseError, match="same list marker"):
+        parse_question(source)
+    # With a blank line the second list is a normal epilogue element.
+    question = parse_question(source.replace("\n- Brasilia", "\n\n- Brasilia"))
     assert question["blanks"][0]["accept"] == ["Brasília"]
+    assert question["epilogue"] == "- Brasilia"

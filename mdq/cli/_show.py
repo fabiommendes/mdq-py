@@ -641,7 +641,7 @@ class _View:
         if question.indentation != "fixed":
             rows.append(("indentation", question.indentation))
         unmatched: Unmatched = question.unmatched
-        if unmatched != "manual":
+        if unmatched != "incorrect":
             rows.append(("unmatched", unmatched))
         if question.normalizations:
             rows.append(("normalizations", ", ".join(question.normalizations)))

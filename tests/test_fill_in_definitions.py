@@ -48,8 +48,8 @@ def test_a_definition_after_a_paragraph_is_detached() -> None:
         "[^acre/short-answer]: Rio Branco\n"
     )
     assert loaded.document is None
-    assert _codes(loaded) == [("detached-blank-definition", "error", ("epilogue",))]
-    assert "[^acre]" in loaded.diagnostics[0].message
+    assert _codes(loaded) == [("detached-tag", "error", ("epilogue",))]
+    assert "[^acre/short-answer]" in loaded.diagnostics[0].message
 
 
 def test_a_detached_choice_and_numeric_definition_are_reported() -> None:
@@ -62,7 +62,7 @@ def test_a_detached_choice_and_numeric_definition_are_reported() -> None:
         "* [ ] Lisboa\n"
     )
     assert loaded.document is None
-    assert _codes(loaded) == [("detached-blank-definition", "error", ("epilogue",))]
+    assert _codes(loaded) == [("detached-tag", "error", ("epilogue",))]
 
 
 def test_definitions_separated_by_blank_lines_are_not_detached() -> None:

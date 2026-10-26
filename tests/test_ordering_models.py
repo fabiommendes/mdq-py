@@ -72,6 +72,9 @@ def alternatives(
 @st.composite
 def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
     main = draw(lines("main", min_size=2))
+    # An explicit empty `extra` breaks the schema (`minItems: 1`); omit it.
+    extra = draw(lines("extra", max_size=3) | st.none())
+    optional = {} if extra is None else {"extra": extra}
     return draw(
         st.builds(
             OrderingQuestion,
@@ -81,13 +84,13 @@ def ordering_questions(draw: st.DrawFn) -> OrderingQuestion:
             # Levels are arbitrary: `content: text` would require an outline.
             content=st.just("code"),
             lines=st.just(main),
-            extra=lines("extra", min_size=0, max_size=3),
             accept=alternatives("accept", within=main),
             reject=alternatives("reject"),
             indentation=st.sampled_from(INDENTATIONS),
             normalizations=st.lists(
                 st.sampled_from(NORMALIZATIONS), unique=True, max_size=2
             ),
+            **{k: st.just(v) for k, v in optional.items()},
         )
     )
 
@@ -121,7 +124,7 @@ MINIMAL = OrderingQuestion(content="text", stem="Order me", lines=[(0, "a"), (0,
     ("field", "expected"),
     [
         ("indentation", "fixed"),
-        ("unmatched", "manual"),
+        ("unmatched", "incorrect"),
         ("extra", []),
         ("accept", []),
         ("reject", []),
@@ -233,10 +236,12 @@ def test_empty_highlight_is_rejected() -> None:
         )
 
 
-def test_code_content_without_highlight_is_valid_and_lints_clean() -> None:
+def test_code_content_without_highlight_is_valid_and_lints_an_info() -> None:
     question = OrderingQuestion(content="code", stem="s", lines=[(0, "a"), (0, "b")])
-    codes = {d.code for d in question.lint()}
-    assert not codes & {"code-content-without-highlight", "ignored-highlight"}
+    diagnostics = [
+        d for d in question.lint() if d.code == "code-content-without-highlight"
+    ]
+    assert [d.severity for d in diagnostics] == ["info"]
 
 
 #

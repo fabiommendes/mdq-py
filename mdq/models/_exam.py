@@ -655,15 +655,15 @@ class Exam(MdqModel):
         with `("questions", i)` prepended to that question's diagnostics
         (dev/specs/to-do/lint-on-models.md).
 
-        exam.md, "Additional Rules" imports the base rules for `id`,
-        `uuid`, `locale` and `title` (base.md, "Additional Rules") into
-        the exam frontmatter -- `author`, `tags` and the rest are not
-        listed there, so they stay question-only.
+        exam.md, "Additional Rules" imports every base rule of a field
+        the exam shares with a question (`id`, `uuid`, `locale`, `title`,
+        `author`, `tags`, `meta`; base.md, "Additional Rules").
         """
         diagnostics = _lint.check_exam_without_questions(self.questions, ("questions",))
         diagnostics.extend(_lint.check_id_is_url_safe(self.id))
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))
+        diagnostics.extend(_lint.check_tags(self.tags or []))
         diagnostics.extend(_lint.check_locale_language_subtag(self.locale))
         diagnostics.extend(_lint.check_setext_heading(self.instructions, ("instructions",)))
         diagnostics.extend(

@@ -78,7 +78,7 @@ def test_open_ended_in_markdown_frontmatter_is_an_invalid_field() -> None:
     ]
 
 
-@pytest.mark.parametrize("tag", ["[short-answer]:", "[short-answer/accept]:"])
+@pytest.mark.parametrize("tag", ["[short-answer]", "[short-answer/accept]"])
 def test_block_with_no_pattern_gives_no_accept_and_no_open_ended(tag: str) -> None:
     source = f"Descreva o bioma Cerrado.\n\n{tag}\n"
     loaded = _load(source)
@@ -105,7 +105,7 @@ def test_fill_in_unmatched_in_frontmatter_loads() -> None:
 
 
 def test_fill_in_blank_with_no_pattern_has_no_accept() -> None:
-    source = FILL_STEM + "[^bioma/short-answer]:\n\n[^rio/short-answer]: Negro\n"
+    source = FILL_STEM + "[^bioma/short-answer]\n\n[^rio/short-answer]: Negro\n"
     loaded = _load(source)
     assert _errors(loaded) == []
     blank = loaded.document.blanks[0]
@@ -138,11 +138,11 @@ EXAMPLES = {
         "semi-automatic",
     ),
     "semi-reject-only": (
-        "Name a biome of central Brazil.\n\n[short-answer]:\n\n[short-answer/reject]:\n"
+        "Name a biome of central Brazil.\n\n[short-answer]\n\n[short-answer/reject]:\n"
         "* Savana\n  > Savanna is the general term. Name the Brazilian biome.\n",
         "semi-automatic",
     ),
-    "manual": ("Name a biome of central Brazil.\n\n[short-answer]:\n", "manual"),
+    "manual": ("Name a biome of central Brazil.\n\n[short-answer]\n", "manual"),
 }
 
 
@@ -220,10 +220,10 @@ def test_unset_fields_are_omitted_from_the_render() -> None:
 @pytest.mark.parametrize(
     "fields", [{}, {"unmatched": "manual"}, {"unmatched": "incorrect"}]
 )
-def test_question_with_no_accept_renders_an_empty_block(fields: dict) -> None:
+def test_question_with_no_accept_renders_a_tag_without_a_colon(fields: dict) -> None:
     question = _sa(**fields)
     text = str(question)
-    assert text.rstrip("\n").endswith("[short-answer]:")
+    assert text.rstrip("\n").endswith("[short-answer]")
     assert "openEnded" not in text
     assert _roundtrip(question) == question
 
@@ -233,26 +233,7 @@ def test_reject_only_question_renders_an_empty_accept_block_and_round_trips() ->
         reject=[models.AnswerPattern(pattern="Rio", feedback="Foi até 1960.")]
     )
     text = str(question)
-    assert "[short-answer]:\n\n[short-answer/reject]:" in text
-    assert _roundtrip(question) == question
-
-
-@pytest.mark.parametrize(
-    "accept",
-    [
-        ["*"],
-        ["*", "Brasília"],
-        [models.AnswerPattern(pattern="*", feedback="Isso mesmo.")],
-    ],
-    ids=["single", "list", "feedback"],
-)
-def test_asterisk_pattern_renders_without_backticks_and_round_trips(
-    accept: list,
-) -> None:
-    question = _sa(accept=accept)
-    text = str(question)
-    assert "`" not in text
-    assert ("[short-answer]: *" in text) or ("* *" in text)
+    assert "[short-answer]\n\n[short-answer/reject]:" in text
     assert _roundtrip(question) == question
 
 
@@ -290,6 +271,7 @@ def test_fill_in_blank_with_no_accept_renders_an_empty_block_and_round_trips() -
         stem="O rio [^rio] banha Manaus.",
         blanks=[models.ShortAnswerBlank(id="rio")],
     )
-    assert "[^rio/short-answer]:" in str(question)
+    assert "[^rio/short-answer]\n" in str(question) + "\n"
+    assert "[^rio/short-answer]:" not in str(question)
     assert "openEnded" not in str(question)
     assert _roundtrip(question) == question

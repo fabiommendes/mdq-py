@@ -128,7 +128,7 @@ type: ordering
 Sort the lines below to create a program that prints the first ten numbers
 of the Fibonacci sequence.
 
-[ordering]
+[ordering]:
 ```python
 x, y = 1, 1
 for _ in range(10):
@@ -379,7 +379,7 @@ computations do not depend on each other.
 Sort the lines below into a program that reads a radius and prints the
 circle's area and perimeter.
 
-[ordering]
+[ordering]:
 ```python
 import math
 

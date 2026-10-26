@@ -4,9 +4,10 @@ Short answer: two blocks, `[short-answer]` and `[short-answer/reject]` (see
 
 `[short-answer]` is the accept block and `[short-answer/accept]` is only an
 alias of it. Each block takes one pattern on the tag line or a bullet list on
-the lines right after the tag. A list after a blank line is an epilogue
-element and raises the `detached-answer-list` warning. Both spellings of the
-accept block in one document are a `parse-error`.
+the lines right after the tag. A tag with a colon and no content on its line
+needs its list right after it: a blank line in between is a `parse-error`.
+A pattern-less block is written `[short-answer]`, without a colon. Both
+spellings of the accept block in one document are a `parse-error`.
 
 Naming: `test_b1_*` (AC1-AC3, both names and both forms), `test_b2_*`
 (AC4-AC6, blank line), `test_b3_*` (AC7-AC9, fill-in blanks), `test_b4_*`
@@ -68,14 +69,9 @@ def _assert_parse_error(source: str) -> None:
     assert "parse-error" in _codes(_errors(loaded.diagnostics))
 
 
-def _detached(source: str) -> list[list]:
+def _error_messages(source: str) -> list[str]:
     loaded = load(source, format="mdq")
-    return [list(d.path) for d in loaded.diagnostics if d.code == "detached-answer-list"]
-
-
-def _detached_warnings(source: str) -> list[Diagnostic]:
-    loaded = load(source, format="mdq")
-    return [d for d in loaded.diagnostics if d.code == "detached-answer-list"]
+    return [d.message for d in _errors(loaded.diagnostics)]
 
 
 #
@@ -135,12 +131,12 @@ def test_b1_reject_list_gives_reject_items_with_feedback_and_comment() -> None:
         "* Rio de Janeiro\n"
         "  > Foi capital até 1960.\n"
         "  ! Capital histórica.\n"
-        "* *\n"
+        "* Salvador\n"
         "  > Não é a resposta.\n"
     )
     document = _doc(source)
     assert _patterns(document["accept"]) == ["Brasília"]
-    assert _patterns(document["reject"]) == ["Rio de Janeiro", "*"]
+    assert _patterns(document["reject"]) == ["Rio de Janeiro", "Salvador"]
     assert document["reject"][0]["feedback"] == "Foi capital até 1960."
     assert document["reject"][0]["comment"] == "Capital histórica."
     assert document["reject"][1]["feedback"] == "Não é a resposta."
@@ -196,8 +192,8 @@ def test_b1_both_accept_spellings_are_a_parse_error(
 
 
 def test_b1_both_spellings_with_an_empty_block_are_a_parse_error() -> None:
-    _assert_parse_error(_q("[short-answer]:\n\n[short-answer/accept]:\n* Brasília\n"))
-    _assert_parse_error(_q("[short-answer/accept]:\n\n[short-answer]:\n* Brasília\n"))
+    _assert_parse_error(_q("[short-answer]\n\n[short-answer/accept]:\n* Brasília\n"))
+    _assert_parse_error(_q("[short-answer/accept]\n\n[short-answer]:\n* Brasília\n"))
 
 
 @pytest.mark.parametrize(
@@ -234,44 +230,62 @@ def test_b1_content_and_glued_list_is_a_parse_error(tag: str) -> None:
 # AC4: blank line, no content on the tag line
 #
 @pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_empty_tag_and_detached_list_has_no_accept_and_goes_to_epilogue(tag: str) -> None:
-    document = _doc(_q(f"{tag}:\n\n* Cite a evaporação.\n* Cite os rios voadores.\n"))
-    assert "openEnded" not in document
-    assert "accept" not in document
-    assert "* Cite a evaporação." in document["epilogue"]
-    assert "* Cite os rios voadores." in document["epilogue"]
+def test_b2_empty_tag_and_detached_list_is_a_parse_error(tag: str) -> None:
+    source = _q(f"{tag}:\n\n* Cite a evaporação.\n* Cite os rios voadores.\n")
+    _assert_parse_error(source)
+    assert "right after the tag" in _error_messages(source)[0]
 
 
 @pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_detached_list_warns_at_epilogue(tag: str) -> None:
-    warnings = _detached_warnings(_q(f"{tag}:\n\n* Cite a evaporação.\n"))
-    assert [list(w.path) for w in warnings] == [["epilogue"]]
-    assert warnings[0].severity == "warning"
+def test_b2_empty_tag_and_blank_line_and_text_is_a_parse_error(tag: str) -> None:
+    source = _q(f"{tag}:\n\nBrasília.\n")
+    _assert_parse_error(source)
+    assert "for a manual question" in _error_messages(source)[0]
 
 
 @pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_empty_tag_and_detached_list_loads_without_errors(tag: str) -> None:
-    loaded = load(_q(f"{tag}:\n\n* Cite a evaporação.\n"), format="mdq")
-    assert loaded.document is not None
-    assert not _errors(loaded.diagnostics)
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
+def test_b2_empty_tag_at_the_end_of_the_body_is_a_parse_error(tag: str) -> None:
+    _assert_parse_error(_q(f"{tag}:\n"))
 
 
-def test_b2_detached_list_matches_the_corpus_example_shape() -> None:
-    source = (
-        "---\nid: sa-detached-list\ntitle: Water cycle\n---\n\n"
-        "Describe the water cycle in the Amazon basin.\n\n"
-        "[short-answer]:\n\n"
-        "* Mention evaporation from the forest canopy.\n"
-        '* Mention the "flying rivers" that carry moisture south.\n'
-    )
+def test_b2_empty_tag_before_a_heading_is_a_parse_error() -> None:
+    _assert_parse_error(_q("[short-answer]:\n# Notas\n"))
+
+
+@pytest.mark.parametrize("tag", ACCEPT_TAGS)
+def test_b2_tag_without_a_colon_is_a_block_with_no_pattern(tag: str) -> None:
+    source = _q(f"{tag}\n")
     document = _doc(source)
-    assert "openEnded" not in document
-    assert document["epilogue"] == (
-        "* Mention evaporation from the forest canopy.\n"
-        '* Mention the "flying rivers" that carry moisture south.'
-    )
     assert "accept" not in document
+    assert not _errors(load(source, format="mdq").diagnostics)
+
+
+def test_b2_tag_without_a_colon_follows_the_essay_tag_rules() -> None:
+    document = _doc(_q("   [short-answer]   \n\nUm epílogo.\n"))
+    assert "accept" not in document
+    assert document["epilogue"] == "Um epílogo."
+
+
+def test_b2_tag_without_a_colon_and_a_glued_list_is_a_parse_error() -> None:
+    source = _q("[short-answer]\n* Cite a evaporação.\n")
+    _assert_parse_error(source)
+    assert "[short-answer]:" in _error_messages(source)[0]
+
+
+def test_b2_tag_without_a_colon_and_a_detached_list_is_an_epilogue() -> None:
+    document = _doc(_q("[short-answer]\n\n* Uma nota.\n"))
+    assert "accept" not in document
+    assert "* Uma nota." in document["epilogue"]
+
+
+def test_b2_reject_tag_without_a_colon_is_a_parse_error() -> None:
+    _assert_parse_error(_q("[short-answer]: Brasília\n\n[short-answer/reject]\n"))
+
+
+def test_b2_reject_only_question_with_a_bare_accept_tag() -> None:
+    document = _doc(_q("[short-answer]\n\n[short-answer/reject]:\n* Rio de Janeiro\n"))
+    assert "accept" not in document
+    assert _patterns(document["reject"]) == ["Rio de Janeiro"]
 
 
 #
@@ -279,24 +293,13 @@ def test_b2_detached_list_matches_the_corpus_example_shape() -> None:
 #
 @pytest.mark.parametrize("tag", ACCEPT_TAGS)
 def test_b2_line_content_and_detached_list_keeps_accept_and_epilogue(tag: str) -> None:
-    document = _doc(_q(f"{tag}: Brasília\n\n* Rio de Janeiro\n* Salvador\n"))
+    source = _q(f"{tag}: Brasília\n\n* Rio de Janeiro\n* Salvador\n")
+    document = _doc(source)
     assert _patterns(document["accept"]) == ["Brasília"]
     assert "* Rio de Janeiro" in document["epilogue"]
     assert "* Salvador" in document["epilogue"]
     assert not document.get("openEnded")
-
-
-@pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_line_content_and_detached_list_warns_at_epilogue(tag: str) -> None:
-    assert _detached(_q(f"{tag}: Brasília\n\n* Rio de Janeiro\n")) == [["epilogue"]]
-
-
-def test_b2_detached_list_does_not_warn_when_glued() -> None:
-    assert _detached(_q("[short-answer]:\n* Brasília\n")) == []
-
-
-def test_b2_no_warning_without_a_list() -> None:
-    assert _detached(_q("[short-answer]: Brasília\n")) == []
+    assert [d for d in load(source, format="mdq").diagnostics if d.severity != "info"] == []
 
 
 #
@@ -313,7 +316,6 @@ def test_b2_reject_line_and_detached_list_keeps_reject_and_epilogue() -> None:
     document = _doc(source)
     assert _patterns(document["reject"]) == ["Rio de Janeiro"]
     assert "* Salvador" in document["epilogue"]
-    assert _detached(source) == [["epilogue"]]
 
 
 #
@@ -415,28 +417,59 @@ def test_b3_blank_content_and_glued_list_is_a_parse_error(tag: str) -> None:
 
 
 #
-# AC9: detached list in a blank
+# AC9: blank line or no content in a blank
 #
 @pytest.mark.parametrize("tag", _BLANK_TAGS)
-def test_b3_empty_blank_and_detached_list_has_no_accept_and_list_goes_to_epilogue(
-    tag: str,
-) -> None:
-    document = _doc(_f(f"{tag}:\n\n* Cite o rio Negro.\n"))
-    blank = document["blanks"][0]
-    assert "openEnded" not in blank
-    assert "accept" not in blank
-    assert "* Cite o rio Negro." in document["epilogue"]
+def test_b3_empty_blank_and_detached_list_is_a_parse_error(tag: str) -> None:
+    source = _f(f"{tag}:\n\n* Cite o rio Negro.\n")
+    _assert_parse_error(source)
+    assert "right after the tag" in _error_messages(source)[0]
 
 
 @pytest.mark.parametrize("tag", _BLANK_TAGS)
-def test_b3_empty_blank_and_detached_list_warns_at_epilogue(tag: str) -> None:
-    source = _f(f"{tag}:\n\n* Cite o rio Negro.\n")
-    warnings = _detached_warnings(source)
-    assert [list(w.path) for w in warnings] == [["epilogue"]]
-    assert warnings[0].severity == "warning"
+def test_b3_empty_blank_and_blank_line_and_text_is_a_parse_error(tag: str) -> None:
+    _assert_parse_error(_f(f"{tag}:\n\nAmazônia.\n"))
+
+
+@pytest.mark.parametrize("tag", _BLANK_TAGS)
+def test_b3_empty_blank_at_the_end_of_the_body_is_a_parse_error(tag: str) -> None:
+    _assert_parse_error(_f(f"{tag}:\n"))
+
+
+@pytest.mark.parametrize("tag", _BLANK_TAGS)
+def test_b3_blank_without_a_colon_is_an_open_blank(tag: str) -> None:
+    source = _f(f"{tag}\n")
+    blank = _blank(source)
+    assert blank == {"id": "bioma", "type": "short-answer"}
+    assert not _errors(load(source, format="mdq").diagnostics)
+
+
+def test_b3_blank_without_a_colon_between_definitions() -> None:
+    source = (
+        "O bioma [^a], o rio [^b] e o estado [^c].\n\n"
+        "[^a/short-answer]: Cerrado\n\n"
+        "[^b/short-answer]\n\n"
+        "[^c/short-answer]:\n* Goiás\n"
+    )
+    blanks = _doc(source)["blanks"]
+    assert [b["id"] for b in blanks] == ["a", "b", "c"]
+    assert "accept" not in blanks[1]
+    assert _patterns(blanks[2]["accept"]) == ["Goiás"]
+
+
+def test_b3_blank_without_a_colon_and_a_glued_list_is_a_parse_error() -> None:
+    _assert_parse_error(_f("[^bioma/short-answer]\n* Amazônia\n"))
+
+
+def test_b3_blank_reject_without_a_colon_is_a_parse_error() -> None:
+    _assert_parse_error(_f("[^bioma/short-answer]: Amazônia\n\n[^bioma/short-answer/reject]\n"))
+
+
+def test_b3_blank_without_a_colon_after_the_definitions_is_detached() -> None:
+    source = _f("[^bioma/short-answer]: Amazônia\n\nUma nota.\n\n[^outro/short-answer]\n")
     loaded = load(source, format="mdq")
-    assert not _errors(loaded.diagnostics)
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
+    assert loaded.document is None
+    assert "detached-tag" in _codes(loaded.diagnostics)
 
 
 @pytest.mark.parametrize("tag", _BLANK_TAGS)
@@ -445,7 +478,7 @@ def test_b3_blank_line_content_and_detached_list_keeps_accept_and_epilogue(tag: 
     document = _doc(source)
     assert _patterns(document["blanks"][0]["accept"]) == ["Amazônia"]
     assert "* Cerrado" in document["epilogue"]
-    assert _detached(source) == [["epilogue"]]
+    assert [d for d in load(source, format="mdq").diagnostics if d.severity != "info"] == []
 
 
 def test_b3_blank_reject_without_pattern_and_detached_list_is_a_parse_error() -> None:
@@ -462,12 +495,16 @@ def test_b3_blank_reject_line_and_detached_list_keeps_reject_and_epilogue() -> N
     document = _doc(source)
     assert _patterns(document["blanks"][0]["reject"]) == ["Cerrado"]
     assert "* Caatinga" in document["epilogue"]
-    assert _detached(source) == [["epilogue"]]
 
 
-def test_b3_blank_list_after_blank_line_of_another_kind_is_not_flagged() -> None:
-    """A glued list never warns, in a question or in a blank."""
-    assert _detached(_f("[^bioma/short-answer]:\n* Amazônia\n")) == []
+def test_b3_choice_blank_and_detached_list_is_a_parse_error() -> None:
+    _assert_parse_error(_f("[^bioma]:\n\n* [*] Amazônia\n* [ ] Cerrado\n"))
+
+
+def test_b3_choice_blank_without_a_list_is_a_parse_error() -> None:
+    source = _f("[^bioma]:\n")
+    _assert_parse_error(source)
+    assert "choice list" in _error_messages(source)[0]
 
 
 #
@@ -549,7 +586,7 @@ _ROUND_TRIP_BODIES = {
     "alias-line": "[short-answer/accept]: Brasília\n",
     "exact": "[short-answer]: `math.isnan`\n",
     "regex": "[short-answer]: /1822-0?9-0?7/i\n",
-    "no-pattern": "[short-answer]:\n",
+    "no-pattern": "[short-answer]\n",
     "list": "[short-answer]:\n* Brasília\n* DF\n",
     "alias-list": "[short-answer/accept]:\n* Brasília\n* DF\n",
     "feedback": "[short-answer]:\n* Brasília\n  > Certo!\n",
@@ -557,7 +594,7 @@ _ROUND_TRIP_BODIES = {
     "feedback-and-comment": "[short-answer]:\n* Brasília\n  > Certo!\n  ! Nome oficial\n",
     "with-reject-line": "[short-answer]: Brasília\n\n[short-answer/reject]: Rio\n",
     "with-reject-list": "[short-answer]:\n* Brasília\n\n[short-answer/reject]:\n* Rio\n  ! Foi capital\n",
-    "detached-list": "[short-answer]:\n\n* Cite a evaporação.\n",
+    "bare-and-detached-list": "[short-answer]\n\n* Cite a evaporação.\n",
     "line-and-detached-list": "[short-answer]: Brasília\n\n* Rio de Janeiro\n",
 }
 
@@ -612,14 +649,14 @@ _BLANK_ROUND_TRIP_BODIES = {
     "line": "[^bioma/short-answer]: Amazônia\n",
     "alias-line": "[^bioma/short-answer/accept]: Amazônia\n",
     "regex": "[^bioma/short-answer]: /Amaz[oô]nia/i\n",
-    "no-pattern": "[^bioma/short-answer]:\n",
+    "no-pattern": "[^bioma/short-answer]\n",
     "list": "[^bioma/short-answer]:\n* Amazônia\n* Amazon\n",
     "alias-list": "[^bioma/short-answer/accept]:\n* Amazônia\n* Amazon\n",
     "comment-only": "[^bioma/short-answer]:\n* Amazônia\n  ! Nome oficial\n",
     "feedback": "[^bioma/short-answer]:\n* Amazônia\n  > Certo!\n",
     "with-reject-line": "[^bioma/short-answer]: Amazônia\n\n[^bioma/short-answer/reject]: Cerrado\n",
     "with-reject-list": "[^bioma/short-answer]:\n* Amazônia\n\n[^bioma/short-answer/reject]:\n* Cerrado\n",
-    "detached-list": "[^bioma/short-answer]:\n\n* Cite o rio Negro.\n",
+    "bare-and-detached-list": "[^bioma/short-answer]\n\n* Cite o rio Negro.\n",
 }
 
 
@@ -637,11 +674,11 @@ def test_b4_fill_in_render_round_trips_through_load(body: str) -> None:
 #
 # AC11: docs and corpus shapes
 #
-def test_b4_lint_codes_doc_lists_detached_answer_list() -> None:
+def test_b4_lint_codes_doc_has_no_detached_answer_list() -> None:
     from pathlib import Path
 
     doc = Path(__file__).resolve().parents[2] / "docs" / "lint-codes.md"
-    assert "`detached-answer-list`" in doc.read_text(encoding="utf-8")
+    assert "detached-answer-list" not in doc.read_text(encoding="utf-8")
 
 
 def test_b4_corpus_list_with_feedback_shape() -> None:
@@ -666,7 +703,7 @@ def test_b4_corpus_list_with_feedback_shape() -> None:
         {"pattern": "Rio de Janeiro", "feedback": "It used to be, but not since 1960."}
     ]
     loaded = load(source, format="mdq")
-    assert "detached-answer-list" not in _codes(loaded.diagnostics)
+    assert not _errors(loaded.diagnostics)
 
 
 def test_b4_corpus_blank_list_shape() -> None:
@@ -815,6 +852,6 @@ def test_b5_blank_reject_without_pattern_is_a_parse_error(tail: str) -> None:
 
 def test_b5_empty_accept_block_stays_valid_with_no_accept() -> None:
     """Only the reject block needs a pattern: an empty accept block has no `accept`."""
-    document = _doc(_q("[short-answer]:\n"))
+    document = _doc(_q("[short-answer]\n"))
     assert "openEnded" not in document
     assert "accept" not in document

@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Literal
 
 from .. import _parser
 from .._exact import exact_literal
+from .._markdown import starts_block
 from ..errors import ParseError
 from ..models import (
     AnswerPattern,
@@ -220,8 +221,8 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
     """
     Return the `accept` entry for an answer an external format wrote as
     `text`. A text the pattern mini-language would read as something else
-    (a regex or a backtick span) is enclosed in backticks. A lone `*` is an
-    ordinary plain literal.
+    (a regex, a backtick span or the start of a markdown block such as `*`,
+    `# x` or `> x`) is enclosed in backticks.
 
     A pattern string has no line ending, so each line ending in `text`,
     with the indentation of the next line, becomes one space, as in the
@@ -234,7 +235,7 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
     multiline = _LINE_BREAK_RE.search(stripped) is not None
     if multiline:
         stripped = _LINE_BREAK_RE.sub(" ", stripped)
-    if stripped.startswith(("/", "`")):
+    if stripped.startswith(("/", "`")) or starts_block(stripped):
         if "`" in stripped:
             raise ValueError(
                 f"cannot convert from {format}: the answer {text!r} contains "

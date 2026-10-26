@@ -87,9 +87,8 @@ def _errors(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
         "`math.isnan`",
         "/1822-0?9-0?7/",
         "/abc/i",
-        "*",
     ],
-    ids=["plain", "backtick-literal", "regex", "regex-flag", "wildcard"],
+    ids=["plain", "backtick-literal", "regex", "regex-flag"],
 )
 def test_b1_simple_block_emits_accept_with_the_written_pattern(written: str) -> None:
     document = _loaded_dict(_md(f"[short-answer]: {written}\n"))
@@ -249,7 +248,7 @@ def test_b2_bullet_list_answers_all_score_one() -> None:
 #
 @pytest.mark.parametrize(
     "body",
-    ["[short-answer]: Brasília\n", "[short-answer]: `DF`\n", "[short-answer]:\n"],
+    ["[short-answer]: Brasília\n", "[short-answer]: `DF`\n", "[short-answer]\n"],
     ids=["bare", "backtick", "empty"],
 )
 def test_b2_frontmatter_accept_is_an_invalid_field(body: str) -> None:
@@ -261,14 +260,14 @@ def test_b2_frontmatter_accept_is_an_invalid_field(body: str) -> None:
 
 
 def test_b2_empty_block_with_accept_block_is_a_parse_error() -> None:
-    body = "[short-answer]:\n\n[short-answer/accept]:\n* Brasília\n"
+    body = "[short-answer]\n\n[short-answer/accept]:\n* Brasília\n"
     loaded = load(_md(body), format="mdq")
     assert loaded.document is None
     assert "parse-error" in _codes(_errors(loaded.diagnostics))
 
 
 def test_b2_empty_block_without_patterns_has_no_accept() -> None:
-    document = _loaded_dict(_md("[short-answer]:\n"))
+    document = _loaded_dict(_md("[short-answer]\n"))
     assert "openEnded" not in document
     assert "accept" not in document
     assert "oneOf" not in document
@@ -276,7 +275,7 @@ def test_b2_empty_block_without_patterns_has_no_accept() -> None:
 
 
 def test_b2_empty_block_reports_nothing_about_not_gradable() -> None:
-    loaded = load(_md("[short-answer]:\n"), format="mdq")
+    loaded = load(_md("[short-answer]\n"), format="mdq")
     assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
 
 
@@ -370,7 +369,7 @@ def test_b3_blank_accept_alias_alone_scores_every_item() -> None:
 # AC8: blank with no pattern
 #
 def test_b3_empty_blank_definition_has_no_accept() -> None:
-    blank = _blank_dict(_fill_md("[^cap/short-answer]:\n"))
+    blank = _blank_dict(_fill_md("[^cap/short-answer]\n"))
     assert "openEnded" not in blank
     assert "accept" not in blank
     assert "oneOf" not in blank
@@ -378,7 +377,7 @@ def test_b3_empty_blank_definition_has_no_accept() -> None:
 
 
 def test_b3_blank_with_no_pattern_loads_without_errors() -> None:
-    loaded = load(_fill_md("[^cap/short-answer]:\n"), format="mdq")
+    loaded = load(_fill_md("[^cap/short-answer]\n"), format="mdq")
     assert loaded.document is not None
     assert not _errors(loaded.diagnostics)
     assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
@@ -535,7 +534,7 @@ _ROUND_TRIP_BODIES = {
     "plain": "[short-answer]: Brasília\n",
     "exact": "[short-answer]: `math.isnan`\n",
     "regex": "[short-answer]: /1822-0?9-0?7/i\n",
-    "no-pattern": "[short-answer]:\n",
+    "no-pattern": "[short-answer]\n",
     "list": "[short-answer/accept]:\n* Brasília\n* DF\n",
     "feedback": "[short-answer/accept]:\n* Brasília\n  > Certo!\n",
     "comment-only": "[short-answer/accept]:\n* Brasília\n  ! Nome oficial\n",
@@ -557,7 +556,7 @@ def test_b4_question_render_round_trips_through_load(body: str) -> None:
 _BLANK_ROUND_TRIP_BODIES = {
     "plain": "[^cap/short-answer]: Brasília\n",
     "regex": "[^cap/short-answer]: /Bras[ií]lia/i\n",
-    "no-pattern": "[^cap/short-answer]:\n",
+    "no-pattern": "[^cap/short-answer]\n",
     "list": "[^cap/short-answer/accept]:\n* Brasília\n* DF\n",
     "comment-only": "[^cap/short-answer/accept]:\n* Brasília\n  ! Nome oficial\n",
     "accept-alias-list": _BLANK_ACCEPT,
@@ -656,7 +655,7 @@ def test_b4_export_regex_raises(texts: str) -> None:
 
 @pytest.mark.parametrize("texts", ["_gift_texts", "_moodle_texts"])
 def test_b4_export_asterisk_is_a_plain_literal(texts: str) -> None:
-    question = ShortAnswerQuestion(stem="Rio?", accept=["Amazonas", "*"])
+    question = ShortAnswerQuestion(stem="Rio?", accept=["Amazonas", "`*`"])
     assert globals()[texts](question) == ["Amazonas", "*"]
 
 
@@ -698,9 +697,9 @@ def test_b4_import_wraps_delimiter_lookalikes_in_backticks(
     assert [p.pattern for p in question.effective_accept()] == [expected]
 
 
-def test_b4_gift_import_keeps_a_lone_asterisk_unwrapped() -> None:
+def test_b4_gift_import_writes_a_lone_asterisk_as_an_exact_literal() -> None:
     question = _gift_import("*")
-    assert [p.pattern for p in question.effective_accept()] == ["*"]
+    assert [p.pattern for p in question.effective_accept()] == ["`*`"]
 
 
 def test_b4_moodle_import_of_a_full_credit_asterisk_is_the_catch_all_regex() -> None:
@@ -737,3 +736,10 @@ def test_b4_cli_show_lists_accept_patterns(tmp_path: Path) -> None:
     assert "Brasília" in result.output
     assert "Plano Piloto" in result.output
     assert "Distrito Federal" in result.output
+
+
+@pytest.mark.parametrize("importer", ["_gift_import", "_moodle_import"])
+@pytest.mark.parametrize("text", ["# Brasília", "> x", "- x", "1. x"])
+def test_b4_import_wraps_a_block_start_in_backticks(importer: str, text: str) -> None:
+    question = globals()[importer](text)
+    assert [p.pattern for p in question.effective_accept()] == [f"`{text}`"]

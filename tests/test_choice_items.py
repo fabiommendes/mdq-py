@@ -46,7 +46,7 @@ def _codes(loaded: mdq.Loaded) -> list[tuple[str, tuple[object, ...]]]:
         "Qual é o maior rio do Brasil?\n\n[short-answer]:\n"
         "* Amazonas\n  > Maior.\n\n  > Longo.\n",
         # A section of ordering.
-        "Ordene os rios.\n\n[ordering]\n\n* Amazonas\n* Negro\n\n"
+        "Ordene os rios.\n\n[ordering]:\n\n* Amazonas\n* Negro\n\n"
         "## [reject]\n\n> Ao contrário.\n\n> De novo.\n\n* Negro\n* Amazonas\n",
     ],
 )
@@ -77,7 +77,7 @@ def test_an_empty_comment_marker_line_separates_two_paragraphs() -> None:
 
 def test_an_empty_marker_line_in_an_ordering_section() -> None:
     doc = parse_question(
-        "Ordene os rios.\n\n[ordering]\n* Amazonas\n* Negro\n\n"
+        "Ordene os rios.\n\n[ordering]:\n* Amazonas\n* Negro\n\n"
         "## [reject]\n\n> Ao contrário.\n>\n> Releia.\n\n* Negro\n* Amazonas\n"
     )
     assert doc["reject"][0]["feedback"] == "Ao contrário.\n\nReleia."

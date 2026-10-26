@@ -15,19 +15,20 @@ import unicodedata
 from importlib import resources
 from typing import Annotated, Any, Iterable, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .. import _parser
 from .. import types as t
 from .._exact import exact_literal
-from .._markdown import UNICODE_SPACE
+from .._markdown import UNICODE_SPACE, starts_block
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Diacritics, EssayContent, Unmatched
 from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
 from ._regex import InvalidRegexError, RegexPattern
+from ._regex import normalize_text as _strip_marks
 from ._score import QuestionScore
 
 __all__ = ["AnswerPattern", "ShortAnswerQuestion", "EssayQuestion"]
@@ -82,6 +83,17 @@ class AnswerPattern(MdqModel):
                 "a pattern that opens with a backtick must be a complete exact "
                 "literal: a run of the same number of backticks closes it, "
                 "and nothing follows the closing run",
+            )
+        if starts_block(value):
+            text = value.strip(" \t")
+            _raise_unique_id_error(
+                "AnswerPattern",
+                "block-start-pattern",
+                "an inexact pattern cannot start a markdown block (a block "
+                "quote, heading, list, fence, HTML block or thematic break): "
+                f"write an exact literal, `` `{text}` ``, or a regex",
+                (),
+                value,
             )
         return value
 
@@ -325,6 +337,21 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     #: make the question auto-gradable.
     answer_key: FreeText | None = None
 
+    @field_validator("highlight")
+    @classmethod
+    def check_highlight_needs_code(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """
+        Raises:
+            ValueError: `highlight` is set but `content` is not "code"
+                (the `if`/`then` of the schema), which `load` reports as
+                `schema-error`.
+        """
+        if value is not None and info.data.get("content", "text") != "code":
+            raise ValueError("highlight is only allowed when content is 'code'")
+        return value
+
     @model_validator(mode="after")
     def check_answer_key_has_no_h1(self) -> Self:
         """essay.md, "Answer key": the section holds any block except an H1."""
@@ -350,8 +377,11 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_essay_highlight(self.content, self.highlight))
+        diagnostics.extend(_lint.check_code_highlight(self.content, self.highlight))
         diagnostics.extend(_lint.check_missing_answer_key(self.answer_key))
+        diagnostics.extend(
+            _lint.check_unsafe_thematic_break(self.answer_key, ("answerKey",))
+        )
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -518,7 +548,7 @@ def normalize_text(value: str, *, diacritics: Diacritics = "fold") -> str:
     `AnswerPattern.matches` (patterns.md, "Inexact literals").
 
     Steps, in order: NFKC; remove the ignorable code points; if
-    `diacritics == "fold"`, NFD, remove `Mn`, NFC and replace the
+    `diacritics == "fold"`, NFD, remove the `nonspacing` table, NFC and replace the
     `letters` table; replace the `punctuation` table; replace the
     `caseFolding` table and NFC; collapse each run of `UNICODE_SPACE`
     to one U+0020 and trim U+0020 from the ends. The tables come from
@@ -526,9 +556,7 @@ def normalize_text(value: str, *, diacritics: Diacritics = "fold") -> str:
     """
     value = unicodedata.normalize("NFKC", value).translate(_IGNORABLE_TABLE)
     if diacritics == "fold":
-        value = unicodedata.normalize("NFD", value)
-        value = "".join(c for c in value if unicodedata.category(c) != "Mn")
-        value = unicodedata.normalize("NFC", value).translate(_LETTERS)
+        value = _strip_marks(value).translate(_LETTERS)
     value = value.translate(_PUNCTUATION)
     value = unicodedata.normalize("NFC", value.translate(_CASE_FOLDING))
     return _SPACE_RUN.sub(" ", value).strip(" ")
@@ -545,13 +573,13 @@ def render_short_answer_patterns(
     `accept` is the `[<tag>]` block: a lone pattern with no feedback and
     no comment, and no `reject`, goes on the tag line, anything else is a list below it.
     `reject` is always a `[<tag>/reject]` list. `[<tag>/accept]` is never
-    written. A question with no `accept` renders an empty `[<tag>]:`, followed by
-    the reject block if any. `tag`
+    written. A question with no `accept` renders `[<tag>]` without a colon,
+    followed by the reject block if any. `tag`
     names the owning construct: a fill-in blank passes `^<id>/short-answer`.
     """
     if accept is None:
         # The grammar requires the accept block, even with no pattern.
-        yield f"[{tag}]:"
+        yield f"[{tag}]"
         if reject is not None:
             yield ""
             yield from render_pattern_list(f"[{tag}/reject]:", reject)

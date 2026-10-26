@@ -476,7 +476,7 @@ def test_parse_failure_with_a_known_location_sets_the_line() -> None:
     text = (
         "Ordene as linhas abaixo.\n"
         "\n"
-        "[ordering]\n"
+        "[ordering]:\n"
         "\n"
         "Isto não é uma lista nem um bloco de código.\n"
     )

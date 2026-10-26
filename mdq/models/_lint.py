@@ -662,21 +662,16 @@ def check_highlight_language(highlight: str | None) -> list[Diagnostic]:
     return []
 
 
-def check_essay_highlight(content: str, highlight: str | None) -> list[Diagnostic]:
-    """essay.md: `highlight` is ignored unless `content` is `code`."""
-    if highlight is not None and content != "code":
-        return [
-            Diagnostic(
-                severity="warning",
-                code="ignored-highlight",
-                path=("highlight",),
-                message=(
-                    f"'highlight' is ignored because content is {content!r}, not 'code'"
-                ),
-            )
-        ]
-
-    if content == "code" and highlight is None:
+def check_code_highlight(content: str, highlight: str | None) -> list[Diagnostic]:
+    """
+    essay.md, ordering.md: `content: code` with no `highlight` is an
+    info (`code-content-without-highlight`); with one, the language is
+    checked (`unknown-highlight-language`). A `highlight` with any other
+    content is a `schema-error` the models already reject.
+    """
+    if content != "code":
+        return []
+    if highlight is None:
         return [
             Diagnostic(
                 severity="info",
@@ -684,13 +679,11 @@ def check_essay_highlight(content: str, highlight: str | None) -> list[Diagnosti
                 path=("highlight",),
                 message=(
                     "content is 'code' but no 'highlight' language is given, "
-                    "so the editor cannot highlight the answer"
+                    "so a highlighter cannot color the code"
                 ),
             )
         ]
-    if content == "code" and highlight is not None:
-        return check_highlight_language(highlight)
-    return []
+    return check_highlight_language(highlight)
 
 
 def check_missing_answer_key(answer_key: str | None) -> list[Diagnostic]:
@@ -1163,13 +1156,14 @@ def check_ordering_unreachable_reject(
     """
     ordering.md#acceptedrejected-answers: a `reject` entry that uses a
     line, or more copies of a line, than the presented pool (`lines`
-    plus `extra`, fully normalized) offers can never match a response.
+    plus `extra`) offers can never match a response. Lines are identified
+    as in `OrderingQuestion.identity_key`.
     """
-    pool = Counter(question.comparison_key(question.lines))
-    pool.update(question.comparison_key(question.extra))
+    pool = Counter(question.identity_key(question.lines))
+    pool.update(question.identity_key(question.extra))
     warnings = []
     for index, alt in enumerate(question.reject):
-        if Counter(question.comparison_key(alt.lines)) - pool:
+        if Counter(question.identity_key(alt.lines)) - pool:
             warnings.append(
                 Diagnostic(
                     severity="warning",
@@ -1243,6 +1237,33 @@ def check_ordering_blank_lines(
     return warnings
 
 
+def check_case_variant_blank_ids(blank_ids: Sequence[str]) -> list[Diagnostic]:
+    """
+    fill-in.md, "Blank definitions": blank ids are compared exactly, so two
+    ids that differ only in ASCII case are two blanks. CommonMark would
+    merge them, so warn (`case-variant-blank-id`).
+    """
+    first_by_folded: dict[str, str] = {}
+    warnings = []
+    for index, blank_id in enumerate(blank_ids):
+        folded = blank_id.lower()
+        first = first_by_folded.setdefault(folded, blank_id)
+        if first != blank_id:
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="case-variant-blank-id",
+                    path=("blanks", index, "id"),
+                    message=(
+                        f"blank id {blank_id!r} differs from {first!r} only in "
+                        f"case; blank ids are case-sensitive, but CommonMark "
+                        f"labels are not"
+                    ),
+                )
+            )
+    return warnings
+
+
 def check_ordering_reject_without_feedback(
     question: _ordering.OrderingQuestion,
 ) -> list[Diagnostic]:
@@ -1256,8 +1277,8 @@ def check_ordering_reject_without_feedback(
                     code="reject-without-feedback",
                     path=("reject", index),
                     message=(
-                        f"reject[{index}] declares no feedback, which is its "
-                        f"whole purpose"
+                        f"reject[{index}] declares no feedback, so it explains "
+                        f"nothing to the student"
                     ),
                 )
             )
