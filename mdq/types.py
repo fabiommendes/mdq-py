@@ -144,6 +144,7 @@ class ExamDict(TypedDict, total=False):
     author: str
     locale: str
     instructions: str
+    comment: str
     tags: list[str]
     meta: dict[str, Any]
     penalty: PenaltyPolicy

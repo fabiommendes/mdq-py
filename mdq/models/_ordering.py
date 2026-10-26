@@ -9,6 +9,7 @@ from collections import Counter
 from typing import Annotated, Any, Iterable, Literal, Self
 
 from pydantic import (
+    AfterValidator,
     Field,
     StringConstraints,
     ValidationInfo,
@@ -36,10 +37,29 @@ LineText = Annotated[
     str, StringConstraints(pattern=r"^(?:[^ \t\r\n](?:[^\r\n]*[^ \t\r\n])?)?$")
 ]
 
+
+
+def _check_blank_line_is_level_zero(line: tuple[int, str]) -> tuple[int, str]:
+    """
+    A blank line is at level 0 (ordering.md, "Whitespace"): the schema
+    requires `level: 0` when the text is empty.
+
+    Raises:
+        ValueError: a line with empty text has a level above 0.
+    """
+    level, text = line
+    if text == "" and level != 0:
+        raise ValueError("a blank line must be at level 0")
+    return line
+
+
 #: One line of an ordering question, as an `[indentation level, text]`
 #: pair. The level counts indentation units, not spaces, and the text
-#: carries no leading indentation of its own.
-OrderingLine = tuple[Annotated[int, Field(ge=0)], LineText]
+#: carries no leading indentation of its own. A blank line is at level 0.
+OrderingLine = Annotated[
+    tuple[Annotated[int, Field(ge=0)], LineText],
+    AfterValidator(_check_blank_line_is_level_zero),
+]
 
 
 class OrderingAlternative(MdqModel):
@@ -194,6 +214,37 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
                 (),
                 self.lines,
             )
+        return self
+
+    @model_validator(mode="after")
+    def check_answers_not_empty(self) -> Self:
+        """
+        The `lines` block and every `accept` entry MUST hold at least one
+        line after normalization: under `skip-blanks`, a block of blank
+        lines is empty. An empty `reject` entry stays valid, since it can
+        give feedback to an empty submission (ordering.md#additional-rules).
+
+        Raises:
+            PydanticCustomError: `empty-ordering-answer` -- the `lines`
+                block or some `accept` entry is empty after normalization.
+        """
+        if not self.comparison_key(self.lines):
+            _raise_unique_id_error(
+                type(self).__name__,
+                "empty-ordering-answer",
+                "the lines block is empty after normalization",
+                ("lines",),
+                self.lines,
+            )
+        for index, alt in enumerate(self.accept):
+            if not self.comparison_key(alt.lines):
+                _raise_unique_id_error(
+                    type(self).__name__,
+                    "empty-ordering-answer",
+                    "an accept entry is empty after normalization",
+                    ("accept", index),
+                    alt.lines,
+                )
         return self
 
     @model_validator(mode="after")

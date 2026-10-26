@@ -74,7 +74,10 @@ def test_paragraph_round_trips_soft_wraps_collapsed(text: str) -> None:
     """
     [(kind, once)] = reconstruct_blocks(text)
     assert kind == "paragraph"
-    assert "\n" not in once
+    # Only a hard break (two spaces or `\\` before the line ending) keeps its
+    # line ending.
+    for before in once.split("\n")[:-1]:
+        assert before.endswith("  ") or before.endswith("\\")
 
     [(_, twice)] = reconstruct_blocks(once)
     assert twice == once

@@ -219,18 +219,17 @@ def effective_flags(flags: str) -> frozenset[str]:
 #
 # Python and JavaScript disagree on `.`, `\d`, `\w`, `\s` and `\b`, so those
 # are written as explicit classes. `re.ASCII` is not an option: it breaks `i`
-# on non-ASCII text. Each shorthand class is wrapped in `(?-i:...)`, so `i`
-# never makes `\w` match U+017F or U+212A, which Python `re.IGNORECASE` would
-# otherwise do for `[A-Za-z]`.
+# on non-ASCII text. Under `i` a shorthand class folds like any other class
+# (JavaScript `ui`), so `\w` matches U+017F and U+212A.
 #
 _WORD = "A-Za-z0-9_"
 _SHORTHAND = {
-    "d": "(?-i:[0-9])",
-    "D": "(?-i:[^0-9])",
-    "w": f"(?-i:[{_WORD}])",
-    "W": f"(?-i:[^{_WORD}])",
-    "s": f"(?-i:[{UNICODE_SPACE}])",
-    "S": f"(?-i:[^{UNICODE_SPACE}])",
+    "d": "[0-9]",
+    "D": "[^0-9]",
+    "w": f"[{_WORD}]",
+    "W": f"[^{_WORD}]",
+    "s": f"[{UNICODE_SPACE}]",
+    "S": f"[^{UNICODE_SPACE}]",
 }
 _BOUNDARY = {
     "b": f"(?:(?<![{_WORD}])(?=[{_WORD}])|(?<=[{_WORD}])(?![{_WORD}]))",
@@ -390,11 +389,19 @@ class _Translator:
                 found = _BRACED_ESCAPE_RE.match(self.body, self.index)
                 if found is None or int(found.group(1), 16) > 0x10FFFF:
                     raise self._error("invalid \\u{...} escape")
+                value = int(found.group(1), 16)
+                if 0xD800 <= value <= 0xDFFF:
+                    raise self._error("surrogate escape is not a code point")
                 self.index = found.end()
-                return int(found.group(1), 16)
+                return value
             if _HEX4_RE.fullmatch(self.body, self.index + 2, self.index + 6):
+                value = int(self.body[self.index + 2 : self.index + 6], 16)
+                if 0xD800 <= value <= 0xDFFF:
+                    raise self._error(
+                        "surrogate escape, write the code point as \\u{...}"
+                    )
                 self.index += 6
-                return int(self.body[self.index - 4 : self.index], 16)
+                return value
         raise self._error(f"unsupported escape {self.body[self.index:self.index + 2]!r}")
 
     def _class(self) -> str:

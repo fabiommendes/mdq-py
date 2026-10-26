@@ -24,7 +24,12 @@ from .._include_keys import include_key_hint, misspelled_include_key
 from ..errors import IncompleteQuestion, MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
 from ._choices import SLUG_PREFIX_RE
-from ._frontmatter import _load_frontmatter_yaml, _normalize_tags, _split_frontmatter
+from ._frontmatter import (
+    _extract_comment,
+    _load_frontmatter_yaml,
+    _normalize_tags,
+    _split_frontmatter,
+)
 from ._frontmatter import _invalid_frontmatter_fields
 from ._question import BRACKET_ITEM_RE, _matches_tag, parse_question
 
@@ -158,6 +163,9 @@ def parse_exam(
     for key in EXAM_PASSTHROUGH_KEYS:
         if key in front and not (key == "id" and front[key] is None):
             doc[key] = front[key]
+    # The comment string of the frontmatter, as in a question.
+    if frontmatter_text is not None and (comment := _extract_comment(frontmatter_text)):
+        doc["comment"] = comment
     # A null `tags` is absent, as in a question.
     if front.get("tags") is not None:
         doc["tags"] = _normalize_tags(front["tags"])

@@ -302,7 +302,8 @@ def _validate_free_text(value: str, info: ValidationInfo) -> str:
     if not _lint.has_visible_character(value):
         raise PydanticCustomError(
             "blank-text",
-            f"'{info.field_name}' is defined but has no visible characters",
+            f"'{to_camel(info.field_name or '')}' is defined but has no "
+            f"visible characters",
         )
     return value
 

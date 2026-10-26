@@ -124,6 +124,11 @@ ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
 SHORT_ANSWER_RE = re.compile(
     r"^\[short-answer(?:/(?P<variant>accept|reject))?\][ \t]*:[ \t]*(?P<rest>.*)$"
 )
+#: The start of a line that opens with the bare tag of a short answer and
+#: goes on with something that is not a colon, a link or a reference.
+SHORT_ANSWER_TAG_START_RE = re.compile(
+    r"^(?P<tag>\[short-answer(?:/(?:accept|reject))?\])(?![ \t]*:)(?![(\[])(?P<after>.*)$"
+)
 #: The tag of a short answer with no pattern, written without a colon
 #: (question-base.md, "Body tags").
 SHORT_ANSWER_BARE_RE = re.compile(r"^\[short-answer(?:/(?P<variant>accept|reject))?\]$")
@@ -417,7 +422,7 @@ class MDQParser:
             source = self.inline_source(node)
             if source is not None:
                 content = _restore_trimmed(content, source)
-            return content.replace("\n", " ")
+            return _join_soft_breaks(content)
         lines = self.raw_lines(node)
         # markdown-it's `.map` for a list (bullet or ordered) that is not
         # the last block in the document extends one line past the list's
@@ -564,7 +569,9 @@ class MDQParser:
 
         Scans from the start of the document (independent of `self.pos`,
         which is still 0 at call time) for the first paragraph matching a
-        known body tag, or the first bracket-led bullet list.
+        known body tag, or the first bracket-led bullet list. A document
+        that declares `type: fill-in` and has none is a stem with no blank:
+        the result is then the number of nodes.
 
         Raises:
             MissingField: If no body node is found. The message says so when
@@ -593,6 +600,10 @@ class MDQParser:
                 "body",
                 message=_setext_message(setext_tag),
             )
+        if self.frontmatter.get("type") == "fill-in":
+            # A fill-in stem with no blank has no body at all: every block
+            # is the stem and `blanks` stays empty (fill-in.md).
+            return len(self.children)
         raise MissingField("body")
 
     #
@@ -920,6 +931,7 @@ class MDQParser:
             self.check_no_adjacent_list(node)
         if node.type == "fence":
             return "code", fence_language(node.info), ordering_code_lines(node.content)
+        self.check_ordering_item_blocks(node)
         depths: dict[int, int] = {}
         parents: set[int] = set()
         collect_item_depths(node, 0, depths, parents)
@@ -929,6 +941,28 @@ class MDQParser:
             None,
             ordering_ul_lines(self.raw_lines(node), depths, first_line, parents),
         )
+
+    def check_ordering_item_blocks(self, node: Node) -> None:
+        """
+        Raise a `ParseError` if an item of the `ul` block `node`, at any
+        depth, holds a block that is neither a paragraph nor a nested list:
+        indented code, a heading, a block quote, a fence, an HTML block or
+        a thematic break (ordering.md, "Body"). An item is one paragraph.
+        """
+        for item in node.children:
+            if item.type != "list_item":
+                continue
+            for child in item.children:
+                if child.type in ("bullet_list", "ordered_list"):
+                    self.check_ordering_item_blocks(child)
+                elif child.type != "paragraph":
+                    line = self.raw_lines(item)[0].strip(" \t")
+                    raise ParseError(
+                        f"an ordering item is one paragraph, but the item "
+                        f"{line!r} holds a "
+                        f"{_BLOCK_NAMES.get(child.type, child.type)}",
+                        item,
+                    )
 
     def parse_ordering_observations(self) -> tuple[str | None, str | None]:
         """
@@ -1156,16 +1190,23 @@ class MDQParser:
                 "followed by a pattern or a list"
             )
         node = self.seek()
-        if (
+        adjacent = (
             node is not None
-            and node.type == "bullet_list"
             and node.map is not None
             and tag_node.map is not None
             and node.map[0] == tag_node.map[1]
-        ):
+        )
+        if adjacent and node is not None and node.type == "bullet_list":
             raise ParseError(
                 f"[{tag}] without a colon has no content: write `[{tag}]:` "
                 "before a list of patterns"
+            )
+        if adjacent and node is not None and node.type == "blockquote":
+            raise ParseError(
+                f"a line that starts with '>' cannot follow [{tag}] without a "
+                f"colon: it would be feedback for no pattern; write `[{tag}]:` "
+                "with a pattern or a list, or leave a blank line before the "
+                "epilogue"
             )
         return []
 
@@ -1395,8 +1436,11 @@ class MDQParser:
         for node in self.children:
             if node.type != "paragraph":
                 continue
-            for label, colon in tag_lines(self.raw_text(node), self.raw_lines(node)):
+            text = self.raw_text(node)
+            lines = self.raw_lines(node)
+            for label, colon in tag_lines(text, lines):
                 check_tag_label(label, colon)
+            check_bare_tag_alone(text, lines)
 
     def report_detached_tags(self, blocks: list[Node], *, fill_in: bool) -> None:
         """
@@ -1652,10 +1696,14 @@ class MDQParser:
 
         question_type = self.frontmatter.get("type")
         node = self.seek()
-        assert node is not None
         epilogue_nodes: list[Node] | None = None
 
-        if node.type == "bullet_list":
+        if node is None:
+            # `find_body_start` found no body: a fill-in stem with no blank.
+            # The schema reports the empty `blanks` list.
+            question_type = "fill-in"
+            self.state["blanks"] = []
+        elif node.type == "bullet_list":
             # Ambiguous between multiple-choice / multiple-selection /
             # true-false: infer from the bracket values unless declared.
             body_node = self.expect("bullet_list", "malformed choice list")
@@ -1737,6 +1785,29 @@ def tag_lines(text: str, lines: list[str]) -> list[tuple[str, bool]]:
         if colon is not None:
             found.append((colon.group("label"), True))
     return found
+
+
+def check_bare_tag_alone(text: str, lines: list[str]) -> None:
+    """
+    Raise a `ParseError` if a paragraph starts with the bare tag
+    `[short-answer]` (or its `/accept` or `/reject` form) and holds more
+    text, on the same line or on a lazy line: the bare tag is a paragraph of
+    its own (short-answer.md, "Block with no pattern").
+
+    Args:
+        text: The text of the paragraph, as `MDQParser.raw_text` gives it.
+        lines: The raw source lines of the paragraph.
+    """
+    m = SHORT_ANSWER_TAG_START_RE.match(lines[0]) if lines else None
+    if m is None:
+        return
+    after = m.group("after").strip(" \t")
+    if after or len(lines) > 1:
+        raise ParseError(
+            f"text follows the tag {m.group('tag')} in its paragraph: write "
+            f"`{m.group('tag')}:` before a pattern, or leave the tag "
+            "alone in its paragraph"
+        )
 
 
 def is_reserved_label(label: str) -> bool:
@@ -1937,6 +2008,23 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     """
     reader = MDQParser(src)
     return [(node.type, reader.block_text(node)) for node in reader.children]
+
+
+def _join_soft_breaks(content: str) -> str:
+    """
+    Join the soft line breaks of a paragraph into one space.
+
+    A hard break (two or more spaces, or an unescaped `\\`, before the
+    line ending) is kept byte for byte, line ending included
+    (question-base.md, "Stem").
+    """
+    lines = content.split("\n")
+    out = lines[0]
+    for line in lines[1:]:
+        trailing_backslashes = len(out) - len(out.rstrip("\\"))
+        hard = out.endswith("  ") or trailing_backslashes % 2 == 1
+        out += ("\n" if hard else " ") + line
+    return out
 
 
 def _restore_trimmed(content: str, source: str) -> str:

@@ -38,6 +38,15 @@ Implements the unreleased MDQ specification.
 - Regex (breaking): the body scanner of `mdq.models._regex` is an allow-list that follows the table of `patterns.md`, and it translates the body to Python `re` in the same pass. Constructs outside the table are an `invalid-regex`, including the ones Python accepts (possessive quantifiers, `\A`, `\Z`, `\a`, `{,n}`, a lone `{`, `}` or `]`, `\-` outside a class, identity escapes) and the ones JavaScript accepts (named groups, backreferences, `\0`, `[]`, `[^]`). `.` is the class `[^\n\r\u2028\u2029]`, so it no longer matches CR, U+2028 and U+2029. The `n` flag and step 3 of the inexact comparison read the `nonspacing` table of `inexact-tables.json`, not `unicodedata.category`.
 - A pattern item of the Markdown body that starts a block other than a paragraph (`* > x`, `* # x`, `* - x`, `* 1. x`, `* <div>`) is a `parse-error`. `render()` writes such a pattern as an exact literal in a list item (the tag line form is unchanged). A `01.` line after a feedback line is a list start, so it is a `parse-error`, no longer feedback text.
 - New warning `multi-line-pattern`: the parser reports an exact literal or a regex of the Markdown body written on more than one line. `tests/_corpus.py` lists it as a parser-only code.
+- Second spec audit (2026-10-26):
+  - New lint code `empty-ordering-answer` for an empty `[ordering]` block or `## [accept]` entry. An ordering `ul` item that is not one paragraph is a `parse-error`. A bare `[short-answer]` paragraph with more text, and a `>` or `!` line right after a bare short answer tag, are a `parse-error`.
+  - The exam parser and model store the frontmatter comment string as `comment`. `Exam.lint()` reports `missing-title` (info) for an exam with no title.
+  - Regex: shorthand classes fold under `i` (`(?-i:...)` is gone), so `/\w/i` matches `ſ` and U+212A. A `\uHHHH` escape in D800-DFFF is an `invalid-regex`.
+  - `stem`, `epilogue` and `instructions` keep hard breaks byte for byte; only soft breaks join into one space.
+  - The lines of a `[short-answer]:` list are syntax positions, so a non-ASCII whitespace there is reported.
+  - A `[^x]` inside an autolink is literal; a definition of that id gets `unreferenced-blank`. A Markdown fill-in with no blank gives `blanks: []` and the `schema-error` at `blanks`. The `blank-text` path of a blank `incorrectFeedback` is `blanks[i].incorrectFeedback`.
+  - True/false: `ru V`, `bn M` and `mr B` get `locale-mismatched-true-false-marker`; `sw K` gets `unlisted-true-false-marker`. `H` leaves the `sw` false friends, `否` joins `zh`, `fil` is its own row. A `marker` with whitespace around the letter is `malformed-true-false-marker`.
+  - The message of `relative-tolerance-over-one` says that the tolerance stores a fraction.
 
 ### Fixed
 

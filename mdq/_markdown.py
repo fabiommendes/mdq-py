@@ -90,6 +90,11 @@ md.block.ruler.before("table", "mdq_item_indent", _record_item_indent)
 _BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\](?![(\[])")
 
 
+#: The `markup` of the `link_open` token of an autolink: `<https://...>`
+#: and the bare URL or `www.` address of GFM.
+_AUTOLINK_MARKUPS = frozenset({"autolink", "linkify"})
+
+
 def find_blank_markers(text: str) -> list[tuple[str, bool]]:
     """
     fill-in.md, "Where blanks may appear": find the `[^id]` markers of a
@@ -98,8 +103,9 @@ def find_blank_markers(text: str) -> list[tuple[str, bool]]:
     The inline parse of each paragraph comes first (CommonMark). A marker
     is misplaced if it sits in a heading, list item, table cell or
     blockquote, or inside emphasis, a strong span, link text or image alt
-    text. Code (fenced, indented or a code span) is literal text: it
-    holds no marker. `[^x](url)` and `[^x][ref]` are links, not markers.
+    text. Code (fenced, indented or a code span) and the text of an
+    autolink (`<https://...>`, a bare URL, a `www.` address) are literal:
+    they hold no marker. `[^x](url)` and `[^x][ref]` are links, not markers.
 
     Args:
         text: A fill-in question's stem.
@@ -140,11 +146,19 @@ def _markers_in_inline(
     """Markers of one inline run, flagged when outside plain paragraph text."""
     found: list[tuple[str, bool]] = []
     depth = 0
+    #: Depth at which an autolink opened; its text is the address, literal.
+    autolink_depth: int | None = None
     for token in children:
         if token.nesting == 1:
             depth += 1
+            if autolink_depth is None and token.markup in _AUTOLINK_MARKUPS:
+                autolink_depth = depth
         elif token.nesting == -1:
+            if depth == autolink_depth:
+                autolink_depth = None
             depth -= 1
+        elif autolink_depth is not None:
+            continue
         elif token.type == "image":
             # Alt text: the children are the inline tokens of the label.
             found.extend(_markers_in_inline(token.children or [], True))

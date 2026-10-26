@@ -46,9 +46,10 @@ _TAG_LINE_RE = re.compile(rf"\[[^\]\r\n]*\]{_SPACE}*:")
 #: The bracketed tags at the start of a choice item or a stem, as in
 #: `[*] [ipe]`, with the spaces around them.
 _BRACKETS_RE = re.compile(rf"(?:\[[^\]\r\n]*\]{_SPACE}*)+")
-#: The tag before an `accept` or `reject` pattern list.
+#: The tag before a pattern list: `[short-answer]`, with or without
+#: `/accept` or `/reject`, and the same tags of a fill-in blank.
 _PATTERN_LIST_TAG_RE = re.compile(
-    r"^\[(?:short-answer|\^[^\]/]+/short-answer)/(?:accept|reject)\]"
+    r"^\[(?:short-answer|\^[^\]/]+/short-answer)(?:/(?:accept|reject))?\]"
 )
 #: A code span: a run of backticks, up to the next run of the same length.
 _CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
@@ -123,7 +124,7 @@ def _in_syntax_position(line: str, column: int) -> bool:
 
 
 def _pattern_line_indices(body: str) -> set[int]:
-    """The first line of each item of an `accept` or `reject` pattern list."""
+    """The first line of each item of a short-answer or fill-in pattern list."""
     indices: set[int] = set()
     after_tag = False
     in_pattern_list = False

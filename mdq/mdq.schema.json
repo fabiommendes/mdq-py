@@ -70,7 +70,7 @@
             },
             "answerKey": {
               "type": "string",
-              "description": "A model answer, written as Markdown. In a Markdown source it is the content of the `## [answer-key]` section, without the heading. It guides the instructor while grading. A host MUST NOT show it to the student before the student submits the response, and MAY show it after, even while the response is pending. An empty or whitespace-only value is a `blank-text` error, like `title`."
+              "description": "A model answer, written as Markdown. In a Markdown source it is the content of the `## [answer-key]` section, without the heading. It guides the instructor while grading. A host MUST NOT show it to the student before the student submits the response, and MAY show it after, even while the response is pending. An empty value or one with no visible character is a `blank-text` error, like `title`."
             }
           },
           "required": [
@@ -148,6 +148,10 @@
         "instructions": {
           "type": "string",
           "description": "The paragraphs between the title and the first question, shown to the student before the assessment begins. May contain Markdown."
+        },
+        "comment": {
+          "type": "string",
+          "description": "Free-form text shown only to instructors, never to students. In Markdown it is the comment string of the frontmatter: the leading `#` lines, as for a question."
         },
         "tags": {
           "type": "array",
@@ -484,7 +488,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response that no pattern gave feedback to, with the same meaning as the `incorrectFeedback` of a short-answer question (short-answer.md, \"Feedback\"). Inline markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
+              "description": "Feedback for an incorrect response that no pattern gave feedback to, with the same meaning as the `incorrectFeedback` of a short-answer question (short-answer.md, \"Feedback\"). Block Markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
             }
           },
           "required": [
@@ -539,7 +543,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance, with the same meaning as the `incorrectFeedback` of a numeric question (numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
+              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance, with the same meaning as the `incorrectFeedback` of a numeric question (numeric.md, \"Feedback\"). Block Markdown, like the feedback of a pattern. In Markdown, the `incorrectFeedback` map of the frontmatter sets it, keyed by blank id (`incorrectFeedback: {<id>: ...}`)."
             }
           },
           "required": [
@@ -554,7 +558,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/multiple-choice.yaml",
       "title": "Multiple choice question",
-      "description": "A question where the student must select exactly one choice out of a list of options. Extends the common question-base schema with a `choices` field.",
+      "description": "A question where the student must select exactly one choice out of a list of options. Extends the common question-base schema with the `choices`, `grading` and `shuffle` fields.",
       "allOf": [
         {
           "$ref": "./question-base.yaml"
@@ -626,7 +630,7 @@
               "type": "number",
               "minimum": -1,
               "maximum": 1,
-              "description": "Numeric grade associated with the choice, on a scale from -1 to 1. 1 is considered correct and 0 incorrect. The instructor may omit this for incorrect choices, or set negative values as penalties for selecting a wrong choice. A question never clamps its own score -- whether a negative value survives into the exam total is decided entirely by the exam's `penalty` policy (see schema/exam.yaml), never here. A value outside [-1, 1] is a malformed question, not a clamped grade."
+              "description": "Numeric grade associated with the choice, on a scale from -1 to 1. 1 is considered correct and 0 incorrect. When the score is omitted, its value depends on the grading strategy: 0 under `partial`, and the score that the `symmetric` strategy derives under `symmetric` (see the Grading section of docs/question-types/multiple-choice.md). The instructor may set negative values as penalties for selecting a wrong choice. A question never clamps its own score -- whether a negative value survives into the exam total is decided entirely by the exam's `penalty` policy (see schema/exam.yaml), never here. A value outside [-1, 1] is a malformed question, not a clamped grade."
             },
             "feedback": {
               "type": "string",
@@ -674,7 +678,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for multiple selection: its `multiple-selection` entry when it is a map, `symmetric` if the entry is missing, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for multiple selection: its `multiple-selection` entry when it is a map, `symmetric` if the exam has no `grading` or its map has no `multiple-selection` entry, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -740,7 +744,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml",
       "title": "Numeric question",
-      "description": "A question where the student must enter a numeric value, graded against an expected answer within an optional tolerance. Extends the common question-base schema with `answer` and `tolerance` fields.",
+      "description": "A question where the student must enter a numeric value, graded against an expected answer within an optional tolerance. Extends the common question-base schema with the `answer`, `unit`, `domain`, `decimalPlaces`, `tolerance` and `incorrectFeedback` fields.",
       "allOf": [
         {
           "$ref": "./question-base.yaml"
@@ -786,7 +790,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance. Never shown for a correct, malformed or skipped response (docs/question-types/numeric.md, \"Feedback\"). Inline markdown, like the feedback of a pattern."
+              "description": "Feedback for an incorrect response: a well-formed response outside the accepted tolerance. Never shown for a correct, malformed or skipped response (docs/question-types/numeric.md, \"Feedback\"). Block Markdown (paragraphs allowed) with at least one visible character."
             }
           },
           "required": [
@@ -834,17 +838,17 @@
               "const": "ordering"
             },
             "lines": {
-              "description": "The lines to be ordered, in the main correct order (part of the answer key, with `accept`). Students are always shown them shuffled, together with `extra`. The same line may appear more than once; each occurrence is a separate copy the student must place.",
+              "description": "The lines to be ordered, in the main correct order (part of the answer key, with `accept`). Students are shown them shuffled, together with `extra`. The `lines` need at least one line after normalization (a model rule). The same line may appear more than once; each occurrence is a separate copy the student must place.",
               "$ref": "#/$defs/Lines",
               "minItems": 2
             },
             "extra": {
-              "description": "Distractor lines, shuffled in among `lines` and never part of a correct response. A distractor may repeat a line of `lines`, which hands the student a spare copy of a line they do need.",
+              "description": "Distractor lines, shuffled in among `lines`. A distractor may repeat a line of `lines`, which hands the student another copy of a line they do need. A correct response is any response equal to a declared answer after normalization, whatever pool lines it uses.",
               "$ref": "#/$defs/Lines"
             },
             "accept": {
               "type": "array",
-              "description": "Alternative orderings that are also correct, each scoring 1 like `lines` itself. An alternative may leave lines out, but it may only use lines of `lines`, and no more copies of one than `lines` has (not a distractor from `extra`). A model rule, not expressed in this schema.",
+              "description": "Alternative orderings that are also correct, each scoring 1 like `lines` itself. An alternative may leave lines out, but it may only use lines of `lines`, identified by line identity (see docs/question-types/ordering.md#line-identity), and no more copies of one than `lines` has (not a distractor from `extra`). It must have at least one line after normalization. Model rules, not expressed in this schema.",
               "items": {
                 "$ref": "#/$defs/Alternative"
               },
@@ -852,7 +856,7 @@
             },
             "reject": {
               "type": "array",
-              "description": "Orderings known to be wrong, each scoring 0. They attach feedback to a mistake the author expects, and under `unmatched: manual` they settle a matching response that would otherwise be pending. An alternative must not equal `lines` or an `accept` entry, and one that uses lines `lines` and `extra` do not offer can never match. Model rules, not expressed in this schema.",
+              "description": "Orderings known to be wrong, each scoring 0. They attach feedback to a mistake the author expects, and under `unmatched: manual` they settle a matching response that would otherwise be pending. An alternative must not equal `lines` or an `accept` entry after normalization, and one that uses lines `lines` and `extra` do not offer can never match. An alternative that is empty after normalization is valid. Model rules, not expressed in this schema.",
               "items": {
                 "$ref": "#/$defs/Alternative"
               },
@@ -893,7 +897,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response that no `reject` entry gave feedback to: a response that matches nothing under `unmatched: incorrect`, or one that matches a `reject` entry with no feedback. Inline markdown, like the feedback of an entry. Never shown for a pending response."
+              "description": "Feedback for an incorrect response that no `reject` entry gave feedback to: a response that matches nothing under `unmatched: incorrect`, or one that matches a `reject` entry with no feedback. Block Markdown, like the feedback of an entry. Never shown for a pending response."
             },
             "normalizations": {
               "type": "array",
@@ -961,7 +965,23 @@
           ],
           "items": false,
           "minItems": 2,
-          "maxItems": 2
+          "maxItems": 2,
+          "if": {
+            "minItems": 2,
+            "prefixItems": [
+              true,
+              {
+                "const": ""
+              }
+            ]
+          },
+          "then": {
+            "prefixItems": [
+              {
+                "const": 0
+              }
+            ]
+          }
         },
         "Alternative": {
           "type": "object",
@@ -1071,7 +1091,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml",
       "title": "Short answer question",
-      "description": "A question answered with a short piece of free text, graded by comparing the response against a list of accepted patterns. Extends the common question-base schema.",
+      "description": "A question answered with a short piece of free text, graded by comparing the response against a list of accepted patterns. Extends the common question-base schema with the `accept`, `reject`, `preAccept`, `preReject`, `diacritics`, `unmatched` and `incorrectFeedback` fields.",
       "allOf": [
         {
           "$ref": "./question-base.yaml"
@@ -1106,7 +1126,7 @@
             },
             "incorrectFeedback": {
               "type": "string",
-              "description": "Feedback for an incorrect response that no pattern gave feedback to: a response that matches no pattern under `unmatched: incorrect`, or one that matches a `reject` pattern with no feedback. Inline markdown, like the feedback of a pattern."
+              "description": "Feedback for an incorrect response that no pattern gave feedback to: a response that matches no pattern under `unmatched: incorrect`, or one that matches a `reject` pattern with no feedback. Block Markdown, like the feedback of a pattern."
             }
           },
           "required": [
@@ -1207,7 +1227,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for true/false: its `true-false` entry when it is a map, `symmetric` if the entry is missing, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for true/false: its `true-false` entry when it is a map, `symmetric` if the exam has no `grading` or its map has no `true-false` entry, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -1255,7 +1275,7 @@
             },
             "marker": {
               "type": "string",
-              "description": "The letter of the bracket value in the source document (`T`, `F`, `V`, ...), without the whitespace around it. Only the letter and its case are kept. `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document. When present, its category (TRUE, FALSE or WARNING) must agree with `correct` (`true-false-marker-disagrees-with-correct`). The schema checks only that it is not empty. The letter check (one code point of category Lu, Ll, Lt or Lo, after NFKC normalization and ASCII lowercase) and the reserved `X` are lint rules (`malformed-true-false-marker`, `reserved-true-false-marker`).",
+              "description": "The letter of the bracket value in the source document (`T`, `F`, `V`, ...), without the whitespace around it. Only the letter and its case are kept. `correct` carries the meaning, but the letter itself is needed to warn about WARNING letters and locale mismatches, and to round-trip the document. When present, its category (TRUE, FALSE or WARNING) must agree with `correct` (`true-false-marker-disagrees-with-correct`). The schema checks only that it is not empty. The letter check (one code point of category Lu, Ll, Lt or Lo, after NFKC normalization and ASCII lowercase, with no whitespace around it) and the reserved `X` are lint rules (`malformed-true-false-marker`, `reserved-true-false-marker`).",
               "minLength": 1
             },
             "feedback": {

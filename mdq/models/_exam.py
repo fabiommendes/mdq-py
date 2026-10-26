@@ -320,6 +320,7 @@ class Exam(MdqModel):
     author: FreeText | None = None
     locale: str | None = None
     instructions: FreeText | None = None
+    comment: FreeText | None = None
     tags: list[FreeText] | None = None
     meta: dict[str, object] | None = None
     penalty: PenaltyPolicy = "none"
@@ -697,7 +698,7 @@ class Exam(MdqModel):
         H1 when the exam is parsed again.
         """
         frontmatter = self.to_dict()
-        for key in ("type", "id", "title", "instructions", "questions"):
+        for key in ("type", "id", "title", "instructions", "comment", "questions"):
             frontmatter.pop(key, None)
 
         heading: list[str] = []
@@ -726,8 +727,8 @@ class Exam(MdqModel):
                     placeholder = "Exam"
                 heading.append(placeholder)
 
-        if frontmatter:
-            yield from _render.yield_frontmatter(frontmatter)
+        if frontmatter or self.comment:
+            yield from _render.yield_frontmatter(frontmatter, self.comment)
             yield ""
         yield "# " + " ".join(heading)
         if self.instructions:

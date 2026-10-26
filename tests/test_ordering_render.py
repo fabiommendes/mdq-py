@@ -53,9 +53,10 @@ def skip_blank(lines: list[str], i: int) -> int:
 
 
 def parse_content_block(lines: list[str], i: int) -> tuple[ContentBlock, int]:
-    fence = lines[i][:3]
+    opening = lines[i].lstrip()  # a fence may be indented up to 3 spaces
+    fence = opening[:3]
     if fence in ("```", "~~~"):
-        lang = lines[i][3:].strip() or None
+        lang = opening[3:].strip() or None
         i += 1
         content = []
         while lines[i].strip() != fence:

@@ -1009,9 +1009,9 @@ def check_numeric(
                     code="relative-tolerance-over-one",
                     path=path + ("tolerance", "relative"),
                     message=(
-                        f"a relative tolerance of {relative!r} means "
-                        f"{relative * 100:g}%; it is written as a fraction, "
-                        f"not a percentage"
+                        f"a relative tolerance of {relative!r} is "
+                        f"{relative * 100:g}%: a tolerance above 100% accepts "
+                        f"responses of the opposite sign to the answer"
                     ),
                 )
             )
