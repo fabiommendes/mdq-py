@@ -1,6 +1,6 @@
 """
-Tests for the `invalid-frontmatter-field` error and the `redundant-id`
-warning (docs/question-types/question-base.md, "Frontmatter").
+Tests for the `invalid-frontmatter-field` error
+(docs/question-types/question-base.md, "Frontmatter").
 
 A Markdown frontmatter may hold only the fields of its frontmatter table.
 When a caller passes a `warnings` sink, the parser appends one error
@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pytest
 from hypothesis import given
-from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from mdq import load
@@ -34,21 +33,6 @@ from _corpus import VALID_SOURCES, relative_id
 from _parse import parse_any
 
 runner = CliRunner()
-
-#: A schema-valid value for each of `COMMON_QUESTION_KEYS`, written as it
-#: would appear on the right-hand side of `key: <value>` in a frontmatter
-#: YAML mapping.
-_VALUE_FOR_COMMON_KEY: dict[str, str] = {
-    "type": "essay",
-    "title": "A title",
-    "id": "q-1",
-    "uuid": "11111111-1111-4111-8111-111111111111",
-    "tags": "[intro]",
-    "author": "Ada Lovelace",
-    "locale": "en",
-    "meta": "{}",
-    "weight": "2",
-}
 
 
 def _rules(warnings: list[Diagnostic]) -> list[str]:
@@ -79,30 +63,8 @@ def test_every_frontmatter_key_used_by_a_valid_example_is_known(path: Path) -> N
 
 
 #
-# Focused examples: one per path shape the rule must produce.
+# Focused example: the path of a key in a later question block of an exam.
 #
-def test_unknown_key_on_a_question_is_an_error_with_its_path() -> None:
-    warnings: list[Diagnostic] = []
-    parse_question(
-        "---\nauther: Ada Lovelace\n---\n\nExplain X.\n\n[essay]\n",
-        warnings=warnings,
-    )
-    assert _rules(warnings) == ["invalid-frontmatter-field"]
-    assert warnings[0].severity == "error"
-    assert warnings[0].path == ("auther",)
-    assert "auther" in warnings[0].message
-
-
-def test_unknown_key_on_an_exam_is_an_error_with_its_path() -> None:
-    warnings: list[Diagnostic] = []
-    parse_exam(
-        "---\nfoo: bar\n---\n\n# Exam\n\n===\n\nExplain X.\n\n[essay]\n",
-        warnings=warnings,
-    )
-    assert _rules(warnings) == ["invalid-frontmatter-field"]
-    assert warnings[0].path == ("foo",)
-
-
 def test_unknown_key_in_the_second_block_of_an_exam_has_a_questions_path() -> None:
     warnings: list[Diagnostic] = []
     parse_exam(
@@ -114,15 +76,6 @@ def test_unknown_key_in_the_second_block_of_an_exam_has_a_questions_path() -> No
     )
     assert _rules(warnings) == ["invalid-frontmatter-field"]
     assert warnings[0].path == ("questions", 1, "auther")
-
-
-def test_known_exam_block_key_include_is_not_reported() -> None:
-    warnings: list[Diagnostic] = []
-    parse_exam(
-        "# Exam\n\n---\ninclude: recursion-01\n---\n",
-        warnings=warnings,
-    )
-    assert _rules(warnings) == []
 
 
 def test_parsing_without_a_warnings_sink_stays_silent_and_drops_the_key() -> None:
@@ -156,17 +109,6 @@ def test_arbitrary_unknown_key_on_an_exam_is_reported_exactly_once(key: str) -> 
     )
     assert _rules(warnings) == ["invalid-frontmatter-field"]
     assert warnings[0].path == (key,)
-
-
-@given(key=st.sampled_from(st_frontmatter.COMMON_QUESTION_KEYS))
-def test_known_common_question_keys_are_never_reported(key: str) -> None:
-    warnings: list[Diagnostic] = []
-    value = _VALUE_FOR_COMMON_KEY[key]
-    parse_question(
-        f"---\n{key}: {value}\n---\n\nExplain X.\n\n[essay]\n",
-        warnings=warnings,
-    )
-    assert _rules(warnings) == []
 
 
 #
@@ -213,35 +155,6 @@ def test_an_unknown_key_message_does_not_claim_a_body_field() -> None:
     assert "body" not in d.message
 
 
-def test_the_yaml_form_keeps_every_schema_field_valid() -> None:
-    loaded = load(
-        {"type": "numeric", "stem": "Massa de uma saca de café?", "answer": 60, "unit": "kg"}
-    )
-    assert loaded.document is not None
-    assert not [d for d in loaded.diagnostics if d.code == "invalid-frontmatter-field"]
-
-
-def test_the_yaml_form_reports_an_unknown_key_as_a_schema_error() -> None:
-    loaded = load({"type": "essay", "stem": "Explique.", "auther": "Ada"})
-    assert loaded.document is None
-    assert [d.code for d in loaded.diagnostics] == ["schema-error"]
-
-
-@pytest.mark.parametrize("slug", ["saca", "Q1"])
-def test_id_in_the_frontmatter_and_as_a_slug_is_redundant(slug: str) -> None:
-    source = f"---\nid: saca\n---\n\n[{slug}] Massa de uma saca de café?\n\n[numeric]: 60\n"
-    loaded = load(source, format="mdq")
-    [d] = [d for d in loaded.diagnostics if d.code == "redundant-id"]
-    assert (d.severity, d.path) == ("warning", ("id",))
-    assert loaded.document is not None and loaded.document.id == "saca"
-    assert ("wins" in d.message) == (slug != "saca")
-
-
-def test_a_slug_without_an_id_in_the_frontmatter_is_not_redundant() -> None:
-    loaded = load("[Q1] Massa de uma saca de café?\n\n[numeric]: 60\n", format="mdq")
-    assert "redundant-id" not in [d.code for d in loaded.diagnostics]
-
-
 #
 # CLI, end to end.
 #
@@ -275,3 +188,25 @@ def test_documented_exam_keys_are_the_properties_of_the_bundled_frontmatter_sche
 
     schema = load_schema_bundle()["$defs"]["frontmatter-exam"]
     assert set(schema["properties"]) == set(st_frontmatter.EXAM_KEYS)
+
+
+def test_unknown_key_on_a_question_is_an_error_with_its_path() -> None:
+    warnings: list[Diagnostic] = []
+    parse_question(
+        "---\nauther: Ada Lovelace\n---\n\nExplain X.\n\n[essay]\n",
+        warnings=warnings,
+    )
+    assert _rules(warnings) == ["invalid-frontmatter-field"]
+    assert warnings[0].severity == "error"
+    assert warnings[0].path == ("auther",)
+    assert "auther" in warnings[0].message
+
+
+@pytest.mark.parametrize("slug", ["saca", "Q1"])
+def test_id_in_the_frontmatter_and_as_a_slug_is_redundant(slug: str) -> None:
+    source = f"---\nid: saca\n---\n\n[{slug}] Massa de uma saca de café?\n\n[numeric]: 60\n"
+    loaded = load(source, format="mdq")
+    [d] = [d for d in loaded.diagnostics if d.code == "redundant-id"]
+    assert (d.severity, d.path) == ("warning", ("id",))
+    assert loaded.document is not None and loaded.document.id == "saca"
+    assert ("wins" in d.message) == (slug != "saca")

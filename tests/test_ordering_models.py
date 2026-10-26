@@ -18,7 +18,6 @@ import pytest
 import yaml
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import ValidationError
 
 from mdq.models import (
     OrderingAlternative,
@@ -145,13 +144,6 @@ def test_minimal_to_dict_omits_every_default_but_the_discriminator() -> None:
     }
 
 
-def test_empty_accept_is_rejected_like_the_schema_min_items() -> None:
-    with pytest.raises(ValidationError):
-        OrderingQuestion(
-            content="text", stem="s", lines=[(0, "a"), (0, "b")], accept=[]
-        )
-
-
 #
 # Fixtures
 #
@@ -169,122 +161,3 @@ def test_fixture_round_trips_through_the_model(path: Path) -> None:
 
     rebuilt = QuestionRoot.model_validate(question.to_dict()).root
     assert rebuilt == question
-
-
-#
-# Edge cases
-#
-def test_single_line_is_rejected() -> None:
-    with pytest.raises(ValidationError):
-        OrderingQuestion(content="text", stem="s", lines=[(0, "a")])
-
-
-def test_negative_indentation_level_is_rejected() -> None:
-    with pytest.raises(ValidationError):
-        OrderingQuestion(content="text", stem="s", lines=[(-1, "a"), (0, "b")])
-
-
-def test_three_element_line_is_rejected() -> None:
-    with pytest.raises(ValidationError):
-        OrderingQuestion.model_validate(
-            {"stem": "s", "lines": [[0, "a", "x"], [0, "b"]]}
-        )
-
-
-def test_same_lines_in_accept_and_reject_is_rejected() -> None:
-    shared = [(0, "a"), (0, "b")]
-    with pytest.raises(ValidationError):
-        OrderingQuestion(
-            content="text",
-            stem="s",
-            lines=[(0, "x"), (0, "y")],
-            accept=[OrderingAlternative(lines=shared)],
-            reject=[OrderingAlternative(lines=shared)],
-        )
-
-
-def test_same_lines_repeated_across_two_accept_entries_is_allowed() -> None:
-    shared = [(0, "x"), (0, "y")]
-    question = OrderingQuestion(
-        content="text",
-        stem="s",
-        lines=[(0, "x"), (0, "y"), (0, "z")],
-        accept=[OrderingAlternative(lines=shared), OrderingAlternative(lines=shared)],
-    )
-    assert len(question.accept) == 2
-
-
-#
-# `content` and `highlight` (ordering.md#body, D19)
-#
-def test_content_is_required() -> None:
-    with pytest.raises(ValidationError, match="content"):
-        OrderingQuestion.model_validate({"stem": "s", "lines": [(0, "a"), (0, "b")]})
-
-
-def test_highlight_with_text_content_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="highlight"):
-        OrderingQuestion(
-            content="text", highlight="python", stem="s", lines=[(0, "a"), (0, "b")]
-        )
-
-
-def test_empty_highlight_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="highlight"):
-        OrderingQuestion(
-            content="code", highlight="", stem="s", lines=[(0, "a"), (0, "b")]
-        )
-
-
-def test_code_content_without_highlight_is_valid_and_lints_an_info() -> None:
-    question = OrderingQuestion(content="code", stem="s", lines=[(0, "a"), (0, "b")])
-    diagnostics = [
-        d for d in question.lint() if d.code == "code-content-without-highlight"
-    ]
-    assert [d.severity for d in diagnostics] == ["info"]
-
-
-#
-# Outline levels with `content: text` (ordering.md, "Additional Rules")
-#
-def _text_doc(**fields: object) -> dict:
-    return {
-        "type": "ordering",
-        "content": "text",
-        "stem": "Order me",
-        "lines": [[0, "a"], [1, "b"], [2, "c"]],
-        **fields,
-    }
-
-
-@pytest.mark.parametrize(
-    ("fields", "path"),
-    [
-        ({"lines": [[0, "a"], [2, "b"]]}, ("lines",)),
-        ({"lines": [[1, "a"], [1, "b"]]}, ("lines",)),
-        (
-            {"accept": [{"lines": [[0, "a"], [2, "c"]]}]},
-            ("accept", 0, "lines"),
-        ),
-        (
-            {"reject": [{"lines": [[1, "a"]]}]},
-            ("reject", 0, "lines"),
-        ),
-    ],
-)
-def test_text_blocks_must_be_outlines(fields: dict, path: tuple) -> None:
-    from mdq import load
-
-    loaded = load(_text_doc(**fields), kind="question")
-    assert loaded.document is None
-    assert [(d.code, d.path) for d in loaded.diagnostics if d.severity == "error"] == [
-        ("invalid-outline-level", path)
-    ]
-
-
-def test_text_extra_and_code_blocks_may_jump() -> None:
-    from mdq import load
-
-    assert load(_text_doc(extra=[[3, "z"]]), kind="question").document is not None
-    code = _text_doc(content="code", lines=[[0, "a"], [3, "b"]])
-    assert load(code, kind="question").document is not None

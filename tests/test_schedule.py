@@ -5,8 +5,8 @@ schema/exam.yaml).
 
 Property tests use the strategies in `strategies.schedule`, built
 directly from the spec's grammar and canonicalization rules rather than
-from `mdq._schedule` itself. Table-driven tests pin the rejection list
-and a handful of canonical examples the spec calls out by name.
+from `mdq._schedule` itself. Table-driven tests pin the rejections that
+the corpus cannot express (bare numbers, the empty start).
 """
 
 from __future__ import annotations
@@ -134,77 +134,16 @@ def test_date_or_datetime_is_returned_unchanged_by_parse_start(
 #
 # Duration: rejections
 #
-@pytest.mark.parametrize(
-    "value",
-    [
-        "P1M",  # months have no fixed length
-        "P1Y",  # years have no fixed length
-        "P1Y2M",
-        "",  # empty string
-        "P",  # no components at all
-        "PT",  # "T" with nothing after it
-        "pt1h",  # lowercase ISO
-        "0m",  # zero is not positive
-        "00:00",  # zero is not positive
-        "PT0S",  # zero is not positive
-        "1:60",  # minutes must be 00-59
-        "2 h",  # space between number and unit
-        "1.5h",  # fractional shorthand component
-        90,  # bare int: ambiguous unit
-        90.0,  # bare float: ambiguous unit
-        "garbage",
-        "-PT1H",  # negative duration
-        "P-1D",
-    ],
-)
+@pytest.mark.parametrize("value", [90, 90.0])  # bare numbers: ambiguous unit
 def test_parse_duration_rejects(value: object) -> None:
     with pytest.raises(ValueError):
         _schedule.parse_duration(value)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize(
-    ("surface", "canonical"),
-    [
-        ("90m", "PT1H30M"),
-        ("1:30", "PT1H30M"),
-        ("01:30", "PT1H30M"),
-        ("PT90M", "PT1H30M"),
-        ("24h", "P1D"),
-        ("P2W", "P14D"),
-        ("1d 2h 30m", "P1DT2H30M"),
-        ("PT1.5S", "PT1.5S"),
-    ],
-)
-def test_parse_duration_canonical_examples(surface: str, canonical: str) -> None:
-    assert _schedule.format_duration(_schedule.parse_duration(surface)) == canonical
-
-
 #
-# Start: rejections and canonical examples
+# Start: rejections
 #
-@pytest.mark.parametrize(
-    "value",
-    [
-        "10/03/2026",
-        "2026-13-01",
-        "tomorrow",
-        "",
-        "2026-03-10T",
-        "2026-03-10T25:00:00",
-    ],
-)
+@pytest.mark.parametrize("value", [""])
 def test_parse_start_rejects(value: str) -> None:
     with pytest.raises(ValueError):
         _schedule.parse_start(value)
-
-
-@pytest.mark.parametrize(
-    ("surface", "canonical"),
-    [
-        ("2026-03-10", "2026-03-10"),
-        ("2026-03-10T09:00", "2026-03-10T09:00:00"),
-        ("2026-03-10T09:00:00Z", "2026-03-10T09:00:00+00:00"),
-    ],
-)
-def test_parse_start_canonical_examples(surface: str, canonical: str) -> None:
-    assert _schedule.format_start(_schedule.parse_start(surface)) == canonical

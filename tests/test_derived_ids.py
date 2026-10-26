@@ -3,8 +3,6 @@ Tests for `dev/specs/to-do/derived-ids.md`.
 
 Derived ids move from the parser to the models:
 
-- The parser only ever keeps an id the author wrote. A choice or question
-  with no explicit id has `id is None` right after `load`/`parse`.
 - `with_ids()` (on every question model and on `Exam`) returns a new,
   *addressable* copy (GLOSSARY.md "Addressable"): every question and every
   choice has an id. It never mutates `self`, never touches an explicit id,
@@ -25,7 +23,6 @@ from mdq._banks import DictLoader
 from mdq.models import (
     BooleanChoice,
     ChoiceBlank,
-    Exam,
     FillInQuestion,
     MultipleChoiceQuestion,
     MultipleSelectionQuestion,
@@ -35,86 +32,6 @@ from mdq.models import (
 
 def _ids(choices) -> list[str | None]:
     return [c.id for c in choices]
-
-
-# ---------------------------------------------------------------------
-# The parser keeps only explicit ids
-# ---------------------------------------------------------------------
-
-
-def test_choice_without_explicit_id_is_none_after_load() -> None:
-    text = (
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "* [ ] Rio de Janeiro\n"
-        "* [*] Brasília\n"
-        "* [ ] São Paulo\n"
-    )
-    doc = parse(text, kind="question")
-    assert isinstance(doc, MultipleChoiceQuestion)
-    assert _ids(doc.choices) == [None, None, None]
-
-
-def test_choice_with_explicit_id_keeps_it() -> None:
-    text = (
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "* [ ] Rio de Janeiro\n"
-        "* [*] [df] Brasília\n"
-        "* [ ] São Paulo\n"
-    )
-    doc = parse(text, kind="question")
-    assert isinstance(doc, MultipleChoiceQuestion)
-    by_text = {c.text: c.id for c in doc.choices}
-    assert by_text["Brasília"] == "df"
-    assert by_text["Rio de Janeiro"] is None
-    assert by_text["São Paulo"] is None
-
-
-def test_fill_in_choice_blank_choice_without_id_is_none_after_load() -> None:
-    text = (
-        "A capital do Brasil é [^capital].\n"
-        "\n"
-        "[^capital]:\n"
-        "* [ ] Rio de Janeiro\n"
-        "* [*] Brasília\n"
-    )
-    doc = parse(text, kind="question")
-    assert isinstance(doc, FillInQuestion)
-    blank = doc.blanks[0]
-    assert isinstance(blank, ChoiceBlank)
-    assert _ids(blank.choices) == [None, None]
-
-
-def test_exam_inline_question_without_id_is_none_after_load() -> None:
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-    )
-    doc = parse(text, kind="exam")
-    assert isinstance(doc, Exam)
-    assert doc.questions[0].id is None
-
-
-def test_exam_inline_question_with_explicit_id_keeps_it() -> None:
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "---\n"
-        "id: capital\n"
-        "---\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-    )
-    doc = parse(text, kind="exam")
-    assert doc.questions[0].id == "capital"
 
 
 # ---------------------------------------------------------------------
@@ -297,30 +214,6 @@ def test_with_ids_exam_position_counts_includes() -> None:
     filled = kept.with_ids()
     assert filled.questions[0].id == "amazonia"
     assert filled.questions[1].id == "q2"
-
-
-def test_with_ids_exam_assigns_positional_ids_to_every_bare_question() -> None:
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Onde fica a Floresta Amazônica?\n"
-        "\n"
-        "* [ ] Ásia\n"
-        "* [*] América do Sul\n"
-    )
-    doc = parse(text, kind="exam")
-    assert [q.id for q in doc.questions] == [None, None]
-
-    filled = doc.with_ids()
-    assert [q.id for q in filled.questions] == ["q1", "q2"]
 
 
 # ---------------------------------------------------------------------
@@ -532,124 +425,3 @@ def test_lint_runs_on_the_document_as_written_in_both_modes() -> None:
     # And the two documents are not the same, or this assertion would be
     # vacuous: `ids` really does change something.
     assert kept.document != filled.document
-
-
-# ---------------------------------------------------------------------
-# Exam validator: a declared id colliding with the next implicit id
-# ---------------------------------------------------------------------
-
-
-def test_declared_id_colliding_with_next_implicit_id_is_an_error_from_markdown() -> (
-    None
-):
-    """
-    Block 1 declares `id: q2`; block 2 has no id, so its implicit,
-    position-based id is also `q2` -- computed without being filled in,
-    per docs/exam.md "Question ids".
-    """
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "---\n"
-        "id: q2\n"
-        "---\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Onde fica a Floresta Amazônica?\n"
-        "\n"
-        "* [ ] Ásia\n"
-        "* [*] América do Sul\n"
-    )
-    loaded = load(text, kind="exam")
-    assert loaded.document is None
-    diagnostics = [d for d in loaded.diagnostics if d.code == "duplicate-question-id"]
-    assert len(diagnostics) == 1
-    assert diagnostics[0].severity == "error"
-    assert diagnostics[0].path[-2:] == ("questions", 1)
-
-
-def test_declared_id_colliding_with_next_implicit_id_is_an_error_from_yaml() -> None:
-    yaml_text = (
-        "type: exam\n"
-        "title: Prova de Geografia do Brasil\n"
-        "questions:\n"
-        "  - type: essay\n"
-        "    id: q2\n"
-        "    stem: Qual é a capital do Brasil?\n"
-        "  - type: multiple-selection\n"
-        "    stem: Onde fica a Floresta Amazônica?\n"
-        "    choices:\n"
-        "      - text: Ásia\n"
-        "        correct: false\n"
-        "      - text: América do Sul\n"
-        "        correct: true\n"
-    )
-    loaded = load(yaml_text, kind="exam", format="yaml")
-    assert loaded.document is None
-    diagnostics = [d for d in loaded.diagnostics if d.code == "duplicate-question-id"]
-    assert len(diagnostics) == 1
-    assert diagnostics[0].severity == "error"
-    assert diagnostics[0].path[-2:] == ("questions", 1)
-
-
-def test_declared_id_colliding_with_next_implicit_id_is_an_error_from_a_mapping() -> (
-    None
-):
-    data = {
-        "type": "exam",
-        "title": "Prova de Geografia do Brasil",
-        "questions": [
-            {
-                "type": "essay",
-                "id": "q2",
-                "stem": "Qual é a capital do Brasil?",
-            },
-            {
-                "type": "multiple-selection",
-                "stem": "Onde fica a Floresta Amazônica?",
-                "choices": [
-                    {"text": "Ásia", "correct": False},
-                    {"text": "América do Sul", "correct": True},
-                ],
-            },
-        ],
-    }
-    loaded = load(data, kind="exam")
-    assert loaded.document is None
-    diagnostics = [d for d in loaded.diagnostics if d.code == "duplicate-question-id"]
-    assert len(diagnostics) == 1
-    assert diagnostics[0].severity == "error"
-    assert diagnostics[0].path[-2:] == ("questions", 1)
-
-
-def test_declared_id_not_colliding_with_any_implicit_id_does_not_error() -> None:
-    """
-    Sanity check: `id: capital` on block 1 never collides with block 2's
-    implicit `q2`, so the exam loads clean.
-    """
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "---\n"
-        "id: capital\n"
-        "---\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Onde fica a Floresta Amazônica?\n"
-        "\n"
-        "* [ ] Ásia\n"
-        "* [*] América do Sul\n"
-    )
-    loaded = load(text, kind="exam")
-    assert loaded.document is not None
-    assert "duplicate-question-id" not in {d.code for d in loaded.diagnostics}

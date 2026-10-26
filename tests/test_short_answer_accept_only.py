@@ -5,11 +5,10 @@ Short answer: `accept` is the only answer list (see
 `oneOf` and `regex` no longer exist in short-answer questions. The Markdown
 parser always emits `accept`, and the pattern keeps its delimiters.
 
-Naming: `test_b1_*` cover AC1-AC3 (parser and question model), `test_b2_*`
-cover AC4-AC6 (edge cases of the question), `test_b3_*` cover AC7-AC9 (fill-in
-blanks and lint), `test_b4_*` cover AC10-AC12 (render, converters, CLI).
-Select a batch with `-k b1`. Everything goes through `mdq.load`, `to_dict()`,
-`score_response`, `render()`, the converters and the CLI.
+The parser, model, lint and grading cases of the spec live in the corpus
+(`examples/valid/short-answer/`, `examples/invalid/short-answer-*`,
+`examples/grading/`). This module keeps what the corpus cannot express: the
+JSON source, `render()`, the converters and the CLI. `test_b4_*` cover AC10-AC12.
 """
 
 from __future__ import annotations
@@ -46,29 +45,6 @@ def _md(body: str, frontmatter: str = "") -> str:
     return f"{head}{STEM}\n\n{body}"
 
 
-def _loaded_dict(source: str) -> dict:
-    loaded = load(source, format="mdq")
-    assert loaded.document is not None, [d.code for d in loaded.diagnostics]
-    return loaded.document.to_dict()
-
-
-def _question(source: str) -> ShortAnswerQuestion:
-    loaded = load(source, format="mdq")
-    assert isinstance(loaded.document, ShortAnswerQuestion), [
-        d.code for d in loaded.diagnostics
-    ]
-    return loaded.document
-
-
-def _patterns(items: list) -> list[str]:
-    """Pattern strings of an `accept`/`reject` list, whatever its item form.
-
-    A model's `to_dict()` may dump every item as `{"pattern": ...}`; the
-    parser dict uses a bare string when there is no feedback or comment.
-    """
-    return [item if isinstance(item, str) else item["pattern"] for item in items]
-
-
 def _codes(diagnostics: list[Diagnostic]) -> list[str]:
     return [d.code for d in diagnostics]
 
@@ -78,129 +54,8 @@ def _errors(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
 
 
 #
-# AC1: `[short-answer]: X` emits `accept: [X]`, with delimiters
-#
-@pytest.mark.parametrize(
-    "written",
-    [
-        "Brasília",
-        "`math.isnan`",
-        "/1822-0?9-0?7/",
-        "/abc/i",
-    ],
-    ids=["plain", "backtick-literal", "regex", "regex-flag"],
-)
-def test_b1_simple_block_emits_accept_with_the_written_pattern(written: str) -> None:
-    document = _loaded_dict(_md(f"[short-answer]: {written}\n"))
-    assert _patterns(document["accept"]) == [written]
-    assert "oneOf" not in document
-    assert "regex" not in document
-
-
-def test_b1_simple_block_does_not_emit_reject_or_open_ended() -> None:
-    document = _loaded_dict(_md("[short-answer]: Brasília\n"))
-    assert "reject" not in document
-    assert not document.get("openEnded")
-
-
-#
-# AC2: simple block combined with accept/reject blocks
-#
-_ACCEPT_BLOCK = "[short-answer/accept]:\n* Distrito Federal\n  > Certo, também vale.\n* Plano Piloto\n"
-_REJECT_BLOCK = (
-    "[short-answer/reject]:\n* Rio de Janeiro\n  > Foi a capital até 1960.\n"
-)
-
-
-@pytest.mark.parametrize("order", ["bare-first", "accept-first"])
-def test_b1_simple_block_plus_accept_block_is_a_parse_error(order: str) -> None:
-    """`[short-answer/accept]` is an alias: both spellings in one document
-    no longer merge (see `tests/test_short_answer_two_blocks.py`)."""
-    bare = "[short-answer]: Brasília\n\n"
-    body = bare + _ACCEPT_BLOCK if order == "bare-first" else _ACCEPT_BLOCK + "\n" + bare
-    loaded = load(_md(body), format="mdq")
-    assert loaded.document is None
-    assert "parse-error" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b1_accept_block_alone_scores_every_item() -> None:
-    question = _question(_md(_ACCEPT_BLOCK))
-    assert question.score_response("Distrito Federal").score == 1.0
-    assert question.score_response("plano piloto").score == 1.0
-    assert question.score_response("Rio de Janeiro").score == 0.0
-
-
-def test_b1_feedback_of_accept_block_items_is_kept() -> None:
-    question = _question(_md(_ACCEPT_BLOCK))
-    assert question.score_response("Distrito Federal").feedback == [
-        "Certo, também vale."
-    ]
-
-
-def test_b1_bare_block_with_reject_block_keeps_accept_and_reject() -> None:
-    body = "[short-answer]: Brasília\n\n" + _REJECT_BLOCK
-    document = _loaded_dict(_md(body))
-    assert _patterns(document["accept"]) == ["Brasília"]
-    assert _patterns(document["reject"]) == ["Rio de Janeiro"]
-    assert document["reject"][0]["feedback"] == "Foi a capital até 1960."
-    assert "oneOf" not in document
-
-
-def test_b1_bare_block_with_reject_block_scores_and_gives_reject_feedback() -> None:
-    body = "[short-answer]: Brasília\n\n" + _REJECT_BLOCK
-    question = _question(_md(body))
-    assert question.score_response("Brasília").score == 1.0
-    rejected = question.score_response("Rio de Janeiro")
-    assert rejected.score == 0.0
-    assert rejected.feedback == ["Foi a capital até 1960."]
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        "[short-answer]: Brasília\n\n[short-answer]: Distrito Federal\n",
-        "[short-answer/accept]:\n* Brasília\n\n[short-answer/accept]:\n* DF\n",
-        "[short-answer/reject]:\n* Rio\n\n[short-answer/reject]:\n* Salvador\n",
-    ],
-    ids=["second-simple-block", "second-accept-block", "second-reject-block"],
-)
-def test_b1_repeated_block_is_an_error(body: str) -> None:
-    loaded = load(_md(body), format="mdq")
-    assert loaded.document is None
-    assert _errors(loaded.diagnostics)
-
-
-#
 # AC3: `oneOf` and `regex` are rejected
 #
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"oneOf": ["Brasília"]},
-        {"regex": "/Bras[íi]lia/"},
-        {"oneOf": ["Brasília"], "regex": "/Bras[íi]lia/"},
-        {"accept": ["Brasília"], "oneOf": ["Distrito Federal"]},
-    ],
-    ids=["oneOf", "regex", "both", "with-accept"],
-)
-def test_b1_dict_with_one_of_or_regex_is_a_schema_error(extra: dict) -> None:
-    loaded = load({"type": "short-answer", "stem": STEM, **extra})
-    assert loaded.document is None
-    assert "schema-error" in _codes(_errors(loaded.diagnostics))
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [{"oneOf": ["Brasília"]}, {"regex": "/Bras[íi]lia/"}],
-    ids=["oneOf", "regex"],
-)
-def test_b1_yaml_source_with_one_of_or_regex_is_a_schema_error(extra: dict) -> None:
-    key, value = next(iter(extra.items()))
-    rendered = f"[{value[0]}]" if isinstance(value, list) else value
-    source = f"type: short-answer\nstem: {STEM}\n{key}: {rendered}\n"
-    loaded = load(source, format="yaml")
-    assert loaded.document is None
-    assert "schema-error" in _codes(_errors(loaded.diagnostics))
 
 
 def test_b1_json_source_with_one_of_is_a_schema_error() -> None:
@@ -210,105 +65,8 @@ def test_b1_json_source_with_one_of_is_a_schema_error() -> None:
     assert "schema-error" in _codes(_errors(loaded.diagnostics))
 
 
-@pytest.mark.parametrize(
-    "frontmatter",
-    ["regex: Bras[ií]lia\n", "oneOf: [Brasília]\n"],
-    ids=["regex", "oneOf"],
-)
-def test_b1_markdown_frontmatter_one_of_or_regex_is_an_invalid_field(
-    frontmatter: str,
-) -> None:
-    loaded = load(_md("[short-answer]: Brasília\n", frontmatter), format="mdq")
-    assert loaded.document is None
-    assert _codes(_errors(loaded.diagnostics)) == ["invalid-frontmatter-field"]
-
-
 #
-# AC4: `[short-answer]:` followed by a bullet list
-#
-def test_b2_bullet_list_after_the_tag_becomes_one_accept_item_per_bullet() -> None:
-    body = "[short-answer]:\n* Brasília\n* /Distrito Federal/i\n* `DF`\n"
-    document = _loaded_dict(_md(body))
-    assert _patterns(document["accept"]) == ["Brasília", "/Distrito Federal/i", "`DF`"]
-    assert "oneOf" not in document
-    assert "regex" not in document
-    assert not document.get("openEnded")
-
-
-def test_b2_bullet_list_answers_all_score_one() -> None:
-    body = "[short-answer]:\n* Brasília\n* /Distrito Federal/i\n"
-    question = _question(_md(body))
-    assert question.score_response("brasilia").score == 1.0
-    assert question.score_response("DISTRITO FEDERAL").score == 1.0
-    assert question.score_response("Goiânia").score == 0.0
-
-
-#
-# AC5: `accept` in the frontmatter is an invalid field, whatever the body
-#
-@pytest.mark.parametrize(
-    "body",
-    ["[short-answer]: Brasília\n", "[short-answer]: `DF`\n", "[short-answer]\n"],
-    ids=["bare", "backtick", "empty"],
-)
-def test_b2_frontmatter_accept_is_an_invalid_field(body: str) -> None:
-    loaded = load(_md(body, "accept: [Distrito Federal]\n"), format="mdq")
-    assert loaded.document is None
-    assert [(d.code, d.path) for d in _errors(loaded.diagnostics)] == [
-        ("invalid-frontmatter-field", ("accept",))
-    ]
-
-
-def test_b2_empty_block_with_accept_block_is_a_parse_error() -> None:
-    body = "[short-answer]\n\n[short-answer/accept]:\n* Brasília\n"
-    loaded = load(_md(body), format="mdq")
-    assert loaded.document is None
-    assert "parse-error" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b2_empty_block_without_patterns_has_no_accept() -> None:
-    document = _loaded_dict(_md("[short-answer]\n"))
-    assert "openEnded" not in document
-    assert "accept" not in document
-    assert "oneOf" not in document
-    assert "regex" not in document
-
-
-def test_b2_empty_block_reports_nothing_about_not_gradable() -> None:
-    loaded = load(_md("[short-answer]\n"), format="mdq")
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b2_bare_content_has_no_open_ended() -> None:
-    document = _loaded_dict(_md("[short-answer]: Brasília\n"))
-    assert not document.get("openEnded")
-
-
-def test_b2_dict_without_accept_reports_nothing_about_it() -> None:
-    loaded = load({"type": "short-answer", "stem": STEM})
-    assert loaded.document is not None
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b2_dict_with_reject_only_reports_nothing_about_it() -> None:
-    loaded = load({"type": "short-answer", "stem": STEM, "reject": ["Rio de Janeiro"]})
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b2_dict_with_accept_is_gradable() -> None:
-    loaded = load({"type": "short-answer", "stem": STEM, "accept": ["Brasília"]})
-    assert loaded.document is not None
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b2_dict_with_open_ended_is_an_error() -> None:
-    loaded = load({"type": "short-answer", "stem": STEM, "openEnded": True})
-    assert loaded.document is None
-    assert [d for d in loaded.diagnostics if d.severity == "error"]
-
-
-#
-# AC7: simple blank definition emits `accept`
+# Fill-in helpers
 #
 _FILL_STEM = "A capital do Brasil é [^cap]."
 
@@ -325,154 +83,7 @@ def _fill(source: str) -> FillInQuestion:
     return loaded.document
 
 
-def _blank_dict(source: str, index: int = 0) -> dict:
-    return _fill(source).to_dict()["blanks"][index]
-
-
-@pytest.mark.parametrize(
-    "written",
-    ["Brasília", "`Brasília`", "/Bras[ií]lia/i"],
-    ids=["plain", "backtick-literal", "regex-flag"],
-)
-def test_b3_simple_blank_definition_emits_accept(written: str) -> None:
-    blank = _blank_dict(_fill_md(f"[^cap/short-answer]: {written}\n"))
-    assert _patterns(blank["accept"]) == [written]
-    assert "oneOf" not in blank
-    assert "regex" not in blank
-    assert not blank.get("openEnded")
-
-
 _BLANK_ACCEPT = "[^cap/short-answer/accept]:\n* Distrito Federal\n* Plano Piloto\n  > Também vale.\n"
-_BLANK_BARE = "[^cap/short-answer]: Brasília\n"
-
-
-@pytest.mark.parametrize("order", ["bare-first", "accept-first"])
-def test_b3_blank_bare_definition_plus_accept_alias_is_a_parse_error(order: str) -> None:
-    text = (
-        _BLANK_BARE + "\n" + _BLANK_ACCEPT
-        if order == "bare-first"
-        else _BLANK_ACCEPT + "\n" + _BLANK_BARE
-    )
-    loaded = load(_fill_md(text), format="mdq")
-    assert loaded.document is None
-    assert "parse-error" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b3_blank_accept_alias_alone_scores_every_item() -> None:
-    question = _fill(_fill_md(_BLANK_ACCEPT))
-    assert question.score_response({"cap": "Distrito Federal"}).score == 1.0
-    assert question.score_response({"cap": "plano piloto"}).score == 1.0
-    assert question.score_response({"cap": "Rio de Janeiro"}).score == 0.0
-
-
-#
-# AC8: blank with no pattern
-#
-def test_b3_empty_blank_definition_has_no_accept() -> None:
-    blank = _blank_dict(_fill_md("[^cap/short-answer]\n"))
-    assert "openEnded" not in blank
-    assert "accept" not in blank
-    assert "oneOf" not in blank
-    assert "regex" not in blank
-
-
-def test_b3_blank_with_no_pattern_loads_without_errors() -> None:
-    loaded = load(_fill_md("[^cap/short-answer]\n"), format="mdq")
-    assert loaded.document is not None
-    assert not _errors(loaded.diagnostics)
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def _fill_dict(blank: dict) -> dict:
-    return {
-        "type": "fill-in",
-        "stem": _FILL_STEM,
-        "blanks": [{"id": "cap", "type": "short-answer", **blank}],
-    }
-
-
-def test_b3_dict_blank_without_patterns_is_valid() -> None:
-    loaded = load(_fill_dict({}))
-    assert loaded.document is not None
-    assert not _errors(loaded.diagnostics)
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b3_dict_blank_with_open_ended_is_an_error() -> None:
-    loaded = load(_fill_dict({"openEnded": True}))
-    assert loaded.document is None
-    assert _errors(loaded.diagnostics)
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [{"oneOf": ["Brasília"]}, {"regex": "/Bras[íi]lia/"}],
-    ids=["oneOf", "regex"],
-)
-def test_b3_dict_blank_with_one_of_or_regex_is_a_schema_error(extra: dict) -> None:
-    loaded = load(_fill_dict(extra))
-    assert loaded.document is None
-    assert "schema-error" in _codes(_errors(loaded.diagnostics))
-
-
-def test_b3_dict_blank_without_accept_reports_nothing_about_it() -> None:
-    loaded = load(_fill_dict({}))
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-def test_b3_dict_blank_with_accept_is_gradable() -> None:
-    loaded = load(_fill_dict({"accept": ["Brasília"]}))
-    assert loaded.document is not None
-    assert "short-answer-not-gradable" not in _codes(loaded.diagnostics)
-
-
-#
-# AC9: lints on the pattern of a simple block
-#
-def _paths(diagnostics: list[Diagnostic], code: str) -> list[list]:
-    return [list(d.path) for d in diagnostics if d.code == code]
-
-
-@pytest.mark.parametrize(
-    ("written", "code"),
-    [
-        ("/abc/m", "ignored-regex-flag"),
-        ("/^abc/", "redundant-regex-anchor"),
-    ],
-)
-def test_b3_simple_block_pattern_lints_at_accept_zero(written: str, code: str) -> None:
-    loaded = load(_md(f"[short-answer]: {written}\n"), format="mdq")
-    assert _paths(loaded.diagnostics, code) == [["accept", 0]]
-
-
-@pytest.mark.parametrize(
-    ("written", "code"),
-    [
-        ("/abc/m", "ignored-regex-flag"),
-        ("/^abc/", "redundant-regex-anchor"),
-    ],
-)
-def test_b3_simple_blank_pattern_lints_at_blank_accept_zero(
-    written: str, code: str
-) -> None:
-    source = (
-        "O bioma [^a] e o rio [^b].\n\n"
-        "[^a/short-answer]: Cerrado\n\n"
-        f"[^b/short-answer]: {written}\n"
-    )
-    loaded = load(source, format="mdq")
-    assert _paths(loaded.diagnostics, code) == [["blanks", 1, "accept", 0]]
-
-
-def test_b3_shadowed_answers_is_never_reported() -> None:
-    sources = [
-        _md(_ACCEPT_BLOCK),
-        _md("[short-answer]: /Bras[íi]lia/\n\n[short-answer/reject]:\n* Rio\n"),
-        _fill_md(_BLANK_ACCEPT),
-    ]
-    for source in sources:
-        loaded = load(source, format="mdq")
-        assert "shadowed-answers" not in _codes(loaded.diagnostics)
 
 
 #
@@ -531,9 +142,6 @@ def test_b4_render_comment_only_item_uses_bang_line() -> None:
 
 
 _ROUND_TRIP_BODIES = {
-    "plain": "[short-answer]: Brasília\n",
-    "exact": "[short-answer]: `math.isnan`\n",
-    "regex": "[short-answer]: /1822-0?9-0?7/i\n",
     "no-pattern": "[short-answer]\n",
     "list": "[short-answer/accept]:\n* Brasília\n* DF\n",
     "feedback": "[short-answer/accept]:\n* Brasília\n  > Certo!\n",
@@ -554,8 +162,6 @@ def test_b4_question_render_round_trips_through_load(body: str) -> None:
 
 
 _BLANK_ROUND_TRIP_BODIES = {
-    "plain": "[^cap/short-answer]: Brasília\n",
-    "regex": "[^cap/short-answer]: /Bras[ií]lia/i\n",
     "no-pattern": "[^cap/short-answer]\n",
     "list": "[^cap/short-answer/accept]:\n* Brasília\n* DF\n",
     "comment-only": "[^cap/short-answer/accept]:\n* Brasília\n  ! Nome oficial\n",

@@ -11,7 +11,6 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import ValidationError as PydanticValidationError
 
 from mdq._markdown import starts_block
 from mdq.models._lint import has_visible_character
@@ -874,32 +873,6 @@ def test_from_mdq_fill_in_multiple_blanks():
     assert block.type == "multianswer"
     assert "{1:MULTICHOICE:=Beagle~Bounty}" in block.questiontext
     assert "{1:NUMERICAL:=26:1}" in block.questiontext
-
-
-def test_from_mdq_fill_in_stem_marker_without_matching_blank_raises():
-    """
-    A stem marker naming no declared blank is now an `undefined-blank`
-    model error (dev/specs/to-do/lint-on-models.md), so the mismatch is
-    caught building the `FillInQuestion` itself -- `MoodleXml().from_mdq`
-    never gets a chance to raise its own `ValueError` for it.
-    """
-    with pytest.raises(PydanticValidationError):
-        FillInQuestion(
-            stem="Brazil has [^a] states and [^b] time zones.",
-            blanks=[NumericBlank(id="a", answer=26)],
-        )
-
-
-def test_from_mdq_fill_in_unreferenced_blank_raises():
-    """See `test_from_mdq_fill_in_stem_marker_without_matching_blank_raises`."""
-    with pytest.raises(PydanticValidationError):
-        FillInQuestion(
-            stem="Brazil has [^a] states.",
-            blanks=[
-                NumericBlank(id="a", answer=26),
-                NumericBlank(id="b", answer=4),
-            ],
-        )
 
 
 def test_from_mdq_common_fields_carry_over():

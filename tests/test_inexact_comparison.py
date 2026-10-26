@@ -1,7 +1,7 @@
 """
 Inexact comparison of plain literal patterns (docs/references/patterns.md,
-"Inexact literals"), plus what it must not change: exact literals and the
-regex `n` flag.
+"Inexact literals"). Exact literals and the regex `n` flag are covered by
+the vectors of `examples/matching/`.
 
 The shared vectors live in `examples/matching/inexact.yaml`; the tables in
 `docs/references/inexact-tables.json`.
@@ -65,7 +65,7 @@ def matches(pattern: str, response: str, mode: Mode = "fold") -> bool:
 # Shared vectors
 #
 def test_vector_file_case_count() -> None:
-    assert len(_CASES) == 41
+    assert len(_CASES) == 43
 
 
 @pytest.mark.parametrize(("pattern", "response", "expected", "mode"), VECTORS)
@@ -80,87 +80,6 @@ def test_fill_in_blank_vectors(
     pattern: str, response: str, expected: bool, mode: Mode
 ) -> None:
     assert blank_score(pattern, response, mode) == (1.0 if expected else 0.0)
-
-
-# One case per step, spelled out so the blank coverage does not depend on the file.
-@pytest.mark.parametrize(
-    ("pattern", "response", "mode", "expected"),
-    [
-        pytest.param("Manaus", "Mana\u200bus", "keep", True, id="ignorable"),
-        pytest.param("Ørsted", "Orsted", "fold", True, id="letters-fold"),
-        pytest.param("Ørsted", "Orsted", "keep", False, id="letters-keep"),
-        pytest.param("caixa d'água", "caixa d’água", "keep", True, id="punctuation"),
-        pytest.param("ᲊ", "Ᲊ", "keep", True, id="case-folding-unicode-16"),
-        pytest.param(
-            "Rio Negro", "Rio\u00a0\u2003Negro", "fold", True, id="whitespace"
-        ),
-        pytest.param(
-            "Rio Negro", "Rio\x1fNegro", "fold", False, id="control-not-space"
-        ),
-    ],
-)
-def test_fill_in_blank_one_case_per_step(
-    pattern: str, response: str, mode: Mode, expected: bool
-) -> None:
-    assert blank_score(pattern, response, mode) == (1.0 if expected else 0.0)
-
-
-#
-# Exact literals are not compared inexactly
-#
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize(
-    "response", [" Manaus ", "\tManaus\n", "\u00a0Manaus\u2003", "Manaus"]
-)
-def test_exact_literal_trims_unicode_spaces_at_the_ends(
-    response: str, mode: Mode
-) -> None:
-    assert short_answer_score("`Manaus`", response, mode) == 1.0
-
-
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize(
-    "response",
-    ["Manaus\x1f", "Mana\u200bus", "manaus", "Manaus’", "Man aus", "Manaus."],
-    ids=[
-        "control",
-        "zero-width-space",
-        "case",
-        "extra-quote",
-        "inner-space",
-        "extra-dot",
-    ],
-)
-def test_exact_literal_rejects_any_other_difference(response: str, mode: Mode) -> None:
-    assert short_answer_score("`Manaus`", response, mode) == 0.0
-
-
-def test_exact_literal_keeps_interior_whitespace_significant() -> None:
-    assert short_answer_score("`Rio Negro`", "Rio  Negro", "fold") == 0.0
-
-
-def test_exact_literal_does_not_fold_diacritics() -> None:
-    assert short_answer_score("`Brasília`", "Brasilia", "fold") == 0.0
-
-
-#
-# Regex `n` flag: combining marks only, no `letters` table
-#
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize(
-    ("pattern", "response", "expected"),
-    [
-        ("/Brasilia/n", "Brasília", True),
-        ("/Brasilia/n", "Brasilia", True),
-        ("/Orsted/n", "Ørsted", False),
-        ("/Ørsted/n", "Ørsted", True),
-        ("/Brasilia/", "Brasília", False),
-    ],
-)
-def test_regex_n_flag_removes_combining_marks_only(
-    pattern: str, response: str, expected: bool, mode: Mode
-) -> None:
-    assert short_answer_score(pattern, response, mode) == (1.0 if expected else 0.0)
 
 
 #
@@ -187,36 +106,6 @@ def test_letters_replacement_is_applied_once(key: str) -> None:
     """The result of a replacement is not replaced again, so it never doubles up."""
     value = _TABLES["letters"][key]
     assert not matches(key, value + value, "fold")
-
-
-def test_letters_replacement_is_not_reapplied_to_its_result() -> None:
-    # "ß" becomes "ss"; a second pass over "ss" must not change anything else.
-    assert matches("Straße", "STRASSE", "fold")
-    assert not matches("Straße", "STRASSSE", "fold")
-    assert matches("Cæsar", "caesar", "fold")
-    assert not matches("Cæsar", "caaesar", "fold")
-
-
-@pytest.mark.parametrize(
-    ("pattern", "response"),
-    [
-        ("Ceará", "CEARÁ"),
-        ("Straße", "STRASSE"),
-        ("Brasília", "Brasi\u0301lia"),
-        ("caixa d'água", "caixa d’água"),
-        ("pau-brasil", "pau—brasil"),
-        ("ᲊ", "Ᲊ"),
-    ],
-)
-def test_keep_still_applies_case_folding_and_punctuation(
-    pattern: str, response: str
-) -> None:
-    assert matches(pattern, response, "keep")
-
-
-def test_keep_still_distinguishes_diacritics() -> None:
-    assert not matches("Ceará", "Ceara", "keep")
-    assert matches("Ceará", "Ceara", "fold")
 
 
 @pytest.mark.parametrize("mode", MODES)

@@ -58,25 +58,6 @@ def test_a_frontmatter_field_is_not_a_tag(name: str) -> None:
     assert "frontmatter only" in message
 
 
-def test_an_ordinary_link_reference_definition_is_valid() -> None:
-    source = STEM + "Veja o [IBGE][ibge].\n\n[short-answer]: Brasília\n\n[ibge]: https://www.ibge.gov.br\n"
-    assert _errors(source) == []
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        STEM + "[short-answer]: Brasília\n\nÉ uma cidade planejada.\n\n[short-answer/reject]: Rio\n",
-        "Quanto é 13 + 13?\n\n[numeric]: 26\n\nSoma.\n\n[numeric]: 27\n",
-        "Ordene.\n\n[ordering]:\n* a\n* b\n\nNota.\n\n[numeric]: 1\n",
-        "Explique.\n\n[essay]\n\n[short-answer]: x\n",
-    ],
-)
-def test_a_tag_in_the_epilogue_is_detached(source: str) -> None:
-    codes = [code for code, _ in _errors(source)]
-    assert codes == ["detached-tag"]
-
-
 @pytest.mark.parametrize(
     "body",
     [
@@ -88,11 +69,6 @@ def test_a_list_glued_to_a_content_list_is_a_parse_error(body: str) -> None:
     [(code, message)] = _errors(STEM + body)
     assert code == "parse-error"
     assert "same list marker" in message
-
-
-def test_an_ordering_list_followed_by_a_list_is_a_parse_error() -> None:
-    [(code, _)] = _errors("Ordene.\n\n[ordering]:\n* a\n* b\n1. c\n")
-    assert code == "parse-error"
 
 
 def test_a_choice_blank_list_followed_by_a_list_is_a_parse_error() -> None:

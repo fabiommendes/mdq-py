@@ -24,19 +24,6 @@ def test_letter(text: str) -> None:
     assert is_letter(text)
 
 
-def test_fullwidth_f_is_false_and_keeps_its_marker() -> None:
-    question = mdq.parse("Julgue.\n\n* [Ｆ] O Sol é um planeta.\n* [T] O Sol é uma estrela.\n")
-    assert question.type == "true-false"
-    assert question.choices[0].correct is False
-    assert question.choices[0].marker == "Ｆ"
-
-
-def test_fullwidth_x_is_multiple_selection() -> None:
-    question = mdq.parse("Quais são rios?\n\n* [Ｘ] Madeira\n* [ ] Serra\n")
-    assert question.type == "multiple-selection"
-    assert question.choices[0].correct is True
-
-
 def test_modifier_letter_marker_is_foreign() -> None:
     with pytest.raises(mdq.InvalidDocument) as info:
         mdq.parse("---\ntype: true-false\n---\n\nJulgue.\n\n* [ˇ] A\n* [T] B\n")

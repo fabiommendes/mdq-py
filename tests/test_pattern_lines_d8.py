@@ -71,25 +71,13 @@ def test_setext_underline_after_a_list_item_pattern_is_a_parse_error(
     assert codes(STEM + body) == [("parse-error", ())]
 
 
-def test_setext_underline_after_feedback_is_continuation_text() -> None:
-    source = STEM + "[short-answer]:\n* Rio\n  > Almost\n  ===\n"
-    question = mdq.parse(source, format="mdq")
-    assert isinstance(question, ShortAnswerQuestion)
-    assert question.accept is not None
-    assert question.accept[0].feedback == "Almost ==="
-
-
-@pytest.mark.parametrize("underline", ["    ===", "\t---"])
-def test_indented_underline_is_continuation_text(underline: str) -> None:
-    assert accept(STEM + f"[short-answer]: Rio\n{underline}\n") == [
-        f"Rio {underline.strip()}"
-    ]
+def test_tab_indented_underline_is_continuation_text() -> None:
+    assert accept(STEM + "[short-answer]: Rio\n\t---\n") == ["Rio ---"]
 
 
 @pytest.mark.parametrize("marker", [">", "!"])
-@pytest.mark.parametrize("indent", ["    ", "\t", "     "])
-def test_indented_marker_line_continues_the_content(marker: str, indent: str) -> None:
-    source = STEM + f"[short-answer]: Neblina\n{indent}{marker} Bandeira\n"
+def test_tab_indented_marker_line_continues_the_content(marker: str) -> None:
+    source = STEM + f"[short-answer]: Neblina\n\t{marker} Bandeira\n"
     assert accept(source) == [f"Neblina {marker} Bandeira"]
 
 
@@ -131,10 +119,8 @@ def test_exact_literal_at_a_line_ending_in_a_fill_in_blank() -> None:
 @pytest.mark.parametrize(
     ("body", "pattern"),
     [
-        ("[short-answer]: `math\nsqrt`\n", "`math sqrt`"),
         ("[short-answer]: ``a`b\nc``\n", "``a`b c``"),
         ("[short-answer]: `a\n``b`\n", "`a ``b`"),
-        ("[short-answer]:\n`math\n sqrt`\n", "`math sqrt`"),
     ],
 )
 def test_exact_literal_that_wraps_inside_the_text_is_joined(
@@ -158,15 +144,7 @@ def test_frontmatter_pattern_with_a_line_ending_is_a_schema_error() -> None:
     ("lines", "joined"),
     [
         ([], ""),
-        (["Rio", "Negro"], "Rio Negro"),
-        (["", " Rio ", "Negro "], "Rio Negro"),
-        (["`a", "b`"], "`a b`"),
-        (["`", "a`"], "`\na`"),
-        (["`a", "`"], "`a\n`"),
-        (["``a", "b``"], "``a b``"),
-        (["``a", "``"], "``a\n``"),
         (["`a", "``b`"], "`a ``b`"),
-        (["`"], "`"),
     ],
 )
 def test_join_pattern_lines(lines: list[str], joined: str) -> None:

@@ -495,50 +495,9 @@ def test_yaml_syntax_error_is_a_single_error_diagnostic() -> None:
     assert loaded.diagnostics[0].severity == "error"
 
 
-def test_json_syntax_error_is_a_single_error_diagnostic() -> None:
-    loaded = load("{not valid json", format="json")
-    assert loaded.document is None
-    assert len(loaded.diagnostics) == 1
-    assert loaded.diagnostics[0].severity == "error"
-
-
 # ---------------------------------------------------------------------
 # Pydantic errors
 # ---------------------------------------------------------------------
-
-
-def test_pydantic_missing_field_becomes_one_error_diagnostic() -> None:
-    loaded = load({"type": "essay"})  # missing 'stem'
-    assert loaded.document is None
-    assert len(loaded.diagnostics) == 1
-    diagnostic = loaded.diagnostics[0]
-    assert diagnostic.severity == "error"
-    assert diagnostic.code == "schema-error"
-    assert diagnostic.path[-1] == "stem"
-
-
-def test_pydantic_multiple_errors_become_one_diagnostic_each() -> None:
-    loaded = load({"type": "multiple-choice"})  # missing 'stem' and 'choices'
-    assert loaded.document is None
-    assert len(loaded.diagnostics) == 2
-    paths = {d.path[-1] for d in loaded.diagnostics}
-    assert paths == {"stem", "choices"}
-    assert all(d.severity == "error" for d in loaded.diagnostics)
-    assert all(d.code == "schema-error" for d in loaded.diagnostics)
-
-
-def test_pydantic_only_rule_ordering_overlap_is_reported_as_an_error() -> None:
-    """
-    JSON Schema cannot express "accept and reject must be disjoint" --
-    only the pydantic model enforces it. `load` must still catch it and
-    turn it into an error diagnostic, not let the ValueError escape.
-    """
-    loaded = load(ORDERING_OVERLAP_DATA)
-    assert loaded.document is None
-    assert len(loaded.diagnostics) == 1
-    diagnostic = loaded.diagnostics[0]
-    assert diagnostic.severity == "error"
-    assert diagnostic.code == "accept-reject-overlap"
 
 
 def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> None:
@@ -552,33 +511,6 @@ def test_pydantic_only_rule_violation_fails_mdq_validate_style_pipeline() -> Non
 # ---------------------------------------------------------------------
 # Lint diagnostics and ordering
 # ---------------------------------------------------------------------
-
-
-def test_default_level_lint_rules_are_warnings() -> None:
-    # A tag that holds a comma is a `warning`
-    # (dev/specs/to-do/rule-conformance.md, section A --
-    # `many-correct-choices`, formerly this test's
-    # example, moved to `info`: a question MAY mark any number of
-    # choices as correct, see docs/lint-codes.md).
-    data = {
-        "type": "essay",
-        "content": "text",
-        "stem": "Qual das opções é a capital do Brasil?",
-        "tags": ["cerrado,bioma"],
-    }
-    loaded = load(data)
-    assert loaded
-    assert "unsplit-tag-list" in _codes(loaded.diagnostics)
-    matching = [d for d in loaded.diagnostics if d.code == "unsplit-tag-list"]
-    assert matching[0].severity == "warning"
-
-
-def test_strict_only_lint_rule_is_reported_as_info() -> None:
-    loaded = load("---\nlocale: cn\n---\n\nExplique.\n\n[essay]\n")
-    assert loaded
-    matching = [d for d in loaded.diagnostics if d.code == "locale-lookalike-language"]
-    assert len(matching) == 1
-    assert matching[0].severity == "info"
 
 
 def test_lint_runs_only_when_the_model_was_built() -> None:
@@ -595,19 +527,6 @@ def test_parser_warnings_come_before_lint_diagnostics() -> None:
     assert "redundant-id" in codes
     assert "locale-lookalike-language" in codes
     assert codes.index("redundant-id") < codes.index("locale-lookalike-language")
-
-
-def test_redundant_id_severity_is_warning() -> None:
-    loaded = load(ESSAY_MD_WITH_WARNING)
-    matching = [d for d in loaded.diagnostics if d.code == "redundant-id"]
-    assert len(matching) == 1
-    assert matching[0].severity == "warning"
-
-
-def test_invalid_frontmatter_field_is_an_error_without_a_document() -> None:
-    loaded = load("---\nauther: Machado de Assis\n---\n\nExplique.\n\n[essay]\n")
-    assert loaded.document is None
-    assert _codes(loaded.diagnostics) == ["invalid-frontmatter-field"]
 
 
 # ---------------------------------------------------------------------

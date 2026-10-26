@@ -1,7 +1,9 @@
 """
 base.md, "Frontmatter": a `null` value in any OPTIONAL field is the same
-as an absent field, in Markdown, YAML and JSON, including nested objects
-such as choices and blanks. A field with a default takes its default.
+as an absent field, including nested objects such as choices and blanks.
+The corpus covers question frontmatter (`null-fields`,
+`null-content-and-optionals`, `null-diacritics`); the JSON schema forbids
+`null`, so nested objects and exam fields are tested here.
 """
 
 from __future__ import annotations
@@ -9,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from _corpus import EXAMPLES_ROOT
 
 import mdq
 
@@ -25,61 +26,8 @@ def _mc_md(frontmatter: str) -> mdq.Loaded:
 
 
 #
-# AC1: null in a question frontmatter field is an absent field
+# Nested objects in a dict (the JSON schema forbids `null` in the corpus)
 #
-@pytest.mark.parametrize(
-    "line", ["title:", "author: ~", "title: null", "locale:", "uuid: ~", "comment:", "meta:"]
-)
-def test_null_without_default_is_absent(line: str) -> None:
-    loaded = _mc_md(line)
-    assert _errors(loaded) == []
-    field = line.split(":")[0]
-    assert getattr(loaded.document, field) is None
-    assert f"{field}:" not in loaded.document.render()
-
-
-def test_null_weight_takes_the_default() -> None:
-    loaded = _mc_md("weight: null")
-    assert _errors(loaded) == []
-    assert loaded.document.weight == 1
-    assert "weight:" not in loaded.document.render()
-
-
-def test_null_grading_and_shuffle_are_inherit() -> None:
-    loaded = _mc_md("grading: null\nshuffle: ~")
-    assert _errors(loaded) == []
-    assert loaded.document.grading == "inherit"
-    assert loaded.document.shuffle == "inherit"
-
-
-def test_null_essay_content_takes_the_default() -> None:
-    loaded = mdq.load("---\ncontent: null\n---\n\nDisserte.\n\n[essay]\n", kind="question")
-    assert _errors(loaded) == []
-    assert loaded.document.content == "text"
-
-
-def test_null_diacritics_takes_the_default() -> None:
-    loaded = mdq.load(
-        "---\ndiacritics:\n---\n\nQual?\n\n[short-answer]: Bahia\n", kind="question"
-    )
-    assert _errors(loaded) == []
-    assert loaded.document.diacritics == "fold"
-
-
-#
-# AC2: the same in JSON and YAML, including nested objects
-#
-def test_null_in_a_json_dict_is_absent() -> None:
-    loaded = mdq.load(
-        {"type": "essay", "stem": "Disserte.", "weight": None, "title": None, "content": None},
-        kind="question",
-    )
-    assert _errors(loaded) == []
-    assert loaded.document.weight == 1
-    assert loaded.document.title is None
-    assert loaded.document.content == "text"
-
-
 def test_null_in_a_nested_choice_is_absent() -> None:
     loaded = mdq.load(
         {
@@ -111,14 +59,6 @@ def test_null_in_a_nested_blank_is_absent() -> None:
     assert loaded.document.blanks[0].tolerance is None
 
 
-def test_null_in_a_yaml_source_is_absent() -> None:
-    loaded = mdq.load(
-        "type: essay\nstem: Disserte.\nweight: ~\ntitle:\n", kind="question", format="yaml"
-    )
-    assert _errors(loaded) == []
-    assert loaded.document.weight == 1
-
-
 #
 # AC3: exam fields, including the ones the parser converts
 #
@@ -139,21 +79,3 @@ def test_null_exam_field_is_absent(line: str, field: str, value: Any) -> None:
     loaded = mdq.load(source, kind="exam")
     assert _errors(loaded) == []
     assert getattr(loaded.document, field) == value
-
-
-def test_null_meta_value_is_kept() -> None:
-    # `meta` maps to arbitrary JSON; its values are not MDQ fields.
-    loaded = mdq.load(
-        {"type": "essay", "stem": "Disserte.", "meta": {"a": None}}, kind="question"
-    )
-    assert _errors(loaded) == []
-    assert loaded.document.meta == {"a": None}
-
-
-def test_corpus_null_fields_example_matches_its_yaml() -> None:
-    source = EXAMPLES_ROOT / "valid" / "multiple-choice" / "null-fields.mdq.md"
-    from_md = mdq.load(source, kind="question")
-    from_yaml = mdq.load(source.with_suffix("").with_suffix(".yaml"), kind="question")
-    assert _errors(from_md) == []
-    assert from_md.document == from_yaml.document
-    assert from_md.document.weight == 1

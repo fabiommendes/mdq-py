@@ -1,7 +1,7 @@
 """
 numeric.md, "Answer representation": how a numeric body's value is
-represented once parsed, and how the models, lint, scoring and rendering
-treat each representation.
+represented once parsed, and how the models, scoring, rendering and importers
+treat each representation. The values, lint codes and scores are in the corpus.
 
 * An integer is an `int` inside the 32-bit signed range, a string outside.
 * A fraction is always a string.
@@ -29,11 +29,6 @@ def _question(body: str) -> dict:
 def _blank(body: str) -> dict:
     doc = parse_question(f"O valor é [^v].\n\n[^v/numeric]: {body}\n")
     return dict(doc["blanks"][0])  # type: ignore[typeddict-item]
-
-
-def _codes(doc: dict | str) -> list[str]:
-    source = doc if isinstance(doc, dict) else f"Quanto vale?\n\n[numeric]: {doc}\n"
-    return [d.code for d in load(source, format="mdq" if isinstance(doc, str) else None).diagnostics]
 
 
 # ---------------------------------------------------------------------
@@ -71,30 +66,11 @@ CASES = [
 
 
 @pytest.mark.parametrize(("body", "answer", "domain"), CASES)
-def test_parser_answer_representation(body: str, answer: object, domain: str) -> None:
-    doc = _question(body)
-    assert doc["answer"] == answer
-    assert type(doc["answer"]) is type(answer)
-    assert doc["domain"] == domain
-
-
-@pytest.mark.parametrize(("body", "answer", "domain"), CASES)
-def test_numeric_blank_answer_representation(body: str, answer: object, domain: str) -> None:
-    blank = _blank(body)
-    assert blank["answer"] == answer
-    assert type(blank["answer"]) is type(answer)
-    assert blank["domain"] == domain
-
-
-def test_string_decimal_keeps_its_decimal_places() -> None:
-    doc = _question("2.50 +- 0.05")
-    assert doc["answer"] == "2.50"
-    assert doc["decimalPlaces"] == 2
-
-
-def test_absolute_tolerance_still_widens_the_domain_of_a_string_answer() -> None:
-    assert _question("1/3 +- 0.01")["domain"] == "decimal"
-    assert _question("390000000000 +- 0.5")["domain"] == "decimal"
+def test_parser_answer_type(body: str, answer: object, domain: str) -> None:
+    # The value and the domain are in the corpus (`==` cannot tell `42` from
+    # `42.0`, so the type is checked here).
+    assert type(_question(body)["answer"]) is type(answer)
+    assert type(_blank(body)["answer"]) is type(answer)
 
 
 # ---------------------------------------------------------------------
@@ -119,52 +95,6 @@ def test_numeric_blank_keeps_an_integer_answer_integral() -> None:
     assert type(question.blanks[0].answer) is int
 
 
-@pytest.mark.parametrize("answer", [True, False])
-def test_model_rejects_a_boolean_answer(answer: bool) -> None:
-    loaded = load({"type": "numeric", "stem": "x", "answer": answer})
-    assert loaded.document is None
-
-
-# ---------------------------------------------------------------------
-# Lint: `domain` is unaffected by the representation
-# ---------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("body", ["2.0 +- 0.1", "4/2 +- 1", "2147483648 +- 1", "1/3 +- 1"])
-def test_parsed_domain_never_mismatches_its_own_answer(body: str) -> None:
-    assert "domain-mismatch" not in _codes(body)
-
-
-@pytest.mark.parametrize("body", ["2.0", "2.50"])
-def test_string_decimal_without_tolerance_is_reported(body: str) -> None:
-    assert "missing-tolerance" in _codes(body)
-
-
-@pytest.mark.parametrize("body", ["4/2", "1/3", "42"])
-def test_fraction_or_integer_without_tolerance_is_not_reported(body: str) -> None:
-    assert "missing-tolerance" not in _codes(body)
-
-
-def test_integer_beyond_int32_is_not_missing_a_tolerance() -> None:
-    assert "missing-tolerance" not in _codes("390000000000")
-
-
-def test_dict_document_fraction_as_a_float_is_outside_the_domain() -> None:
-    # numeric.md: with `domain: fraction`, a JSON/YAML/dict answer SHOULD
-    # be a fraction string or an integer; `0.25` is a decimal.
-    doc = {"type": "numeric", "stem": "x", "answer": 0.25, "domain": "fraction"}
-    assert "answer-outside-domain" in _codes(doc)
-
-
-def test_dict_document_string_decimal_is_not_a_fraction() -> None:
-    doc = {"type": "numeric", "stem": "x", "answer": "0.25", "domain": "fraction"}
-    assert "answer-outside-domain" in _codes(doc)
-
-
-def test_string_zero_with_relative_tolerance_is_reported() -> None:
-    assert "relative-tolerance-around-zero" in _codes("0/5 +- 5%")
-
-
 # ---------------------------------------------------------------------
 # Scoring is exact
 # ---------------------------------------------------------------------
@@ -180,30 +110,6 @@ def test_scoring_a_long_decimal_answer_is_exact() -> None:
     question = models.NumericQuestion(stem="x", answer="3.14159265358979323846")
     assert question.score_response(Fraction("3.14159265358979323846")).score == 1.0
     assert question.score_response(3.141592653589793).score == 0.0
-
-
-def test_scoring_compares_floats_by_their_decimal_digits() -> None:
-    # |0.4 - 0.3| is 0.1 exactly, although not in binary floating point.
-    # The inferred `decimalPlaces` is 1, so 0.41 rounds to 0.4 and is
-    # accepted; 0.46 rounds to 0.5 and is not (numeric.md, "Decimal places").
-    question = models.NumericQuestion(
-        stem="x", answer=0.3, tolerance=models.Tolerance(absolute=0.1)
-    )
-    assert question.score_response(0.4).score == 1.0
-    assert question.score_response(0.2).score == 1.0
-    assert question.score_response(0.41).score == 1.0
-    assert question.score_response(0.46).score == 0.0
-
-
-def test_scoring_a_fraction_answer_needs_the_exact_value() -> None:
-    question = models.NumericQuestion(stem="x", answer="1/3")
-    assert question.score_response(Fraction(1, 3)).score == 1.0
-    assert question.score_response(0.3333333333333333).score == 0.0
-
-
-def test_scoring_a_string_decimal_answer_accepts_a_float_response() -> None:
-    question = models.NumericQuestion(stem="x", answer="2.50")
-    assert question.score_response(2.5).score == 1.0
 
 
 # ---------------------------------------------------------------------

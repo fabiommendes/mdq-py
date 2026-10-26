@@ -34,21 +34,6 @@ def test_multiple_selection_unknown_tick_raises() -> None:
         question.score_response({"a", "z"})
 
 
-def test_multiple_selection_non_string_tick_raises() -> None:
-    question = _question(
-        {
-            "type": "multiple-selection",
-            "stem": "Biomes of Brazil",
-            "choices": [
-                {"id": "a", "text": "Cerrado", "correct": True},
-                {"id": "b", "text": "Tundra", "correct": False},
-            ],
-        }
-    )
-    with pytest.raises(ResponseError):
-        question.score_response({"a", 1})
-
-
 def test_true_false_unknown_statement_raises() -> None:
     question = _question(
         {

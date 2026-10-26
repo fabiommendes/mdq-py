@@ -1,6 +1,6 @@
 """
-Parser and render side of `unmatched`, `incorrectFeedback` and the
-questions with no pattern (docs/question-types/short-answer.md "Frontmatter",
+Parser (grading examples) and render side of `unmatched`, `incorrectFeedback`
+and the questions with no pattern (docs/question-types/short-answer.md "Frontmatter",
 "Block with no pattern", "Grading"/"Examples"; fill-in.md "Frontmatter").
 """
 
@@ -9,12 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from _corpus import EXAMPLES_ROOT, INVALID_DIR, parsed_sibling
 
 import mdq
 from mdq import models
-
-VALID = EXAMPLES_ROOT / "valid"
 
 
 def _load(source: str) -> mdq.Loaded:
@@ -37,80 +34,6 @@ def _roundtrip(question: Any) -> Any:
 
 def _frontmatter_block(text: str) -> str:
     return text.split("\n---\n", 1)[0] if text.startswith("---\n") else ""
-
-
-#
-# AC1: parser
-#
-@pytest.mark.parametrize("value", ["manual", "incorrect"])
-def test_unmatched_in_frontmatter_loads(value: str) -> None:
-    loaded = _load(
-        f"---\nunmatched: {value}\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n"
-    )
-    assert _errors(loaded) == []
-    assert "unknown-frontmatter-key" not in _codes(loaded)
-    assert loaded.document.unmatched == value
-
-
-def test_incorrect_feedback_in_frontmatter_loads() -> None:
-    source = "---\nincorrectFeedback: Tente de novo.\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n"
-    loaded = _load(source)
-    assert _errors(loaded) == []
-    assert "unknown-frontmatter-key" not in _codes(loaded)
-    assert loaded.document.incorrect_feedback == "Tente de novo."
-
-
-def test_unmatched_and_incorrect_feedback_default_to_none() -> None:
-    document = _load("Qual é a capital?\n\n[short-answer]: Brasília\n").document
-    assert document.unmatched is None
-    assert document.incorrect_feedback is None
-
-
-def test_open_ended_in_markdown_frontmatter_is_an_invalid_field() -> None:
-    """Like any unknown key of a Markdown frontmatter: an error."""
-    source = (
-        "---\nopenEnded: true\n---\n\nQual é a capital?\n\n[short-answer]: Brasília\n"
-    )
-    loaded = _load(source)
-    assert loaded.document is None
-    assert [(d.code, tuple(d.path)) for d in _errors(loaded)] == [
-        ("invalid-frontmatter-field", ("openEnded",))
-    ]
-
-
-@pytest.mark.parametrize("tag", ["[short-answer]", "[short-answer/accept]"])
-def test_block_with_no_pattern_gives_no_accept_and_no_open_ended(tag: str) -> None:
-    source = f"Descreva o bioma Cerrado.\n\n{tag}\n"
-    loaded = _load(source)
-    assert _errors(loaded) == []
-    assert loaded.document.accept is None
-    document = loaded.document.to_dict()
-    assert "accept" not in document
-    assert "openEnded" not in document
-
-
-FILL_STEM = "O bioma [^bioma] cobre o Brasil central e o rio [^rio] banha Manaus.\n\n"
-
-
-def test_fill_in_unmatched_in_frontmatter_loads() -> None:
-    source = (
-        "---\nunmatched: manual\n---\n\n"
-        + FILL_STEM
-        + "[^bioma/short-answer]: Cerrado\n\n[^rio/short-answer]: Negro\n"
-    )
-    loaded = _load(source)
-    assert _errors(loaded) == []
-    assert "unknown-frontmatter-key" not in _codes(loaded)
-    assert loaded.document.unmatched == "manual"
-
-
-def test_fill_in_blank_with_no_pattern_has_no_accept() -> None:
-    source = FILL_STEM + "[^bioma/short-answer]\n\n[^rio/short-answer]: Negro\n"
-    loaded = _load(source)
-    assert _errors(loaded) == []
-    blank = loaded.document.blanks[0]
-    assert blank.accept is None
-    assert "openEnded" not in loaded.document.to_dict()["blanks"][0]
 
 
 #
@@ -157,36 +80,6 @@ def test_grading_example_loads_without_errors_and_round_trips(name: str) -> None
     question = loaded.document
     assert question.automation == automation
     assert _roundtrip(question) == question
-
-
-@pytest.mark.parametrize(
-    "name",
-    ["manual", "semi-automatic", "reject-only", "accept-reject"],
-)
-def test_corpus_markdown_matches_its_yaml_sibling(name: str) -> None:
-    source = VALID / "short-answer" / f"{name}.mdq.md"
-    from_md = mdq.load(source, kind="question")
-    from_yaml = mdq.load(parsed_sibling(source), kind="question")
-    assert _errors(from_md) == []
-    assert from_md.document == from_yaml.document
-
-
-def test_corpus_fill_in_unmatched_manual_matches_its_yaml_sibling() -> None:
-    source = VALID / "fill-in" / "unmatched-manual.mdq.md"
-    from_md = mdq.load(source, kind="question")
-    assert _errors(from_md) == []
-    assert (
-        from_md.document == mdq.load(parsed_sibling(source), kind="question").document
-    )
-    assert from_md.document.unmatched == "manual"
-
-
-@pytest.mark.parametrize(
-    "name",
-    ["short-answer-unknown-unmatched.yaml", "short-answer-automation-field.yaml"],
-)
-def test_invalid_corpus_documents_are_rejected(name: str) -> None:
-    assert _errors(mdq.load(INVALID_DIR / name, kind="question"))
 
 
 #

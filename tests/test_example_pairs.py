@@ -32,9 +32,14 @@ _CHOICE_ITEM_RE = re.compile(
     r"^\s{0,3}[-*+]\s+\[[^\]\n]*\](?![(\[])", re.MULTILINE
 )
 
-#: `[^name]:` or `[^name/type]:` at the start of a line -- a fill-in
+#: `[^name]:` or `[^name/type] :` at the start of a line -- a fill-in
 #: blank definition.
-_BLANK_DEF_RE = re.compile(r"^\[\^([^\]]+)\](?::|[ \t]*$)", re.MULTILINE)
+_BLANK_DEF_RE = re.compile(r"^\[\^([^\]]+)\][ \t]*(?::|$)", re.MULTILINE)
+
+#: A fenced code block: the lines in it are code, never a definition.
+_FENCE_RE = re.compile(
+    r"^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?^ {0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
+)
 
 #: Frontmatter keys whose surface form is written differently from the
 #: parsed form, by a rule the spec spells out. Compared separately, or
@@ -210,7 +215,8 @@ def test_body_shape_matches_the_parsed_document(source: Path) -> None:
     if isinstance(parsed.get("blanks"), list):
         names = list(
             dict.fromkeys(
-                name.split("/", 1)[0] for name in _BLANK_DEF_RE.findall(body)
+                name.split("/", 1)[0]
+                for name in _BLANK_DEF_RE.findall(_FENCE_RE.sub("", body))
             )
         )
         assert names == [blank["id"] for blank in parsed["blanks"]], (

@@ -3,12 +3,12 @@ Exact comparison of a backtick-enclosed pattern (docs/references/patterns.md,
 "Exact literals"): NFC, trim `UNICODE_SPACE` at the ends, then compare code
 point for code point. The result never depends on `diacritics`.
 
-The shared vectors live in `examples/matching/exact.yaml`.
+The shared vectors live in `examples/matching/exact.yaml`. `reject` uses the
+same comparison: see `examples/grading/short-answer.yaml`.
 """
 
 from __future__ import annotations
 
-import unicodedata
 from typing import Any, Literal
 
 import pytest
@@ -70,29 +70,3 @@ def test_fill_in_blank_vectors(
 ) -> None:
     assert blank_score(pattern, response, mode) == (1.0 if match else 0.0)
 
-
-#
-# `reject` uses the same comparison
-#
-def _reject_question() -> models.ShortAnswerQuestion:
-    return models.ShortAnswerQuestion(
-        stem="Qual é a maior cidade da Amazônia?",
-        accept=["Manaus"],
-        reject=[{"pattern": "`Brasília`", "feedback": "Brasília fica no Cerrado."}],
-    )
-
-
-@pytest.mark.parametrize(
-    "response",
-    ["Brasília", "  Brasília\n", unicodedata.normalize("NFD", "Brasília")],
-    ids=["same", "trimmed", "decomposed"],
-)
-def test_exact_literal_in_reject_gives_its_feedback(response: str) -> None:
-    result = _reject_question().score_response(response)
-    assert result.score == 0.0
-    assert result.feedback == ["Brasília fica no Cerrado."]
-
-
-@pytest.mark.parametrize("response", ["brasília", "Brasilia"])
-def test_exact_literal_in_reject_does_not_match_a_different_text(response: str) -> None:
-    assert _reject_question().score_response(response).feedback == []

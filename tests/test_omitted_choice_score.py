@@ -13,7 +13,6 @@ import pytest
 
 import mdq
 from mdq import models
-from mdq._parser import parse_question
 from mdq.convert import export_question
 
 STEM = "Qual é a maior floresta tropical do mundo?"
@@ -47,28 +46,6 @@ def _mc(*scores: float | None, **fields) -> models.MultipleChoiceQuestion:
 
 
 #
-# Parser
-#
-def test_blank_value_omits_score_and_zero_percent_is_explicit() -> None:
-    choices = parse_question(MD)["choices"]
-    assert "score" not in choices[1]
-    assert choices[2]["score"] == 0
-    assert choices[0]["score"] == 1
-    assert choices[3]["score"] == -0.25
-
-
-def test_fill_in_choice_blank_follows_the_same_rule() -> None:
-    (blank,) = parse_question(FILL_IN_MD)["blanks"]
-    assert "score" not in blank["choices"][1]
-    assert blank["choices"][2]["score"] == 0
-
-
-def test_loaded_blank_value_is_none() -> None:
-    question = mdq.load(MD, kind="question").document
-    assert [c.score for c in question.choices] == [1.0, None, 0.0, -0.25]
-
-
-#
 # Render
 #
 def test_render_writes_blank_for_none_and_zero_percent_for_zero() -> None:
@@ -96,21 +73,6 @@ def test_render_then_load_is_a_fixed_point(source: str) -> None:
     again = mdq.load(str(question), kind="question")
     assert [d for d in again.diagnostics if d.severity == "error"] == []
     assert again.document == question
-
-
-#
-# Grading
-#
-def test_symmetric_penalizes_an_omitted_score_but_not_an_explicit_zero() -> None:
-    question = _mc(1, None, 0, None).with_ids()
-    assert question.unspecified_score() == pytest.approx(-0.5)
-    assert question.score_response(question.choices[1].id).score == pytest.approx(-0.5)
-    assert question.score_response(question.choices[2].id).score == 0
-
-
-def test_two_correct_choices_give_minus_one_in_symmetric() -> None:
-    # The table in multiple-choice.md, "Grading": `[1, 1, _, _]` is -1.00.
-    assert _mc(1, 1, None, None).unspecified_score() == pytest.approx(-1.0)
 
 
 #

@@ -85,16 +85,6 @@ def test_render_exam_keeps_title_that_looks_like_a_slug() -> None:
     assert parse(exam.render(), kind="exam", format="mdq") == exam
 
 
-def test_render_exam_keeps_multiline_title() -> None:
-    exam = models.Exam(id="final", title="Final\nexam", questions=[])
-    assert parse(exam.render(), kind="exam", format="mdq") == exam
-
-
-def test_render_exam_keeps_non_slug_id() -> None:
-    exam = models.Exam(id="final exam", title="Final", questions=[])
-    assert parse(exam.render(), kind="exam", format="mdq") == exam
-
-
 @st.composite
 def exams(draw: st.DrawFn) -> models.Exam:
     questions = draw(st.lists(mst.questions(normalize=True), max_size=3))

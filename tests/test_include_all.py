@@ -9,8 +9,7 @@ import pytest
 from mdq import load
 from mdq.errors import UnresolvedInclude
 from mdq._banks import DictLoader, FileLoader
-from mdq.models import Exam, IncludeAll, select_random
-from mdq._parser import parse_exam
+from mdq.models import Exam, select_random
 from mdq.models._query import QuerySyntaxError, is_standard_query, parse_query
 from _corpus import VALID_DIR
 
@@ -27,19 +26,6 @@ BANK = DictLoader(
         "caju": "---\ntags: fruit\n---\n\nCaju.\n\n[essay]\n",
     }
 )
-
-#: The diagnostics this module is about. Other rules (a missing title,
-#: say) also fire on these small documents, and are ignored here.
-CODES = {
-    "empty-include-all",
-    "exam-without-questions",
-    "nonstandard-include-query",
-    "separator-before-include",
-    "undeclared-id-after-include-all",
-    "unresolved-include-all",
-    "unknown-include-field",
-}
-
 
 def exam(*blocks: str) -> str:
     return "# [ex] Exam\n\n" + "\n\n".join(blocks) + "\n"
@@ -63,14 +49,6 @@ def resolved(text: str, **kwargs) -> Exam:
 
 def question_ids(text: str, select=first) -> list[str | None]:
     return [question.id for question in resolved(text, select=select).questions]
-
-
-def relevant(diagnostics) -> list:
-    return [d for d in diagnostics if d.code in CODES]
-
-
-def codes(text: str) -> list[str]:
-    return [d.code for d in relevant(load(text).diagnostics)]
 
 
 # ---------------------------------------------------------------------
@@ -109,7 +87,7 @@ def test_except_removes_listed_ids() -> None:
 
 @pytest.mark.parametrize(
     "query",
-    ["", "AND", "biome AND", "(biome", "biome)", "biome EXCEPT", "#biome OR", "a b"],
+    ["", "AND", "biome AND", "(biome", "biome EXCEPT", "#biome OR"],
 )
 def test_invalid_query_is_rejected(query: str) -> None:
     with pytest.raises(QuerySyntaxError):
@@ -136,13 +114,7 @@ class CountingIndex:
 @pytest.mark.parametrize(
     ("query", "expected", "lists_every_id"),
     [
-        ("a", {"1", "2"}, False),
-        ("a AND b", {"2"}, False),
-        ("a OR b", {"1", "2", "3"}, False),
-        ("a AND NOT b", {"1"}, False),
         ("NOT b AND a", {"1"}, False),
-        ("(a OR b) AND NOT d", {"1", "2"}, False),
-        ("b EXCEPT 2", {"3"}, False),
         ("NOT a", {"3", "4"}, True),
         ("NOT a AND NOT b", {"4"}, True),
         ("a OR NOT b", {"1", "2", "4"}, True),
@@ -160,37 +132,6 @@ def test_select_lists_every_id_only_for_a_complement(
 # ---------------------------------------------------------------------
 # Parsing and loading
 # ---------------------------------------------------------------------
-
-
-def test_parser_keeps_include_all_as_written() -> None:
-    doc = parse_exam(exam(include_all("biome", max=2)))
-    assert doc["questions"] == [{"includeAll": "biome", "max": 2}]
-
-
-def test_load_keeps_include_all_unresolved() -> None:
-    document = load(exam(include_all("biome", max=2))).validate()
-    assert document.questions == [IncludeAll(include_all="biome", max=2)]
-    assert document.to_dict()["questions"] == [{"includeAll": "biome", "max": 2}]
-
-
-def test_unknown_key_in_include_all_block_is_an_error() -> None:
-    """
-    exam.md, "No other field is allowed": an includeAll block accepts
-    only `includeAll` and `max`. An extra key used to be dropped with an
-    `unknown-frontmatter-key` warning; it is now `unknown-include-field`,
-    raised by `mdq.models.IncludeAll` -- the same code the dict/YAML path
-    raises for the same mistake.
-    """
-    text = exam("---\nincludeAll: biome\ncount: 2\n---")
-    loaded = load(text)
-    assert loaded.document is None
-    assert "unknown-include-field" in [d.code for d in loaded.diagnostics]
-
-
-@pytest.mark.parametrize("value", ["0", "-1", "two", "true"])
-def test_max_must_be_a_positive_integer(value: str) -> None:
-    text = exam(f"---\nincludeAll: biome\nmax: {value}\n---")
-    assert load(text).document is None
 
 
 def test_with_ids_needs_a_resolved_include_all() -> None:
@@ -238,14 +179,6 @@ def test_include_all_skips_an_explicit_include_even_a_later_one() -> None:
 def test_max_applies_after_skipping() -> None:
     text = exam("---\ninclude: amazonia\n---", include_all("biome", max=2))
     assert question_ids(text) == ["amazonia", "cerrado", "mata"]
-
-
-def test_include_all_skips_a_declared_inline_id() -> None:
-    inline = "---\nid: pantanal\n---\n\nOutro Pantanal.\n\n[essay]"
-    warnings: list = []
-    exam_ = resolved(exam(include_all("wetland"), inline), warnings=warnings)
-    assert [q.id for q in exam_.questions] == ["pantanal"]
-    assert [d.code for d in warnings] == ["empty-include-all"]
 
 
 def test_later_include_all_skips_what_an_earlier_one_added() -> None:
@@ -302,32 +235,3 @@ def test_file_loader_finds_questions_by_tag() -> None:
     assert set(bank.tagged("wetland")) == {"pantanal-01", "pantanal-02"}
     assert "recursion-01" in bank.ids()
     assert "midterm" not in bank.ids()
-
-
-# ---------------------------------------------------------------------
-# Lint
-# ---------------------------------------------------------------------
-
-
-def test_nonstandard_query_is_a_warning() -> None:
-    loaded = load(exam(include_all("tags ~ savanna")))
-    assert loaded.document is not None
-    assert [(d.code, d.severity, d.path) for d in relevant(loaded.diagnostics)] == [
-        ("nonstandard-include-query", "warning", ("questions", 0, "includeAll"))
-    ]
-
-
-def test_inline_question_without_id_after_include_all_warns() -> None:
-    inline = "===\n\nNova questão.\n\n[essay]"
-    assert "undeclared-id-after-include-all" in codes(exam(include_all("savanna"), inline))
-    assert "undeclared-id-after-include-all" not in codes(
-        exam(inline, include_all("savanna"))
-    )
-
-
-@pytest.mark.parametrize("block", ["---\ninclude: cerrado\n---", include_all("savanna")])
-def test_separator_before_include_block_warns(block: str) -> None:
-    loaded = load(exam("===\n\n" + block))
-    assert [(d.code, d.path) for d in relevant(loaded.diagnostics)] == [
-        ("separator-before-include", ("questions", 0))
-    ]

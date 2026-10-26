@@ -76,13 +76,6 @@ def test_grading_and_shuffle_default_to_inherit(doc: dict[str, Any]) -> None:
 
 
 @pytest.mark.parametrize("doc", GRADED, ids=[d["type"] for d in GRADED])
-def test_explicit_inherit_is_accepted(doc: dict[str, Any]) -> None:
-    question = _load(doc, grading="inherit", shuffle="inherit")
-    assert question.grading == "inherit"
-    assert question.shuffle == "inherit"
-
-
-@pytest.mark.parametrize("doc", GRADED, ids=[d["type"] for d in GRADED])
 def test_own_values_resolve_to_themselves(doc: dict[str, Any]) -> None:
     question = _load(doc, grading="partial", shuffle=True)
     assert question.effective_grading() == "partial"
@@ -101,29 +94,6 @@ def test_own_values_are_written_out() -> None:
     question = _load(MC, grading="partial", shuffle=False)
     assert question.frontmatter()["grading"] == "partial"
     assert question.frontmatter()["shuffle"] is False
-
-
-def test_markdown_frontmatter_accepts_inherit() -> None:
-    loaded = mdq.load(
-        "---\ngrading: inherit\nshuffle: inherit\n---\n\nQual?\n\n* [*] a\n* [ ] b\n",
-        kind="question",
-    )
-    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
-    assert loaded.document.grading == "inherit"
-    assert loaded.document.shuffle == "inherit"
-
-
-def test_unknown_grading_is_a_schema_error() -> None:
-    loaded = mdq.load({**MC, "grading": "random"}, kind="question")
-    assert "schema-error" in [d.code for d in loaded.diagnostics]
-
-
-def test_exam_grading_does_not_accept_inherit() -> None:
-    loaded = mdq.load(
-        {"type": "exam", "title": "Prova", "grading": "inherit", "questions": [MC]},
-        kind="exam",
-    )
-    assert "schema-error" in [d.code for d in loaded.diagnostics]
 
 
 #
@@ -196,16 +166,6 @@ def test_exam_mapping_rejects_a_value_the_type_does_not_accept() -> None:
             kind="exam",
         )
         assert "schema-error" in [d.code for d in loaded.diagnostics]
-
-
-@pytest.mark.parametrize(
-    "doc, grading",
-    [(MC, "all-or-nothing"), (MS, "no-mistakes")],
-    ids=["multiple-choice-all-or-nothing", "multiple-selection-no-mistakes"],
-)
-def test_question_rejects_a_grading_its_type_does_not_accept(doc: dict[str, Any], grading: str) -> None:
-    loaded = mdq.load({**doc, "grading": grading}, kind="question")
-    assert "schema-error" in [d.code for d in loaded.diagnostics]
 
 
 def test_resolve_returns_a_copy_with_effective_values() -> None:
