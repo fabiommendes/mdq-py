@@ -2,13 +2,12 @@
 Markdown-level helpers shared by `mdq._parser` and `mdq.models`.
 
 `md` is the one `markdown_it.MarkdownIt` instance every MDQ document is
-parsed with -- `mdq._parser._question.MDQParser` builds its block tree
-from it, and `find_misplaced_blank_markers` below uses it directly to
+parsed with -- `mdq._parser` builds its block tree from it, and `find_misplaced_blank_markers` below uses it directly to
 re-read raw Markdown outside the question grammar, checking a fill-in
 stem for a misplaced blank marker.
 
 `reconstruct_blocks` and `find_forbidden_elements`, the two other
-`mdq.models` helpers that replay a field through `MDQParser`, live in
+`mdq.models` helpers that replay a field through the parser, live in
 `mdq._parser` instead of here, since they need the parser itself, not
 just `md`.
 """

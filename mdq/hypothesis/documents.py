@@ -18,8 +18,8 @@ normalize`) yields the same value it started from. `mdq._parser.
 reconstruct_blocks` -- also used by `mdq.models.normalize_paragraphs` --
 is what makes this a precise, checkable contract instead of a hand-wavy
 one: it runs the same CommonMark parser MDQ uses and reconstructs each
-top-level block exactly as `MDQParser.raw_text` would once it is
-embedded in a full document and parsed back out.
+top-level block exactly as `BlockReader.raw_text` (in `mdq._parser._blocks`)
+would once it is embedded in a full document and parsed back out.
 """
 
 import unicodedata
@@ -292,7 +292,7 @@ def _safe_line(max_size: int = 40) -> st.SearchStrategy[str]:
     exposes a paragraph or heading's inline content as `.content`, the
     *raw source text before inline parsing* -- emphasis, code spans,
     links, autolinks, entities and raw HTML all leave it untouched (see
-    `mdq._parser._question.MDQParser.raw_text`) -- so no punctuation used by an
+    `mdq._parser._blocks.BlockReader.raw_text`) -- so no punctuation used by an
     inline construct can corrupt the round trip; only where a line
     begins matters.
     """

@@ -1,10 +1,9 @@
 """
 Test-only dispatch helpers mirroring the pre-restructure
 `mdq._parser.parse_any`/`parse_file` -- not part of the package's public
-surface (nothing in `mdq` needs the dict form outside a `Loaded`; see
-`dev/refactor/mdq-py-restructure.md` phase 4), but plenty of tests still
-want "parse this text/file and dispatch on exam vs. question" without
-caring which.
+surface (nothing in `mdq` needs the dict form outside a `Loaded`), but
+plenty of tests still want "parse this text/file and dispatch on exam vs.
+question" without caring which.
 """
 
 from __future__ import annotations

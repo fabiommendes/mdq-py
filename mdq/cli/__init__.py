@@ -1,8 +1,8 @@
 """
 Command-line interface for mdq.
 
-Usage:
-    mdq validate <question.json|question.yaml>
+Commands: `validate`, `show`, `new`, `import` and `export`. Run
+`mdq --help` for the usage of each one.
 """
 
 from ._app import app, main

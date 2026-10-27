@@ -646,7 +646,7 @@ def normalize_paragraphs(src: str) -> str:
     questions, which are Markdown blocks but not full documents. Naively
     splitting on blank lines and stripping each chunk is not enough: a
     plain paragraph's soft-wrapped lines collapse to a single space once
-    a render/parse round trip touches them (`MDQParser.raw_text`), while
+    a render/parse round trip touches them (`BlockReader.raw_text`), while
     a list, blockquote, heading or code block survives byte-for-byte.
     `_parser.reconstruct_blocks` applies the parser's own rule for each
     block instead of guessing, so this function is a fixed point of
