@@ -6,6 +6,7 @@ and `OrderingQuestion` itself.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from typing import Annotated, Any, Iterable, Iterator, Literal, Self
 
 from pydantic import (
@@ -432,11 +433,12 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
     def _parse_response(self, response: object) -> list[OrderingLine]:
         """
         Raises:
-            ResponseError: `response` is not a sequence of
-                `[indentation level, text]` pairs, or holds a line the
+            ResponseError: `response` is not a list of
+                `[indentation level, text]` pairs (a string and a mapping
+                are not), or holds a line the
                 question did not present (`check_response_lines`).
         """
-        if not isinstance(response, Iterable):
+        if isinstance(response, (str, Mapping)) or not isinstance(response, Iterable):
             raise ResponseError(
                 f"An ordering response must be a sequence of [level, text] pairs, "
                 f"found {type(response).__name__}"

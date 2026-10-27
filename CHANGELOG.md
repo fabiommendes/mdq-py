@@ -65,6 +65,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `score_response` of a multiple-selection question raises `ResponseError` for a string (`"a"`) or a mapping (`{"a": True}`) instead of reading its characters or keys as ticked ids. `score_response` of an ordering question raises it for `""` and `{}` instead of grading them as the empty list.
 - A trailing newline no longer passes where the grammar ends the text: `parse_numeric_answer("5\n")` and a numeric body raise `ParseError`, a `uuid` or `locale` that ends in a newline is `malformed-uuid` or `malformed-locale`, and an `id` that ends in a newline gets `unsafe-id`. The checks used `$`, which matches before a final newline; they use `fullmatch` now.
 - The Markdown parser no longer drops a setext underline in the `stem` and `epilogue`. `Exam.lint()` reports `setext-heading` for the `stem` and `epilogue` of its questions.
 - `Exam.render()` no longer writes `title: null` and a `# Exam` heading for an exam with no title; it writes `#`.

@@ -326,10 +326,11 @@ class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, Bool
     def _parse_response(self, response: object) -> t.MultipleSelectionResponse:
         """
         Raises:
-            ResponseError: `response` is not a collection of ids, an element
-                of it is not a string, or names no choice of the question.
+            ResponseError: `response` is not a list of ids (a string and a
+                mapping are not), an element of it is not a string, or names
+                no choice of the question.
         """
-        if not isinstance(response, Iterable):
+        if isinstance(response, (str, Mapping)) or not isinstance(response, Iterable):
             raise ResponseError(
                 f"A multiple-selection response must be a set of ids, found "
                 f"{type(response).__name__}"

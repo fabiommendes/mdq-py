@@ -76,7 +76,7 @@ def test_multiple_choice(case: dict[str, Any], response: str, expected: Any) -> 
 
 def _ms_params() -> list[Any]:
     return [
-        pytest.param(case, example, id=f"{case['grading']}/{case['name']}/{example['ticks']}")
+        pytest.param(case, example, id=f"{case['grading']}/{case['name']}/{example.get('ticks', example.get('response'))}")
         for case in _cases("multiple-selection")
         for example in case["examples"]
     ]
@@ -85,7 +85,7 @@ def _ms_params() -> list[Any]:
 @pytest.mark.parametrize(("case", "example"), _ms_params())
 def test_multiple_selection(case: dict[str, Any], example: dict[str, Any]) -> None:
     question = _question("multiple-selection", case)
-    ticks = set(example["ticks"])
+    ticks = set(example["ticks"]) if "ticks" in example else example["response"]
     if example["score"] == "malformed":
         with pytest.raises(ResponseError):
             question.score_response(ticks)
