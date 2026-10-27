@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from typing import NamedTuple
 
 from markdown_it.common.utils import unescapeAll
 from markdown_it.tree import SyntaxTreeNode as Node
 
-from .._markdown import span
+from .._markdown import span, starts_after
 from ..errors import ParseError
 from ..types import OrderingAlternativeDict
+from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader
+from ._choices import parse_observations
+from ._frontmatter import _normalize_list
+from ._tags import OrderingTag
 
 #: A line before its indentation is reduced to a level -- the leading
 #: whitespace measured in columns (tab stops of 4) for a code line, or the
@@ -189,3 +194,289 @@ def ordering_alternative(alt: RawAlternative, unit: int) -> OrderingAlternativeD
 def is_comment_block(lines: list[str]) -> bool:
     """Whether every raw line of a paragraph is a `!`-prefixed comment line."""
     return bool(lines) and all(line.strip(" \t").startswith("!") for line in lines)
+
+
+def check_ordering_tag(tag: OrderingTag) -> None:
+    """
+    Raise a `ParseError` unless `tag` is `[ordering]:` alone: the tag
+    has a colon and no text after it (question-base.md, "Body tags").
+    """
+    if tag.rest is None:
+        raise ParseError(
+            "the tag of an ordering question is `[ordering]:`, with a colon; "
+            "the code block or list follows on the next line"
+        )
+    if tag.rest:
+        raise ParseError(
+            "the line of `[ordering]:` has no text after the colon; the "
+            "code block or list starts on the next line"
+        )
+
+
+def parse_ordering_body(
+    cursor: BlockCursor, front: Mapping[str, object], tag_node: Node
+) -> tuple[dict[str, object], list[Node]]:
+    """
+    Fill `lines`, `extra`, `accept` and `reject` from an `[ordering]`
+    block and its `## [extra]`/`## [accept]`/`## [reject]` sections.
+
+    The optional epilogue sits between the content block and the
+    first section; the sections are contiguous after it and nothing
+    follows the last one.
+
+    The indentation unit is inferred once across every block of the
+    question (ordering.md#indentation), so every block is read raw
+    first and only converted to `[level, text]` pairs at the end.
+    `content` and `highlight` always come from the body (a code
+    fence implies `code` and its language, a list implies `text`);
+    the frontmatter cannot declare them.
+
+    Args:
+        tag_node: the `[ordering]` tag paragraph; the content block
+            must start on the line right after it.
+
+    Raises:
+        ParseError: the block after `[ordering]` (or a section) is
+            neither a fenced code block nor a `ul` list, a blank
+            line separates `[ordering]` from its block, a section
+            has no content block, a section's
+            content is not the same kind as `[ordering]`'s or its
+            fence names another language than the `[ordering]` fence, two
+            `## [extra]` sections are declared, or a section's
+            observations carry more than one feedback/comment block
+            or interleave the two, or a block that is not a section
+            follows the first section.
+
+    Returns:
+        The epilogue nodes, between the content block and the first
+        section.
+    """
+    main_kind, main_highlight, main_raw = parse_ordering_content(cursor, 
+        tag_node=tag_node
+    )
+
+    first_section = next(
+        (
+            i
+            for i in range(cursor.pos, len(cursor.reader.children))
+            if is_ordering_section(cursor.reader, cursor.reader.children[i])
+        ),
+        len(cursor.reader.children),
+    )
+    epilogue_nodes = cursor.reader.children[cursor.pos : first_section]
+    cursor.pos = first_section
+
+    extra_raw: list[RawLine] | None = None
+    accept_raw: list[RawAlternative] = []
+    reject_raw: list[RawAlternative] = []
+
+    while True:
+        node = cursor.peek()
+        if node is None or node.type != "heading" or node.tag != "h2":
+            break
+        m = ORDERING_SECTION_RE.match(cursor.reader.raw_text(node))
+        if m is None:
+            break
+        cursor.read()
+        name = m.group("name")
+        if name == "extra":
+            if extra_raw is not None:
+                raise ParseError("a question defines at most one [extra] section")
+            kind, highlight, extra_raw = parse_ordering_content(cursor, section=name)
+            if kind != main_kind:
+                raise ParseError(
+                    "[extra] must use the same content type as [ordering]"
+                )
+            check_section_highlight(name, highlight, main_highlight)
+        else:
+            feedback, comment = parse_ordering_observations(cursor)
+            kind, highlight, raw = parse_ordering_content(cursor, section=name)
+            if kind != main_kind:
+                raise ParseError(
+                    f"[{name}] must use the same content type as [ordering]"
+                )
+            check_section_highlight(name, highlight, main_highlight)
+            target = accept_raw if name == "accept" else reject_raw
+            target.append(RawAlternative(raw, feedback, comment))
+
+    if cursor.pos < len(cursor.reader.children):
+        raise ParseError(
+            "only [extra], [accept] and [reject] sections can follow the "
+            "first section; the epilogue goes before it",
+            cursor.reader.children[cursor.pos],
+        )
+
+    # A `ul` line already holds its nesting depth: no unit applies.
+    unit = (
+        1
+        if main_kind == "text"
+        else ordering_unit(
+            [indent for indent, _ in main_raw]
+            + [indent for indent, _ in (extra_raw or [])]
+            + [
+                indent
+                for alt in (*accept_raw, *reject_raw)
+                for indent, _ in alt.lines
+            ]
+        )
+    )
+
+    doc: dict[str, object] = {}
+    doc["content"] = main_kind
+    if main_highlight:
+        doc["highlight"] = main_highlight
+    if "indentation" in front:
+        doc["indentation"] = front["indentation"]
+    if "unmatched" in front:
+        doc["unmatched"] = front["unmatched"]
+    if "incorrectFeedback" in front:
+        doc["incorrectFeedback"] = front["incorrectFeedback"]
+    if front.get("normalizations") is not None:
+        doc["normalizations"] = _normalize_list(front["normalizations"])
+
+    doc["lines"] = ordering_leveled(main_raw, unit)
+    if extra_raw is not None:
+        doc["extra"] = ordering_leveled(extra_raw, unit)
+    if accept_raw:
+        doc["accept"] = [ordering_alternative(alt, unit) for alt in accept_raw]
+    if reject_raw:
+        doc["reject"] = [ordering_alternative(alt, unit) for alt in reject_raw]
+    return doc, epilogue_nodes
+
+
+def check_section_highlight(
+    name: str, highlight: str | None, main_highlight: str | None
+) -> None:
+    """
+    A section's fence MUST name the language of the `[ordering]` fence
+    or none, which inherits it (ordering.md#body).
+
+    Raises:
+        ParseError: the section's fence names another language.
+    """
+    if highlight is not None and highlight != main_highlight:
+        raise ParseError(
+            f"the fence of [{name}] must use the language of the [ordering] "
+            f"fence ({main_highlight or 'none'}) or none, found {highlight!r}"
+        )
+
+
+def is_ordering_section(reader: BlockReader, node: Node) -> bool:
+    """Whether `node` is an `## [extra]`, `## [accept]` or `## [reject]` heading."""
+    return (
+        node.type == "heading"
+        and node.tag == "h2"
+        and ORDERING_SECTION_RE.match(reader.raw_text(node)) is not None
+    )
+
+
+def parse_ordering_content(
+    cursor: BlockCursor, *, tag_node: Node | None = None, section: str | None = None
+) -> tuple[str, str | None, list[RawLine]]:
+    """
+    Read the fenced code block or `ul` list holding one content
+    block's raw `(indent, text)` lines, along with the content kind
+    and highlight language it implies.
+
+    Args:
+        tag_node: the `[ordering]` tag paragraph, when reading the
+            main block: the block must start on the next line.
+        section: the name of the `extra`/`accept`/`reject` section
+            whose block is read, when reading a section.
+
+    Raises:
+        ParseError: the current node is neither a fence nor a
+            bullet list, or a blank line separates the main block
+            from its tag.
+    """
+    node = cursor.peek()
+    if node is None or node.type not in ("fence", "bullet_list"):
+        if section is not None:
+            raise ParseError(
+                f"the ## [{section}] section has no content block", node
+            )
+        raise ParseError(
+            "an [ordering] block must be followed by a code block or a list",
+            node,
+        )
+    if (
+        tag_node is not None and not starts_after(tag_node, node)
+    ):
+        raise ParseError(
+            "the content of [ordering]: must start on the line right after "
+            "the tag, with no blank line in between",
+            node,
+        )
+    cursor.read()
+    if node.type == "bullet_list":
+        cursor.check_no_adjacent_list(node)
+    if node.type == "fence":
+        return "code", fence_language(node.info), ordering_code_lines(node.content)
+    check_ordering_item_blocks(cursor.reader, node)
+    depths: dict[int, int] = {}
+    parents: set[int] = set()
+    collect_item_depths(node, 0, depths, parents)
+    first_line = span(node)[0]
+    return (
+        "text",
+        None,
+        ordering_ul_lines(cursor.reader.raw_lines(node), depths, first_line, parents),
+    )
+
+
+def check_ordering_item_blocks(reader: BlockReader, node: Node) -> None:
+    """
+    Raise a `ParseError` if an item of the `ul` block `node`, at any
+    depth, holds a block that is neither a paragraph nor a nested list:
+    indented code, a heading, a block quote, a fence, an HTML block or
+    a thematic break (ordering.md, "Body"). An item is one paragraph.
+    """
+    for item in node.children:
+        if item.type != "list_item":
+            continue
+        for child in item.children:
+            if child.type in ("bullet_list", "ordered_list"):
+                check_ordering_item_blocks(reader, child)
+            elif child.type != "paragraph":
+                line = reader.raw_lines(item)[0].strip(" \t")
+                raise ParseError(
+                    f"an ordering item is one paragraph, but the item "
+                    f"{line!r} holds a "
+                    f"{BLOCK_NAMES.get(child.type, child.type)}",
+                    item,
+                )
+
+
+def parse_ordering_observations(cursor: BlockCursor) -> tuple[str | None, str | None]:
+    """
+    Consume an accept/reject section's optional feedback (`>`) and
+    comment (`!`) blocks, in either order (ordering.md,
+    "Accepted/rejected answers").
+
+    The blocks are read from the raw lines, not from the markdown
+    nodes: with no blank line between them, CommonMark folds a `!`
+    line into the blockquote before it as a lazy continuation, which
+    the grammar does not do.
+
+    Raises:
+        ParseError: a section carries more than one feedback or
+            comment block, or a line that is not part of one.
+    """
+    first: Node | None = None
+    last: Node | None = None
+    while True:
+        node = cursor.peek()
+        if node is None:
+            break
+        if node.type == "blockquote" or (
+            node.type == "paragraph" and is_comment_block(cursor.reader.raw_lines(node)[:1])
+        ):
+            if first is None:
+                first = node
+            last = node
+            cursor.read()
+        else:
+            break
+    if first is None or last is None:
+        return None, None
+    return parse_observations(cursor.reader.lines[span(first)[0] : span(last)[1]])
