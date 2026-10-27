@@ -50,6 +50,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- A fill-in frontmatter map that is not a mapping (`domain`, `decimalPlaces`, `preAccept`, `preReject`, `incorrectFeedback`) or has a badly typed entry is a `parse-error` whose `path` points at the field (`["domain"]`, `["incorrectFeedback", "river"]`), not `[]`. `ParseError` takes an optional `path`.
 - The message of `foreign-choice-marker` shows an empty marker as `[ ]`, not `[]`.
 - `Exam.with_ids()` and `Exam.model_copy()` keep `question.exam` pointing at the new exam. `model_copy()` copies the questions, so the original keeps its own.
 - `Exam.tags` rejects a repeated entry with `schema-error`, as `BaseQuestion.tags` does.

@@ -177,7 +177,8 @@ def numeric_blank_maps(front: Mapping[str, object]) -> dict[str, Mapping[str, ob
         if not isinstance(mapping, Mapping):
             raise ParseError(
                 f"frontmatter {key!r} of a fill-in question must map blank "
-                "ids to values"
+                "ids to values",
+                path=(key,),
             )
         maps[key] = mapping
     return maps
@@ -229,17 +230,20 @@ def distribute_blank_pattern_lists(
         if not isinstance(mapping, Mapping):
             raise ParseError(
                 f"frontmatter {key!r} of a fill-in question must map "
-                f"blank ids to {'strings' if is_text else 'pattern lists'}"
+                f"blank ids to {'strings' if is_text else 'pattern lists'}",
+                path=(key,),
             )
         for blank_id, value in mapping.items():
             if is_text and not isinstance(value, str):
                 raise ParseError(
-                    f"frontmatter {key!r} entry {blank_id!r} must be a string"
+                    f"frontmatter {key!r} entry {blank_id!r} must be a string",
+                    path=(key, str(blank_id)),
                 )
             if not is_text and not isinstance(value, list):
                 raise ParseError(
                     f"frontmatter {key!r} entry {blank_id!r} must be "
-                    "a list of patterns"
+                    "a list of patterns",
+                    path=(key, str(blank_id)),
                 )
             blank = blanks.get(blank_id)
             if blank is None:

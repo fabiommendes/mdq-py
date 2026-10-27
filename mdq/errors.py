@@ -26,9 +26,16 @@ class ParseError(MdqError):
     Base class for errors that occur during parsing of the exam markdown.
     """
 
-    def __init__(self, message: str, node: Node | None = None):
+    def __init__(
+        self,
+        message: str,
+        node: Node | None = None,
+        path: tuple[str | int, ...] | None = None,
+    ):
         super().__init__(message)
         self.node = node
+        if path is not None:
+            self.path = path
 
 
 class InvalidDocument(MdqError):
