@@ -9,7 +9,7 @@ from fractions import Fraction
 from typing import Any, ClassVar, Literal
 
 from .. import _parser
-from .._exact import exact_literal
+from .._exact import exact_literal, exact_span
 from .._markdown import has_visible_character, starts_block
 from ..errors import ParseError
 from ..models import (
@@ -309,21 +309,13 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
     A pattern string has no line ending, so each line ending in `text`,
     with the indentation of the next line, becomes one space, as in the
     continuation lines of a body block.
-
-    Raises:
-        ValueError: `text` needs backticks but contains one.
     """
     stripped = text.strip(" \t\r\n")
     multiline = _LINE_BREAK_RE.search(stripped) is not None
     if multiline:
         stripped = _LINE_BREAK_RE.sub(" ", stripped)
     if stripped.startswith(("/", "`")) or starts_block(stripped):
-        if "`" in stripped:
-            raise ValueError(
-                f"cannot convert from {format}: the answer {text!r} contains "
-                "a backtick and cannot be written as a literal pattern"
-            )
-        return AnswerPattern(pattern=f"`{stripped}`")
+        return AnswerPattern(pattern=exact_span(stripped))
     return AnswerPattern(pattern=stripped if multiline else text)
 
 

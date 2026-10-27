@@ -272,7 +272,7 @@ def test_b4_import_answers_become_accept_entries(importer: str) -> None:
     ("text", "expected"),
     [
         ("/usr/bin", "`/usr/bin`"),
-        ("`x`", None),
+        ("`x`", "`` `x` ``"),
         ("a`b", "a`b"),
         ("Amazonas*", None),
     ],
@@ -300,9 +300,12 @@ def test_b4_moodle_import_of_a_full_credit_asterisk_is_the_catch_all_regex() -> 
 
 
 @pytest.mark.parametrize("importer", ["_gift_import", "_moodle_import"])
-def test_b4_import_needing_wrap_with_inner_backtick_raises(importer: str) -> None:
-    with pytest.raises(ValueError):
-        globals()[importer]("/usr/`bin")
+def test_b4_import_needing_wrap_with_inner_backtick_uses_a_longer_fence(
+    importer: str,
+) -> None:
+    question = globals()[importer]("/usr/`bin")
+    assert [p.pattern for p in question.effective_accept()] == ["``/usr/`bin``"]
+    assert question.score_response("/usr/`bin").score == 1.0
 
 
 @pytest.mark.parametrize("importer", ["_gift_import", "_moodle_import"])
