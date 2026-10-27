@@ -40,7 +40,7 @@ import re
 from dataclasses import dataclass, field
 from functools import cached_property
 from collections.abc import Mapping
-from typing import cast
+from typing import Literal, assert_never, cast
 
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
@@ -567,11 +567,11 @@ class MDQParser:
                 and child.markup in ("-", "=")
             ):
                 first_line = self.reader.raw_lines(child)[:1]
-                if first_line and _matches_tag(first_line[0].strip()):
+                if first_line and read_body_tag(first_line[0].strip()) is not None:
                     setext_tag = first_line[0].strip()
             if child.type == "paragraph":
                 text = self.reader.raw_text(child)
-                if _matches_tag(text):
+                if read_body_tag(text) is not None:
                     return i
             elif self.is_choice_list(child):
                 return i
@@ -662,19 +662,17 @@ class MDQParser:
             self.state["highlight"] = front["highlight"]
 
     @staticmethod
-    def check_ordering_tag(text: str) -> None:
+    def check_ordering_tag(tag: OrderingTag) -> None:
         """
-        Raise a `ParseError` unless `text` is `[ordering]:` alone: the tag
+        Raise a `ParseError` unless `tag` is `[ordering]:` alone: the tag
         has a colon and no text after it (question-base.md, "Body tags").
         """
-        m = ORDERING_TAG_RE.match(text)
-        assert m
-        if m.group("rest") is None:
+        if tag.rest is None:
             raise ParseError(
                 "the tag of an ordering question is `[ordering]:`, with a colon; "
                 "the code block or list follows on the next line"
             )
-        if m.group("rest"):
+        if tag.rest:
             raise ParseError(
                 "the line of `[ordering]:` has no text after the colon; the "
                 "code block or list starts on the next line"
@@ -943,7 +941,7 @@ class MDQParser:
             return None, None
         return parse_observations(self.reader.lines[span(first)[0] : span(last)[1]])
 
-    def parse_short_answer_body(self, tag_text: str, tag_node: Node) -> None:
+    def parse_short_answer_body(self, tag: ShortAnswerTag, tag_node: Node) -> None:
         """
         Fill the short-answer fields from a run of `[short-answer...]` blocks.
 
@@ -964,34 +962,29 @@ class MDQParser:
             if key in front:
                 doc[key] = front[key]
 
-        text = tag_text
         seen: set[str] = set()
         while True:
-            tag = _match_short_answer(text)
-            if tag is None:
-                break
-            tag_variant, rest = tag
-            variant = "reject" if tag_variant == "reject" else "accept"
-            if variant in seen:
-                raise ParseError(f"repeated [short-answer] {variant} block")
-            seen.add(variant)
+            if tag.role in seen:
+                raise ParseError(f"repeated [short-answer] {tag.role} block")
+            seen.add(tag.role)
             patterns = self.parse_answer_block(
                 tag_node,
-                rest,
-                reject=variant == "reject",
+                tag.rest,
+                reject=tag.role == "reject",
                 tag="short-answer",
-                path=(variant,),
+                path=(tag.role,),
             )
             if patterns:
-                doc[variant] = patterns
+                doc[tag.role] = patterns
 
             node = self.peek()
             self.check_no_setext_tag(node, SHORT_ANSWER_RE)
             if node is None or node.type != "paragraph":
                 break
-            text = self.reader.raw_text(node)
-            if _match_short_answer(text) is None:
+            next_tag = read_short_answer_tag(self.reader.raw_text(node))
+            if next_tag is None:
                 break
+            tag = next_tag
             tag_node = self.read()
 
         _copy_pattern_lists(front, doc)
@@ -1144,24 +1137,21 @@ class MDQParser:
             )
         return []
 
-    def parse_numeric_body(self, tag_text: str) -> None:
-        m = NUMERIC_TAG_RE.match(tag_text)
-        assert m
-        unit = m.group("unit")
-        parsed = _parse_numeric_expression(m.group("rest"))
+    def parse_numeric_body(self, tag: NumericTag) -> None:
+        parsed = _parse_numeric_expression(tag.rest)
         front = self.frontmatter
         doc = self.state
 
         doc["answer"] = parsed["answer"]
-        if unit:
-            doc["unit"] = unit
+        if tag.unit:
+            doc["unit"] = tag.unit
         doc.update(numeric_fields(parsed, front))
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
         if "incorrectFeedback" in front:
             doc["incorrectFeedback"] = front["incorrectFeedback"]
 
-    def parse_fill_in_body(self, tag_text: str, tag_node: Node) -> None:
+    def parse_fill_in_body(self, tag: BlankTag, tag_node: Node) -> None:
         """
         Fill `blanks` from a run of `[^id...]:` definitions.
 
@@ -1186,138 +1176,103 @@ class MDQParser:
         blanks: dict[str, BlankDict] = {}
         #: The (blank id, `accept`/`reject`) short-answer definitions seen.
         defined: set[tuple[str, str]] = set()
-        text = tag_text
         while True:
-            m = BLANK_RE.match(text)
-            rest: str | None
-            if m:
-                blank_id = m.group("id")
-                kind = m.group("kind")
-                rest = m.group("rest").strip(" \t")
-            else:
-                # An open short answer blank, written without a colon.
-                bare = BLANK_BARE_RE.match(text)
-                if bare is None:
-                    break
-                blank_id = bare.group("id")
-                kind = "short-answer"
-                if bare.group("variant"):
-                    kind += "/" + bare.group("variant")
-                rest = None
-
-            unit = variant = None
-            if kind is None:
-                blank_type = None
-            else:
-                km = BLANK_KIND_RE.match(kind)
-                if km is None:
+            match tag:
+                case UnrecognizedBlankTag(text=text):
                     raise ParseError(f"unrecognized blank definition: {text!r}")
-                blank_type = "numeric" if km.group("numeric") else "short-answer"
-                unit = km.group("unit")
-                variant = km.group("variant")
-
-            next_node = self.peek()
-            if (
-                blank_type is None
-                and not rest
-                and next_node is not None
-                and next_node.type == "bullet_list"
-            ):
-                if not starts_after(tag_node, next_node):
-                    raise ParseError(
-                        f"the choice list of [^{blank_id}] must start on the line "
-                        f"right after its tag, with no blank line in between"
+                case ChoiceBlankTag(id=blank_id, rest=rest):
+                    next_node = self.peek()
+                    if not rest and next_node is not None and next_node.type == "bullet_list":
+                        if not starts_after(tag_node, next_node):
+                            raise ParseError(
+                                f"the choice list of [^{blank_id}] must start on the "
+                                f"line right after its tag, with no blank line in between"
+                            )
+                        self.read()
+                        self.check_no_adjacent_list(next_node)
+                        raw_choices = self.parse_item_list(next_node)
+                        # The choices of a multiple-choice blank are scored choices.
+                        choices = cast(
+                            "list[ScoredChoiceDict]",
+                            build_choices(
+                                "multiple-choice",
+                                raw_choices,
+                                ("blanks", _blank_index(blanks, blank_id)),
+                            ),
+                        )
+                        self._add_blank(
+                            blanks,
+                            {"id": blank_id, "type": "multiple-choice", "choices": choices},
+                        )
+                    elif not rest:
+                        raise ParseError(
+                            f"the choice blank [^{blank_id}]: has no choice list: the "
+                            f"list starts on the line right after the tag"
+                        )
+                    else:
+                        raise ParseError(
+                            f"the tag line of the choice blank [^{blank_id}] must be "
+                            f"empty and the choice list must follow it; text after the "
+                            f"colon is not a choice. For a text answer, write "
+                            f"[^{blank_id}/short-answer]: {rest}"
+                        )
+                case NumericBlankTag(id=blank_id, unit=unit, rest=rest):
+                    parsed = _parse_numeric_expression(rest)
+                    # A numeric blank is graded exactly like a numeric
+                    # question (fill-in.md), so the domain is inferred from
+                    # the written representation there too.
+                    blank: NumericBlankDict = {
+                        "id": blank_id,
+                        "type": "numeric",
+                        "answer": parsed["answer"],
+                    }
+                    if unit:
+                        blank["unit"] = unit
+                    # fill-in.md, "Frontmatter": the `domain` and `decimalPlaces`
+                    # maps win over the inferred values, as they do in a numeric
+                    # question (numeric.md, "Number type/domain").
+                    declared = {
+                        key: numeric_maps[key][blank_id]
+                        for key in ("domain", "decimalPlaces")
+                        if blank_id in numeric_maps[key]
+                    }
+                    cast("dict[str, object]", blank).update(numeric_fields(parsed, declared))
+                    if "tolerance" in parsed:
+                        blank["tolerance"] = parsed["tolerance"]
+                    self._add_blank(blanks, blank)
+                case ShortAnswerBlankTag(id=blank_id, role=role, rest=rest):
+                    if (blank_id, role) in defined:
+                        raise ParseError(
+                            f"repeated [^{blank_id}/short-answer] {role} definition"
+                        )
+                    defined.add((blank_id, role))
+                    patterns = self.parse_answer_block(
+                        tag_node,
+                        rest,
+                        reject=role == "reject",
+                        tag=f"^{blank_id}/short-answer",
+                        path=("blanks", _blank_index(blanks, blank_id), role),
                     )
-                self.read()
-                self.check_no_adjacent_list(next_node)
-                raw_choices = self.parse_item_list(next_node)
-                # The choices of a multiple-choice blank are scored choices.
-                choices = cast(
-                    "list[ScoredChoiceDict]",
-                    build_choices(
-                        "multiple-choice",
-                        raw_choices,
-                        ("blanks", _blank_index(blanks, blank_id)),
-                    ),
-                )
-                self._add_blank(
-                    blanks,
-                    {"id": blank_id, "type": "multiple-choice", "choices": choices},
-                )
-            elif blank_type == "numeric":
-                assert rest is not None
-                parsed = _parse_numeric_expression(rest)
-                # A numeric blank is graded exactly like a numeric
-                # question (fill-in.md), so the domain is inferred from
-                # the written representation there too.
-                blank: NumericBlankDict = {
-                    "id": blank_id,
-                    "type": "numeric",
-                    "answer": parsed["answer"],
-                }
-                if unit:
-                    blank["unit"] = unit
-                # fill-in.md, "Frontmatter": the `domain` and `decimalPlaces`
-                # maps win over the inferred values, as they do in a numeric
-                # question (numeric.md, "Number type/domain").
-                declared = {
-                    key: numeric_maps[key][blank_id]
-                    for key in ("domain", "decimalPlaces")
-                    if blank_id in numeric_maps[key]
-                }
-                cast("dict[str, object]", blank).update(numeric_fields(parsed, declared))
-                if "tolerance" in parsed:
-                    blank["tolerance"] = parsed["tolerance"]
-                self._add_blank(blanks, blank)
-            elif blank_type == "short-answer":
-                role = "reject" if variant == "reject" else "accept"
-                if (blank_id, role) in defined:
-                    raise ParseError(
-                        f"repeated [^{blank_id}/short-answer] {role} definition"
-                    )
-                defined.add((blank_id, role))
-                patterns = self.parse_answer_block(
-                    tag_node,
-                    rest,
-                    reject=role == "reject",
-                    tag=f"^{blank_id}/short-answer",
-                    path=(
-                        "blanks",
-                        _blank_index(blanks, blank_id),
-                        role,
-                    ),
-                )
-                sa_blank: ShortAnswerBlankDict = {
-                    "id": blank_id,
-                    "type": "short-answer",
-                }
-                if patterns and role == "accept":
-                    sa_blank["accept"] = patterns
-                elif patterns:
-                    sa_blank["reject"] = patterns
-                self._add_blank(blanks, sa_blank)
-            elif blank_type is None and not rest:
-                raise ParseError(
-                    f"the choice blank [^{blank_id}]: has no choice list: the list "
-                    f"starts on the line right after the tag"
-                )
-            elif blank_type is None:
-                raise ParseError(
-                    f"the tag line of the choice blank [^{blank_id}] must be empty "
-                    f"and the choice list must follow it; text after the colon is "
-                    f"not a choice. For a text answer, write "
-                    f"[^{blank_id}/short-answer]: {rest}"
-                )
-            else:
-                raise ParseError(f"unrecognized blank definition: {text!r}")
+                    sa_blank: ShortAnswerBlankDict = {
+                        "id": blank_id,
+                        "type": "short-answer",
+                    }
+                    if patterns and role == "accept":
+                        sa_blank["accept"] = patterns
+                    elif patterns:
+                        sa_blank["reject"] = patterns
+                    self._add_blank(blanks, sa_blank)
+                case _:
+                    assert_never(tag)
 
             node = self.peek()
             self.check_no_setext_tag(node, BLANK_RE)
             if node is None or node.type != "paragraph":
                 break
-            text = self.reader.raw_text(node)
-            if not (BLANK_RE.match(text) or BLANK_BARE_RE.match(text)):
+            next_tag = read_blank_tag(self.reader.raw_text(node))
+            if next_tag is None:
                 break
+            tag = next_tag
             tag_node = self.read()
 
         self.distribute_blank_pattern_lists(front, blanks)
@@ -1608,25 +1563,33 @@ class MDQParser:
         else:
             body_node = self.expect("paragraph", "unrecognized question body")
             text = self.reader.raw_text(body_node)
-            tag = _matches_tag(text)
-            if tag == "essay":
-                question_type = question_type or "essay"
-                self.parse_essay_body()
-            elif tag == "ordering":
-                question_type = question_type or "ordering"
-                self.check_ordering_tag(text)
-                epilogue_nodes = self.parse_ordering_body(body_node)
-            elif tag == "short-answer":
-                question_type = question_type or "short-answer"
-                self.parse_short_answer_body(text, body_node)
-            elif tag == "numeric":
-                question_type = question_type or "numeric"
-                self.parse_numeric_body(text)
-            elif tag == "blank":
-                question_type = question_type or "fill-in"
-                self.parse_fill_in_body(text, body_node)
-            else:  # pragma: no cover - find_body_start already filtered this
-                raise IncompleteQuestion()
+            tag = read_body_tag(text)
+            match tag:
+                case EssayTag():
+                    question_type = question_type or "essay"
+                    self.parse_essay_body()
+                case OrderingTag():
+                    question_type = question_type or "ordering"
+                    self.check_ordering_tag(tag)
+                    epilogue_nodes = self.parse_ordering_body(body_node)
+                case ShortAnswerTag():
+                    question_type = question_type or "short-answer"
+                    self.parse_short_answer_body(tag, body_node)
+                case NumericTag():
+                    question_type = question_type or "numeric"
+                    self.parse_numeric_body(tag)
+                case (
+                    ChoiceBlankTag()
+                    | NumericBlankTag()
+                    | ShortAnswerBlankTag()
+                    | UnrecognizedBlankTag()
+                ):
+                    question_type = question_type or "fill-in"
+                    self.parse_fill_in_body(tag, body_node)
+                case None:  # pragma: no cover - find_body_start already filtered this
+                    raise IncompleteQuestion()
+                case _:
+                    assert_never(tag)
 
         self.state["type"] = question_type
 
@@ -1845,22 +1808,6 @@ def _empty_answer_tag_message(tag: str, *, reject: bool) -> str:
     )
 
 
-def _match_short_answer(text: str) -> tuple[str | None, str | None] | None:
-    """
-    Read a short-answer tag line: `(variant, rest)`, where `variant` is
-    `accept`, `reject` or `None` (the bare tag) and `rest` is the text after
-    the colon, or `None` for a tag without a colon. `None` if `text` is no
-    short-answer tag.
-    """
-    m = SHORT_ANSWER_RE.match(text)
-    if m is not None:
-        return m.group("variant"), m.group("rest")
-    m = SHORT_ANSWER_BARE_RE.match(text)
-    if m is not None:
-        return m.group("variant"), None
-    return None
-
-
 def _is_comment_line(line: str) -> bool:
     """
     Whether `line` starts a comment: `!` but not an image, `![`, with up to
@@ -1872,20 +1819,129 @@ def _is_comment_line(line: str) -> bool:
     return stripped.startswith("!") and not stripped.startswith("![")
 
 
-def _matches_tag(text: str) -> str | None:
-    """Return which known body/blank tag `text` looks like, if any."""
+#: Whether a short-answer tag is `accept` (the default) or `reject`.
+Role = Literal["accept", "reject"]
 
-    if ESSAY_TAG_RE.match(text):
-        return "essay"
-    if ORDERING_TAG_RE.match(text):
-        return "ordering"
-    if SHORT_ANSWER_RE.match(text) or SHORT_ANSWER_BARE_RE.match(text):
-        return "short-answer"
-    if NUMERIC_TAG_RE.match(text):
-        return "numeric"
-    if BLANK_RE.match(text) or BLANK_BARE_RE.match(text):
-        return "blank"
+
+@dataclass(frozen=True)
+class EssayTag:
+    """`[essay]`."""
+
+
+@dataclass(frozen=True)
+class OrderingTag:
+    """`[ordering]`; `rest` is the text after the colon, `None` with no colon."""
+
+    rest: str | None
+
+
+@dataclass(frozen=True)
+class ShortAnswerTag:
+    """`[short-answer]`, `[short-answer/accept]` or `[short-answer/reject]`."""
+
+    role: Role
+    #: The text after the colon, or `None` for a tag without a colon.
+    rest: str | None
+
+
+@dataclass(frozen=True)
+class NumericTag:
+    """`[numeric]:` or `[numeric(unit)]:`."""
+
+    unit: str | None
+    rest: str
+
+
+@dataclass(frozen=True)
+class ChoiceBlankTag:
+    """`[^id]:`, the tag of a choice blank."""
+
+    id: str
+    rest: str
+
+
+@dataclass(frozen=True)
+class NumericBlankTag:
+    """`[^id/numeric]:` or `[^id/numeric(unit)]:`."""
+
+    id: str
+    unit: str | None
+    rest: str
+
+
+@dataclass(frozen=True)
+class ShortAnswerBlankTag:
+    """`[^id/short-answer]` with an optional `/accept` or `/reject`."""
+
+    id: str
+    role: Role
+    rest: str | None
+
+
+@dataclass(frozen=True)
+class UnrecognizedBlankTag:
+    """A blank tag with a kind that no blank has; `text` is the tag line."""
+
+    text: str
+
+
+BlankTag = (
+    ChoiceBlankTag | NumericBlankTag | ShortAnswerBlankTag | UnrecognizedBlankTag
+)
+BodyTag = EssayTag | OrderingTag | ShortAnswerTag | NumericTag | BlankTag
+
+
+def _role(variant: str | None) -> Role:
+    return "reject" if variant == "reject" else "accept"
+
+
+def read_short_answer_tag(text: str) -> ShortAnswerTag | None:
+    """Read a short-answer tag line. `None` if `text` is no such tag."""
+    m = SHORT_ANSWER_RE.match(text)
+    if m is not None:
+        return ShortAnswerTag(_role(m.group("variant")), m.group("rest"))
+    m = SHORT_ANSWER_BARE_RE.match(text)
+    if m is not None:
+        return ShortAnswerTag(_role(m.group("variant")), None)
     return None
+
+
+def read_blank_tag(text: str) -> BlankTag | None:
+    """Read a blank definition tag line. `None` if `text` is no such tag."""
+    m = BLANK_RE.match(text)
+    if m is None:
+        # An open short answer blank, written without a colon.
+        bare = BLANK_BARE_RE.match(text)
+        if bare is None:
+            return None
+        return ShortAnswerBlankTag(bare.group("id"), _role(bare.group("variant")), None)
+    blank_id = m.group("id")
+    rest = m.group("rest").strip(" \t")
+    kind = m.group("kind")
+    if kind is None:
+        return ChoiceBlankTag(blank_id, rest)
+    km = BLANK_KIND_RE.match(kind)
+    if km is None:
+        return UnrecognizedBlankTag(text)
+    if km.group("numeric"):
+        return NumericBlankTag(blank_id, km.group("unit"), rest)
+    return ShortAnswerBlankTag(blank_id, _role(km.group("variant")), rest)
+
+
+def read_body_tag(text: str) -> BodyTag | None:
+    """Read the body or blank tag `text` is, or `None` if it is no tag."""
+    if ESSAY_TAG_RE.match(text):
+        return EssayTag()
+    m = ORDERING_TAG_RE.match(text)
+    if m is not None:
+        return OrderingTag(m.group("rest"))
+    short_answer = read_short_answer_tag(text)
+    if short_answer is not None:
+        return short_answer
+    m = NUMERIC_TAG_RE.match(text)
+    if m is not None:
+        return NumericTag(m.group("unit"), m.group("rest"))
+    return read_blank_tag(text)
 
 
 #

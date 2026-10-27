@@ -32,7 +32,7 @@ from ._frontmatter import (
     _split_frontmatter,
 )
 from ._frontmatter import _invalid_frontmatter_fields
-from ._question import BRACKET_ITEM_RE, _matches_tag, parse_question
+from ._question import BRACKET_ITEM_RE, parse_question, read_body_tag
 
 __all__ = ["parse_exam", "is_exam", "inherit", "INHERITED_FIELDS", "SEPARATOR"]
 
@@ -388,7 +388,7 @@ def _split_exam_blocks(
         blank_before = index == 0 or not lines[index - 1].strip(" \t")
 
         if not body_seen and (
-            _matches_tag(stripped) or BRACKET_ITEM_RE.match(stripped)
+            read_body_tag(stripped) is not None or BRACKET_ITEM_RE.match(stripped)
         ):
             body_seen = True
 
