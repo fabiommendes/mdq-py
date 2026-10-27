@@ -30,7 +30,7 @@ underlying `markdown_it.MarkdownIt` instance, `md`).
 from __future__ import annotations
 
 from ._choices import SLUG_PREFIX_RE
-from ._exam import INHERITED_FIELDS, SEPARATOR, is_exam, parse_exam
+from ._exam import INHERITED_FIELDS, SEPARATOR, inherit, is_exam, parse_exam
 from ._frontmatter import dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer, parse_numeric_string
 from ._question import (
@@ -47,6 +47,7 @@ __all__ = [
     "parse_exam",
     "is_exam",
     "INHERITED_FIELDS",
+    "inherit",
     "SLUG_PREFIX_RE",
     "SEPARATOR",
     "reconstruct_blocks",

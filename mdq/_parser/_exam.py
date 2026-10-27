@@ -2,7 +2,7 @@
 Exam-level parsing: splitting an exam document below its H1 title into
 question blocks (`_split_exam_blocks`), turning each block into an
 inline question, `include` or `includeAll` entry (`_parse_exam_block`),
-and applying exam-to-question inheritance (`_inherit_from_exam`).
+and applying exam-to-question inheritance (`inherit`).
 
 `parse_exam` is the public entry point; it never resolves `include`s
 itself (see `mdq.models.Exam.resolve`) and calls back into
@@ -12,6 +12,7 @@ itself (see `mdq.models.Exam.resolve`) and calls back into
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any, cast
 
@@ -26,14 +27,14 @@ from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, Questi
 from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import (
     _extract_comment,
+    common_frontmatter,
     _load_frontmatter_yaml,
-    _normalize_tags,
     _split_frontmatter,
 )
 from ._frontmatter import _invalid_frontmatter_fields
 from ._question import BRACKET_ITEM_RE, _matches_tag, parse_question
 
-__all__ = ["parse_exam", "is_exam", "INHERITED_FIELDS", "SEPARATOR"]
+__all__ = ["parse_exam", "is_exam", "inherit", "INHERITED_FIELDS", "SEPARATOR"]
 
 #: An exam's questions are separated by a line of exactly three equals
 #: signs. It must be preceded by a blank line -- without one, CommonMark
@@ -57,19 +58,12 @@ H1_RE = re.compile(r"^#[ \t]+(?P<rest>.*?)[ \t]*$")
 #: `tags` is deliberately absent -- tags classify a question individually.
 INHERITED_FIELDS = ("locale", "author")
 
-#: Simple frontmatter fields copied verbatim into the exam document by
-#: `parse_exam`; the frontmatter wins over the H1 for `id`/`title`.
-#: `tags`, `start` and `duration` need their own normalization/parsing and
-#: are handled separately there.
+#: Frontmatter fields only an exam has, copied verbatim into the exam
+#: document by `parse_exam`. The fields of a question too come from
+#: `common_frontmatter`; `start` and `duration` need their own parsing.
 EXAM_PASSTHROUGH_KEYS = (
-    "id",
-    "title",
-    "uuid",
     "course",
     "description",
-    "author",
-    "locale",
-    "meta",
     "penalty",
     "grading",
     "shuffle",
@@ -157,18 +151,12 @@ def parse_exam(
     if heading:
         doc["title"] = heading
 
-    # The frontmatter wins over the H1 for both fields it can also carry.
-    # Values pass through unconverted: `id: 2024` is not a string, and the
-    # model reports it (exam.md, "Frontmatter"). A null `id` is absent.
+    # The frontmatter wins over the H1 for `id` and `title`.
+    comment = _extract_comment(frontmatter_text) if frontmatter_text is not None else None
+    doc.update(common_frontmatter(front, comment))
     for key in EXAM_PASSTHROUGH_KEYS:
-        if key in front and not (key == "id" and front[key] is None):
+        if key in front:
             doc[key] = front[key]
-    # The comment string of the frontmatter, as in a question.
-    if frontmatter_text is not None and (comment := _extract_comment(frontmatter_text)):
-        doc["comment"] = comment
-    # A null `tags` is absent, as in a question.
-    if front.get("tags") is not None:
-        doc["tags"] = _normalize_tags(front["tags"])
     if "start" in front:
         try:
             doc["start"] = _schedule.format_start(_schedule.parse_start(front["start"]))
@@ -602,11 +590,11 @@ def _parse_exam_block(
             ):
                 w = replace(w, message=w.message + hint)
             warnings.append(replace(w, path=("questions", index) + w.path))
-    _inherit_from_exam(parsed_question, exam)
+    inherit(parsed_question, exam)
     return cast(QuestionDict, parsed_question)
 
 
-def _inherit_from_exam(question: dict[str, Any], exam: dict[str, Any]) -> None:
+def inherit(question: dict[str, Any], exam: Mapping[str, Any]) -> None:
     """A question takes the exam's locale and author when it names none."""
     for field in INHERITED_FIELDS:
         if field not in question and field in exam:

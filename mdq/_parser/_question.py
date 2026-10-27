@@ -84,9 +84,9 @@ from ._frontmatter import (
     GRADED_QUESTION_TYPES,
     _copy_pattern_lists,
     _extract_comment,
+    common_frontmatter,
     _load_frontmatter_yaml,
     _normalize_list,
-    _normalize_tags,
     _invalid_frontmatter_fields,
     _split_frontmatter,
 )
@@ -499,28 +499,6 @@ class MDQParser:
     #
     # Frontmatter
     #
-
-    def apply_common_frontmatter(self) -> None:
-        front = self.frontmatter
-        doc = self.state
-        # Unconverted: `id: 2024` is not a string, and the model reports it
-        # (base.md, "Frontmatter"). A null `id` is absent.
-        if front.get("id") is not None:
-            doc["id"] = front["id"]
-        if "uuid" in front:
-            doc["uuid"] = front["uuid"]
-        if "title" in front:
-            doc["title"] = front["title"]
-        if "author" in front:
-            doc["author"] = front["author"]
-        if "locale" in front:
-            doc["locale"] = front["locale"]
-        if "tags" in front and front["tags"] is not None:
-            doc["tags"] = _normalize_tags(front["tags"])
-        if "meta" in front:
-            doc["meta"] = front["meta"]
-        if "weight" in front:
-            doc["weight"] = front["weight"]
 
     #
     # Body-start / tag detection
@@ -1602,9 +1580,9 @@ class MDQParser:
                 inferred and none is declared in frontmatter.
         """
 
-        if self.comment is not None:
-            self.state["comment"] = self.comment
-        self.apply_common_frontmatter()
+        self.state.update(common_frontmatter(self.frontmatter, self.comment))
+        if "weight" in self.frontmatter:
+            self.state["weight"] = self.frontmatter["weight"]
 
         if not self.reader.children:
             raise MissingField("stem")

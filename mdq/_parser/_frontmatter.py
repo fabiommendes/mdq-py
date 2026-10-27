@@ -351,6 +351,29 @@ def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
             doc[key] = front[key]
 
 
+def common_frontmatter(front: Mapping[str, Any], comment: str | None) -> dict[str, Any]:
+    """
+    The document fields that exams and questions take from the frontmatter
+    and from its leading comment (base.md, "Frontmatter").
+
+    Values pass through unconverted: `id: 2024` is not a string, and the
+    model reports it. A null `id` or `tags` is absent.
+    """
+    fields: dict[str, Any] = {}
+    if comment is not None:
+        fields["comment"] = comment
+    if front.get("id") is not None:
+        fields["id"] = front["id"]
+    for key in ("uuid", "title", "author", "locale"):
+        if key in front:
+            fields[key] = front[key]
+    if front.get("tags") is not None:
+        fields["tags"] = _normalize_tags(front["tags"])
+    if "meta" in front:
+        fields["meta"] = front["meta"]
+    return fields
+
+
 def _normalize_tags(tags: Any) -> Any:
     """
     generic.md: `tags` is a list, or a single comma-delimited string that

@@ -548,10 +548,14 @@ class Exam(MdqModel):
         # An included question already has an identity, so it keeps its
         # own id -- falling back to the id it was found by.
         question.setdefault("id", question_id)
-        for field in _parser.INHERITED_FIELDS:
-            value = getattr(self, field)
-            if field not in question and value is not None:
-                question[field] = value
+        _parser.inherit(
+            question,
+            {
+                field: value
+                for field in _parser.INHERITED_FIELDS
+                if (value := getattr(self, field)) is not None
+            },
+        )
         return question
 
     def score_responses(self, responses: Mapping[str, Any]) -> ExamScore:
