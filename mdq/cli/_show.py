@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, assert_never
 
 import typer
 from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
@@ -58,6 +58,13 @@ from ._show_theme import ThemeName, resolve_theme
 _MAX_CARD_WIDTH = 100
 #: Width of the column that holds a choice's radio button or checkbox.
 _MARK_WIDTH = 9
+#: Question types that carry `grading` and `shuffle`.
+_GRADED_QUESTIONS = (
+    models.MultipleChoiceQuestion,
+    models.MultipleSelectionQuestion,
+    models.TrueFalseQuestion,
+    models.FillInQuestion,
+)
 #: Width of the mock input field of a typed answer.
 _INPUT_WIDTH = 32
 #: `[^id]` in a fill-in stem, with an optional `/kind` and `/option`.
@@ -291,7 +298,10 @@ class _View:
     def question_divider(self, index: int, question: models.ExamEntry) -> RenderableType:
         # Not a styled badge: the plain `Question N` is the contract (tests,
         # people searching their scrollback).
-        accent = self.t.accents.get(getattr(question, "type", ""), self.t.exam_accent)
+        if isinstance(question, models.Include | models.IncludeAll):
+            accent = self.t.exam_accent
+        else:
+            accent = self.t.accents.get(question.type, self.t.exam_accent)
         label = Text(f" Question {index} ", style=f"bold {accent}" if accent else "bold")
         return Rule(label, style=self.t.muted, characters=self.t.rule_char)
 
@@ -327,11 +337,11 @@ class _View:
             chips.append(self._chip(question.locale, glyph=g.locale))
         if question.author and not (inherited and question.author == inherited.author):
             chips.append(self._chip(question.author, glyph=g.author))
-        grading = getattr(question, "grading", "inherit")
-        if grading != "inherit":
-            chips.append(self._chip(str(grading), glyph=g.grading))
-        if getattr(question, "shuffle", "inherit") is True:
-            chips.append(self._chip("shuffle", glyph=g.shuffle))
+        if isinstance(question, _GRADED_QUESTIONS):
+            if question.grading != "inherit":
+                chips.append(self._chip(str(question.grading), glyph=g.grading))
+            if question.shuffle is True:
+                chips.append(self._chip("shuffle", glyph=g.shuffle))
         chips += [self._chip(f"#{tag}") for tag in question.tags or []]
         return self._chips(chips)
 
@@ -445,39 +455,51 @@ class _View:
     # Body dispatch
     #
     def _body(self, question: models.Question) -> list[RenderableType]:
-        if isinstance(question, models.MultipleChoiceQuestion):
-            return [self._choices(question.choices, [self._radio(c.score) for c in question.choices])]
-        if isinstance(question, models.MultipleSelectionQuestion):
-            return [
-                self._choices(question.choices, [self._checkbox(c.correct) for c in question.choices])
-            ]
-        if isinstance(question, models.TrueFalseQuestion):
-            return [
-                self._choices(question.choices, [self._true_false(c.correct) for c in question.choices])
-            ]
-        if isinstance(question, models.NumericQuestion):
-            return self._numeric(
-                answer=question.answer,
-                unit=question.unit,
-                domain=question.domain,
-                decimal_places=question.decimal_places,
-                tolerance=question.tolerance,
-            )
-        if isinstance(question, models.ShortAnswerQuestion):
-            return self._short_answer(
-                automation=question.automation,
-                unmatched=question.unmatched,
-                incorrect_feedback=question.incorrect_feedback,
-                accept=question.accept,
-                reject=question.reject,
-            )
-        if isinstance(question, models.EssayQuestion):
-            return self._essay(question)
-        if isinstance(question, models.OrderingQuestion):
-            return self._ordering(question)
-        if isinstance(question, models.FillInQuestion):
-            return self._fill_in(question.blanks, unmatched=question.unmatched)
-        raise AssertionError(f"unhandled question type: {question.type!r}")
+        match question:
+            case models.MultipleChoiceQuestion():
+                return [
+                    self._choices(
+                        question.choices, [self._radio(c.score) for c in question.choices]
+                    )
+                ]
+            case models.MultipleSelectionQuestion():
+                return [
+                    self._choices(
+                        question.choices,
+                        [self._checkbox(c.correct) for c in question.choices],
+                    )
+                ]
+            case models.TrueFalseQuestion():
+                return [
+                    self._choices(
+                        question.choices,
+                        [self._true_false(c.correct) for c in question.choices],
+                    )
+                ]
+            case models.NumericQuestion():
+                return self._numeric(
+                    answer=question.answer,
+                    unit=question.unit,
+                    domain=question.domain,
+                    decimal_places=question.decimal_places,
+                    tolerance=question.tolerance,
+                )
+            case models.ShortAnswerQuestion():
+                return self._short_answer(
+                    automation=question.automation,
+                    unmatched=question.unmatched,
+                    incorrect_feedback=question.incorrect_feedback,
+                    accept=question.accept,
+                    reject=question.reject,
+                )
+            case models.EssayQuestion():
+                return self._essay(question)
+            case models.OrderingQuestion():
+                return self._ordering(question)
+            case models.FillInQuestion():
+                return self._fill_in(question.blanks, unmatched=question.unmatched)
+            case _:
+                assert_never(question)
 
     #
     # Choice-based bodies (multiple-choice, multiple-selection, true-false)
@@ -764,25 +786,26 @@ class _View:
                     align="left",
                 )
             )
-            if isinstance(blank, models.ChoiceBlank):
-                marks = [self._radio(c.score) for c in blank.choices]
-                parts.append(self._choices(blank.choices, marks))
-            elif isinstance(blank, models.ShortAnswerBlank):
-                parts += self._short_answer(
-                    automation=blank.automation(unmatched),
-                    accept=blank.accept,
-                    reject=blank.reject,
-                )
-            elif isinstance(blank, models.NumericBlank):
-                parts += self._numeric(
-                    answer=blank.answer,
-                    unit=blank.unit,
-                    domain=blank.domain,
-                    decimal_places=blank.decimal_places,
-                    tolerance=blank.tolerance,
-                )
-            else:
-                raise AssertionError(f"unhandled blank type: {blank.type!r}")
+            match blank:
+                case models.ChoiceBlank():
+                    marks = [self._radio(c.score) for c in blank.choices]
+                    parts.append(self._choices(blank.choices, marks))
+                case models.ShortAnswerBlank():
+                    parts += self._short_answer(
+                        automation=blank.automation(unmatched),
+                        accept=blank.accept,
+                        reject=blank.reject,
+                    )
+                case models.NumericBlank():
+                    parts += self._numeric(
+                        answer=blank.answer,
+                        unit=blank.unit,
+                        domain=blank.domain,
+                        decimal_places=blank.decimal_places,
+                        tolerance=blank.tolerance,
+                    )
+                case _:
+                    assert_never(blank)
         return parts
 
 
