@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
+from .._markdown import SLUG_BODY_RE
 from .._letters import is_letter, normalize_value, strip_marker_space
 from ..errors import ParseError
 from ..types import PatternDict
@@ -31,7 +32,6 @@ __all__ = ["RawChoice", "SLUG_BODY_RE", "SLUG_PREFIX_RE"]
 # Slugs and choice ids. A bracket followed by `(` or `[` opens a markdown
 # link (`[text](url)`, `[text][ref]`), so it is never a slug or a choice id
 # (base.md, "Slug"; multiple-choice.md, "Body").
-SLUG_BODY_RE = r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
 _NOT_A_LINK = r"(?![(\[])"
 SLUG_PREFIX_RE = re.compile(rf"^\[(?P<slug>{SLUG_BODY_RE})\]{_NOT_A_LINK}[ \t]*")
 CHOICE_ID_PREFIX_RE = re.compile(rf"^\[(?P<id>{SLUG_BODY_RE})\]{_NOT_A_LINK}[ \t]*")

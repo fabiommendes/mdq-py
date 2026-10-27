@@ -47,6 +47,7 @@ from pygments.util import ClassNotFound
 
 from .. import _parser
 from .._diagnostics import Diagnostic
+from .._markdown import SLUG_PATTERN
 from .._letters import (
     FALSE_LETTERS,
     LOCALE_ROWS,
@@ -99,21 +100,15 @@ _LOOKALIKE_LANGUAGE_SUBTAGS = {
     "ua": "uk",
 }
 
-# generic.md: `uuid` MUST be `xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx`, where
-# M is the version and N the variant. The schema pattern checks the shape
-# and the hyphens but lets any nibble through, so the two meaningful
-# nibbles are checked here.
-_UUID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
-    r"(?P<version>[0-9a-fA-F])[0-9a-fA-F]{3}-"
-    r"(?P<variant>[0-9a-fA-F])[0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-)
+# generic.md: the schema pattern and the model check the shape of a `uuid`
+# (`mdq._markdown.UUID_RE`) but let any nibble through, so the two
+# meaningful nibbles are checked here.
 _UUID_VERSIONS = frozenset("12345678")
 _UUID_VARIANTS = frozenset("89abAB")
 
 
 def _language_subtag(locale: str | None) -> str:
-    if not isinstance(locale, str):
+    if locale is None:
         return ""
     return locale.split("-")[0].lower()
 
@@ -133,7 +128,7 @@ def has_visible_character(value: str) -> bool:
 
 
 #: base.md:252, footnote [^2]: the url-safe shape a question `id` SHOULD have.
-_URL_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$")
+_URL_SAFE_ID_RE = re.compile(SLUG_PATTERN)
 
 
 def check_id_is_url_safe(id: str | None) -> list[Diagnostic]:
@@ -183,13 +178,9 @@ def check_uuid_version_and_variant(uuid: str | None) -> list[Diagnostic]:
     if uuid is None:
         return []
 
-    match = _UUID_RE.match(uuid)
-    if match is None:
-        # Malformed shape -- the schema pattern already reports that.
-        return []
-
+    # The model has checked the shape: `xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx`.
     warnings = []
-    version = match.group("version")
+    version = uuid[14]
     if version not in _UUID_VERSIONS:
         warnings.append(
             Diagnostic(
@@ -203,7 +194,7 @@ def check_uuid_version_and_variant(uuid: str | None) -> list[Diagnostic]:
             )
         )
 
-    variant = match.group("variant")
+    variant = uuid[19]
     if variant not in _UUID_VARIANTS:
         warnings.append(
             Diagnostic(
@@ -394,16 +385,14 @@ def check_choices_visually_identical(
     `check_ordering_visually_identical_lines` applies to ordering lines.
     """
     warnings: list[Diagnostic] = []
-    seen: dict[str, tuple[int, str]] = {}
+    seen: dict[str, int] = {}
     for index, choice in enumerate(choices):
         key = _render_visual_key(choice.text)
-        first = seen.get(key)
-        if first is None:
-            seen[key] = (index, choice.text)
+        first_index = seen.setdefault(key, index)
+        # An exact repeat is a `duplicate-choice-text` model error, so a
+        # choice that renders like an earlier one is written differently.
+        if first_index == index:
             continue
-        first_index, first_text = first
-        if choice.text == first_text:
-            continue  # an intentional repeat, not a same-render pair.
         warnings.append(
             Diagnostic(
                 severity="info",
@@ -1259,7 +1248,7 @@ def check_ordering_reject_without_feedback(
     """ordering.md#feedback: a `reject` section SHOULD declare feedback."""
     warnings = []
     for index, alt in enumerate(question.reject):
-        if not alt.feedback or not alt.feedback.strip():
+        if alt.feedback is None:
             warnings.append(
                 Diagnostic(
                     severity="info",

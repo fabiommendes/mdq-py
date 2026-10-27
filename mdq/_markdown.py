@@ -26,6 +26,9 @@ __all__ = [
     "find_blank_markers",
     "find_misplaced_blank_markers",
     "UNICODE_SPACE",
+    "SLUG_BODY_RE",
+    "SLUG_PATTERN",
+    "UUID_RE",
     "split_lines",
     "strip_bom",
 ]
@@ -37,6 +40,21 @@ __all__ = [
 #: embedded in other classes.
 UNICODE_SPACE = (
     r"\t\n\v\f\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000"
+)
+
+#: The `SLUG` terminal of docs/references/grammar.md, unanchored, to embed
+#: in other patterns.
+SLUG_BODY_RE = r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*"
+
+#: `SLUG_BODY_RE` anchored: the schema's `pattern` on a choice or blank `id`.
+SLUG_PATTERN = rf"^{SLUG_BODY_RE}$"
+
+#: generic.md: `uuid` MUST be `xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx`
+#: (hexadecimal digits). `M` is the version and `N` the variant, at indexes
+#: 14 and 19 of a match.
+UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
 #: One line and its line ending. Only `\r\n`, `\r` and `\n` end a line,
@@ -83,11 +101,7 @@ md.block.ruler.before("table", "mdq_item_indent", _record_item_indent)
 #: (base.md, "Bracketed tags"): `[^ a]` and `[^-x]` are ordinary text. A
 #: `]` followed by `(` or `[` starts a markdown link (`[^x](url)`,
 #: `[^x][ref]`), so that is not a blank (fill-in.md, "Stem").
-#: Duplicated from `mdq.models._BLANK_MARKER_RE` (structurally identical,
-#: kept separate since the two modules check different things:
-#: `mdq.models` cares only about which ids are referenced, this module
-#: about where in the markup a marker sits).
-_BLANK_MARKER_RE = re.compile(r"\[\^([a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*)\](?![(\[])")
+_BLANK_MARKER_RE = re.compile(rf"\[\^({SLUG_BODY_RE})\](?![(\[])")
 
 
 #: The `markup` of the `link_open` token of an autolink: `<https://...>`

@@ -33,6 +33,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from .. import _parser
 from .._diagnostics import Diagnostic
+from .._markdown import SLUG_PATTERN, UUID_RE
 from ..types import Automation
 from . import _lint, _render
 
@@ -42,10 +43,6 @@ if TYPE_CHECKING:
 
 __all__ = ["MdqModel", "BaseQuestion", "FreeText"]
 
-
-#: The `SLUG` terminal of docs/references/grammar.md, as the `id` of a
-#: choice or a blank: the schema's `pattern` on those fields.
-SLUG_PATTERN = r"^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$"
 
 #: A choice or blank `id`. Unlike a question `id`, which only SHOULD be
 #: url-safe (`unsafe-id`), this one is a `SLUG` by schema.
@@ -259,16 +256,6 @@ _BCP47_RE = re.compile(
     re.VERBOSE,
 )
 
-#: generic.md [^3]: `uuid` MUST be shaped like
-#: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. The two meaningful nibbles
-#: (version, variant) are only a `warning` when unusual -- see
-#: `mdq.models._lint.check_uuid_version_and_variant` -- this only checks
-#: the overall shape.
-_UUID_SHAPE_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-)
-
 def _validate_locale(value: str | None) -> str | None:
     """generic.md [^4]: raise `malformed-locale` for an ill-formed tag."""
     if value is None:
@@ -284,7 +271,7 @@ def _validate_locale(value: str | None) -> str | None:
 
 def _validate_uuid(value: str | None) -> str | None:
     """generic.md [^3]: raise `malformed-uuid` for a value that isn't UUID-shaped."""
-    if value is not None and not _UUID_SHAPE_RE.match(value):
+    if value is not None and not UUID_RE.match(value):
         raise PydanticCustomError(
             "malformed-uuid",
             f"{value!r} is not a valid UUID; expected the form "

@@ -458,7 +458,7 @@ def numeric_matches(
         target = _round_half_up(target, decimal_places)
     distance = abs(value - target)
 
-    if tolerance is None or (tolerance.absolute is None and tolerance.relative is None):
+    if tolerance is None:
         return distance == 0
     if tolerance.absolute is not None and distance <= numeric_value(tolerance.absolute):
         return True
