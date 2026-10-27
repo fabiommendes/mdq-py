@@ -10,7 +10,15 @@ into another question family.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Iterable, Literal, Self, Sequence
+from typing import (
+    Annotated,
+    Any,
+    Iterable,
+    Literal,
+    Self,
+    Sequence,
+    assert_never,
+)
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -337,12 +345,16 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         marks = [(choice, choice.id in response) for choice in self.choices]
         judged_correctly = sum(1 for choice, mark in marks if mark == choice.correct)
 
-        if self.effective_grading() == "all-or-nothing":
-            score = 1.0 if judged_correctly == n else 0.0
-        elif self.effective_grading() == "partial":
-            score = judged_correctly / n
-        else:
-            score = (2 * judged_correctly - n) / n
+        grading = self.effective_grading()
+        match grading:
+            case "all-or-nothing":
+                score = 1.0 if judged_correctly == n else 0.0
+            case "partial":
+                score = judged_correctly / n
+            case "symmetric":
+                score = (2 * judged_correctly - n) / n
+            case _:
+                assert_never(grading)
 
         feedback = [
             choice.feedback
@@ -477,14 +489,18 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
             if mark is not None and mark != statement.correct
         )
 
-        if self.effective_grading() == "all-or-nothing":
-            score = 1.0 if correct == n else 0.0
-        elif self.effective_grading() == "no-mistakes":
-            score = 0.0 if incorrect else correct / n
-        elif self.effective_grading() == "partial":
-            score = correct / n
-        else:
-            score = (correct - incorrect) / n
+        grading = self.effective_grading()
+        match grading:
+            case "all-or-nothing":
+                score = 1.0 if correct == n else 0.0
+            case "no-mistakes":
+                score = 0.0 if incorrect else correct / n
+            case "partial":
+                score = correct / n
+            case "symmetric":
+                score = (correct - incorrect) / n
+            case _:
+                assert_never(grading)
 
         feedback = [
             statement.feedback

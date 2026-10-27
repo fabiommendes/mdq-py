@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Literal, Self, cast
+from typing import Annotated, Any, Iterable, Literal, Self, assert_never, cast
 
 from pydantic import Field, field_validator, model_validator
 
@@ -356,40 +356,43 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         diagnostics.extend(_lint.check_case_variant_blank_ids([b.id for b in self.blanks]))
         for index, blank in enumerate(self.blanks):
             path: tuple[str | int, ...] = ("blanks", index)
-            if isinstance(blank, ChoiceBlank):
-                choices_path = path + ("choices",)
-                diagnostics.extend(_lint.check_multiple_choice_answers(blank.choices, choices_path))
-                diagnostics.extend(_lint.check_choice_ids_defined(blank.choices, choices_path))
-                diagnostics.extend(
-                    _lint.check_choices_visually_identical(blank.choices, choices_path)
-                )
-            elif isinstance(blank, ShortAnswerBlank):
-                diagnostics.extend(
-                    _lint.check_short_answer(
-                        accept=blank.accept,
-                        reject=blank.reject,
-                        pre_accept=blank.pre_accept,
-                        pre_reject=blank.pre_reject,
-                        path=path,
+            match blank:
+                case ChoiceBlank():
+                    choices_path = path + ("choices",)
+                    diagnostics.extend(_lint.check_multiple_choice_answers(blank.choices, choices_path))
+                    diagnostics.extend(_lint.check_choice_ids_defined(blank.choices, choices_path))
+                    diagnostics.extend(
+                        _lint.check_choices_visually_identical(blank.choices, choices_path)
                     )
-                )
-                diagnostics.extend(
-                    _lint.check_no_correct_answer(
-                        accept=blank.accept,
-                        unmatched=blank.effective_unmatched(self.unmatched),
-                        path=path,
+                case ShortAnswerBlank():
+                    diagnostics.extend(
+                        _lint.check_short_answer(
+                            accept=blank.accept,
+                            reject=blank.reject,
+                            pre_accept=blank.pre_accept,
+                            pre_reject=blank.pre_reject,
+                            path=path,
+                        )
                     )
-                )
-            else:
-                diagnostics.extend(
-                    _lint.check_numeric(
-                        answer=blank.answer,
-                        domain=blank.domain,
-                        decimal_places=blank.decimal_places,
-                        tolerance=blank.tolerance,
-                        path=path,
+                    diagnostics.extend(
+                        _lint.check_no_correct_answer(
+                            accept=blank.accept,
+                            unmatched=blank.effective_unmatched(self.unmatched),
+                            path=path,
+                        )
                     )
-                )
+                case NumericBlank():
+                    diagnostics.extend(
+                        _lint.check_numeric(
+                            answer=blank.answer,
+                            domain=blank.domain,
+                            decimal_places=blank.decimal_places,
+                            tolerance=blank.tolerance,
+                            path=path,
+                        )
+                    )
+                case _:
+                    assert_never(blank)
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -432,22 +435,25 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
     def _render_body(self) -> Iterable[str]:
         for blank in self.blanks:
             yield ""
-            if isinstance(blank, ChoiceBlank):
-                yield f"[^{blank.id}]:"
-                for choice in blank.choices:
-                    mark = _render.score_mark(choice.score)
-                    yield from _render.yield_choice(choice, mark=mark)
-            elif isinstance(blank, ShortAnswerBlank):
-                tag = f"^{blank.id}/short-answer"
-                yield from render_short_answer_patterns(blank.accept, blank.reject, tag)
-            else:
-                yield render_numeric_tag(
-                    blank.answer,
-                    tag=f"[^{blank.id}/numeric]",
-                    unit=blank.unit,
-                    tolerance=blank.tolerance,
-                )
+            match blank:
+                case ChoiceBlank():
+                    yield f"[^{blank.id}]:"
+                    for choice in blank.choices:
+                        mark = _render.score_mark(choice.score)
+                        yield from _render.yield_choice(choice, mark=mark)
+                case ShortAnswerBlank():
+                    tag = f"^{blank.id}/short-answer"
+                    yield from render_short_answer_patterns(blank.accept, blank.reject, tag)
+                case NumericBlank():
+                    yield render_numeric_tag(
+                        blank.answer,
+                        tag=f"[^{blank.id}/numeric]",
+                        unit=blank.unit,
+                        tolerance=blank.tolerance,
+                    )
 
+                case _:
+                    assert_never(blank)
     def score_response(self, response: t.FillInResponse) -> QuestionScore:
         """
         Score each blank independently and combine by `grading`.
@@ -471,71 +477,74 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
         for blank in self.blanks:
             sub_response = response.get(blank.id)
-            if isinstance(blank, ChoiceBlank):
-                if sub_response is None:
-                    scores.append(0.0)
-                    continue
-                choice = next((c for c in blank.choices if c.id == sub_response), None)
-                if choice is None:
-                    raise ResponseError(
-                        f"Response id {sub_response!r} not found in blank {blank.id!r}"
+            match blank:
+                case ChoiceBlank():
+                    if sub_response is None:
+                        scores.append(0.0)
+                        continue
+                    choice = next((c for c in blank.choices if c.id == sub_response), None)
+                    if choice is None:
+                        raise ResponseError(
+                            f"Response id {sub_response!r} not found in blank {blank.id!r}"
+                        )
+                    scores.append(
+                        choice.score
+                        if choice.score is not None
+                        else unspecified_choice_score(blank.choices, symmetric=symmetric)
                     )
-                scores.append(
-                    choice.score
-                    if choice.score is not None
-                    else unspecified_choice_score(blank.choices, symmetric=symmetric)
-                )
-                if choice.feedback:
-                    feedback.append(choice.feedback)
-            elif isinstance(blank, ShortAnswerBlank):
-                if sub_response is None:
-                    scores.append(0.0)
-                    continue
-                if not isinstance(sub_response, str):
-                    raise ResponseError(
-                        f"Response {sub_response!r} to blank {blank.id!r} is not text"
+                    if choice.feedback:
+                        feedback.append(choice.feedback)
+                case ShortAnswerBlank():
+                    if sub_response is None:
+                        scores.append(0.0)
+                        continue
+                    if not isinstance(sub_response, str):
+                        raise ResponseError(
+                            f"Response {sub_response!r} to blank {blank.id!r} is not text"
+                        )
+                    outcome = settle_response(
+                        blank.accept,
+                        blank.reject,
+                        sub_response,
+                        unmatched=blank.effective_unmatched(self.unmatched),
+                        diacritics=self.diacritics,
                     )
-                outcome = settle_response(
-                    blank.accept,
-                    blank.reject,
-                    sub_response,
-                    unmatched=blank.effective_unmatched(self.unmatched),
-                    diacritics=self.diacritics,
-                )
-                if outcome == "pending":
-                    # The instructor scores a pending blank; the question
-                    # stays pending, but the other blanks are still checked.
-                    pending.append(blank.id)
-                    continue
-                scores.append(1.0 if outcome == "correct" else 0.0)
-                blank_feedback = first_feedback(
-                    (blank.accept if outcome == "correct" else blank.reject) or [],
-                    sub_response,
-                    diacritics=self.diacritics,
-                )
-                if outcome == "incorrect" and not blank_feedback and blank.incorrect_feedback:
-                    blank_feedback = [blank.incorrect_feedback]
-                feedback.extend(blank_feedback)
-            else:
-                if sub_response is None:
-                    scores.append(0.0)
-                    continue
-                if not isinstance(sub_response, int | float | Fraction | str | Mapping):
-                    raise ResponseError(
-                        f"Response {sub_response!r} to blank {blank.id!r} is not numeric"
+                    if outcome == "pending":
+                        # The instructor scores a pending blank; the question
+                        # stays pending, but the other blanks are still checked.
+                        pending.append(blank.id)
+                        continue
+                    scores.append(1.0 if outcome == "correct" else 0.0)
+                    blank_feedback = first_feedback(
+                        (blank.accept if outcome == "correct" else blank.reject) or [],
+                        sub_response,
+                        diacritics=self.diacritics,
                     )
-                correct = numeric_matches(
-                    blank.answer,
-                    cast(t.NumericResponse, sub_response),
-                    blank.tolerance,
-                    blank.effective_decimal_places,
-                    domain=blank.effective_domain,
-                    unit=blank.unit,
-                )
-                scores.append(1.0 if correct else 0.0)
-                if not correct and blank.incorrect_feedback:
-                    feedback.append(blank.incorrect_feedback)
+                    if outcome == "incorrect" and not blank_feedback and blank.incorrect_feedback:
+                        blank_feedback = [blank.incorrect_feedback]
+                    feedback.extend(blank_feedback)
+                case NumericBlank():
+                    if sub_response is None:
+                        scores.append(0.0)
+                        continue
+                    if not isinstance(sub_response, int | float | Fraction | str | Mapping):
+                        raise ResponseError(
+                            f"Response {sub_response!r} to blank {blank.id!r} is not numeric"
+                        )
+                    correct = numeric_matches(
+                        blank.answer,
+                        cast(t.NumericResponse, sub_response),
+                        blank.tolerance,
+                        blank.effective_decimal_places,
+                        domain=blank.effective_domain,
+                        unit=blank.unit,
+                    )
+                    scores.append(1.0 if correct else 0.0)
+                    if not correct and blank.incorrect_feedback:
+                        feedback.append(blank.incorrect_feedback)
 
+                case _:
+                    assert_never(blank)
         if pending:
             raise NotAutoGradable(
                 f"the response to blank {pending[0]!r} is pending: it matches "
@@ -544,19 +553,23 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
         mean = sum(scores) / len(scores)
 
-        if self.effective_grading() == "all-or-nothing":
-            score = 1.0 if all(s == 1.0 for s in scores) else 0.0
-        elif self.effective_grading() == "no-mistakes":
-            # An empty blank scores 0 but is no mistake: only a filled
-            # blank below 1 zeroes the question.
-            mistaken = any(
-                score < 1.0 and response.get(blank.id) is not None
-                for blank, score in zip(self.blanks, scores, strict=True)
-            )
-            score = 0.0 if mistaken else mean
-        elif self.effective_grading() == "partial":
-            score = max(0.0, mean)
-        else:
-            score = mean
+        grading = self.effective_grading()
+        match grading:
+            case "all-or-nothing":
+                score = 1.0 if all(s == 1.0 for s in scores) else 0.0
+            case "no-mistakes":
+                # An empty blank scores 0 but is no mistake: only a filled
+                # blank below 1 zeroes the question.
+                mistaken = any(
+                    score < 1.0 and response.get(blank.id) is not None
+                    for blank, score in zip(self.blanks, scores, strict=True)
+                )
+                score = 0.0 if mistaken else mean
+            case "partial":
+                score = max(0.0, mean)
+            case "symmetric":
+                score = mean
+            case _:
+                assert_never(grading)
 
         return QuestionScore(score=score, feedback=feedback)
