@@ -59,7 +59,7 @@ def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
     numeric.md, "Answer representation": a string `answer` MUST be a
     valid `sign? numeric_value` (an `INTEGER` or `DECIMAL` with an optional
     exponent, or a fraction with a nonzero denominator) -- the same grammar a numeric body's value
-    follows. A JSON/YAML number MUST be finite: `.inf` and `.nan` are
+    follows, with no surrounding space. A JSON/YAML number MUST be finite: `.inf` and `.nan` are
     rejected.
 
     Reuses `mdq._parser.parse_numeric_answer` instead of a second regex.
@@ -75,6 +75,13 @@ def _validate_numeric_answer(value: NumericAnswer) -> NumericAnswer:
             "the integer is out of the range of a double",
         )
     if isinstance(value, str):
+        # The parser trims a Markdown body's value; a string `answer` is not
+        # trimmed (the schema pattern is anchored).
+        if value != value.strip(" \t"):
+            raise PydanticCustomError(
+                "malformed-numeric-answer",
+                f"{value!r} is not a valid numeric answer: surrounding space",
+            )
         try:
             _parser.parse_numeric_answer(value)
         except ParseError as exc:

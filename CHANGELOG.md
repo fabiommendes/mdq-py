@@ -18,6 +18,8 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- A string numeric `answer` with a space or tab around it (`" 1"`, `"1 "`) is a `malformed-numeric-answer`, in a numeric question and in a numeric blank (breaking). Before, it was trimmed and accepted, against the schema pattern. The Markdown body `[numeric]: 1` is still trimmed.
+- In the fill-in frontmatter, a `null` entry in the `preAccept`, `preReject` or `incorrectFeedback` map means the field is absent for that blank (it was a `parse-error`). A `null` entry in `domain` or `decimalPlaces` no longer blocks the value inferred from the body.
 - JSON loading rejects `NaN`, `Infinity` and `-Infinity` with `json-syntax-error` (breaking). Python's `json` accepted them.
 - YAML follows the Core schema further (breaking). A scalar mapping key that is not a string becomes its string form, as in `js-yaml` (`1` is `"1"`, `0x1F` is `"31"`, `1e3` is `"1000"`, `null` is `"null"`), in the frontmatter and in YAML documents; a key that repeats after the conversion, or a sequence or mapping key, is a `yaml-syntax-error`. NEL, LS and PS inside a scalar are content, not line breaks. A tag outside the Core schema (`!!timestamp`, `!!binary`, `!!set`, `!!omap`) is a `yaml-syntax-error`, and `!!merge` no longer merges.
 - A tag line right after content, or after a pattern or choice item, is a `parse-error` with a "blank line before the tag" message (breaking).

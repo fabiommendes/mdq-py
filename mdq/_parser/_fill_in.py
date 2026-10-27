@@ -110,7 +110,7 @@ def parse_fill_in_body(
                 declared = {
                     key: numeric_maps[key][blank_id]
                     for key in ("domain", "decimalPlaces")
-                    if blank_id in numeric_maps[key]
+                    if numeric_maps[key].get(blank_id) is not None
                 }
                 cast("dict[str, object]", blank).update(numeric_fields(parsed, declared))
                 if "tolerance" in parsed:
@@ -188,7 +188,8 @@ def distribute_numeric_blank_maps(
     Check the keys of the `domain` and `decimalPlaces` maps against the
     blanks. A numeric blank took its values when it was built; a key
     that is the id of another kind of blank puts the value on that
-    blank, where the schema rejects it.
+    blank, where the schema rejects it. A `null` entry means the field
+    is absent for that blank.
 
     Raises:
         UndefinedBlank: a key is not the id of a blank in `blanks`.
@@ -198,7 +199,7 @@ def distribute_numeric_blank_maps(
             blank = blanks.get(blank_id)
             if blank is None:
                 raise UndefinedBlank(str(blank_id), key)
-            if blank["type"] != "numeric":
+            if value is not None and blank["type"] != "numeric":
                 _set_field(blank, key, value)
 
 
@@ -210,7 +211,8 @@ def distribute_blank_pattern_lists(
     maps onto the blanks they key (fill-in.md, "Frontmatter"). Each map
     goes from a blank id to a pattern list (a string for
     `incorrectFeedback`); the value becomes the field of the same name
-    of that blank, whatever its kind -- the schema rejects `preAccept`
+    of that blank, whatever its kind (a `null` entry means the field is
+    absent for that blank) -- the schema rejects `preAccept`
     and `preReject` on a choice or numeric blank, and `incorrectFeedback`
     on a choice blank.
 
@@ -231,6 +233,11 @@ def distribute_blank_pattern_lists(
                 path=(key,),
             )
         for blank_id, value in mapping.items():
+            if value is None:
+                # A `null` entry means the field is absent for the blank.
+                if blank_id not in blanks:
+                    raise UndefinedBlank(str(blank_id), key)
+                continue
             if is_text and not isinstance(value, str):
                 raise ParseError(
                     f"frontmatter {key!r} entry {blank_id!r} must be a string",

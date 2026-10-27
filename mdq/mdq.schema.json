@@ -1617,31 +1617,66 @@
         "preAccept": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+            "anyOf": [
+              {
+                "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "preReject": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+            "anyOf": [
+              {
+                "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml#/$defs/patternList"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "incorrectFeedback": {
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "domain": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/domain"
+            "anyOf": [
+              {
+                "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/domain"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "decimalPlaces": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/decimalPlaces"
+            "anyOf": [
+              {
+                "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/fill-in.yaml#/$defs/NumericBlank/properties/decimalPlaces"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": {
