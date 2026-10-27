@@ -21,6 +21,7 @@ from typing import (
     Annotated,
     Any,
     Iterable,
+    Iterator,
     Literal,
     Mapping,
     Self,
@@ -75,7 +76,7 @@ from ._fill_in import FillInQuestion
 from ._numeric import NumericQuestion
 from ._ordering import OrderingQuestion
 from ._score import ExamScore, QuestionScore
-from ._query import QuerySyntaxError, parse_query
+from ._query import QuerySyntaxError, is_standard_query, parse_query
 from ._text import EssayQuestion, ShortAnswerQuestion
 
 __all__ = [
@@ -661,7 +662,7 @@ class Exam(MdqModel):
         `author`, `tags`, `meta`; base.md, "Additional Rules").
         """
         diagnostics = list(
-            _lint.check_exam_without_questions(self.questions, ("questions",))
+            check_exam_without_questions(self.questions, ("questions",))
         )
         diagnostics.extend(_lint.check_id_is_url_safe(self.id))
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
@@ -678,12 +679,12 @@ class Exam(MdqModel):
             if isinstance(entry, IncludeAll):
                 after_include_all = True
                 diagnostics.extend(
-                    _lint.check_include_query(entry.include_all, path + ("includeAll",))
+                    check_include_query(entry.include_all, path + ("includeAll",))
                 )
             elif not isinstance(entry, Include):
                 if after_include_all and entry.id is None:
                     diagnostics.extend(
-                        _lint.check_undeclared_id_after_include_all(path + ("id",))
+                        check_undeclared_id_after_include_all(path + ("id",))
                     )
                 diagnostics.extend(
                     replace(d, path=path + d.path) for d in entry.lint()
@@ -789,3 +790,48 @@ def _check_selection(chosen: list[str], candidates: list[str], max: int | None) 
     if max is not None and len(chosen) > max:
         raise ValueError(f"select() returned {len(chosen)} ids, but max is {max}")
 
+
+def check_exam_without_questions(
+    questions: Sequence[object], path: tuple[str | int, ...]
+) -> Iterator[Diagnostic]:
+    """
+    exam.md: an exam MAY contain zero questions, but SHOULD warn -- an
+    exam with nothing to answer is a draft, not an assessment.
+    """
+    if questions:
+        return
+    yield diag(
+        code="exam-without-questions",
+        path=path,
+        message="the exam contains no questions, so it cannot be answered",
+    )
+
+
+def check_include_query(
+    query: str, path: tuple[str | int, ...]
+) -> Iterator[Diagnostic]:
+    """exam.md, "Include all": a query should follow the recommended language."""
+    if is_standard_query(query):
+        return
+    yield diag(
+        code="nonstandard-include-query",
+        path=path,
+        message=f"the query {query!r} does not follow the recommended query language",
+    )
+
+
+def check_undeclared_id_after_include_all(
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    exam.md, "Question ids": the derived id of a question after an
+    `includeAll` changes with the questions the query adds.
+    """
+    yield diag(
+        code="undeclared-id-after-include-all",
+        path=path,
+        message=(
+            "the derived id of a question after an 'includeAll' changes "
+            "with the questions the query adds; declare an 'id'"
+        ),
+    )

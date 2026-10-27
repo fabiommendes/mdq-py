@@ -33,7 +33,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from .. import _parser
 from .._diagnostics import Diagnostic
-from .._markdown import SLUG_PATTERN, UUID_RE
+from .._markdown import SLUG_PATTERN, UUID_RE, has_visible_character
 from ..types import Automation
 from . import _lint, _render
 
@@ -286,7 +286,7 @@ def _validate_free_text(value: str, info: ValidationInfo) -> str:
     visible character. An empty or whitespace-only string raises
     `blank-text`.
     """
-    if not _lint.has_visible_character(value):
+    if not has_visible_character(value):
         raise PydanticCustomError(
             "blank-text",
             f"'{to_camel(info.field_name or '')}' is defined but has no "

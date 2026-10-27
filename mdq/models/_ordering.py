@@ -6,7 +6,7 @@ and `OrderingQuestion` itself.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Annotated, Any, Iterable, Literal, Self
+from typing import Annotated, Any, Iterable, Iterator, Literal, Self
 
 from pydantic import (
     AfterValidator,
@@ -23,6 +23,7 @@ from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
 from . import _lint, _render
 from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
+from ._lint_codes import diag
 from ._score import QuestionScore
 
 __all__ = ["OrderingLine", "OrderingAlternative", "OrderingQuestion"]
@@ -109,13 +110,13 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
         diagnostics.extend(_lint.check_code_highlight(self.content, self.highlight))
-        diagnostics.extend(_lint.check_ordering_duplicate_alternatives(self))
-        diagnostics.extend(_lint.check_ordering_accept_repeats_answer_key(self))
-        diagnostics.extend(_lint.check_ordering_unreachable_reject(self))
-        diagnostics.extend(_lint.check_ordering_redundant_strict_indentation(self))
-        diagnostics.extend(_lint.check_ordering_blank_lines(self))
-        diagnostics.extend(_lint.check_ordering_reject_without_feedback(self))
-        diagnostics.extend(_lint.check_ordering_visually_identical_lines(self))
+        diagnostics.extend(check_ordering_duplicate_alternatives(self))
+        diagnostics.extend(check_ordering_accept_repeats_answer_key(self))
+        diagnostics.extend(check_ordering_unreachable_reject(self))
+        diagnostics.extend(check_ordering_redundant_strict_indentation(self))
+        diagnostics.extend(check_ordering_blank_lines(self))
+        diagnostics.extend(check_ordering_reject_without_feedback(self))
+        diagnostics.extend(check_ordering_visually_identical_lines(self))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -510,3 +511,176 @@ def coerce_ordering_lines(lines: t.OrderingResponse) -> list[OrderingLine]:
             raise ResponseError(f"Line text {text!r} is not a string")
         result.append((level, text))
     return result
+
+
+def check_ordering_duplicate_alternatives(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """
+    ordering.md#acceptedrejected-answers: a question SHOULD NOT declare
+    two `accept` sections, or two `reject` sections, whose lines are the
+    same once fully normalized -- every entry of `normalizations`, plus
+    whatever `indentation` implies. An accept/reject pair is a model
+    error (`accept-reject-overlap`) and never reaches this check.
+    """
+    for section in ("accept", "reject"):
+        seen: dict[tuple[Any, ...], tuple[str, int]] = {}
+        for index, alt in enumerate(getattr(question, section)):
+            key = question.comparison_key(alt.lines)
+            first = seen.get(key)
+            if first is not None:
+                first_section, first_index = first
+                yield diag(
+                    code="duplicate-alternative-lines",
+                    path=(section, index, "lines"),
+                    message=(
+                        f"{section}[{index}] holds the same lines as "
+                        f"{first_section}[{first_index}], once fully "
+                        f"normalized"
+                    ),
+                )
+            else:
+                seen[key] = (section, index)
+
+
+def check_ordering_accept_repeats_answer_key(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """ordering.md#acceptedrejected-answers: `accept` SHOULD NOT repeat `lines`."""
+    answer_key = question.comparison_key(question.lines)
+    for index, alt in enumerate(question.accept):
+        if question.comparison_key(alt.lines) == answer_key:
+            yield diag(
+                code="accept-repeats-answer-key",
+                path=("accept", index, "lines"),
+                message=(
+                    f"accept[{index}] repeats the [ordering] block's own "
+                    f"lines, once fully normalized"
+                ),
+            )
+
+
+def check_ordering_unreachable_reject(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """
+    ordering.md#acceptedrejected-answers: a `reject` entry that uses a
+    line, or more copies of a line, than the presented pool (`lines`
+    plus `extra`) offers can never match a response. Lines are identified
+    as in `OrderingQuestion.identity_key`.
+    """
+    pool = Counter(question.identity_key(question.lines))
+    pool.update(question.identity_key(question.extra))
+    for index, alt in enumerate(question.reject):
+        if Counter(question.identity_key(alt.lines)) - pool:
+            yield diag(
+                code="unreachable-alternative",
+                path=("reject", index, "lines"),
+                message=(
+                    f"reject[{index}] uses a line, or more copies of a "
+                    f"line, than the lines and extra blocks offer, so no "
+                    f"response can match it"
+                ),
+            )
+
+
+def check_ordering_redundant_strict_indentation(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """
+    ordering.md#indentation[^8]: `dedent` flattens every line to level 0,
+    so `indentation: "strict"` has nothing left to compare.
+    `indentation: "lenient"` implies `dedent` and therefore never
+    combines with `"strict"` in the first place, so only an explicit
+    `dedent` in `normalizations` can trigger this.
+    """
+    if question.indentation != "strict":
+        return
+    if "dedent" not in question.effective_normalizations():
+        return
+    yield diag(
+        code="redundant-strict-indentation",
+        path=("indentation",),
+        message=(
+            "indentation is 'strict' but 'dedent' is normalized, which "
+            "flattens every line to level 0, so there is nothing left "
+            "for 'strict' to compare"
+        ),
+    )
+
+
+def check_ordering_blank_lines(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """
+    ordering.md#additional-rules: a blank `lines`/`extra` entry should
+    only appear when `skip-blanks` is normalized -- otherwise it counts
+    when comparing a response.
+    """
+    if "skip-blanks" in question.effective_normalizations():
+        return
+
+    for field_name in ("lines", "extra"):
+        for index, (_, text) in enumerate(getattr(question, field_name)):
+            if text.strip() == "":
+                yield diag(
+                    code="blank-ordering-line",
+                    path=(field_name, index),
+                    message=(
+                        "line is blank, and 'skip-blanks' is not "
+                        "normalized, so it counts when comparing a "
+                        "response"
+                    ),
+                )
+
+
+def check_ordering_reject_without_feedback(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """ordering.md#feedback: a `reject` section SHOULD declare feedback."""
+    for index, alt in enumerate(question.reject):
+        if alt.feedback is None:
+            yield diag(
+                code="reject-without-feedback",
+                path=("reject", index),
+                message=(
+                    f"reject[{index}] declares no feedback, so it explains "
+                    f"nothing to the student"
+                ),
+            )
+
+
+def check_ordering_visually_identical_lines(
+    question: OrderingQuestion,
+) -> Iterator[Diagnostic]:
+    """
+    ordering.md#body: two `lines`/`extra` entries at the same
+    indentation level should not render alike while differing in their
+    raw markdown source -- a student ordering the rendered text cannot
+    tell such a pair apart. Only meaningful for `content: "text"`: a
+    code block's content is shown verbatim, never rendered.
+    """
+    if question.content != "text":
+        return
+
+    seen: dict[tuple[int, str], tuple[str, int, str]] = {}
+    for field_name in ("lines", "extra"):
+        for index, (level, text) in enumerate(getattr(question, field_name)):
+            key = (level, _lint.render_visual_key(text))
+            first = seen.get(key)
+            if first is None:
+                seen[key] = (field_name, index, text)
+                continue
+
+            first_field, first_index, first_text = first
+            if text == first_text:
+                continue  # an intentional repeat, not a same-render pair.
+            yield diag(
+                code="visually-identical-lines",
+                path=(field_name, index),
+                message=(
+                    f"line renders the same as {first_field}[{first_index}] "
+                    f"but is written differently in source; a student "
+                    f"ordering the rendered text cannot tell them apart"
+                ),
+            )

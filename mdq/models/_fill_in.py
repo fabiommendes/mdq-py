@@ -12,7 +12,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from fractions import Fraction
-from typing import Annotated, Any, Final, Iterable, Literal, Self, cast, assert_never
+from typing import (
+    Annotated,
+    Any,
+    Final,
+    Iterable,
+    Iterator,
+    Literal,
+    Self,
+    Sequence,
+    cast,
+    assert_never,
+)
 
 from pydantic import Field, model_validator
 
@@ -27,7 +38,7 @@ from ..types import (
     QuestionShuffle,
     Unmatched,
 )
-from . import _lint, _render
+from . import _render
 from ._base import (
     SlugId,
     FreeText,
@@ -38,11 +49,15 @@ from ._base import (
 )
 from ._choice import (
     ScoredChoice,
+    check_choice_ids_defined,
+    check_choices_visually_identical,
+    check_multiple_choice_answers,
     _with_choice_ids,
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
 from ._numeric import NumericKey, render_numeric_tag
+from ._lint_codes import diag
 from ._score import QuestionScore
 from ._text import (
     PatternKey,
@@ -131,9 +146,9 @@ class ChoiceBlank(BlankBase):
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
         choices_path = path + ("choices",)
         return [
-            *_lint.check_multiple_choice_answers(self.choices, choices_path),
-            *_lint.check_choice_ids_defined(self.choices, choices_path),
-            *_lint.check_choices_visually_identical(self.choices, choices_path),
+            *check_multiple_choice_answers(self.choices, choices_path),
+            *check_choice_ids_defined(self.choices, choices_path),
+            *check_choices_visually_identical(self.choices, choices_path),
         ]
 
     def render_lines(self) -> Iterable[str]:
@@ -434,7 +449,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         blank.
         """
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_case_variant_blank_ids([b.id for b in self.blanks]))
+        diagnostics.extend(check_case_variant_blank_ids([b.id for b in self.blanks]))
         for index, blank in enumerate(self.blanks):
             diagnostics.extend(blank.lint(("blanks", index), unmatched=self.unmatched))
         return diagnostics
@@ -548,3 +563,25 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                 assert_never(grading)
 
         return QuestionScore(score=score, feedback=feedback)
+
+
+def check_case_variant_blank_ids(blank_ids: Sequence[str]) -> Iterator[Diagnostic]:
+    """
+    fill-in.md, "Blank definitions": blank ids are compared exactly, so two
+    ids that differ only in ASCII case are two blanks. CommonMark would
+    merge them, so warn (`case-variant-blank-id`).
+    """
+    first_by_folded: dict[str, str] = {}
+    for index, blank_id in enumerate(blank_ids):
+        folded = blank_id.lower()
+        first = first_by_folded.setdefault(folded, blank_id)
+        if first != blank_id:
+            yield diag(
+                code="case-variant-blank-id",
+                path=("blanks", index, "id"),
+                message=(
+                    f"blank id {blank_id!r} differs from {first!r} only in "
+                    f"case; blank ids are case-sensitive, but CommonMark "
+                    f"labels are not"
+                ),
+            )

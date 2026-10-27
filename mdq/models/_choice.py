@@ -15,6 +15,7 @@ from typing import (
     Annotated,
     Any,
     Iterable,
+    Iterator,
     Literal,
     Self,
     Sequence,
@@ -26,7 +27,14 @@ from pydantic_core import PydanticCustomError
 
 from .. import types as t
 from .._diagnostics import Diagnostic
-from .._letters import is_letter, normalize_value
+from .._letters import (
+    FALSE_LETTERS,
+    LOCALE_ROWS,
+    TRUE_LETTERS,
+    is_letter,
+    nfkc,
+    normalize_value,
+)
 from ..errors import ResponseError
 from ..types import (
     MultipleChoiceGrading,
@@ -46,6 +54,7 @@ from ._base import (
     _check_unique_choices,
     _raise_unique_id_error,
 )
+from ._lint_codes import diag
 from ._score import QuestionScore
 
 __all__ = [
@@ -222,8 +231,8 @@ class ChoiceQuestion[R, C: (ScoredChoice, BooleanChoice, Statement)](BaseQuestio
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
-        diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
+        diagnostics.extend(check_choice_ids_defined(self.choices, ("choices",)))
+        diagnostics.extend(check_choices_visually_identical(self.choices, ("choices",)))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -252,7 +261,7 @@ class MultipleChoiceQuestion(ChoiceQuestion[t.MultipleChoiceResponse, ScoredChoi
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_multiple_choice_answers(self.choices, ("choices",)))
+        diagnostics.extend(check_multiple_choice_answers(self.choices, ("choices",)))
         return diagnostics
 
     def _mark(self, choice: ScoredChoice) -> str:
@@ -298,7 +307,7 @@ class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, Bool
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_multiple_selection_answers(self.choices, ("choices",)))
+        diagnostics.extend(check_multiple_selection_answers(self.choices, ("choices",)))
         return diagnostics
 
     def _mark(self, choice: BooleanChoice) -> str:
@@ -360,13 +369,13 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
     def check_markers_agree_with_correct(self) -> Self:
         """
         true-false.md:64-66,210: a marker's category (TRUE/FALSE/
-        WARNING, see `mdq._lint.TRUE_MARKERS`/`FALSE_MARKERS`) must
+        WARNING, see `mdq._letters.TRUE_LETTERS`/`FALSE_LETTERS`) must
         agree with `correct`. A FALSE-category marker disagrees with
         `correct: true`; a TRUE- or WARNING-category marker --
         WARNING letters also represent true, per the spec's "Body"
         section -- disagrees with `correct: false`. A WARNING marker
         paired with `correct: true` still SHOULD warn
-        (`mdq._lint.check_true_false_markers`).
+        (`check_true_false_markers`).
         The reserved `X`/`x` marker is rejected at the field level, so it
         never reaches here.
         """
@@ -376,7 +385,7 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
                 continue
             # FALSE-category means false; everything else (TRUE or
             # WARNING) reads as true.
-            expected_correct = normalize_value(marker) not in _lint.FALSE_MARKERS
+            expected_correct = normalize_value(marker) not in FALSE_LETTERS
             disagrees = choice.correct != expected_correct
             if disagrees:
                 _raise_unique_id_error(
@@ -394,9 +403,9 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_true_false_markers(self.choices, self.locale))
-        diagnostics.extend(_lint.check_true_false_uniform_answers(self.choices))
-        diagnostics.extend(_lint.check_true_false_marker_nfkc(self.choices))
+        diagnostics.extend(check_true_false_markers(self.choices, self.locale))
+        diagnostics.extend(check_true_false_uniform_answers(self.choices))
+        diagnostics.extend(check_true_false_marker_nfkc(self.choices))
         return diagnostics
 
     def _mark(self, choice: Statement) -> str:
@@ -460,3 +469,226 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
             if mark != statement.correct and statement.feedback
         ]
         return QuestionScore(score=score, feedback=feedback)
+
+
+def check_choice_ids_defined(
+    choices: Sequence[ScoredChoice | BooleanChoice | Statement],
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    multiple-choice.md, "Choices": a choice SHOULD declare its own `id`
+    rather than rely on one derived from its text -- a derived id is
+    only as stable as the slugifier that produced it.
+    """
+    for index, choice in enumerate(choices):
+        if choice.id is None:
+            yield diag(
+                code="missing-choice-id",
+                path=path + (index, "id"),
+                message=(
+                    "choice has no explicit id; one will be derived from its text"
+                ),
+            )
+
+
+def check_choices_visually_identical(
+    choices: Sequence[ScoredChoice | BooleanChoice | Statement],
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    multiple-choice.md, "Choices": two choices whose text renders alike
+    but is written differently in source are indistinguishable to a
+    reader -- the same comparison
+    `check_ordering_visually_identical_lines` applies to ordering lines.
+    """
+    seen: dict[str, int] = {}
+    for index, choice in enumerate(choices):
+        key = _lint.render_visual_key(choice.text)
+        first_index = seen.setdefault(key, index)
+        # An exact repeat is a `duplicate-choice-text` model error, so a
+        # choice that renders like an earlier one is written differently.
+        if first_index == index:
+            continue
+        yield diag(
+            code="visually-identical-choices",
+            path=path + (index, "text"),
+            message=(
+                f"choice text renders the same as choices[{first_index}] "
+                f"but is written differently in source"
+            ),
+        )
+
+
+def check_multiple_choice_answers(
+    choices: Sequence[ScoredChoice],
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    multiple-choice.md: a question MAY mark any number of choices as
+    correct, and typically marks exactly one -- more than one is unusual
+    enough to flag (`many-correct-choices`, `info`), but
+    not a mistake. No correct choice at all more likely is one.
+
+    Also used, via `mdq.models._fill_in.FillInQuestion.lint`, for a
+    fill-in choice blank -- graded like multiple-choice, so the same
+    rules apply (fill-in.md, "Additional Rules").
+    """
+    correct = [
+        index for index, choice in enumerate(choices) if (choice.score or 0) >= 1
+    ]
+
+    if not correct:
+        yield diag(
+            code="no-correct-choice",
+            path=path,
+            message="no choice has a score >= 1; the question has no correct answer",
+        )
+
+    if len(correct) > 1:
+        listed = ", ".join(str(index) for index in correct)
+        yield diag(
+            code="many-correct-choices",
+            path=path,
+            message=(
+                f"choices {listed} all have a score >= 1; a question MAY "
+                f"mark any number of choices as correct, but the student "
+                f"still picks a single one"
+            ),
+        )
+
+    if len(correct) == len(choices):
+        yield diag(
+            code="all-choices-correct",
+            path=path,
+            message="every choice has a score >= 1; the question has no wrong answer",
+        )
+
+
+def check_multiple_selection_answers(
+    choices: Sequence[BooleanChoice],
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    multiple-selection.md: a well-formed question mixes correct and
+    incorrect choices -- one with none correct has nothing to select,
+    and one where every choice is correct has nothing to leave unchecked.
+    """
+    correct = [index for index, choice in enumerate(choices) if choice.correct]
+
+    if not correct:
+        yield diag(
+            code="no-correct-choice",
+            path=path,
+            message="no choice is correct; the question has nothing to select",
+        )
+    elif len(correct) == len(choices):
+        yield diag(
+            code="all-choices-correct",
+            path=path,
+            message="every choice is correct; the question has nothing to leave unchecked",
+        )
+
+
+def check_true_false_markers(
+    choices: Sequence[Statement],
+    locale: str | None,
+) -> Iterator[Diagnostic]:
+    """
+    true-false.md, "Locale": the marker rules, in this order, on the
+    normalized value.
+
+    1. A false friend of the locale row: only `false-friend-true-false-marker`.
+    2. A letter the row accepts (even a WARNING letter): no warning.
+    3. A WARNING letter: only `unlisted-true-false-marker`.
+    4. A locale without a row: no locale warning.
+    5. Any other TRUE or FALSE letter: `locale-mismatched-true-false-marker`.
+
+    The reserved `X`/`x` marker is rejected at the model layer
+    (`reserved-true-false-marker`), so it never reaches here.
+    """
+    row = LOCALE_ROWS.get(_lint.language_subtag(locale))
+
+    for index, choice in enumerate(choices):
+        marker = choice.marker
+        if marker is None:
+            continue
+
+        value = normalize_value(marker)
+        path = ("choices", index, "marker")
+        if row is not None and value in row.false_friends:
+            yield diag(
+                code="false-friend-true-false-marker",
+                path=path,
+                message=(
+                    f"{marker!r} reads as true (see true-false.md), but "
+                    f"it can mean false in the language of locale "
+                    f"{locale!r}; if this choice was meant to be false, "
+                    f"use 'F' instead"
+                ),
+            )
+        elif row is not None and (value in row.true or value in row.false):
+            continue
+        elif value not in TRUE_LETTERS and value not in FALSE_LETTERS:
+            yield diag(
+                code="unlisted-true-false-marker",
+                path=path,
+                message=(
+                    f"{marker!r} is in neither the true nor the false "
+                    f"marker list: it reads as true"
+                ),
+            )
+        elif row is not None:
+            yield diag(
+                code="locale-mismatched-true-false-marker",
+                path=path,
+                message=(
+                    f"{marker!r} does not fit locale {locale!r}: use "
+                    f"'T'/'F' or a letter of the locale table"
+                ),
+            )
+
+
+def check_true_false_marker_nfkc(
+    choices: Sequence[Statement],
+) -> Iterator[Diagnostic]:
+    """
+    true-false.md, "Additional Rules": a marker that is not its own NFKC
+    form (`non-nfkc-true-false-marker`, info), for example U+FF26
+    FULLWIDTH LATIN CAPITAL LETTER F or U+212B ANGSTROM SIGN. The letter
+    is valid and keeps its written form in `marker`, but it is read as
+    its NFKC form, and it renders differently than intended.
+    """
+    for index, choice in enumerate(choices):
+        marker = choice.marker
+        if marker is None:
+            continue
+        form = nfkc(marker)
+        if form != marker:
+            yield diag(
+                code="non-nfkc-true-false-marker",
+                path=("choices", index, "marker"),
+                message=(f"{marker!r} is not its own NFKC form; read as {form!r}"),
+            )
+
+
+def check_true_false_uniform_answers(
+    choices: Sequence[Statement],
+) -> Iterator[Diagnostic]:
+    """
+    true-false.md:218: a question whose statements are all true or all
+    false is usually an authoring mistake -- a well-formed question
+    presents a mix for the student to judge.
+    """
+    if not choices:
+        return
+    values = {choice.correct for choice in choices}
+    if len(values) > 1:
+        return
+    yield diag(
+        code="uniform-true-false-answers",
+        path=("choices",),
+        message=(
+            f"every statement is {'true' if choices[0].correct else 'false'}; "
+            f"a true/false question should mix true and false statements"
+        ),
+    )

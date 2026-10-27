@@ -14,7 +14,7 @@ import re
 import unicodedata
 from functools import cached_property
 from importlib import resources
-from typing import Annotated, Any, Iterable, Literal, Self
+from typing import Annotated, Any, Iterable, Iterator, Literal, Self
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -22,13 +22,20 @@ from pydantic_core import PydanticCustomError
 from .. import _parser
 from .. import types as t
 from .._exact import exact_literal
-from .._markdown import UNICODE_SPACE, starts_block
+from .._markdown import UNICODE_SPACE, has_visible_character, starts_block
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Diacritics, EssayContent, Unmatched
 from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
-from ._regex import InvalidRegexError, RegexPattern
+from ._lint_codes import diag
+from ._regex import (
+    IGNORED_FLAGS,
+    InvalidRegexError,
+    RegexPattern,
+    escaped_code_points,
+    parse_regex,
+)
 from ._regex import normalize_text as _strip_marks
 from ._score import QuestionScore
 
@@ -138,7 +145,7 @@ class AnswerPattern(MdqModel):
         text = self.pattern.strip(" \t")
         if self.exact_content is not None:
             text = self.exact_content
-        if not _lint.has_visible_character(text):
+        if not has_visible_character(text):
             _raise_unique_id_error(
                 type(self).__name__,
                 "blank-text",
@@ -245,14 +252,14 @@ class PatternKey(MdqModel):
         the effective one, declared at `unmatched_path`.
         """
         return [
-            *_lint.check_short_answer(
+            *check_short_answer(
                 accept=self.accept,
                 reject=self.reject,
                 pre_accept=self.pre_accept,
                 pre_reject=self.pre_reject,
                 path=path,
             ),
-            *_lint.check_no_correct_answer(
+            *check_no_correct_answer(
                 accept=self.accept,
                 unmatched=unmatched,
                 path=unmatched_path,
@@ -452,7 +459,7 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
         diagnostics.extend(_lint.check_code_highlight(self.content, self.highlight))
-        diagnostics.extend(_lint.check_missing_answer_key(self.answer_key))
+        diagnostics.extend(check_missing_answer_key(self.answer_key))
         diagnostics.extend(
             _lint.check_unsafe_thematic_break(self.answer_key, ("answerKey",))
         )
@@ -702,3 +709,156 @@ def first_feedback(
     return []
 
 
+def check_missing_answer_key(answer_key: str | None) -> Iterator[Diagnostic]:
+    """essay.md:91: `answerKey` SHOULD be defined, for a human grader's benefit."""
+    if answer_key is not None:
+        return
+    yield diag(
+        code="missing-answer-key",
+        path=("answerKey",),
+        message="'answerKey' is not defined",
+    )
+
+
+def check_short_answer(
+    *,
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None = None,
+    pre_accept: list[AnswerPattern] | None = None,
+    pre_reject: list[AnswerPattern] | None = None,
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    short-answer.md, "Additional Rules": the regex lints
+    (`redundant-regex-anchor`, `ignored-regex-flag`,
+    `unmatchable-regex-escape`) over the four
+    pattern lists.
+
+    Diagnostics use the frontmatter key: `path + ("preAccept", index)`.
+
+    Whether every `/`-delimited pattern in `accept`/`reject`/
+    `preAccept`/`preReject` compiles is a model error
+    (`invalid-regex` -- dev/specs/to-do/lint-on-models.md), not checked
+    here.
+    """
+    yield from _check_pattern_list(accept, "accept", path=path)
+    yield from _check_pattern_list(pre_accept, "preAccept", path=path)
+    yield from _check_pattern_list(reject, "reject", path=path)
+    yield from _check_pattern_list(pre_reject, "preReject", path=path)
+
+
+def check_no_correct_answer(
+    *,
+    accept: list[AnswerPattern] | None,
+    unmatched: str,
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    short-answer.md, "Additional Rules": `unmatched` is `"incorrect"`
+    but there is no `accept` pattern, so no response can be correct
+    (`no-correct-answer`). `unmatched` is the effective value.
+    """
+    if unmatched != "incorrect" or accept:
+        return
+    yield diag(
+        code="no-correct-answer",
+        path=path,
+        message=(
+            "'unmatched' is 'incorrect' but no 'accept' pattern is given: "
+            "no response can be correct"
+        ),
+    )
+
+
+def _check_pattern_list(
+    patterns: list[AnswerPattern] | None,
+    key: str,
+    *,
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """Lints one pattern list, named by its frontmatter `key`: the regex lints of every entry."""
+    for index, pattern in enumerate(patterns or []):
+        # Not `AnswerPattern.kind`: this check strips every Unicode space
+        # (`str.strip()`) before testing for the opening `/`, while the
+        # matcher strips only spaces and tabs.
+        if not pattern.pattern.strip().startswith("/"):
+            continue
+        try:
+            body, raw_flags = parse_regex(pattern.pattern)
+        except InvalidRegexError:
+            continue
+        item_path = path + (key, index)
+        yield from _check_redundant_regex_anchor(body, raw_flags, item_path)
+        yield from _check_ignored_regex_flags(raw_flags, item_path)
+        yield from _check_unmatchable_regex_escape(body, raw_flags, item_path)
+
+
+def _check_redundant_regex_anchor(
+    body: str, raw_flags: str, path: tuple[str | int, ...]
+) -> Iterator[Diagnostic]:
+    """
+    short-answer.md, "Regex flags": a leading `^` is implicit unless the
+    `f` flag is set, and a trailing `$` is implicit unless `f` or `b` is
+    set. A `$` preceded by an odd number of backslashes is a literal.
+    """
+    leading = body.startswith("^") and "f" not in raw_flags
+    trailing = False
+    if body.endswith("$") and not {"f", "b"} & set(raw_flags):
+        backslashes = len(body) - 1 - len(body[:-1].rstrip("\\"))
+        trailing = backslashes % 2 == 0
+    if not (leading or trailing):
+        return
+    yield diag(
+        code="redundant-regex-anchor",
+        path=path,
+        message=(
+            "matching is already anchored here, so a leading '^' or "
+            "trailing '$' is redundant"
+        ),
+    )
+
+
+def _check_ignored_regex_flags(
+    raw_flags: str, path: tuple[str | int, ...]
+) -> Iterator[Diagnostic]:
+    """
+    short-answer.md:385: `m`, `g`, `s`, `u`, `v`, `y` and `d` are accepted
+    for compatibility but have no effect (see [regex flags](regex-flags)).
+    """
+    ignored = sorted(set(raw_flags) & IGNORED_FLAGS)
+    if not ignored:
+        return
+    flags_text = ", ".join(repr(flag) for flag in ignored)
+    yield diag(
+        code="ignored-regex-flag",
+        path=path,
+        message=f"flag(s) {flags_text} are accepted but have no effect on matching",
+    )
+
+
+def _check_unmatchable_regex_escape(
+    body: str, raw_flags: str, path: tuple[str | int, ...]
+) -> Iterator[Diagnostic]:
+    """
+    patterns.md, "Regex flags": under `n`, an escape that denotes a code
+    point is never stripped. If the strip changes that code point, the
+    stripped response cannot contain it. One diagnostic per pattern.
+    """
+    if "n" not in raw_flags:
+        return
+    if not any(_stripped_by_n(code_point) for code_point in escaped_code_points(body)):
+        return
+    yield diag(
+        code="unmatchable-regex-escape",
+        path=path,
+        message=(
+            "the 'n' flag strips diacritics from the response, so an escape "
+            "for a code point that the strip changes cannot match"
+        ),
+    )
+
+
+def _stripped_by_n(code_point: int) -> bool:
+    """True if the `n` strip changes the code point."""
+    char = chr(code_point)
+    return _strip_marks(char) != char

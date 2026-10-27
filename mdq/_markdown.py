@@ -16,6 +16,7 @@ just `md`.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from markdown_it import MarkdownIt
 from markdown_it.rules_block import StateBlock
@@ -237,3 +238,14 @@ def starts_block(pattern: str) -> bool:
         return False
     tokens = md.parse(text)
     return bool(tokens) and tokens[0].type != "paragraph_open"
+
+
+def has_visible_character(value: str) -> bool:
+    """
+    Whether `value` has a visible character, as grammar.md "Visible
+    characters" defines it: not white space, and not a control (`Cc`) or
+    format (`Cf`) character such as U+200B.
+    """
+    return any(
+        not (c.isspace() or unicodedata.category(c) in ("Cc", "Cf")) for c in value
+    )

@@ -11,18 +11,18 @@ import unicodedata
 from collections.abc import Mapping
 from decimal import Decimal
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Literal, Self
+from typing import Annotated, Any, Iterable, Iterator, Literal, Self
 
 from pydantic import AfterValidator, Field, StrictFloat, StrictInt, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .. import _parser, types as t
 from .._diagnostics import Diagnostic
-from .._markdown import UNICODE_SPACE
+from .._markdown import UNICODE_SPACE, has_visible_character
 from ..errors import ParseError, ResponseError
 from ..types import NumericDomain
-from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel
+from ._lint_codes import diag
 from ._score import QuestionScore
 
 __all__ = ["Tolerance", "NumericKey", "NumericQuestion"]
@@ -35,7 +35,7 @@ _UNIT_PATTERN = rf"^[^()\[\]{UNICODE_SPACE}]+$"
 
 def _validate_unit(value: str) -> str:
     """numeric.md, "Unit conversion": a unit needs a visible character."""
-    if not _lint.has_visible_character(value):
+    if not has_visible_character(value):
         raise PydanticCustomError(
             "blank-text",
             "'unit' is defined but has no visible characters",
@@ -112,7 +112,7 @@ def check_decimal_places_given(
     if (
         decimal_places is None
         and is_fraction_answer(answer)
-        and _lint._effective_numeric_domain(answer, domain, tolerance) == "decimal"
+        and effective_numeric_domain(answer, domain, tolerance) == "decimal"
         and infer_decimal_places(answer, tolerance) == 0
     ):
         raise PydanticCustomError(
@@ -189,7 +189,7 @@ class NumericKey(MdqModel):
         The declared `domain`, else the one inferred from `answer` and the
         absolute tolerance (numeric.md, "Number type/domain").
         """
-        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
+        return effective_numeric_domain(self.answer, self.domain, self.tolerance)
 
     @property
     def effective_decimal_places(self) -> int | None:
@@ -207,7 +207,7 @@ class NumericKey(MdqModel):
     def lint_key(self, path: tuple[str | int, ...]) -> list[Diagnostic]:
         """Lint the key, which sits at `path` of the document."""
         return list(
-            _lint.check_numeric(
+            check_numeric(
                 answer=self.answer,
                 domain=self.domain,
                 decimal_places=self.decimal_places,
@@ -506,3 +506,144 @@ def _format_number(value: int | float) -> str:
         return text
     text = format(Decimal(text), "f")
     return text if "." in text else f"{text}.0"
+
+
+_DOMAIN_RANK: dict[str, int] = {"integer": 0, "fraction": 1, "decimal": 2}
+
+
+def effective_numeric_domain(
+    answer: int | float | str,
+    domain: NumericDomain | None,
+    tolerance: Tolerance | None,
+) -> "NumericDomain":
+    """
+    The declared `domain`, else the one inferred from the answer and the
+    absolute tolerance (numeric.md, "Number type/domain": the wider of
+    the two).
+    """
+    if domain is not None:
+        return domain
+    inferred = infer_numeric_domain(answer)
+    if tolerance is not None and tolerance.absolute is not None:
+        tolerance_domain = infer_numeric_domain(tolerance.absolute)
+        if _DOMAIN_RANK[tolerance_domain] > _DOMAIN_RANK[inferred]:
+            return tolerance_domain
+    return inferred
+
+
+def infer_numeric_domain(answer: int | float | str) -> "NumericDomain":
+    """
+    numeric.md, "Number type/domain": infer the domain an `answer` is
+    written in, ranking integer < fraction < decimal. A `str` answer
+    holds a `/` (a fraction) or a `.` or an exponent (a decimal) or
+    neither (an integer); a number is an integer when it has no fractional part,
+    decimal otherwise. The parser keeps a whole decimal such as `2.0`
+    as a string, so a whole number here was not written as a decimal
+    in Markdown.
+    """
+    if isinstance(answer, str):
+        text = answer.strip()
+        if "/" in text:
+            return "fraction"
+        if "." in text or "e" in text or "E" in text:
+            return "decimal"
+        return "integer"
+    return "integer" if float(answer) == int(answer) else "decimal"
+
+
+def check_numeric(
+    *,
+    answer: int | float | str,
+    domain: NumericDomain | None,
+    decimal_places: int | None,
+    tolerance: Tolerance | None,
+    path: tuple[str | int, ...],
+) -> Iterator[Diagnostic]:
+    """
+    numeric.md: the domain is inferred from the answer's representation
+    when not declared, so a declared domain that contradicts the answer
+    is a mistake; and a relative tolerance around zero can never widen
+    the accepted range.
+    """
+    effective_domain = effective_numeric_domain(answer, domain, tolerance)
+    # A string answer is already grammar-validated, so `Fraction` accepts it.
+    value: Fraction | float = Fraction(answer) if isinstance(answer, str) else answer
+    # numeric.md, "Additional Rules": under `integer` the answer must be
+    # whole; under `fraction` it must be whole or a fraction string.
+    is_fraction_string = isinstance(answer, str) and "/" in answer
+    if (domain == "integer" or (domain == "fraction" and not is_fraction_string)) and (
+        value != int(value)
+    ):
+        yield diag(
+            code="answer-outside-domain",
+            path=path + ("answer",),
+            message=(
+                f"domain is {domain!r} but the answer {answer!r} is not "
+                + (
+                    "a whole number"
+                    if domain == "integer"
+                    else "a whole number or a fraction"
+                )
+            ),
+        )
+
+    if (
+        domain in ("integer", "fraction")
+        and tolerance is not None
+        and tolerance.absolute is not None
+        and infer_numeric_domain(tolerance.absolute) == "decimal"
+    ):
+        yield diag(
+            code="domain-mismatch",
+            path=path + ("domain",),
+            message=(
+                f"domain is {domain!r}, but the absolute tolerance "
+                f"{tolerance.absolute!r} is a decimal"
+            ),
+        )
+
+    if tolerance is None and effective_domain == "decimal":
+        yield diag(
+            code="missing-tolerance",
+            path=path + ("tolerance",),
+            message=(
+                f"the answer {answer!r} is in a decimal domain, but "
+                f"no tolerance is given; an exact comparison rarely "
+                f"matches a typed response"
+            ),
+        )
+
+    if tolerance is not None:
+        relative = tolerance.relative
+        if relative is not None and relative > 0 and value == 0:
+            yield diag(
+                code="relative-tolerance-around-zero",
+                path=path + ("tolerance", "relative"),
+                message=(
+                    "a relative tolerance is computed as answer x "
+                    "relative, which is 0 when the answer is 0; only an "
+                    "exact 0 would be accepted"
+                ),
+            )
+
+        if relative is not None and relative > 1:
+            yield diag(
+                code="relative-tolerance-over-one",
+                path=path + ("tolerance", "relative"),
+                message=(
+                    f"a relative tolerance of {relative!r} is "
+                    f"{relative * 100:g}%: a tolerance above 100% accepts "
+                    f"responses of the opposite sign to the answer"
+                ),
+            )
+
+    if decimal_places is not None and effective_domain != "decimal":
+        source = "" if domain is not None else " (inferred from the answer)"
+        yield diag(
+            code="ignored-decimal-places",
+            path=path + ("decimalPlaces",),
+            message=(
+                f"'decimalPlaces' is ignored when domain is "
+                f"{effective_domain!r}{source}"
+            ),
+        )
