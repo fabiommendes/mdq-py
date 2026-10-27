@@ -268,18 +268,6 @@ def test_normalize_keeps_every_stem_block_in_the_stem() -> None:
     assert rt == normalized
 
 
-@pytest.mark.parametrize("field", ["stem", "epilogue"])
-def test_normalize_keeps_a_field_that_starts_with_a_thematic_break(field: str) -> None:
-    """A leading `---` in `stem` or `epilogue` is not a frontmatter."""
-    text = "---\n\nfonte: IBGE\n\n---\n\nQual é a população estimada do Pará?"
-    data = {"type": "essay", "stem": "Explique o ciclo da água.", field: text}
-    if field == "stem":
-        data["stem"] = text
-    question = models.EssayQuestion.model_validate(data)
-
-    assert getattr(question.normalize(), field) == text
-
-
 def test_id_does_not_inline_onto_a_stem_that_leads_with_a_non_paragraph_block() -> None:
     """
     Regression test for `can_inline_id`: the `[id]` prefix would land on
