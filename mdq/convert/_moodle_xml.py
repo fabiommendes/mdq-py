@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from collections.abc import Sequence
 from typing import ClassVar, Literal, TypedDict, assert_never
 
-from .._markdown import UNICODE_SPACE
+from .._markdown import UNICODE_SPACE, locate_blank_markers
 from ..models import (
     AnswerPattern,
     Blank,
@@ -94,7 +94,6 @@ CLOZE_KIND_ALIASES: dict[str, ClozeKind] = {
     "MCH": "MULTICHOICE",
 }
 CLOZE_HEADER_REGEX = re.compile(r"\{(\d+):([A-Za-z_]+):")
-BLANK_MARKER_REGEX = re.compile(r"\[\^([^\]]+)\]")
 
 #: The format name in error messages.
 _FORMAT = "Moodle XML"
@@ -540,8 +539,7 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
     blanks_by_id = {blank.id: blank for blank in question.blanks}
     referenced: set[str] = set()
 
-    def replace(match: re.Match[str]) -> str:
-        blank_id = match.group(1)
+    def replace(blank_id: str) -> str:
         blank = blanks_by_id.get(blank_id)
         if blank is None:
             raise ValueError(
@@ -564,7 +562,12 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
             )
         return render_cloze(cloze)
 
-    questiontext = BLANK_MARKER_REGEX.sub(replace, question.stem)
+    # Code, `[^x](url)` links and autolinks are literal text, not blanks.
+    questiontext = question.stem
+    for marker in reversed(locate_blank_markers(question.stem)):
+        if marker.span is not None:
+            start, end = marker.span
+            questiontext = questiontext[:start] + replace(marker.id) + questiontext[end:]
     missing = [blank.id for blank in question.blanks if blank.id not in referenced]
     if missing:
         raise ValueError(

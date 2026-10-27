@@ -1181,3 +1181,26 @@ def test_to_mdq_numerical_unit_is_made_valid(moodle_unit, unit):
     question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
     assert isinstance(question, NumericQuestion)
     assert question.unit == unit
+
+
+def test_from_mdq_fill_in_leaves_markers_in_code_and_links_alone():
+    question = FillInQuestion(
+        stem=(
+            "Em código `[^ship]` e link [^ship](https://x.org): "
+            "o navio de Darwin foi o [^ship].\n\n    [^ship] recuado\n"
+        ),
+        blanks=[
+            ChoiceBlank(
+                id="ship",
+                choices=[
+                    ScoredChoice(text="Beagle", score=1.0),
+                    ScoredChoice(text="Bounty", score=0.0),
+                ],
+            ),
+        ],
+    )
+    [block] = MoodleXml().from_mdq(question).blocks
+    assert block.questiontext.count("{1:MULTICHOICE:") == 1
+    assert "`[^ship]`" in block.questiontext
+    assert "[^ship](https://x.org)" in block.questiontext
+    assert "    [^ship] recuado" in block.questiontext
