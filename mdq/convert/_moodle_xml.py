@@ -39,6 +39,17 @@ from ._base import (
     moodle_percent,
     score_from_moodle_percent,
 )
+from ._common import (
+    CREDIT_TAG_REGEX,
+    common_prefix,
+    escape_text,
+    find_unescaped,
+    format_num,
+    join_blocks,
+    numeric_tolerance,
+    split_unescaped,
+    unescape_text,
+)
 from ._string_parser import StringParser
 
 __all__ = [
@@ -79,10 +90,7 @@ CLOZE_KIND_ALIASES: dict[str, ClozeKind] = {
     "MCH": "MULTICHOICE",
 }
 CLOZE_HEADER_REGEX = re.compile(r"\{(\d+):([A-Za-z_]+):")
-CREDIT_TAG_REGEX = re.compile(r"%(-?\d+(?:\.\d+)?)%")
 BLANK_MARKER_REGEX = re.compile(r"\[\^([^\]]+)\]")
-CLOZE_ESCAPE_REGEX = re.compile(r"[:=~{}#\\]")
-CLOZE_UNESCAPE_REGEX = re.compile(r"\\(.)")
 
 #: The format name in error messages.
 _FORMAT = "Moodle XML"
@@ -774,11 +782,11 @@ def render_cloze(cloze: MoodleCloze) -> str:
             prefix = "~"
         else:
             prefix = f"~%{format_num(answer.fraction)}%"
-        entry = prefix + escape_cloze(answer.text)
+        entry = prefix + escape_text(answer.text)
         if cloze.kind == "NUMERICAL" and answer.tolerance:
-            entry += f":{escape_cloze(format_num(answer.tolerance))}"
+            entry += f":{escape_text(format_num(answer.tolerance))}"
         if answer.feedback:
-            entry += f"#{escape_cloze(answer.feedback)}"
+            entry += f"#{escape_text(answer.feedback)}"
         parts.append(entry)
     return f"{{{cloze.weight}:{cloze.kind}:{''.join(parts)}}}"
 
@@ -809,60 +817,18 @@ def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
         if kind == "NUMERICAL":
             colon_pos = find_unescaped(text_raw, ":")
             if colon_pos != -1:
-                tolerance = float(unescape_cloze(text_raw[colon_pos + 1 :]))
+                tolerance = float(unescape_text(text_raw[colon_pos + 1 :]))
                 text_raw = text_raw[:colon_pos]
-        feedback = unescape_cloze(feedback_raw) if feedback_raw else None
+        feedback = unescape_text(feedback_raw) if feedback_raw else None
         answers.append(
             MoodleAnswer(
-                text=unescape_cloze(text_raw),
+                text=unescape_text(text_raw),
                 fraction=credit * 100,
                 feedback=feedback or None,
                 tolerance=tolerance,
             )
         )
     return answers
-
-
-def escape_cloze(text: str) -> str:
-    r"""Backslash-escape a cloze body's special characters (`:=~{}#\`)."""
-    return CLOZE_ESCAPE_REGEX.sub(lambda m: "\\" + m.group(), text)
-
-
-def unescape_cloze(text: str) -> str:
-    """Undo `escape_cloze`."""
-    return CLOZE_UNESCAPE_REGEX.sub(r"\1", text)
-
-
-def find_unescaped(text: str, target: str, start: int = 0) -> int:
-    """Return the index of the first unescaped occurrence of `target`, or -1."""
-    i = start
-    n = len(text)
-    m = len(target)
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and i + 1 < n:
-            i += 2
-            continue
-        if text[i : i + m] == target:
-            return i
-        i += 1
-    return -1
-
-
-def split_unescaped(text: str, chars: str) -> list[str]:
-    """Split `text` into segments, each starting at an unescaped char in `chars`."""
-    positions = []
-    i = 0
-    n = len(text)
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and i + 1 < n:
-            i += 2
-            continue
-        if ch in chars:
-            positions.append(i)
-        i += 1
-    return [text[a:b] for a, b in zip(positions, positions[1:] + [n])]
 
 
 def build_question_element(block: MoodleXmlBlock) -> ET.Element:
@@ -1002,40 +968,3 @@ def essay_content_from_response_format(response_format: str | None) -> EssayCont
 def essay_response_format_from_content(content: EssayContent) -> str:
     """Inverse of `essay_content_from_response_format`."""
     return {"text": "editor", "plain": "plain", "code": "monospaced"}[content]
-
-
-def common_prefix(strings: list[str]) -> str:
-    """Return the longest common prefix of `strings` (empty if `strings` is empty)."""
-    if not strings:
-        return ""
-    first, *rest = strings
-    length = len(first)
-    for s in rest:
-        length = min(length, len(s))
-        while first[:length] != s[:length]:
-            length -= 1
-    return first[:length]
-
-
-def join_blocks(*parts: str | None) -> str:
-    """Join non-empty, stripped parts with a blank line, as the stem and epilogue do."""
-    stripped = [part.strip() for part in parts if part]
-    return "\n\n".join(part for part in stripped if part)
-
-
-def numeric_tolerance(value: float, tolerance: Tolerance | None) -> float:
-    """Resolve an MDQ `Tolerance` to a single absolute Moodle XML tolerance."""
-    if tolerance is None:
-        return 0.0
-    if tolerance.absolute is not None:
-        return tolerance.absolute
-    if tolerance.relative is not None:
-        return tolerance.relative * abs(value)
-    return 0.0
-
-
-def format_num(value: float) -> str:
-    """Render a float compactly: as an integer when it has no fractional part."""
-    if value == int(value):
-        return str(int(value))
-    return repr(value)

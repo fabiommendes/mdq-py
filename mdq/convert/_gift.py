@@ -36,6 +36,17 @@ from ._base import (
     moodle_score,
     score_from_moodle_percent,
 )
+from ._common import (
+    CREDIT_TAG_REGEX,
+    common_prefix,
+    find_unescaped,
+    format_num,
+    join_blocks,
+    numeric_tolerance,
+    split_unescaped,
+)
+from ._common import escape_text as escape_gift
+from ._common import unescape_text as unescape_gift
 from ._string_parser import StringParser
 
 __all__ = [
@@ -59,9 +70,6 @@ __all__ = [
 ]
 
 FORMAT_TAG_REGEX = re.compile(r"\[(html|moodle|plain|markdown)\]")
-CREDIT_TAG_REGEX = re.compile(r"%(-?\d+(?:\.\d+)?)%")
-ESCAPE_REGEX = re.compile(r"[:=~{}#\\]")
-UNESCAPE_REGEX = re.compile(r"\\(.)")
 
 
 class Gift(ConversionBase["GiftQuestion"]):
@@ -264,7 +272,7 @@ class GiftEncoder:
 
     def block_from_numeric(self, question: NumericQuestion) -> GiftBlock:
         value = float_answer(question.answer, question.tolerance, format="GIFT")
-        tolerance = gift_numeric_tolerance(value, question.tolerance)
+        tolerance = numeric_tolerance(value, question.tolerance)
         return GiftBlock(
             stem=question.stem,
             answer=GiftNumeric(
@@ -341,7 +349,7 @@ class GiftEncoder:
                 )
             case NumericBlank():
                 value = float_answer(blank.answer, blank.tolerance, format="GIFT")
-                tolerance = gift_numeric_tolerance(value, blank.tolerance)
+                tolerance = numeric_tolerance(value, blank.tolerance)
                 answer = GiftNumeric(
                     options=[GiftNumericOption(value=value, tolerance=tolerance)]
                 )
@@ -780,55 +788,6 @@ def format_credit(credit: float) -> str:
     return format_num(credit * 100)
 
 
-def format_num(value: float) -> str:
-    """Render a float compactly: as an integer when it has no fractional part."""
-    if value == int(value):
-        return str(int(value))
-    return repr(value)
-
-
-def escape_gift(text: str) -> str:
-    """Backslash-escape GIFT's special characters (`:=~{}#\\`)."""
-    return ESCAPE_REGEX.sub(lambda m: "\\" + m.group(), text)
-
-
-def unescape_gift(text: str) -> str:
-    """Undo `escape_gift`."""
-    return UNESCAPE_REGEX.sub(r"\1", text)
-
-
-def find_unescaped(text: str, target: str, start: int = 0) -> int:
-    """Return the index of the first unescaped occurrence of `target`, or -1."""
-    i = start
-    n = len(text)
-    m = len(target)
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and i + 1 < n:
-            i += 2
-            continue
-        if text[i : i + m] == target:
-            return i
-        i += 1
-    return -1
-
-
-def split_unescaped(text: str, chars: str) -> list[str]:
-    """Split `text` into segments, each starting at an unescaped char in `chars`."""
-    positions = []
-    i = 0
-    n = len(text)
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and i + 1 < n:
-            i += 2
-            continue
-        if ch in chars:
-            positions.append(i)
-        i += 1
-    return [text[a:b] for a, b in zip(positions, positions[1:] + [n])]
-
-
 def split_blocks(source: str) -> list[tuple[str, int]]:
     """
     Split GIFT source into `(block_text, start_offset)` pairs.
@@ -898,33 +857,3 @@ def update_brace_state(line: str, depth: int, closed: bool) -> tuple[int, bool]:
                 closed = True
         i += 1
     return depth, closed
-
-
-def common_prefix(strings: list[str]) -> str:
-    """Return the longest common prefix of `strings` (empty if `strings` is empty)."""
-    if not strings:
-        return ""
-    first, *rest = strings
-    length = len(first)
-    for s in rest:
-        length = min(length, len(s))
-        while first[:length] != s[:length]:
-            length -= 1
-    return first[:length]
-
-
-def join_blocks(*parts: str | None) -> str:
-    """Join non-empty, stripped parts with a blank line, as the stem and epilogue do."""
-    stripped = [part.strip() for part in parts if part]
-    return "\n\n".join(part for part in stripped if part)
-
-
-def gift_numeric_tolerance(value: float, tolerance: Tolerance | None) -> float:
-    """Resolve an MDQ `Tolerance` to a single absolute GIFT tolerance."""
-    if tolerance is None:
-        return 0.0
-    if tolerance.absolute is not None:
-        return tolerance.absolute
-    if tolerance.relative is not None:
-        return tolerance.relative * abs(value)
-    return 0.0
