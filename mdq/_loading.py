@@ -266,11 +266,20 @@ def _load_text(
         return _load_data(data, kind=kind, ids=ids)
     if fmt == "json":
         try:
-            data = json.loads(text, object_pairs_hook=_json_object)
+            data = json.loads(
+                text,
+                object_pairs_hook=_json_object,
+                parse_constant=_json_constant,
+            )
         except ValueError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
         return _load_data(data, kind=kind, ids=ids)
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
+
+
+def _json_constant(name: str) -> Any:
+    """`NaN`, `Infinity` and `-Infinity` are not JSON (RFC 8259, section 6)."""
+    raise ValueError(f"{name} is not allowed in JSON (RFC 8259)")
 
 
 def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
