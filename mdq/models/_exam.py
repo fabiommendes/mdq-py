@@ -65,6 +65,7 @@ from ._base import (
     _validate_locale,
     FreeText,
     _validate_uuid,
+    validate_unique_tags,
 )
 from ._choice import (
     MultipleChoiceQuestion,
@@ -331,6 +332,11 @@ class Exam(MdqModel):
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[ExamEntry]
+
+    @field_validator("tags")
+    @classmethod
+    def check_tags_are_unique(cls, value: list[str] | None) -> list[str] | None:
+        return validate_unique_tags(value)
 
     @field_validator("grading")
     @classmethod

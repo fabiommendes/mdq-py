@@ -349,6 +349,13 @@ def _validate_free_text(value: str, info: ValidationInfo) -> str:
 FreeText = Annotated[str, AfterValidator(_validate_free_text)]
 
 
+def validate_unique_tags(value: list[str] | None) -> list[str] | None:
+    """`tags` is a set (schema `uniqueItems`): an entry must not repeat."""
+    if value is not None and len(set(value)) != len(value):
+        raise ValueError("tags must not repeat an entry")
+    return value
+
+
 class BaseQuestion[R](MdqModel):
     """
     Fields every question type carries.
@@ -372,10 +379,8 @@ class BaseQuestion[R](MdqModel):
     @field_validator("tags")
     @classmethod
     def check_tags_are_unique(cls, value: list[str]) -> list[str]:
-        """`tags` is a set (schema `uniqueItems`): an entry must not repeat."""
-        if len(set(value)) != len(value):
-            raise ValueError("tags must not repeat an entry")
-        return value
+        return validate_unique_tags(value) or []
+
     _exam: Annotated[weakref.ref[Exam] | None, Field(default=None, exclude=True)] = None
 
     @field_validator("locale")
