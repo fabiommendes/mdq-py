@@ -15,10 +15,10 @@ from ..types import PatternEntry
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader, parse_plain_item
 from ._choices import CODE_INDENT, _pattern_entry, indentation
 from ._tags import (
-    SHORT_ANSWER_RE,
     TAG_REST_RE,
     ShortAnswerTag,
     check_no_tag_in_content,
+    is_short_answer_colon_tag,
     read_short_answer_tag,
 )
 
@@ -59,7 +59,7 @@ def parse_short_answer_body(
             doc[tag.role] = patterns
 
         node = cursor.peek()
-        cursor.reader.check_no_setext_tag(node, SHORT_ANSWER_RE)
+        cursor.reader.check_no_setext_tag(node, is_short_answer_colon_tag)
         if node is None or node.type != "paragraph":
             break
         next_tag = read_short_answer_tag(cursor.reader.raw_text(node))

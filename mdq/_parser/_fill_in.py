@@ -18,13 +18,13 @@ from ._choices import build_choices
 from ._numeric import _parse_numeric_expression, numeric_fields
 from ._short_answer import parse_answer_block
 from ._tags import (
-    BLANK_RE,
     BlankTag,
     ChoiceBlankTag,
     NumericBlankTag,
     ShortAnswerBlankTag,
     UnrecognizedBlankTag,
     check_no_tag_in_content,
+    is_blank_colon_tag,
     read_blank_tag,
 )
 
@@ -143,7 +143,7 @@ def parse_fill_in_body(
                 assert_never(tag)
 
         node = cursor.peek()
-        cursor.reader.check_no_setext_tag(node, BLANK_RE)
+        cursor.reader.check_no_setext_tag(node, is_blank_colon_tag)
         if node is None or node.type != "paragraph":
             break
         next_tag = read_blank_tag(cursor.reader.raw_text(node))

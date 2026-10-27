@@ -8,6 +8,7 @@ checks of the `stem`, `epilogue` and `answerKey` fields shared with
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -188,16 +189,16 @@ class BlockReader:
             column = indentation(lines[0]) + 2
         return [dedent(first, column)] + [dedent(line, column) for line in lines[1:]]
 
-    def check_no_setext_tag(self, node: Node | None, pattern: re.Pattern[str]) -> None:
+    def check_no_setext_tag(self, node: Node | None, is_tag: Callable[[str], bool]) -> None:
         """
         Raise a `ParseError` if `node` is a setext heading whose first line
-        is a tag that `pattern` matches: the line after the tag content
+        is a tag that `is_tag` accepts: the line after the tag content
         was a setext underline (short-answer.md, "Pattern lines").
         """
         if node is None or node.type != "heading" or node.markup not in ("-", "="):
             return
         first_line = self.raw_lines(node)[:1]
-        if first_line and pattern.match(first_line[0].strip(" \t")):
+        if first_line and is_tag(first_line[0].strip(" \t")):
             raise ParseError(setext_message(first_line[0].strip(" \t")))
 
     def check_no_setext_item(self, item: Node) -> None:

@@ -16,49 +16,35 @@ from ..errors import ParseError
 #
 # Constants
 #
-# Body-start detection.
-ESSAY_TAG_RE = re.compile(r"^\[essay\]$")
-SHORT_ANSWER_RE = re.compile(
-    r"^\[short-answer(?:/(?P<variant>accept|reject))?\][ \t]*:[ \t]*(?P<rest>.*)$"
+#: One tag line: a bracketed label, then optionally a colon and the text
+#: after it. `split_tag` reads it; `classify_label` checks the label.
+TAG_SPLIT_RE = re.compile(
+    r"^\[(?P<label>[^\]]+)\](?:[ \t]*(?P<colon>:)[ \t]*(?P<rest>.*))?$"
 )
 #: The start of a line that opens with the bare tag of a short answer and
 #: goes on with something that is not a colon, a link or a reference.
 SHORT_ANSWER_TAG_START_RE = re.compile(
     r"^(?P<tag>\[short-answer(?:/(?:accept|reject))?\])(?![ \t]*:)(?![(\[])(?P<after>.*)$"
 )
-#: The tag of a short answer with no pattern, written without a colon
-#: (question-base.md, "Body tags").
-SHORT_ANSWER_BARE_RE = re.compile(r"^\[short-answer(?:/(?P<variant>accept|reject))?\]$")
 #: The `UNIT` terminal of docs/references/grammar.md: any character
 #: except a `UNICODE_SPACE` and the brackets `(`, `)`, `[`, `]`. It admits
 #: `µm`, `°C`, `km/h`, `Ω`.
 UNIT_RE = rf"[^()\[\]{UNICODE_SPACE}]+"
-NUMERIC_TAG_RE = re.compile(
-    rf"^\[numeric(?:\((?P<unit>{UNIT_RE})\))?\][ \t]*:[ \t]*(?P<rest>.*)$"
-)
-# A blank definition tag. Deliberately permissive in `kind`: an
-# unrecognized suffix must reach BLANK_KIND_RE and raise a real error,
-# not fail to match and get swallowed by the epilogue.
-BLANK_RE = re.compile(
-    rf"^\[\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>[^\]]+))?\][ \t]*:[ \t]*(?P<rest>.*)$"
-)
-#: The tag of a short answer blank with no pattern, written without a colon.
-BLANK_BARE_RE = re.compile(
-    rf"^\[\^(?P<id>{SLUG_BODY_RE})/short-answer(?:/(?P<variant>accept|reject))?\]$"
-)
 #: The text after the colon of a short-answer tag line.
 TAG_REST_RE = re.compile(r"^[ \t]*\[[^\n]*?\][ \t]*:[ \t]*(?P<rest>.*)$")
-# Validates that suffix. Units attach to `numeric` and to nothing else,
-# and the accept/reject sublists to `short-answer` and nothing else --
-# both restrictions are enforced by this alternation's shape rather than
-# by a follow-up check (fill-in.md#blank-definitions).
-BLANK_KIND_RE = re.compile(
-    rf"^(?:"
-    rf"(?P<numeric>numeric)(?:\((?P<unit>{UNIT_RE})\))?"
-    r"|(?P<short>short-answer)(?:/(?P<variant>accept|reject))?"
-    r")$"
+#: The label of a tag in lower case, with its form: a body tag, or the kind
+#: that follows `^id/` in a blank tag. Units attach to `numeric` and to
+#: nothing else, and the accept/reject sublists to `short-answer` and
+#: nothing else -- both restrictions are enforced by this alternation's
+#: shape rather than by a follow-up check (fill-in.md#blank-definitions).
+KIND_RE = re.compile(
+    rf"(?:(?P<numeric>numeric)(?:\((?P<unit>{UNIT_RE})\))?"
+    r"|(?P<short>short-answer)(?:/(?P<variant>accept|reject))?)"
 )
-ORDERING_TAG_RE = re.compile(r"^\[ordering\](?:[ \t]*:[ \t]*(?P<rest>.*))?$")
+#: A blank tag label. Deliberately permissive in `kind`: an unrecognized
+#: kind must reach `classify_label` and give a real error, not fail to match
+#: and get swallowed by the epilogue.
+BLANK_LABEL_RE = re.compile(rf"^\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>(?s:.+)))?$")
 #: The names of the question types. A tag label that starts with one of them,
 #: or that is a fill-in label `^id/...`, is reserved (question-base.md,
 #: "Body tags").
@@ -83,17 +69,6 @@ RESERVED_LABEL_RE = re.compile(
 TAG_COLON_LINE_RE = re.compile(r"^[ \t]*\[(?P<label>[^\[\]\r\n]+)\][ \t]*:")
 #: A paragraph that holds only a bracketed label: a tag without a colon.
 TAG_BARE_RE = re.compile(r"^[ \t]*\[(?P<label>[^\[\]\r\n]+)\][ \t]*$")
-#: The label of a tag in lower case, with its form: `colon` or `bare`. Both
-#: forms are valid for a short answer tag; the others have one form.
-KNOWN_LABEL_RE = re.compile(
-    rf"^(?:(?P<essay>essay)|(?P<ordering>ordering)"
-    rf"|(?P<numeric>numeric(?:\({UNIT_RE}\))?)"
-    r"|(?P<short>short-answer(?:/(?:accept|reject))?))$"
-)
-KNOWN_BLANK_KIND_RE = re.compile(
-    rf"^(?:(?P<numeric>numeric(?:\({UNIT_RE}\))?)"
-    r"|(?P<short>short-answer(?:/(?:accept|reject))?))$"
-)
 #: The frontmatter fields that look like a tag suffix.
 FRONTMATTER_ONLY_SUFFIXES = {"preaccept": "preAccept", "prereject": "preReject"}
 
@@ -174,54 +149,136 @@ def _role(variant: str | None) -> Role:
     return "reject" if variant == "reject" else "accept"
 
 
-def read_short_answer_tag(text: str) -> ShortAnswerTag | None:
-    """Read a short-answer tag line. `None` if `text` is no such tag."""
-    m = SHORT_ANSWER_RE.match(text)
-    if m is not None:
-        return ShortAnswerTag(_role(m.group("variant")), m.group("rest"))
-    m = SHORT_ANSWER_BARE_RE.match(text)
-    if m is not None:
-        return ShortAnswerTag(_role(m.group("variant")), None)
-    return None
-
-
-def read_blank_tag(text: str) -> BlankTag | None:
-    """Read a blank definition tag line. `None` if `text` is no such tag."""
-    m = BLANK_RE.match(text)
+def split_tag(line: str) -> tuple[str, bool, str] | None:
+    """
+    Split a tag line into the label between the brackets, whether a colon
+    follows, and the text after the colon (empty with no colon). `None` if
+    `line` is no bracketed label, alone or before a colon.
+    """
+    m = TAG_SPLIT_RE.match(line)
     if m is None:
-        # An open short answer blank, written without a colon.
-        bare = BLANK_BARE_RE.match(text)
-        if bare is None:
-            return None
-        return ShortAnswerBlankTag(bare.group("id"), _role(bare.group("variant")), None)
-    blank_id = m.group("id")
-    rest = m.group("rest").strip(" \t")
-    kind = m.group("kind")
-    if kind is None:
-        return ChoiceBlankTag(blank_id, rest)
-    km = BLANK_KIND_RE.match(kind)
+        return None
+    colon = m.group("colon") is not None
+    return m.group("label"), colon, m.group("rest") if colon else ""
+
+
+TagKind = Literal[
+    "essay",
+    "ordering",
+    "numeric",
+    "short-answer",
+    "choice-blank",
+    "numeric-blank",
+    "short-answer-blank",
+    "unrecognized-blank",
+]
+
+
+@dataclass(frozen=True)
+class Label:
+    """What a tag label is, as `classify_label` reads it."""
+
+    kind: TagKind
+    role: Role = "accept"
+    unit: str | None = None
+    #: The id of a blank tag.
+    blank_id: str | None = None
+
+    @property
+    def is_known(self) -> bool:
+        """Whether the label is a tag of some question type."""
+        return self.kind != "unrecognized-blank"
+
+    @property
+    def needs_colon(self) -> bool:
+        """Whether the tag has content, so it is written with a colon."""
+        return self.kind in ("numeric", "numeric-blank", "choice-blank", "unrecognized-blank")
+
+
+def classify_label(label: str) -> Label | None:
+    """
+    Read the text between the brackets of a tag line. `None` if it is the
+    label of no tag. The case matters: `Essay` is no tag. A blank label of
+    an unknown kind is `unrecognized-blank`, so that the caller reports it.
+    """
+    if label == "essay":
+        return Label("essay")
+    if label == "ordering":
+        return Label("ordering")
+    blank = BLANK_LABEL_RE.match(label)
+    kind_text = label
+    blank_id = None
+    if blank is not None:
+        blank_id = blank.group("id")
+        if blank.group("kind") is None:
+            return Label("choice-blank", blank_id=blank_id)
+        kind_text = blank.group("kind")
+    elif label.startswith("^"):
+        return None
+    km = KIND_RE.fullmatch(kind_text)
     if km is None:
-        return UnrecognizedBlankTag(text)
+        return Label("unrecognized-blank") if blank is not None else None
+    role = _role(km.group("variant"))
     if km.group("numeric"):
-        return NumericBlankTag(blank_id, km.group("unit"), rest)
-    return ShortAnswerBlankTag(blank_id, _role(km.group("variant")), rest)
+        return Label("numeric-blank" if blank else "numeric", unit=km.group("unit"), blank_id=blank_id)
+    return Label("short-answer-blank" if blank else "short-answer", role=role, blank_id=blank_id)
 
 
 def read_body_tag(text: str) -> BodyTag | None:
     """Read the body or blank tag `text` is, or `None` if it is no tag."""
-    if ESSAY_TAG_RE.match(text):
-        return EssayTag()
-    m = ORDERING_TAG_RE.match(text)
-    if m is not None:
-        return OrderingTag(m.group("rest"))
-    short_answer = read_short_answer_tag(text)
-    if short_answer is not None:
-        return short_answer
-    m = NUMERIC_TAG_RE.match(text)
-    if m is not None:
-        return NumericTag(m.group("unit"), m.group("rest"))
-    return read_blank_tag(text)
+    split = split_tag(text)
+    if split is None:
+        return None
+    label, colon, rest = split
+    found = classify_label(label)
+    if found is None or (found.needs_colon and not colon):
+        return None
+    blank_id = found.blank_id or ""
+    match found.kind:
+        case "essay":
+            return None if colon else EssayTag()
+        case "ordering":
+            return OrderingTag(rest if colon else None)
+        case "numeric":
+            return NumericTag(found.unit, rest)
+        case "short-answer":
+            return ShortAnswerTag(found.role, rest if colon else None)
+        case "choice-blank":
+            return ChoiceBlankTag(blank_id, rest.strip(" \t"))
+        case "numeric-blank":
+            return NumericBlankTag(blank_id, found.unit, rest.strip(" \t"))
+        case "short-answer-blank":
+            return ShortAnswerBlankTag(
+                blank_id, found.role, rest.strip(" \t") if colon else None
+            )
+        case "unrecognized-blank":
+            return UnrecognizedBlankTag(text)
 
+
+def read_short_answer_tag(text: str) -> ShortAnswerTag | None:
+    """Read a short-answer tag line. `None` if `text` is no such tag."""
+    tag = read_body_tag(text)
+    return tag if isinstance(tag, ShortAnswerTag) else None
+
+
+def is_short_answer_colon_tag(text: str) -> bool:
+    """Whether `text` is a short-answer tag written with a colon."""
+    tag = read_short_answer_tag(text)
+    return tag is not None and tag.rest is not None
+
+
+def is_blank_colon_tag(text: str) -> bool:
+    """Whether `text` is a blank tag written with a colon, of any kind."""
+    split = split_tag(text)
+    return split is not None and split[1] and read_blank_tag(text) is not None
+
+
+def read_blank_tag(text: str) -> BlankTag | None:
+    """Read a blank definition tag line. `None` if `text` is no such tag."""
+    tag = read_body_tag(text)
+    if isinstance(tag, ChoiceBlankTag | NumericBlankTag | ShortAnswerBlankTag | UnrecognizedBlankTag):
+        return tag
+    return None
 
 
 def _lower_label(label: str) -> str:
@@ -346,14 +403,12 @@ def check_tag_label(label: str, colon: bool) -> None:
             raise ParseError(
                 f"{written} has an invalid blank id: it is a lower case slug, as in `[^capital/short-answer]:`"
             )
-        kind = _lower_label(reserved.group("kind"))
-        known = KNOWN_BLANK_KIND_RE.match(kind)
-        fixed = f"^{blank_id}/{kind}"
-        needs_colon = bool(known and known.group("numeric"))
+        fixed = f"^{blank_id}/{_lower_label(reserved.group('kind'))}"
     else:
         fixed = _lower_label(label)
-        known = KNOWN_LABEL_RE.match(fixed)
-        needs_colon = bool(known and known.group("numeric"))
+    found = classify_label(fixed)
+    known = found if found is not None and found.is_known else None
+    needs_colon = known is not None and known.needs_colon
     if known is None:
         suffix = label.rsplit("/", 1)[-1].lower()
         if suffix in FRONTMATTER_ONLY_SUFFIXES:
@@ -369,7 +424,7 @@ def check_tag_label(label: str, colon: bool) -> None:
     shown = f"[{fixed}]{':' if colon else ''}"
     if fixed != label:
         raise ParseError(f"tags are lower case: write `{shown}`")
-    if blank_id is None and known is not None and known.group("essay") and colon:
+    if known is not None and known.kind == "essay" and colon:
         raise ParseError(
             "the tag of an essay has no content: write `[essay]` without a colon"
         )
