@@ -218,6 +218,26 @@ def parse(
 # ---------------------------------------------------------------------
 
 
+class UnknownSuffix(ValueError):
+    """
+    A `Path` source whose suffix selects no format.
+
+    The message is worded for library callers (`format=`). The CLI catches
+    this class and words the error for its own options, using `path` and
+    `SUFFIXES`.
+    """
+
+    #: Every suffix `load` can infer a format from.
+    SUFFIXES = _MDQ_SUFFIXES + _YAML_SUFFIXES + _JSON_SUFFIXES
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__(
+            f"cannot infer a format from {path}; pass format= explicitly "
+            f"(expected one of {self.SUFFIXES})"
+        )
+
+
 def _format_from_path(path: Path) -> Format:
     name = path.name.lower()
     if name.endswith(_MDQ_SUFFIXES):
@@ -226,10 +246,7 @@ def _format_from_path(path: Path) -> Format:
         return "yaml"
     if name.endswith(_JSON_SUFFIXES):
         return "json"
-    raise ValueError(
-        f"cannot infer a format from {path}; pass format= explicitly "
-        f"(expected one of {_MDQ_SUFFIXES + _YAML_SUFFIXES + _JSON_SUFFIXES})"
-    )
+    raise UnknownSuffix(path)
 
 
 def _load_text(

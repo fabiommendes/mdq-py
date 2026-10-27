@@ -13,6 +13,16 @@ import typer
 from .._loading import InvalidDocument, parse
 from ..convert import FORMATS, export_question, import_question
 from ._app import app
+from ._io import (
+    EXIT_INVALID,
+    display_name,
+    fail,
+    invalid_document,
+    read_source,
+    read_text,
+    reading,
+    writing,
+)
 
 FORMAT_SUFFIX_ALIASES = {"xml": "moodle-xml", "moodlexml": "moodle-xml"}
 
@@ -21,7 +31,10 @@ FORMAT_SUFFIX_ALIASES = {"xml": "moodle-xml", "moodlexml": "moodle-xml"}
 def import_(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question file in an external format (e.g. Aiken, GIFT).",
+        help=(
+            "Path to a question file in an external format (e.g. Aiken, GIFT), "
+            "or - for stdin (needs --format)."
+        ),
     ),
     output: Annotated[
         Path | None,
@@ -44,24 +57,15 @@ def import_(
     Import a question from an external format into MDQ Markdown.
     """
 
-    if not file.is_file():
-        typer.echo(f"error: file not found: {file}", err=True)
-        raise typer.Exit(code=2)
-
-    fmt = format or _format_from_suffix(file)
-    if fmt is None:
-        typer.echo(
-            f"error: cannot infer format from {file} -- pass --format",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    source = file.read_text(encoding="utf-8")
+    source = read_text(file)
+    fmt = _check_format(
+        format or _format_from_suffix(file),
+        f"cannot infer a format from {display_name(file)}; pass --format",
+    )
     try:
         question = import_question(source, format=fmt)
     except (ValueError, NotImplementedError) as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=1)
+        fail(str(exc), EXIT_INVALID)
 
     _write_output(str(question), output)
 
@@ -70,7 +74,10 @@ def import_(
 def export(
     file: Path = typer.Argument(
         ...,
-        help="Path to an MDQ question document (.mdq.md, .md or .mdq).",
+        help=(
+            "Path to an MDQ question document (.mdq.md, .md, .mdq, .yaml, "
+            ".yml, or .json), or - for stdin."
+        ),
     ),
     output: Annotated[
         Path | None,
@@ -93,24 +100,18 @@ def export(
     Export an MDQ question document to an external format.
     """
 
-    if not file.is_file():
-        typer.echo(f"error: file not found: {file}", err=True)
-        raise typer.Exit(code=2)
-
-    fmt = format or (output and _format_from_suffix(output)) or "aiken"
-
-    source = file.read_text(encoding="utf-8")
+    fmt = _check_format(format or (output and _format_from_suffix(output)) or "aiken", "")
+    source = read_source(file)
     try:
-        question = parse(source, kind="question", ids="fill")
+        with reading(file):
+            question = parse(source, kind="question", ids="fill")
     except InvalidDocument as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=1)
+        invalid_document(exc)
 
     try:
         rendered = export_question(question, format=fmt)
     except (ValueError, TypeError, NotImplementedError) as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=1)
+        fail(str(exc), EXIT_INVALID)
 
     _write_output(rendered, output)
 
@@ -126,9 +127,22 @@ def _format_from_suffix(file: Path) -> str | None:
     return FORMAT_SUFFIX_ALIASES.get(suffix, suffix)
 
 
+def _check_format(fmt: str | None, missing_message: str) -> str:
+    """
+    `fmt` if it names a converter, else end the command with exit code 2:
+    `missing_message` when there is no format, or an unknown-format error.
+    """
+    if fmt is None:
+        fail(missing_message)
+    if fmt.lower() not in FORMATS:
+        fail(f"Unknown format: {fmt} (expected one of {', '.join(FORMATS)})")
+    return fmt
+
+
 def _write_output(content: str, output: Path | None) -> None:
     if output is None:
         typer.echo(content)
     else:
-        output.write_text(content, encoding="utf-8")
+        with writing(output):
+            output.write_text(content, encoding="utf-8")
         typer.echo(f"wrote {output}")

@@ -17,8 +17,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
-from . import _parser
-from .errors import IncludeNotFound, MdqError
+from .errors import IncludeNotFound
 
 __all__ = [
     "IncludeNotFound",
@@ -72,8 +71,10 @@ class _Index:
 
 class _IndexedBank:
     """
-    `tagged`/`ids` for a bank that can list its sources: every question
-    is read once, the first time a query needs the index.
+    `tagged`/`ids` for a bank that can list its sources: every source is
+    read and validated once, the first time a query needs the index (the
+    index is cached for the life of the bank). A source that is not a
+    valid question is left out of the index, silently.
     """
 
     def _sources(self) -> Iterator[tuple[str, str | Mapping[str, Any]]]:
@@ -108,8 +109,10 @@ class FileLoader(_IndexedBank):
     is searched for a file with that stem anywhere beneath the root,
     which is how a bank organised into per-topic subdirectories keeps
     working without qualifying every id.
-    A file that holds an exam, or that does not parse, is not a question
-    of the bank.
+    `tagged` and `ids` only list the files that validate as a question: a
+    file that holds an exam, or a question with an error, is skipped
+    silently. `load` still returns the text of any file, so an explicit
+    `include` of an invalid question fails when the exam is resolved.
     """
 
     def __init__(self, root: Path | str, recursive: bool = True) -> None:
@@ -150,6 +153,11 @@ class DictLoader(_IndexedBank):
 
     Useful for tests, and as the shape a host with its own question store
     would implement.
+
+    `tagged` and `ids` only list the sources that validate as a question
+    (see `FileLoader`). A mapping source follows the schema, so its
+    `tags` must be a list of strings; a comma-separated string is not
+    split.
     """
 
     def __init__(self, questions: Mapping[str, str | Mapping[str, Any]]) -> None:
@@ -174,17 +182,17 @@ def _question_id(path: Path) -> str | None:
 
 
 def _tags(source: str | Mapping[str, Any]) -> list[str] | None:
-    """The tags of a question's source, or `None` if it is not a question."""
-    if isinstance(source, str):
-        if _parser.is_exam(source):
-            return None
-        try:
-            source = _parser.parse_question(source)
-        except MdqError:
-            return None
-    if source.get("type") == "exam":
-        return None
-    tags = source.get("tags", [])
-    if isinstance(tags, str):
-        return [tag.strip() for tag in tags.split(",") if tag.strip()]
-    return [str(tag) for tag in tags]
+    """
+    The tags of a question's source, or `None` if the source is not a
+    valid question.
+
+    The source is loaded and validated as a question, so an exam, a
+    document with an error and a mapping that breaks the schema (an
+    unknown `type`, `tags` that is not a list) are all `None`. Warnings do
+    not disqualify a source.
+    """
+    # `_loading` imports this module for `SOURCE_SUFFIXES`.
+    from . import _loading
+
+    question = _loading.load(source, kind="question").document
+    return None if question is None else list(question.tags)

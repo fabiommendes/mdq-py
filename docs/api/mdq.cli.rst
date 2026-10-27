@@ -13,8 +13,25 @@ Load a question or exam document (``.mdq.md``, ``.md``, ``.mdq``, ``.yaml``,
 failures, schema violations and lint warnings/info. ``--level strict``
 also prints info-level diagnostics; the default level prints only
 errors and warnings. Every lint rule always runs -- the level only
-changes what gets printed. Exits non-zero only when some diagnostic is
-``error``-severity.
+changes what gets printed. Exits 1 only when some diagnostic is
+``error``-severity. Pass ``-`` as the file to read from stdin.
+
+Exit codes
+----------
+
+Every command uses the same codes:
+
+* ``0``: success. Warnings do not change it.
+* ``1``: the document is invalid, or a converter cannot convert it.
+* ``2``: usage or I/O: a bad option, a missing, unreadable or non-UTF-8
+  input, an unknown file suffix or format, an output path that cannot be
+  written (including a missing directory) or that ``new`` refuses to
+  overwrite.
+
+Errors print as ``error: <message>`` on stderr, with color only when stderr
+is a terminal. No command prints a traceback. ``validate`` prints every
+diagnostic of an invalid document; ``show`` and ``export`` print only the
+first error.
 
 mdq new
 -------
@@ -23,23 +40,27 @@ Scaffold a new question document for one of the supported question
 types. ``--complete`` writes a feature-complete example instead of a
 bare-bones one. ``-o``/``--output`` picks the destination file
 (default: ``<type>.mdq.md``); the command refuses to overwrite an
-existing file.
+existing file (exit 2). A missing output directory is also exit 2.
 
 mdq import
 ----------
 
 Import a question from an external format (Aiken, GIFT, Moodle XML)
 into MDQ Markdown. ``--format`` picks the source format explicitly; by
-default it is inferred from the input file's extension. ``-o``/
-``--output`` writes the result to a file instead of stdout.
+default it is inferred from the input file's extension. ``-`` reads stdin
+(``--format`` is then required). ``-o``/``--output`` writes the result to
+a file instead of stdout, overwriting it.
 
 mdq export
 ----------
 
 Export an MDQ question document to an external format. ``--format``
 picks the target format explicitly; by default it is inferred from
-``-o``'s extension, falling back to Aiken. ``-o``/``--output`` writes
-the result to a file instead of stdout.
+``-o``'s extension, falling back to Aiken. The input format comes from
+the file's suffix (``.mdq.md``, ``.md``, ``.mdq``, ``.yaml``, ``.yml`` or
+``.json``) and any other suffix exits 2; ``-`` reads MDQ from stdin.
+``-o``/``--output`` writes the result to a file instead of stdout,
+overwriting it.
 
 mdq show
 --------

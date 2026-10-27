@@ -153,3 +153,69 @@ def test_file_loader_finds_questions_by_tag() -> None:
     assert set(bank.tagged("wetland")) == {"pantanal-01", "pantanal-02"}
     assert "recursion-01" in bank.ids()
     assert "midterm" not in bank.ids()
+
+
+# ---------------------------------------------------------------------
+# Bank index: only valid questions are indexed
+# ---------------------------------------------------------------------
+
+_VALID_ESSAY = {"type": "essay", "stem": "Pantanal.", "tags": ["bio"]}
+
+
+def test_bank_index_skips_sources_that_are_not_valid_questions() -> None:
+    bank = DictLoader(
+        {
+            "ok": _VALID_ESSAY,
+            "unknown-type": {"type": "bogus", "tags": ["bio"]},
+            "string-tags": {"type": "essay", "stem": "Cerrado.", "tags": "bio, evo"},
+            "negative-weight": "---\ntags: [bio]\nweight: -1\n---\n\nCaatinga.\n\n[essay]\n",
+            "broken": "Sem tipo.\n\n[nope]\n",
+            "exam": "# [ex] Prova\n\nIntro.\n",
+        }
+    )
+    assert set(bank.tagged("bio")) == {"ok"}
+    assert set(bank.tagged("evo")) == set()
+    assert set(bank.ids()) == {"ok"}
+
+
+def test_bank_index_reads_the_tags_of_the_validated_question() -> None:
+    bank = DictLoader({"mata": "---\ntags: bio, mata\n---\n\nMata Atlântica.\n\n[essay]\n"})
+    assert set(bank.tagged("bio")) == {"mata"}
+    assert set(bank.tagged("mata")) == {"mata"}
+    assert set(bank.tagged("bio, mata")) == set()
+
+
+def test_bank_index_is_built_once_per_bank(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mdq import _loading
+
+    calls = []
+    real_load = _loading.load
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return real_load(*args, **kwargs)
+
+    monkeypatch.setattr(_loading, "load", spy)
+    bank = DictLoader({"a": _VALID_ESSAY, "b": _VALID_ESSAY})
+    bank.tagged("bio")
+    bank.tagged("bio")
+    bank.ids()
+    assert len(calls) == 2
+
+
+def test_include_all_never_picks_an_invalid_source() -> None:
+    bank = DictLoader({"ok": _VALID_ESSAY, "bad": {"type": "bogus", "tags": ["bio"]}})
+    document = load(exam(include_all("bio"))).validate()
+    for _ in range(20):
+        assert [q.id for q in document.resolve(bank).questions] == ["ok"]
+
+
+def test_file_loader_skips_files_that_are_not_valid_questions(tmp_path) -> None:
+    (tmp_path / "ok.mdq.md").write_text("---\ntags: [bio]\n---\n\nPantanal.\n\n[essay]\n")
+    (tmp_path / "bad.mdq.md").write_text("---\ntags: [bio]\nweight: -1\n---\n\nX.\n\n[essay]\n")
+    (tmp_path / "exam.mdq.md").write_text("# [ex] Prova\n\nIntro.\n")
+    bank = FileLoader(tmp_path)
+    assert set(bank.tagged("bio")) == {"ok"}
+    assert set(bank.ids()) == {"ok"}
+    # An explicit `include` of the invalid file still loads its text.
+    assert "weight: -1" in bank.load("bad")

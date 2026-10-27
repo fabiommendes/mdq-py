@@ -52,6 +52,7 @@ from .._banks import FileLoader, QuestionBank
 from .._loading import InvalidDocument, parse
 from ..types import NumericDomain, Source, Unmatched
 from ._app import app
+from ._io import EXIT_INVALID, fail, invalid_document, read_source, reading
 from ._show_theme import ThemeName, resolve_theme
 
 #: Widest card. A card as wide as a 200-column terminal is hard to read.
@@ -830,7 +831,10 @@ def _format_number(value: float) -> str:
 def show(
     file: Path = typer.Argument(
         ...,
-        help="Path to a question or exam document (.mdq.md, .md or .mdq), or - for stdin.",
+        help=(
+            "Path to a question or exam document (.mdq.md, .md, .mdq, .yaml, "
+            ".yml, or .json), or - for stdin."
+        ),
     ),
     no_answer_key: bool = typer.Option(
         False,
@@ -872,28 +876,16 @@ def show(
         highlight=False,
         force_terminal=True if theme is not ThemeName.auto else None,
     )
-    error_console = Console(
-        file=sys.stderr,
-        highlight=False,
-        soft_wrap=True,
-    )
 
-    # Everything below that can embed a path or an exception message is
-    # printed as a `Text` object, never spliced into a markup `str` --
-    # `file` and `exc` can both carry document/filesystem content with
-    # square brackets, which Rich would otherwise parse as markup (and,
-    # for a stray closing tag like `[/]`, raise instead of print).
-    #
     # A `Path` source resolves an exam's include blocks against its own
     # directory (see `show_source` above); stdin has no directory to
     # resolve against, so it is read as plain text instead.
-    source = sys.stdin.read() if str(file) == "-" else file
+    source = read_source(file)
 
     try:
-        show_source(source, console, show_answer_key=not no_answer_key, theme=theme)
-    except OSError as exc:
-        error_console.print("[b red]error:[/]", Text(f"could not read {file}: {exc}"))
-        raise typer.Exit(code=2)
-    except (ValueError, InvalidDocument) as exc:
-        error_console.print("[b red]error:[/]", Text(str(exc)))
-        raise typer.Exit(code=1)
+        with reading(file):
+            show_source(source, console, show_answer_key=not no_answer_key, theme=theme)
+    except InvalidDocument as exc:
+        invalid_document(exc)
+    except ValueError as exc:
+        fail(str(exc), EXIT_INVALID)

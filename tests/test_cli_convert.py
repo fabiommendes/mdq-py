@@ -104,14 +104,15 @@ def test_cli_import_unrecognized_extension_without_format(tmp_path: Path):
     src.write_text(AIKEN_SOURCE, encoding="utf-8")
     result = runner.invoke(app, ["import", str(src)])
     assert result.exit_code == 2
-    assert "cannot infer format" in result.output
+    assert "cannot infer a format" in result.output
+    assert "--format" in result.output
 
 
 def test_cli_import_unknown_format(tmp_path: Path):
     src = tmp_path / "question.nope"
     src.write_text(AIKEN_SOURCE, encoding="utf-8")
     result = runner.invoke(app, ["import", str(src)])
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Unknown format" in result.output
 
 

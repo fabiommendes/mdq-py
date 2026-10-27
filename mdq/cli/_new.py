@@ -16,6 +16,7 @@ import typer
 from ..types import QUESTION_TYPES as _QUESTION_TYPES
 from ..types import QuestionType
 from ._app import app
+from ._io import fail, writing
 
 #: Every question type `mdq new` can scaffold, sorted for stable CLI output.
 QUESTION_TYPES: tuple[QuestionType, ...] = tuple(sorted(_QUESTION_TYPES))
@@ -456,17 +457,13 @@ def new(
     kind = next((known for known in QUESTION_TYPES if known == question_type), None)
     if kind is None:
         valid = ", ".join(QUESTION_TYPES)
-        typer.echo(
-            f"error: unknown question type {question_type!r} (expected one of: {valid})",
-            err=True,
-        )
-        raise typer.Exit(code=2)
+        fail(f"unknown question type {question_type!r} (expected one of: {valid})")
 
     content = render_template(kind, complete=complete)
     path = output or default_output_path(kind)
     if path.exists():
-        typer.echo(f"error: {path} already exists", err=True)
-        raise typer.Exit(code=2)
+        fail(f"{path} already exists")
 
-    path.write_text(content, encoding="utf-8")
+    with writing(path):
+        path.write_text(content, encoding="utf-8")
     typer.echo(f"wrote {path}")

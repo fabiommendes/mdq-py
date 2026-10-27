@@ -5,7 +5,6 @@ diagnostics.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Literal
 
@@ -14,12 +13,9 @@ import typer
 from .._loading import Diagnostic, load
 from ..types import Format
 from ._app import app
+from ._io import display_name, read_source, reading
 
 Level = Literal["default", "strict"]
-
-#: The `file` argument that selects standard input.
-STDIN = "-"
-STDIN_LABEL = "<stdin>"
 
 
 @app.command()
@@ -56,15 +52,11 @@ def validate(
     what a schema can express.
     """
 
-    from_stdin = str(file) == STDIN
-    label = STDIN_LABEL if from_stdin else str(file)
-    try:
-        loaded = load(sys.stdin.read() if from_stdin else file, format=format)
-    except (OSError, ValueError) as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=2)
+    source = read_source(file)
+    with reading(file, suffix_hint="pass --format (mdq, yaml or json)"):
+        loaded = load(source, format=format)
 
-    exit_code = _print_result(label, loaded.diagnostics, level=level)
+    exit_code = _print_result(display_name(file), loaded.diagnostics, level=level)
     if exit_code:
         raise typer.Exit(code=exit_code)
 
