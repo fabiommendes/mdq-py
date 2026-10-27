@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import re
 from decimal import Decimal
 from fractions import Fraction
@@ -22,17 +21,10 @@ from ..models import (
 from ..types import QuestionType
 from ._common import common_prefix, join_blocks
 
-#: Every format `mdq.convert` can import from and export to.
-FORMATS: tuple[str, ...] = ("aiken", "gift", "moodle-xml")
+type Format = Literal["aiken", "gift", "moodle-xml"]
 
-#: A format name maps to its converter, either already instantiated or as
-#: a lazy `"module:ClassName"` reference -- `load_converter` imports it on
-#: first use, so importing `mdq.convert` never imports every converter.
-CONVERSION_REGISTRY: dict[str, "ConversionBase[Any] | str"] = {
-    "aiken": "mdq.convert._aiken:Aiken",
-    "gift": "mdq.convert._gift:Gift",
-    "moodle-xml": "mdq.convert._moodle_xml:MoodleXml",
-}
+#: Every format `mdq.convert` can import from and export to.
+FORMATS: tuple[Format, ...] = ("aiken", "gift", "moodle-xml")
 
 
 #: The stem of a true/false question built from a group of statements that
@@ -321,27 +313,31 @@ class ConversionBase[Q]:
 
 def load_converter(format: str) -> ConversionBase[Any]:
     """
-    Load a conversion instance from the registry.
+    Return the converter of `format` (case-insensitive).
+
+    A converter module is imported on first use, so importing `mdq.convert`
+    never imports every converter. `Any` stands for the external type of
+    the converter, which depends on the format.
+
+    Raises:
+        ValueError: `format` is not one of `FORMATS`.
     """
     format = format.lower()
-    try:
-        converter = CONVERSION_REGISTRY[format]
-    except KeyError:
-        raise ValueError(f"Unknown format: {format}")
+    match format:
+        case "aiken":
+            from ._aiken import Aiken
 
-    if isinstance(converter, str):
-        mod_name, cls_name = converter.split(":")
-        mod = importlib.import_module(mod_name)
-        converter_cls = getattr(mod, cls_name)
-        if not (
-            isinstance(converter_cls, type) and issubclass(converter_cls, ConversionBase)
-        ):
-            msg = f"invalid registry: {format} is not a valid converter"
-            raise RuntimeError(msg)
-        converter = converter_cls()
-        CONVERSION_REGISTRY[format] = converter
+            return Aiken()
+        case "gift":
+            from ._gift import Gift
 
-    return converter
+            return Gift()
+        case "moodle-xml":
+            from ._moodle_xml import MoodleXml
+
+            return MoodleXml()
+        case _:
+            raise ValueError(f"Unknown format: {format}")
 
 
 def import_question(source: str, /, *, format: str) -> Question:
