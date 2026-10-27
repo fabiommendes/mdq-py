@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from markdown_it.common.utils import unescapeAll
+from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._markdown import span
 from ..errors import ParseError
+from ..types import OrderingAlternativeDict
 
 #: A line before its indentation is reduced to a level -- the leading
 #: whitespace measured in columns (tab stops of 4) for a code line, or the
@@ -61,13 +63,13 @@ def ordering_code_lines(content: str) -> list[RawLine]:
 
 
 def collect_item_depths(
-    node: Any, depth: int, depths: dict[int, int], parents: set[int] | None = None
+    node: Node, depth: int, depths: dict[int, int], parents: set[int] | None = None
 ) -> None:
     """
     Record the nesting depth of every item of a list node, by source line.
 
     Args:
-        node: a markdown-it syntax tree node holding list items.
+        node: a list node of the markdown-it syntax tree.
         depth: the depth of the items directly under `node`.
         depths: filled with `{0-based source line: depth}`.
         parents: when given, filled with the source lines of the items
@@ -174,9 +176,9 @@ def ordering_leveled(raw: list[RawLine], unit: int) -> list[list[int | str]]:
     return [[indent // unit, text] for indent, text in raw]
 
 
-def ordering_alternative(alt: RawAlternative, unit: int) -> dict[str, Any]:
+def ordering_alternative(alt: RawAlternative, unit: int) -> OrderingAlternativeDict:
     """Build one `accept`/`reject` entry from its raw lines and observations."""
-    entry: dict[str, Any] = {"lines": ordering_leveled(alt.lines, unit)}
+    entry: OrderingAlternativeDict = {"lines": ordering_leveled(alt.lines, unit)}
     if alt.feedback is not None:
         entry["feedback"] = alt.feedback
     if alt.comment is not None:

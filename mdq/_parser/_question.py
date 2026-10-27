@@ -40,7 +40,7 @@ import re
 from dataclasses import dataclass, field
 from functools import cached_property
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import cast
 
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
@@ -256,7 +256,7 @@ def parse_question(
     return doc
 
 
-def _redundant_id(front_id: Any, slug: str) -> Diagnostic:
+def _redundant_id(front_id: object, slug: str) -> Diagnostic:
     """The `redundant-id` warning: `id` in the frontmatter and as a slug."""
     if front_id == slug:
         detail = "with the same value"
@@ -424,10 +424,10 @@ class MDQParser:
     pos: int = field(default=0, init=False)
 
     #: Accumulate the currently parsed object
-    state: dict[str, Any] = field(default_factory=dict, init=False)
+    state: dict[str, object] = field(default_factory=dict, init=False)
 
     #: Frontmatter for the current element
-    frontmatter: dict[str, Any] = field(default_factory=dict, init=False)
+    frontmatter: Mapping[str, object] = field(default_factory=dict, init=False)
 
     #: Frontmatter comment
     comment: str | None = field(default=None, init=False)
@@ -1277,7 +1277,7 @@ class MDQParser:
                     for key in ("domain", "decimalPlaces")
                     if blank_id in numeric_maps[key]
                 }
-                cast("dict[str, Any]", blank).update(numeric_fields(parsed, declared))
+                cast("dict[str, object]", blank).update(numeric_fields(parsed, declared))
                 if "tolerance" in parsed:
                     blank["tolerance"] = parsed["tolerance"]
                 self._add_blank(blanks, blank)
@@ -1412,7 +1412,7 @@ class MDQParser:
             )
 
     @staticmethod
-    def numeric_blank_maps(front: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    def numeric_blank_maps(front: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
         """
         The frontmatter `domain` and `decimalPlaces` maps of a fill-in
         question (fill-in.md, "Frontmatter"), each from a blank id to the
@@ -1422,7 +1422,7 @@ class MDQParser:
         Raises:
             ParseError: a map is not a mapping.
         """
-        maps: dict[str, Mapping[str, Any]] = {}
+        maps: dict[str, Mapping[str, object]] = {}
         for key in ("domain", "decimalPlaces"):
             mapping = front.get(key, {})
             if not isinstance(mapping, Mapping):
@@ -1435,7 +1435,7 @@ class MDQParser:
 
     @staticmethod
     def distribute_numeric_blank_maps(
-        maps: Mapping[str, Mapping[str, Any]], blanks: dict[str, BlankDict]
+        maps: Mapping[str, Mapping[str, object]], blanks: dict[str, BlankDict]
     ) -> None:
         """
         Check the keys of the `domain` and `decimalPlaces` maps against the
@@ -1452,11 +1452,11 @@ class MDQParser:
                 if blank is None:
                     raise UndefinedBlank(str(blank_id), key)
                 if blank["type"] != "numeric":
-                    cast("dict[str, Any]", blank)[key] = value
+                    _set_field(blank, key, value)
 
     @staticmethod
     def distribute_blank_pattern_lists(
-        front: Mapping[str, Any], blanks: dict[str, BlankDict]
+        front: Mapping[str, object], blanks: dict[str, BlankDict]
     ) -> None:
         """
         Move the frontmatter `preAccept`/`preReject`/`incorrectFeedback`
@@ -1495,7 +1495,7 @@ class MDQParser:
                 blank = blanks.get(blank_id)
                 if blank is None:
                     raise UndefinedBlank(str(blank_id), key)
-                cast("dict[str, Any]", blank)[key] = value
+                _set_field(blank, key, value)
 
     @staticmethod
     def _add_blank(blanks: dict[str, BlankDict], new: BlankDict) -> None:
@@ -1523,7 +1523,7 @@ class MDQParser:
                 continue
             if key in existing:
                 raise ParseError(f"repeated {key!r} definition for blank {blank_id!r}")
-            existing[key] = value  # type: ignore[literal-required]
+            _set_field(existing, key, value)
 
     def parse_answer_key(self) -> list[Node]:
         """
@@ -1559,7 +1559,7 @@ class MDQParser:
                     return remaining[:i]
         return remaining
 
-    def apply_type_specific_frontmatter(self, question_type: str) -> None:
+    def apply_type_specific_frontmatter(self, question_type: object) -> None:
         if question_type in GRADED_QUESTION_TYPES:
             for key in ("shuffle", "grading"):
                 if key in self.frontmatter and key not in self.state:
@@ -1658,7 +1658,19 @@ class MDQParser:
 
         self.apply_type_specific_frontmatter(question_type)
 
+        # The one cast of the parser: a `type` forced by the frontmatter can
+        # contradict the body, so the document is checked by the schema, not
+        # by construction.
         return cast(QuestionDict, self.state)
+
+
+def _set_field(blank: BlankDict, key: str, value: object) -> None:
+    """
+    Set a field of a blank by name. The keys come from the frontmatter
+    and from another definition of the same blank, so a blank of the wrong
+    kind can get a field: the schema rejects it.
+    """
+    cast("dict[str, object]", blank)[key] = value
 
 
 def _lower_label(label: str) -> str:

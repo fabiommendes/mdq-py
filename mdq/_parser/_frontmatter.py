@@ -344,7 +344,7 @@ def _invalid_frontmatter_fields(
 PATTERN_LIST_KEYS = ("preAccept", "preReject")
 
 
-def _copy_pattern_lists(front: Mapping[str, Any], doc: Any) -> None:
+def _copy_pattern_lists(front: Mapping[str, object], doc: dict[str, object]) -> None:
     """Copy the frontmatter's pattern lists onto the parsed document."""
     for key in PATTERN_LIST_KEYS:
         if key in front and key not in doc:
@@ -374,7 +374,7 @@ def common_frontmatter(front: Mapping[str, Any], comment: str | None) -> dict[st
     return fields
 
 
-def _normalize_tags(tags: Any) -> Any:
+def _normalize_tags(tags: object) -> object:
     """
     generic.md: `tags` is a list, or a single comma-delimited string that
     is split into one. Exams and questions share the rule. An empty part
@@ -390,7 +390,7 @@ def _normalize_tags(tags: Any) -> Any:
     return _normalize_list(tags)
 
 
-def _normalize_list(value: Any) -> Any:
+def _normalize_list(value: object) -> object:
     """
     A list, or a single comma-delimited string split into one, with the
     empty parts dropped. Any other value is returned as it is.
