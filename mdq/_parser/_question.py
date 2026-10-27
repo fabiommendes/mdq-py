@@ -90,7 +90,7 @@ from ._frontmatter import (
     _invalid_frontmatter_fields,
     _split_frontmatter,
 )
-from ._numeric import _parse_numeric_expression
+from ._numeric import _parse_numeric_expression, numeric_fields
 from ._ordering import (
     ORDERING_SECTION_RE,
     RawAlternative,
@@ -1190,17 +1190,7 @@ class MDQParser:
         doc["answer"] = parsed["answer"]
         if unit:
             doc["unit"] = unit
-        if "domain" in front:
-            doc["domain"] = front["domain"]
-        elif "domain" in parsed:
-            doc["domain"] = parsed["domain"]
-        # numeric.md, "Decimal places": inferred from the body when the
-        # domain, declared or inferred, is decimal and the frontmatter
-        # gives none.
-        if "decimalPlaces" in front:
-            doc["decimalPlaces"] = front["decimalPlaces"]
-        elif doc.get("domain") == "decimal" and "decimalPlaces" in parsed:
-            doc["decimalPlaces"] = parsed["decimalPlaces"]
+        doc.update(numeric_fields(parsed, front))
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
         if "incorrectFeedback" in front:
@@ -1304,14 +1294,12 @@ class MDQParser:
                 # fill-in.md, "Frontmatter": the `domain` and `decimalPlaces`
                 # maps win over the inferred values, as they do in a numeric
                 # question (numeric.md, "Number type/domain").
-                if blank_id in numeric_maps["domain"]:
-                    blank["domain"] = numeric_maps["domain"][blank_id]
-                elif "domain" in parsed:
-                    blank["domain"] = parsed["domain"]
-                if blank_id in numeric_maps["decimalPlaces"]:
-                    blank["decimalPlaces"] = numeric_maps["decimalPlaces"][blank_id]
-                elif blank.get("domain") == "decimal" and "decimalPlaces" in parsed:
-                    blank["decimalPlaces"] = parsed["decimalPlaces"]
+                declared = {
+                    key: numeric_maps[key][blank_id]
+                    for key in ("domain", "decimalPlaces")
+                    if blank_id in numeric_maps[key]
+                }
+                cast("dict[str, Any]", blank).update(numeric_fields(parsed, declared))
                 if "tolerance" in parsed:
                     blank["tolerance"] = parsed["tolerance"]
                 self._add_blank(blanks, blank)

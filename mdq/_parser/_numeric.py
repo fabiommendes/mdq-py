@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from decimal import Decimal
 from fractions import Fraction
-from typing import Required, TypedDict
+from typing import Any, Required, TypedDict
 
 from ..errors import ParseError
 from ..types import NumericDomain, ToleranceDict
@@ -187,6 +188,36 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
         result["decimalPlaces"] = absolute_places
 
     return result
+
+
+class NumericFields(TypedDict, total=False):
+    """The `domain` and `decimalPlaces` of a numeric question or blank."""
+
+    domain: NumericDomain
+    decimalPlaces: int
+
+
+def numeric_fields(
+    parsed: _NumericExpr, declared: Mapping[str, Any]
+) -> NumericFields:
+    """
+    The `domain` and `decimalPlaces` of a numeric question or blank.
+
+    A value in `declared` (the frontmatter) wins over the one inferred from
+    the body (numeric.md, "Number type/domain"). The places are inferred
+    only when the domain, declared or inferred, is decimal (numeric.md,
+    "Decimal places").
+    """
+    fields: NumericFields = {}
+    if "domain" in declared:
+        fields["domain"] = declared["domain"]
+    elif "domain" in parsed:
+        fields["domain"] = parsed["domain"]
+    if "decimalPlaces" in declared:
+        fields["decimalPlaces"] = declared["decimalPlaces"]
+    elif fields.get("domain") == "decimal" and "decimalPlaces" in parsed:
+        fields["decimalPlaces"] = parsed["decimalPlaces"]
+    return fields
 
 
 def _spelling_hint(text: str) -> str:
