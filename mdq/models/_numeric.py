@@ -25,7 +25,7 @@ from . import _lint
 from ._base import BaseQuestion, FreeText, MdqModel
 from ._score import QuestionScore
 
-__all__ = ["Tolerance", "NumericQuestion"]
+__all__ = ["Tolerance", "NumericKey", "NumericQuestion"]
 
 #: The `UNIT` terminal of docs/references/grammar.md: non-empty, no
 #: `UNICODE_SPACE`, no parentheses or brackets. Mirrors the `unit`
@@ -151,10 +151,17 @@ class Tolerance(MdqModel):
 
 
 
-class NumericQuestion(BaseQuestion[t.NumericResponse]):
+class NumericKey(MdqModel):
+    """
+    The answer key of a numeric question or of a numeric fill-in blank:
+    the answer and everything that decides which responses match it.
+    """
+
     #: The correct value. See `NumericAnswer`.
     answer: NumericAnswer
-    type: Literal["numeric"] = "numeric"
+    #: Redeclared by each subclass with its `Literal`; declared here so the
+    #: field keeps its place in the serialization order.
+    type: str
     unit: Unit | None = None
     domain: NumericDomain | None = None
     decimal_places: int | None = Field(default=None, ge=0)
@@ -176,18 +183,67 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
         )
         return self
 
+    @property
+    def effective_domain(self) -> NumericDomain:
+        """
+        The declared `domain`, else the one inferred from `answer` and the
+        absolute tolerance (numeric.md, "Number type/domain").
+        """
+        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
+
+    @property
+    def effective_decimal_places(self) -> int | None:
+        """
+        The precision of the comparison (numeric.md, "Decimal places"):
+        `decimal_places` when given; else, for a `decimal` domain
+        (declared or inferred), `infer_decimal_places`; else None.
+        """
+        if self.decimal_places is not None:
+            return self.decimal_places
+        if self.effective_domain == "decimal":
+            return infer_decimal_places(self.answer, self.tolerance)
+        return None
+
+    def lint_key(self, path: tuple[str | int, ...]) -> list[Diagnostic]:
+        """Lint the key, which sits at `path` of the document."""
+        return _lint.check_numeric(
+            answer=self.answer,
+            domain=self.domain,
+            decimal_places=self.decimal_places,
+            tolerance=self.tolerance,
+            path=path,
+        )
+
+    def score_numeric(self, response: t.NumericResponse) -> QuestionScore:
+        """
+        Score 1 if `response`, rounded to `effective_decimal_places`, is
+        within tolerance of `answer`, else 0. An incorrect response gets
+        `incorrect_feedback`, if set (numeric.md, "Feedback").
+
+        Raises:
+            ResponseError: `response` isn't a valid number, is a value the
+                domain cannot represent, or has a unit other than the
+                key's (responses.md, "Numeric").
+        """
+        correct = numeric_matches(
+            self.answer,
+            response,
+            self.tolerance,
+            self.effective_decimal_places,
+            domain=self.effective_domain,
+            unit=self.unit,
+        )
+        feedback = [] if correct or not self.incorrect_feedback else [self.incorrect_feedback]
+        return QuestionScore(score=1.0 if correct else 0.0, feedback=feedback)
+
+
+class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
+    type: Literal["numeric"] = "numeric"
+
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(
-            _lint.check_numeric(
-                answer=self.answer,
-                domain=self.domain,
-                decimal_places=self.decimal_places,
-                tolerance=self.tolerance,
-                path=(),
-            )
-        )
+        diagnostics.extend(self.lint_key(()))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -208,49 +264,9 @@ class NumericQuestion(BaseQuestion[t.NumericResponse]):
             tolerance=self.tolerance,
         )
 
-    @property
-    def effective_decimal_places(self) -> int | None:
-        """
-        The precision of the comparison (numeric.md, "Decimal places"):
-        `decimal_places` when given; else, for a `decimal` domain
-        (declared or inferred), `infer_decimal_places`; else None.
-        """
-        if self.decimal_places is not None:
-            return self.decimal_places
-        if _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance) == "decimal":
-            return infer_decimal_places(self.answer, self.tolerance)
-        return None
-
     def score_response(self, response: t.NumericResponse) -> QuestionScore:
-        """
-        Score 1 if `response`, rounded to `effective_decimal_places`, is
-        within tolerance of `answer`, else 0. An incorrect response gets
-        `incorrect_feedback`, if set (numeric.md, "Feedback").
-
-        Raises:
-            ResponseError: `response` isn't a valid number, is a value the
-                question's domain cannot represent, or has a unit other than
-                the question's (responses.md, "Numeric").
-        """
-        correct = numeric_matches(
-            self.answer,
-            response,
-            self.tolerance,
-            self.effective_decimal_places,
-            domain=self.effective_domain,
-            unit=self.unit,
-        )
-        feedback = [] if correct or not self.incorrect_feedback else [self.incorrect_feedback]
-        return QuestionScore(score=1.0 if correct else 0.0, feedback=feedback)
-
-    @property
-    def effective_domain(self) -> NumericDomain:
-        """
-        The declared `domain`, else the one inferred from `answer` and the
-        absolute tolerance (numeric.md, "Number type/domain").
-        """
-        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
-
+        """See `NumericKey.score_numeric`."""
+        return self.score_numeric(response)
 
 
 #

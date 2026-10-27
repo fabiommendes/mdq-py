@@ -11,11 +11,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Annotated, Any, Final, Iterable, Literal, Self, cast, assert_never
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from .. import _markdown, types as t
 from .._diagnostics import Diagnostic
@@ -24,7 +23,6 @@ from ..types import (
     Automation,
     Diacritics,
     GradingStrategy,
-    NumericDomain,
     QuestionGrading,
     QuestionShuffle,
     Unmatched,
@@ -44,37 +42,18 @@ from ._choice import (
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
-from ._numeric import (
-    Unit,
-    NumericAnswer,
-    Tolerance,
-    check_decimal_places_given,
-    infer_decimal_places,
-    _validate_numeric_answer,
-    numeric_matches,
-    render_numeric_tag,
-)
+from ._numeric import NumericKey, render_numeric_tag
 from ._score import QuestionScore
 from ._text import (
-    PatternList,
+    PatternKey,
     _pattern_entry,
     default_unmatched,
-    first_feedback,
     prevalidate_response,
     render_short_answer_patterns,
-    settle_response,
     short_answer_automation,
 )
 
 __all__ = ["ChoiceBlank", "ShortAnswerBlank", "NumericBlank", "Blank", "FillInQuestion"]
-
-
-@dataclass(frozen=True)
-class BlankScore:
-    """The score of one answered blank, with the feedback it earned."""
-
-    score: float
-    feedback: list[str] = field(default_factory=list)
 
 
 #: The score of a short answer blank that matches no pattern when `unmatched`
@@ -91,6 +70,9 @@ class BlankBase(MdqModel, ABC):
     """
 
     id: SlugId
+    #: Redeclared by each subclass with its `Literal`; declared here so the
+    #: field keeps its place in the serialization order.
+    type: str
 
     @abstractmethod
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
@@ -120,7 +102,7 @@ class BlankBase(MdqModel, ABC):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> BlankScore | Literal["pending"]:
+    ) -> QuestionScore | Literal["pending"]:
         """
         Score a response that is not `None`. `"pending"` means the
         instructor has to score it.
@@ -169,7 +151,7 @@ class ChoiceBlank(BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> BlankScore:
+    ) -> QuestionScore:
         choice = next((c for c in self.choices if c.id == response), None)
         if choice is None:
             raise ResponseError(
@@ -180,16 +162,11 @@ class ChoiceBlank(BlankBase):
             if choice.score is not None
             else unspecified_choice_score(self.choices, symmetric=symmetric)
         )
-        return BlankScore(score, [choice.feedback] if choice.feedback else [])
+        return QuestionScore(score=score, feedback=[choice.feedback] if choice.feedback else [])
 
 
-class ShortAnswerBlank(BlankBase):
-    id: SlugId
+class ShortAnswerBlank(PatternKey, BlankBase):
     type: Literal["short-answer"] = "short-answer"
-    accept: PatternList | None = None
-    reject: PatternList | None = None
-    pre_accept: PatternList | None = None
-    pre_reject: PatternList | None = None
 
     #: Feedback for an incorrect response that no pattern gave feedback to
     #: (short-answer.md, "Feedback"; fill-in.md, "Frontmatter").
@@ -226,20 +203,9 @@ class ShortAnswerBlank(BlankBase):
         )
 
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
-        return [
-            *_lint.check_short_answer(
-                accept=self.accept,
-                reject=self.reject,
-                pre_accept=self.pre_accept,
-                pre_reject=self.pre_reject,
-                path=path,
-            ),
-            *_lint.check_no_correct_answer(
-                accept=self.accept,
-                unmatched=self.effective_unmatched(unmatched),
-                path=path,
-            ),
-        ]
+        return self.lint_key(
+            path, unmatched=self.effective_unmatched(unmatched), unmatched_path=path
+        )
 
     def render_lines(self) -> Iterable[str]:
         tag = f"^{self.id}/short-answer"
@@ -252,78 +218,25 @@ class ShortAnswerBlank(BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> BlankScore | Literal["pending"]:
+    ) -> QuestionScore | Literal["pending"]:
         if not isinstance(response, str):
             raise ResponseError(
                 f"Response {response!r} to blank {self.id!r} is not text"
             )
-        outcome = settle_response(
-            self.accept,
-            self.reject,
+        score = self.score_text(
             response,
             unmatched=self.effective_unmatched(unmatched),
             diacritics=diacritics,
+            incorrect_feedback=self.incorrect_feedback,
         )
-        if outcome == "pending":
-            return PENDING
-        feedback = first_feedback(
-            (self.accept if outcome == "correct" else self.reject) or [],
-            response,
-            diacritics=diacritics,
-        )
-        if outcome == "incorrect" and not feedback and self.incorrect_feedback:
-            feedback = [self.incorrect_feedback]
-        return BlankScore(1.0 if outcome == "correct" else 0.0, feedback)
+        return PENDING if score is None else score
 
 
-class NumericBlank(BlankBase):
-    id: SlugId
+class NumericBlank(NumericKey, BlankBase):
     type: Literal["numeric"] = "numeric"
-    answer: NumericAnswer
-    unit: Unit | None = None
-    domain: NumericDomain | None = None
-    decimal_places: Annotated[int | None, Field(ge=0)] = None
-    tolerance: Tolerance | None = None
-
-    #: Feedback for an incorrect response (numeric.md, "Feedback";
-    #: fill-in.md, "Feedback").
-    incorrect_feedback: FreeText | None = None
-
-    @field_validator("answer")
-    @classmethod
-    def check_answer_grammar(cls, value: NumericAnswer) -> NumericAnswer:
-        return _validate_numeric_answer(value)
-
-    @model_validator(mode="after")
-    def check_decimal_places(self) -> Self:
-        """numeric.md, "Decimal places" (`missing-decimal-places`)."""
-        check_decimal_places_given(
-            self.answer, self.domain, self.decimal_places, self.tolerance
-        )
-        return self
-
-    @property
-    def effective_domain(self) -> NumericDomain:
-        """As `NumericQuestion.effective_domain`, for this blank."""
-        return _lint._effective_numeric_domain(self.answer, self.domain, self.tolerance)
-
-    @property
-    def effective_decimal_places(self) -> int | None:
-        """As `NumericQuestion.effective_decimal_places`, for this blank."""
-        if self.decimal_places is not None:
-            return self.decimal_places
-        if self.effective_domain == "decimal":
-            return infer_decimal_places(self.answer, self.tolerance)
-        return None
 
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
-        return _lint.check_numeric(
-            answer=self.answer,
-            domain=self.domain,
-            decimal_places=self.decimal_places,
-            tolerance=self.tolerance,
-            path=path,
-        )
+        return self.lint_key(path)
 
     def render_lines(self) -> Iterable[str]:
         yield render_numeric_tag(
@@ -340,21 +253,12 @@ class NumericBlank(BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> BlankScore:
+    ) -> QuestionScore:
         if not isinstance(response, int | float | Fraction | str | Mapping):
             raise ResponseError(
                 f"Response {response!r} to blank {self.id!r} is not numeric"
             )
-        correct = numeric_matches(
-            self.answer,
-            cast(t.NumericResponse, response),
-            self.tolerance,
-            self.effective_decimal_places,
-            domain=self.effective_domain,
-            unit=self.unit,
-        )
-        feedback = [] if correct or not self.incorrect_feedback else [self.incorrect_feedback]
-        return BlankScore(1.0 if correct else 0.0, feedback)
+        return self.score_numeric(cast(t.NumericResponse, response))
 
 
 Blank = Annotated[
@@ -609,7 +513,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                 diacritics=self.diacritics,
                 unmatched=self.unmatched,
             )
-            if not isinstance(result, BlankScore):
+            if not isinstance(result, QuestionScore):
                 # The instructor scores a pending blank; the question
                 # stays pending, but the other blanks are still checked.
                 pending.append(blank.id)

@@ -190,8 +190,15 @@ def check_text_response(response: object) -> None:
 PatternList = Annotated[list[AnswerPattern], Field(min_length=1)]
 
 
-class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
-    type: Literal["short-answer"] = "short-answer"
+class PatternKey(MdqModel):
+    """
+    The answer key of a short answer question or of a short answer fill-in
+    blank: the pattern lists that decide a response.
+    """
+
+    #: Redeclared by each subclass with its `Literal`; declared here so the
+    #: field keeps its place in the serialization order.
+    type: str
     #: Grading rules. `accept` decides the score and wins over `reject`
     #: when both match; `reject` only attaches feedback to answers known
     #: to be wrong.
@@ -202,6 +209,73 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
     #: accepting the answer; grading ignores them entirely.
     pre_accept: PatternList | None = None
     pre_reject: PatternList | None = None
+
+    def lint_key(
+        self,
+        path: tuple[str | int, ...],
+        *,
+        unmatched: Unmatched,
+        unmatched_path: tuple[str | int, ...],
+    ) -> list[Diagnostic]:
+        """
+        Lint the key, which sits at `path` of the document. `unmatched` is
+        the effective one, declared at `unmatched_path`.
+        """
+        return [
+            *_lint.check_short_answer(
+                accept=self.accept,
+                reject=self.reject,
+                pre_accept=self.pre_accept,
+                pre_reject=self.pre_reject,
+                path=path,
+            ),
+            *_lint.check_no_correct_answer(
+                accept=self.accept,
+                unmatched=unmatched,
+                path=unmatched_path,
+            ),
+        ]
+
+    def score_text(
+        self,
+        response: str,
+        *,
+        unmatched: Unmatched,
+        diacritics: Diacritics,
+        incorrect_feedback: str | None,
+    ) -> QuestionScore | None:
+        """
+        Score the response by the three rules of short-answer.md,
+        "Grading": an `accept` match scores 1, a `reject` match scores 0,
+        and otherwise `unmatched` decides. `None` means pending: the
+        response matches no pattern and `unmatched` is `"manual"`.
+
+        An incorrect response with no pattern feedback gets
+        `incorrect_feedback`, if set.
+        """
+        outcome = settle_response(
+            self.accept,
+            self.reject,
+            response,
+            unmatched=unmatched,
+            diacritics=diacritics,
+        )
+        if outcome == "pending":
+            return None
+        feedback = first_feedback(
+            (self.accept if outcome == "correct" else self.reject) or [],
+            response,
+            diacritics=diacritics,
+        )
+        if outcome == "incorrect" and not feedback and incorrect_feedback:
+            feedback = [incorrect_feedback]
+        return QuestionScore(
+            score=1.0 if outcome == "correct" else 0.0, feedback=feedback
+        )
+
+
+class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
+    type: Literal["short-answer"] = "short-answer"
 
     #: How inexact literals treat diacritics, in every pattern list.
     diacritics: Diacritics = "fold"
@@ -233,19 +307,8 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
         diagnostics.extend(
-            _lint.check_short_answer(
-                accept=self.accept,
-                reject=self.reject,
-                pre_accept=self.pre_accept,
-                pre_reject=self.pre_reject,
-                path=(),
-            )
-        )
-        diagnostics.extend(
-            _lint.check_no_correct_answer(
-                accept=self.accept,
-                unmatched=self.effective_unmatched,
-                path=("unmatched",),
+            self.lint_key(
+                (), unmatched=self.effective_unmatched, unmatched_path=("unmatched",)
             )
         )
         return diagnostics
@@ -303,29 +366,17 @@ class ShortAnswerQuestion(BaseQuestion[t.TextResponse]):
                 `effective_unmatched` is `"manual"`: it is pending.
         """
         check_text_response(response)
-        outcome = settle_response(
-            self.accept,
-            self.reject,
+        score = self.score_text(
             response,
             unmatched=self.effective_unmatched,
             diacritics=self.diacritics,
+            incorrect_feedback=self.incorrect_feedback,
         )
-        if outcome == "pending":
+        if score is None:
             raise NotAutoGradable(
                 "the response matches no pattern and 'unmatched' is 'manual'"
             )
-        feedback = first_feedback(
-            (self.accept if outcome == "correct" else self.reject) or [],
-            response,
-            diacritics=self.diacritics,
-        )
-        if outcome == "incorrect" and not feedback and self.incorrect_feedback:
-            feedback = [self.incorrect_feedback]
-        return QuestionScore(
-            score=1.0 if outcome == "correct" else 0.0, feedback=feedback
-        )
-
-
+        return score
 
 
 class EssayQuestion(BaseQuestion[t.TextResponse]):
