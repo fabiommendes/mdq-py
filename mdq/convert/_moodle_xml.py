@@ -68,8 +68,8 @@ __all__ = [
     "EssayBlock",
     "MultianswerBlock",
     "MoodleXmlQuestion",
-    "MoodleXmlEncoder",
-    "MoodleXmlDecoder",
+    "encode_question",
+    "decode_question",
     "MoodleXmlParser",
     "parse_cloze",
     "render_cloze",
@@ -190,10 +190,10 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
     }
 
     def from_mdq(self, question: Question) -> MoodleXmlQuestion:
-        return MoodleXmlEncoder().encode(question)
+        return encode_question(question)
 
     def to_mdq(self, moodle: MoodleXmlQuestion) -> Question:
-        return MoodleXmlDecoder().decode(moodle)
+        return decode_question(moodle)
 
     def parse(self, source: str) -> MoodleXmlQuestion:
         return MoodleXmlParser(source).parse()
@@ -405,379 +405,372 @@ class MoodleXmlQuestion:
         return f'<?xml version="1.0" encoding="UTF-8"?>\n{render_element(quiz)}'
 
 
-class MoodleXmlEncoder:
-    """Converts an MDQ `Question` into a `MoodleXmlQuestion`."""
 
-    def encode(self, question: Question) -> MoodleXmlQuestion:
-        """Dispatch on `question.type` to the matching `block_from_*` builder."""
-        match question:
-            case MultipleChoiceQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_choice(question)])
-            case MultipleSelectionQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_selection(question)])
-            case TrueFalseQuestion():
-                return MoodleXmlQuestion(blocks=self.blocks_from_true_false(question))
-            case NumericQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_numeric(question)])
-            case ShortAnswerQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_short(question)])
-            case EssayQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_essay(question)])
-            case FillInQuestion():
-                return MoodleXmlQuestion(blocks=[self.block_from_fill_in(question)])
-            case OrderingQuestion():
-                raise ValueError(
-                    f"Moodle XML does not support {question.type!r} questions"
-                )
-            case _:
-                assert_never(question)
-
-    def block_from_choice(self, question: MultipleChoiceQuestion) -> MultichoiceBlock:
-        answers = [
-            MoodleAnswer(
-                text=choice.text,
-                fraction=moodle_percent(score, format=_FORMAT),
-                feedback=choice.feedback,
-            )
-            for choice, score in zip(question.choices, effective_scores(question))
-        ]
-        return MultichoiceBlock(
-            questiontext=join_blocks(question.stem, question.epilogue),
-            answers=answers,
-            single=True,
-            shuffle_answers=_moodle_shuffle(question.shuffle),
-            **_block_meta(question),
-        )
-
-    def block_from_selection(
-        self, question: MultipleSelectionQuestion
-    ) -> MultichoiceBlock:
-        n_correct = sum(1 for c in question.choices if c.correct)
-        n_incorrect = len(question.choices) - n_correct
-        answers = []
-        for choice in question.choices:
-            if choice.correct:
-                share = 1 / n_correct if n_correct else 0.0
-            else:
-                share = -1 / n_incorrect if n_incorrect else 0.0
-            fraction = moodle_percent(share, format=_FORMAT)
-            answers.append(
-                MoodleAnswer(
-                    text=choice.text, fraction=fraction, feedback=choice.feedback
-                )
-            )
-        return MultichoiceBlock(
-            questiontext=join_blocks(question.stem, question.epilogue),
-            answers=answers,
-            single=False,
-            shuffle_answers=_moodle_shuffle(question.shuffle),
-            **_block_meta(question),
-        )
-
-    def blocks_from_true_false(
-        self, question: TrueFalseQuestion
-    ) -> list[TrueFalseBlock]:
-        group_stem = true_false_group_stem(question, epilogue=True)
-        blocks = []
-        for i, statement in enumerate(question.choices):
-            text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
-            answers = [
-                MoodleAnswer(text="True", fraction=100.0 if statement.correct else 0.0),
-                MoodleAnswer(
-                    text="False", fraction=0.0 if statement.correct else 100.0
-                ),
-            ]
-            blocks.append(
-                TrueFalseBlock(
-                    questiontext=text,
-                    answers=answers,
-                    shuffle_answers=_moodle_shuffle(question.shuffle) if i == 0 else None,
-                    name=question.title if i == 0 else None,
-                    idnumber=question.id if i == 0 else None,
-                    tags=list(question.tags) if i == 0 else [],
-                    default_grade=question.weight,
-                )
-            )
-        return blocks
-
-    def block_from_numeric(self, question: NumericQuestion) -> NumericalBlock:
-        value = float_answer(question.answer, question.tolerance, format=_FORMAT)
-        tolerance = numeric_tolerance(value, question.tolerance)
-        answers = [
-            MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
-        ]
-        return NumericalBlock(
-            questiontext=join_blocks(question.stem, question.epilogue),
-            answers=answers,
-            unit=question.unit,
-            **_block_meta(question),
-        )
-
-    def block_from_short(self, question: ShortAnswerQuestion) -> ShortAnswerBlock:
-        require_automatic(question, format=_FORMAT)
-        answers = [
-            MoodleAnswer(text=text, fraction=100.0)
-            for text in literal_answers(question.accept, format=_FORMAT)
-        ]
-        if question.incorrect_feedback is not None:
-            # Moodle's "any other answer" idiom.
-            answers.append(
-                MoodleAnswer(
-                    text="*", fraction=0.0, feedback=question.incorrect_feedback
-                )
-            )
-        return ShortAnswerBlock(
-            questiontext=join_blocks(question.stem, question.epilogue),
-            answers=answers,
-            **_block_meta(question),
-        )
-
-    def block_from_essay(self, question: EssayQuestion) -> EssayBlock:
-        return EssayBlock(
-            questiontext=join_blocks(question.stem, question.epilogue),
-            grader_info=question.answer_key,
-            response_format=essay_response_format_from_content(question.content),
-            **_block_meta(question),
-        )
-
-    def block_from_fill_in(self, question: FillInQuestion) -> MultianswerBlock:
-        blanks_by_id = {blank.id: blank for blank in question.blanks}
-        referenced: set[str] = set()
-
-        def replace(match: re.Match[str]) -> str:
-            blank_id = match.group(1)
-            blank = blanks_by_id.get(blank_id)
-            if blank is None:
-                raise ValueError(
-                    f"cannot convert to Moodle XML: stem references unknown blank {blank_id!r}"
-                )
-            referenced.add(blank_id)
-            cloze = self.cloze_from_blank(blank)
-            if cloze.kind == "MULTICHOICE" and len(cloze.answers) < 2:
-                # qtype_multianswer_validate_question: `notenoughanswers`.
-                raise ValueError(
-                    f"cannot convert to Moodle XML: choice blank {blank_id!r} needs "
-                    f"at least 2 choices, which Moodle requires in an embedded answer"
-                )
-            if not any(answer.fraction == 100 for answer in cloze.answers):
-                # qtype_multianswer_validate_question rejects a subquestion
-                # with no answer worth exactly 100% (`fractionsnomax`).
-                raise ValueError(
-                    f"cannot convert to Moodle XML: blank {blank_id!r} has no "
-                    f"answer worth 100%, which Moodle requires in an embedded answer"
-                )
-            return render_cloze(cloze)
-
-        questiontext = BLANK_MARKER_REGEX.sub(replace, question.stem)
-        missing = [blank.id for blank in question.blanks if blank.id not in referenced]
-        if missing:
+def encode_question(question: Question) -> MoodleXmlQuestion:
+    """Convert an MDQ question into a `MoodleXmlQuestion`, by its type."""
+    match question:
+        case MultipleChoiceQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_choice(question)])
+        case MultipleSelectionQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_selection(question)])
+        case TrueFalseQuestion():
+            return MoodleXmlQuestion(blocks=blocks_from_true_false(question))
+        case NumericQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_numeric(question)])
+        case ShortAnswerQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_short(question)])
+        case EssayQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_essay(question)])
+        case FillInQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_fill_in(question)])
+        case OrderingQuestion():
             raise ValueError(
-                f"cannot convert to Moodle XML: blank(s) not referenced by the stem: {missing!r}"
+                f"Moodle XML does not support {question.type!r} questions"
             )
-        return MultianswerBlock(
-            questiontext=join_blocks(questiontext, question.epilogue),
-            shuffle_answers=_moodle_shuffle(question.shuffle),
-            **_block_meta(question),
+        case _:
+            assert_never(question)
+
+def block_from_choice(question: MultipleChoiceQuestion) -> MultichoiceBlock:
+    answers = [
+        MoodleAnswer(
+            text=choice.text,
+            fraction=moodle_percent(score, format=_FORMAT),
+            feedback=choice.feedback,
         )
+        for choice, score in zip(question.choices, effective_scores(question))
+    ]
+    return MultichoiceBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        answers=answers,
+        single=True,
+        shuffle_answers=_moodle_shuffle(question.shuffle),
+        **_block_meta(question),
+    )
 
-    def cloze_from_blank(self, blank: Blank) -> MoodleCloze:
-        match blank:
-            case ChoiceBlank():
-                answers = [
-                    MoodleAnswer(text=choice.text, fraction=score * 100)
-                    for choice, score in zip(blank.choices, blank_choice_scores(blank))
-                ]
-                return MoodleCloze(kind="MULTICHOICE", answers=answers)
-            case ShortAnswerBlank():
-                return MoodleCloze(
-                    kind="SHORTANSWER",
-                    answers=[
-                        MoodleAnswer(text=text, fraction=100.0)
-                        for text in literal_answers(blank.accept, format=_FORMAT)
-                    ],
-                )
-            case NumericBlank():
-                value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
-                tolerance = numeric_tolerance(value, blank.tolerance)
-                return MoodleCloze(
-                    kind="NUMERICAL",
-                    answers=[
-                        MoodleAnswer(
-                            text=format_num(value), fraction=100.0, tolerance=tolerance
-                        )
-                    ],
-                )
-            case _:
-                assert_never(blank)
+def block_from_selection(question: MultipleSelectionQuestion
+) -> MultichoiceBlock:
+    n_correct = sum(1 for c in question.choices if c.correct)
+    n_incorrect = len(question.choices) - n_correct
+    answers = []
+    for choice in question.choices:
+        if choice.correct:
+            share = 1 / n_correct if n_correct else 0.0
+        else:
+            share = -1 / n_incorrect if n_incorrect else 0.0
+        fraction = moodle_percent(share, format=_FORMAT)
+        answers.append(
+            MoodleAnswer(
+                text=choice.text, fraction=fraction, feedback=choice.feedback
+            )
+        )
+    return MultichoiceBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        answers=answers,
+        single=False,
+        shuffle_answers=_moodle_shuffle(question.shuffle),
+        **_block_meta(question),
+    )
 
+def blocks_from_true_false(question: TrueFalseQuestion
+) -> list[TrueFalseBlock]:
+    group_stem = true_false_group_stem(question, epilogue=True)
+    blocks = []
+    for i, statement in enumerate(question.choices):
+        text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
+        answers = [
+            MoodleAnswer(text="True", fraction=100.0 if statement.correct else 0.0),
+            MoodleAnswer(
+                text="False", fraction=0.0 if statement.correct else 100.0
+            ),
+        ]
+        blocks.append(
+            TrueFalseBlock(
+                questiontext=text,
+                answers=answers,
+                shuffle_answers=_moodle_shuffle(question.shuffle) if i == 0 else None,
+                name=question.title if i == 0 else None,
+                idnumber=question.id if i == 0 else None,
+                tags=list(question.tags) if i == 0 else [],
+                default_grade=question.weight,
+            )
+        )
+    return blocks
 
-class MoodleXmlDecoder:
-    """Converts a `MoodleXmlQuestion` into an MDQ `Question`."""
+def block_from_numeric(question: NumericQuestion) -> NumericalBlock:
+    value = float_answer(question.answer, question.tolerance, format=_FORMAT)
+    tolerance = numeric_tolerance(value, question.tolerance)
+    answers = [
+        MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
+    ]
+    return NumericalBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        answers=answers,
+        unit=question.unit,
+        **_block_meta(question),
+    )
 
-    def decode(self, moodle: MoodleXmlQuestion) -> Question:
-        """A single block converts directly; several blocks must form a true/false group."""
-        if not moodle.blocks:
-            raise ValueError("Moodle XML question has no blocks")
-        if len(moodle.blocks) == 1:
-            return self.block_to_mdq(moodle.blocks[0])
-        statements = [b for b in moodle.blocks if isinstance(b, TrueFalseBlock)]
-        if len(statements) == len(moodle.blocks):
-            return self.true_false_from_blocks(statements)
+def block_from_short(question: ShortAnswerQuestion) -> ShortAnswerBlock:
+    require_automatic(question, format=_FORMAT)
+    answers = [
+        MoodleAnswer(text=text, fraction=100.0)
+        for text in literal_answers(question.accept, format=_FORMAT)
+    ]
+    if question.incorrect_feedback is not None:
+        # Moodle's "any other answer" idiom.
+        answers.append(
+            MoodleAnswer(
+                text="*", fraction=0.0, feedback=question.incorrect_feedback
+            )
+        )
+    return ShortAnswerBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        answers=answers,
+        **_block_meta(question),
+    )
+
+def block_from_essay(question: EssayQuestion) -> EssayBlock:
+    return EssayBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        grader_info=question.answer_key,
+        response_format=essay_response_format_from_content(question.content),
+        **_block_meta(question),
+    )
+
+def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
+    blanks_by_id = {blank.id: blank for blank in question.blanks}
+    referenced: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        blank_id = match.group(1)
+        blank = blanks_by_id.get(blank_id)
+        if blank is None:
+            raise ValueError(
+                f"cannot convert to Moodle XML: stem references unknown blank {blank_id!r}"
+            )
+        referenced.add(blank_id)
+        cloze = cloze_from_blank(blank)
+        if cloze.kind == "MULTICHOICE" and len(cloze.answers) < 2:
+            # qtype_multianswer_validate_question: `notenoughanswers`.
+            raise ValueError(
+                f"cannot convert to Moodle XML: choice blank {blank_id!r} needs "
+                f"at least 2 choices, which Moodle requires in an embedded answer"
+            )
+        if not any(answer.fraction == 100 for answer in cloze.answers):
+            # qtype_multianswer_validate_question rejects a subquestion
+            # with no answer worth exactly 100% (`fractionsnomax`).
+            raise ValueError(
+                f"cannot convert to Moodle XML: blank {blank_id!r} has no "
+                f"answer worth 100%, which Moodle requires in an embedded answer"
+            )
+        return render_cloze(cloze)
+
+    questiontext = BLANK_MARKER_REGEX.sub(replace, question.stem)
+    missing = [blank.id for blank in question.blanks if blank.id not in referenced]
+    if missing:
         raise ValueError(
-            "a Moodle XML question group with more than one block is only "
-            "supported when every block is a true/false statement"
+            f"cannot convert to Moodle XML: blank(s) not referenced by the stem: {missing!r}"
         )
+    return MultianswerBlock(
+        questiontext=join_blocks(questiontext, question.epilogue),
+        shuffle_answers=_moodle_shuffle(question.shuffle),
+        **_block_meta(question),
+    )
 
-    def block_to_mdq(self, block: MoodleXmlBlock) -> Question:
-        match block:
-            case MultichoiceBlock(single=False):
-                return self.selection_from_block(block)
-            case MultichoiceBlock():
-                return self.choice_from_block(block)
-            case TrueFalseBlock():
-                return self.choice_from_true_false_block(block)
-            case ShortAnswerBlock():
-                return self.short_answer_from_block(block)
-            case NumericalBlock():
-                return self.numeric_from_block(block)
-            case EssayBlock():
-                return self.essay_from_block(block)
-            case MultianswerBlock():
-                return self.fill_in_from_block(block)
-            case _:
-                assert_never(block)
+def cloze_from_blank(blank: Blank) -> MoodleCloze:
+    match blank:
+        case ChoiceBlank():
+            answers = [
+                MoodleAnswer(text=choice.text, fraction=score * 100)
+                for choice, score in zip(blank.choices, blank_choice_scores(blank))
+            ]
+            return MoodleCloze(kind="MULTICHOICE", answers=answers)
+        case ShortAnswerBlank():
+            return MoodleCloze(
+                kind="SHORTANSWER",
+                answers=[
+                    MoodleAnswer(text=text, fraction=100.0)
+                    for text in literal_answers(blank.accept, format=_FORMAT)
+                ],
+            )
+        case NumericBlank():
+            value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
+            tolerance = numeric_tolerance(value, blank.tolerance)
+            return MoodleCloze(
+                kind="NUMERICAL",
+                answers=[
+                    MoodleAnswer(
+                        text=format_num(value), fraction=100.0, tolerance=tolerance
+                    )
+                ],
+            )
+        case _:
+            assert_never(blank)
 
-    def short_answer_from_block(self, block: ShortAnswerBlock) -> ShortAnswerQuestion:
-        accept: list[AnswerPattern] = []
-        incorrect_feedback: str | None = None
-        for a in block.answers:
-            if a.text.strip(" \t\r\n") == "*":
-                if a.fraction == 100:
-                    accept.append(AnswerPattern(pattern="/.*/"))
-                elif a.feedback:
-                    incorrect_feedback = a.feedback
-                continue
-            accept.append(literal_pattern(a.text, format=_FORMAT))
-        return ShortAnswerQuestion(
-            stem=block.questiontext,
-            accept=accept,
-            incorrect_feedback=incorrect_feedback,
-            **_question_meta(block),
-        )
 
-    def choice_from_block(self, block: MultichoiceBlock) -> MultipleChoiceQuestion:
-        return MultipleChoiceQuestion(
-            stem=block.questiontext,
+
+def decode_question(moodle: MoodleXmlQuestion) -> Question:
+    """A single block converts directly; several blocks must form a true/false group."""
+    if not moodle.blocks:
+        raise ValueError("Moodle XML question has no blocks")
+    if len(moodle.blocks) == 1:
+        return block_to_mdq(moodle.blocks[0])
+    statements = [b for b in moodle.blocks if isinstance(b, TrueFalseBlock)]
+    if len(statements) == len(moodle.blocks):
+        return true_false_from_blocks(statements)
+    raise ValueError(
+        "a Moodle XML question group with more than one block is only "
+        "supported when every block is a true/false statement"
+    )
+
+def block_to_mdq(block: MoodleXmlBlock) -> Question:
+    match block:
+        case MultichoiceBlock(single=False):
+            return selection_from_block(block)
+        case MultichoiceBlock():
+            return choice_from_block(block)
+        case TrueFalseBlock():
+            return choice_from_true_false_block(block)
+        case ShortAnswerBlock():
+            return short_answer_from_block(block)
+        case NumericalBlock():
+            return numeric_from_block(block)
+        case EssayBlock():
+            return essay_from_block(block)
+        case MultianswerBlock():
+            return fill_in_from_block(block)
+        case _:
+            assert_never(block)
+
+def short_answer_from_block(block: ShortAnswerBlock) -> ShortAnswerQuestion:
+    accept: list[AnswerPattern] = []
+    incorrect_feedback: str | None = None
+    for a in block.answers:
+        if a.text.strip(" \t\r\n") == "*":
+            if a.fraction == 100:
+                accept.append(AnswerPattern(pattern="/.*/"))
+            elif a.feedback:
+                incorrect_feedback = a.feedback
+            continue
+        accept.append(literal_pattern(a.text, format=_FORMAT))
+    return ShortAnswerQuestion(
+        stem=block.questiontext,
+        accept=accept,
+        incorrect_feedback=incorrect_feedback,
+        **_question_meta(block),
+    )
+
+def choice_from_block(block: MultichoiceBlock) -> MultipleChoiceQuestion:
+    return MultipleChoiceQuestion(
+        stem=block.questiontext,
+        choices=[
+            ScoredChoice(
+                text=a.text,
+                score=score_from_moodle_percent(a.fraction),
+                feedback=a.feedback,
+            )
+            for a in block.answers
+        ],
+        shuffle=_mdq_shuffle(block.shuffle_answers),
+        **_question_meta(block),
+    )
+
+def selection_from_block(block: MultichoiceBlock) -> MultipleSelectionQuestion:
+    return MultipleSelectionQuestion(
+        stem=block.questiontext,
+        choices=[
+            BooleanChoice(text=a.text, correct=a.fraction > 0, feedback=a.feedback)
+            for a in block.answers
+        ],
+        shuffle=_mdq_shuffle(block.shuffle_answers),
+        **_question_meta(block),
+    )
+
+def choice_from_true_false_block(block: TrueFalseBlock
+) -> MultipleChoiceQuestion:
+    correct = statement_correct(block)
+    return MultipleChoiceQuestion(
+        stem=block.questiontext,
+        choices=[
+            ScoredChoice(text="True", score=1.0 if correct else 0.0),
+            ScoredChoice(text="False", score=0.0 if correct else 1.0),
+        ],
+        **_question_meta(block),
+    )
+
+def numeric_from_block(block: NumericalBlock) -> NumericQuestion:
+    answer = block.answers[0]
+    tolerance = absolute_tolerance(answer.tolerance)
+    return NumericQuestion(
+        stem=block.questiontext,
+        answer=mdq_numeric_answer(answer.text),
+        unit=_mdq_unit(block.unit),
+        tolerance=tolerance,
+        **_question_meta(block),
+    )
+
+def essay_from_block(block: EssayBlock) -> EssayQuestion:
+    return EssayQuestion(
+        stem=block.questiontext,
+        answer_key=block.grader_info,
+        content=essay_content_from_response_format(block.response_format),
+        **_question_meta(block),
+    )
+
+def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
+    segments, clozes = parse_cloze(block.questiontext)
+    parts = [segments[0]]
+    blanks: list[Blank] = []
+    for i, cloze in enumerate(clozes):
+        blank_id = f"blank{i + 1}"
+        blanks.append(blank_from_cloze(blank_id, cloze))
+        parts.append(f"[^{blank_id}]")
+        parts.append(segments[i + 1])
+    return FillInQuestion(
+        stem="".join(parts),
+        blanks=blanks,
+        shuffle=_mdq_shuffle(block.shuffle_answers),
+        **_question_meta(block),
+    )
+
+def blank_from_cloze(blank_id: str, cloze: MoodleCloze) -> Blank:
+    if cloze.kind == "MULTICHOICE":
+        return ChoiceBlank(
+            id=blank_id,
             choices=[
                 ScoredChoice(
                     text=a.text,
                     score=score_from_moodle_percent(a.fraction),
                     feedback=a.feedback,
                 )
-                for a in block.answers
+                for a in cloze.answers
             ],
-            shuffle=_mdq_shuffle(block.shuffle_answers),
-            **_question_meta(block),
         )
-
-    def selection_from_block(self, block: MultichoiceBlock) -> MultipleSelectionQuestion:
-        return MultipleSelectionQuestion(
-            stem=block.questiontext,
-            choices=[
-                BooleanChoice(text=a.text, correct=a.fraction > 0, feedback=a.feedback)
-                for a in block.answers
-            ],
-            shuffle=_mdq_shuffle(block.shuffle_answers),
-            **_question_meta(block),
+    if cloze.kind == "SHORTANSWER":
+        return ShortAnswerBlank(
+            id=blank_id,
+            accept=[literal_pattern(a.text, format=_FORMAT) for a in cloze.answers],
         )
+    answer = cloze.answers[0]
+    tolerance = absolute_tolerance(answer.tolerance)
+    return NumericBlank(
+        id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance
+    )
 
-    def choice_from_true_false_block(
-        self, block: TrueFalseBlock
-    ) -> MultipleChoiceQuestion:
-        correct = statement_correct(block)
-        return MultipleChoiceQuestion(
-            stem=block.questiontext,
-            choices=[
-                ScoredChoice(text="True", score=1.0 if correct else 0.0),
-                ScoredChoice(text="False", score=0.0 if correct else 1.0),
-            ],
-            **_question_meta(block),
-        )
+def true_false_from_blocks(blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
+    texts = [b.questiontext for b in blocks]
+    group_stem, statement_texts = split_true_false_group(texts)
 
-    def numeric_from_block(self, block: NumericalBlock) -> NumericQuestion:
-        answer = block.answers[0]
-        tolerance = absolute_tolerance(answer.tolerance)
-        return NumericQuestion(
-            stem=block.questiontext,
-            answer=mdq_numeric_answer(answer.text),
-            unit=_mdq_unit(block.unit),
-            tolerance=tolerance,
-            **_question_meta(block),
-        )
+    choices = [
+        Statement(text=text.strip(), correct=statement_correct(block))
+        for text, block in zip(statement_texts, blocks)
+    ]
 
-    def essay_from_block(self, block: EssayBlock) -> EssayQuestion:
-        return EssayQuestion(
-            stem=block.questiontext,
-            answer_key=block.grader_info,
-            content=essay_content_from_response_format(block.response_format),
-            **_question_meta(block),
-        )
-
-    def fill_in_from_block(self, block: MultianswerBlock) -> FillInQuestion:
-        segments, clozes = parse_cloze(block.questiontext)
-        parts = [segments[0]]
-        blanks: list[Blank] = []
-        for i, cloze in enumerate(clozes):
-            blank_id = f"blank{i + 1}"
-            blanks.append(self.blank_from_cloze(blank_id, cloze))
-            parts.append(f"[^{blank_id}]")
-            parts.append(segments[i + 1])
-        return FillInQuestion(
-            stem="".join(parts),
-            blanks=blanks,
-            shuffle=_mdq_shuffle(block.shuffle_answers),
-            **_question_meta(block),
-        )
-
-    def blank_from_cloze(self, blank_id: str, cloze: MoodleCloze) -> Blank:
-        if cloze.kind == "MULTICHOICE":
-            return ChoiceBlank(
-                id=blank_id,
-                choices=[
-                    ScoredChoice(
-                        text=a.text,
-                        score=score_from_moodle_percent(a.fraction),
-                        feedback=a.feedback,
-                    )
-                    for a in cloze.answers
-                ],
-            )
-        if cloze.kind == "SHORTANSWER":
-            return ShortAnswerBlank(
-                id=blank_id,
-                accept=[literal_pattern(a.text, format=_FORMAT) for a in cloze.answers],
-            )
-        answer = cloze.answers[0]
-        tolerance = absolute_tolerance(answer.tolerance)
-        return NumericBlank(
-            id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance
-        )
-
-    def true_false_from_blocks(self, blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
-        texts = [b.questiontext for b in blocks]
-        group_stem, statement_texts = split_true_false_group(texts)
-
-        choices = [
-            Statement(text=text.strip(), correct=statement_correct(block))
-            for text, block in zip(statement_texts, blocks)
-        ]
-
-        return TrueFalseQuestion(
-            stem=group_stem,
-            choices=choices,
-            shuffle=_mdq_shuffle(blocks[0].shuffle_answers),
-            **_question_meta(blocks[0]),
-        )
+    return TrueFalseQuestion(
+        stem=group_stem,
+        choices=choices,
+        shuffle=_mdq_shuffle(blocks[0].shuffle_answers),
+        **_question_meta(blocks[0]),
+    )
 
 
 class MoodleXmlParser(StringParser[MoodleXmlQuestion]):

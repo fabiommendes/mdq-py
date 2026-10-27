@@ -62,8 +62,8 @@ __all__ = [
     "GiftNumeric",
     "GiftBlock",
     "GiftQuestion",
-    "GiftEncoder",
-    "GiftDecoder",
+    "encode_question",
+    "decode_question",
     "GiftParser",
     "escape_gift",
     "unescape_gift",
@@ -104,10 +104,10 @@ class Gift(ConversionBase["GiftQuestion"]):
     }
 
     def from_mdq(self, question: Question) -> GiftQuestion:
-        return GiftEncoder().encode(question)
+        return encode_question(question)
 
     def to_mdq(self, gift: GiftQuestion) -> Question:
-        return GiftDecoder().decode(gift)
+        return decode_question(gift)
 
     def parse(self, source: str) -> GiftQuestion:
         return GiftParser(source).parse()
@@ -237,258 +237,254 @@ def gift_block(
     )
 
 
-class GiftEncoder:
-    """Converts an MDQ `Question` into a `GiftQuestion`."""
 
-    def encode(self, question: Question) -> GiftQuestion:
-        """Dispatch on `question.type` to the matching `block_from_*` builder."""
-        match question:
-            case MultipleChoiceQuestion():
-                return GiftQuestion(blocks=[self.block_from_choice(question)])
-            case ShortAnswerQuestion():
-                return GiftQuestion(blocks=[self.block_from_short(question)])
-            case NumericQuestion():
-                return GiftQuestion(blocks=[self.block_from_numeric(question)])
-            case EssayQuestion():
-                return GiftQuestion(blocks=[self.block_from_essay(question)])
-            case TrueFalseQuestion():
-                return GiftQuestion(blocks=self.blocks_from_true_false(question))
-            case FillInQuestion():
-                return GiftQuestion(blocks=[self.block_from_fill_in(question)])
-            case MultipleSelectionQuestion() | OrderingQuestion():
-                raise ValueError(f"GIFT does not support {question.type!r} questions")
-            case _:
-                assert_never(question)
+def encode_question(question: Question) -> GiftQuestion:
+    """Convert an MDQ question into a `GiftQuestion`, by its type."""
+    match question:
+        case MultipleChoiceQuestion():
+            return GiftQuestion(blocks=[block_from_choice(question)])
+        case ShortAnswerQuestion():
+            return GiftQuestion(blocks=[block_from_short(question)])
+        case NumericQuestion():
+            return GiftQuestion(blocks=[block_from_numeric(question)])
+        case EssayQuestion():
+            return GiftQuestion(blocks=[block_from_essay(question)])
+        case TrueFalseQuestion():
+            return GiftQuestion(blocks=blocks_from_true_false(question))
+        case FillInQuestion():
+            return GiftQuestion(blocks=[block_from_fill_in(question)])
+        case MultipleSelectionQuestion() | OrderingQuestion():
+            raise ValueError(f"GIFT does not support {question.type!r} questions")
+        case _:
+            assert_never(question)
 
-    def block_from_choice(self, question: MultipleChoiceQuestion) -> GiftBlock:
-        options = [
-            GiftOption(
-                text=choice.text,
-                credit=moodle_score(score, format="GIFT"),
-                feedback=choice.feedback,
-            )
-            for choice, score in zip(question.choices, effective_scores(question))
-        ]
-        return gift_block(question, question.stem, GiftChoice(options=options))
-
-    def block_from_short(self, question: ShortAnswerQuestion) -> GiftBlock:
-        require_automatic(question, format="GIFT")
-        options = [
-            GiftOption(text=answer, credit=1.0)
-            for answer in literal_answers(question.accept, format="GIFT")
-        ]
-        return gift_block(question, question.stem, GiftShort(options=options))
-
-    def block_from_numeric(self, question: NumericQuestion) -> GiftBlock:
-        value = float_answer(question.answer, question.tolerance, format="GIFT")
-        tolerance = numeric_tolerance(value, question.tolerance)
-        answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
-        return gift_block(question, question.stem, answer)
-
-    def block_from_essay(self, question: EssayQuestion) -> GiftBlock:
-        return gift_block(
-            question, question.stem, GiftEssay(), general_feedback=question.answer_key
+def block_from_choice(question: MultipleChoiceQuestion) -> GiftBlock:
+    options = [
+        GiftOption(
+            text=choice.text,
+            credit=moodle_score(score, format="GIFT"),
+            feedback=choice.feedback,
         )
+        for choice, score in zip(question.choices, effective_scores(question))
+    ]
+    return gift_block(question, question.stem, GiftChoice(options=options))
 
-    def blocks_from_true_false(self, question: TrueFalseQuestion) -> list[GiftBlock]:
-        # GIFT has no place for the epilogue of a statement group.
-        group_stem = true_false_group_stem(question, epilogue=False)
-        blocks = []
-        for i, statement in enumerate(question.choices):
-            stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
-            blocks.append(
-                GiftBlock(
-                    stem=stem,
-                    answer=GiftBoolean(value=statement.correct),
-                    title=question.title if i == 0 else None,
-                    comment=question.comment if i == 0 else None,
-                    text_format="markdown",
-                )
+def block_from_short(question: ShortAnswerQuestion) -> GiftBlock:
+    require_automatic(question, format="GIFT")
+    options = [
+        GiftOption(text=answer, credit=1.0)
+        for answer in literal_answers(question.accept, format="GIFT")
+    ]
+    return gift_block(question, question.stem, GiftShort(options=options))
+
+def block_from_numeric(question: NumericQuestion) -> GiftBlock:
+    value = float_answer(question.answer, question.tolerance, format="GIFT")
+    tolerance = numeric_tolerance(value, question.tolerance)
+    answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
+    return gift_block(question, question.stem, answer)
+
+def block_from_essay(question: EssayQuestion) -> GiftBlock:
+    return gift_block(
+        question, question.stem, GiftEssay(), general_feedback=question.answer_key
+    )
+
+def blocks_from_true_false(question: TrueFalseQuestion) -> list[GiftBlock]:
+    # GIFT has no place for the epilogue of a statement group.
+    group_stem = true_false_group_stem(question, epilogue=False)
+    blocks = []
+    for i, statement in enumerate(question.choices):
+        stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
+        blocks.append(
+            GiftBlock(
+                stem=stem,
+                answer=GiftBoolean(value=statement.correct),
+                title=question.title if i == 0 else None,
+                comment=question.comment if i == 0 else None,
+                text_format="markdown",
             )
-        return blocks
-
-    def block_from_fill_in(self, question: FillInQuestion) -> GiftBlock:
-        if len(question.blanks) != 1:
-            raise ValueError(
-                "cannot convert to GIFT: fill-in question must have exactly one blank"
-            )
-        blank = question.blanks[0]
-        marker = f"[^{blank.id}]"
-        stem_part, sep, tail_part = question.stem.partition(marker)
-        if not sep:
-            raise ValueError(
-                f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
-            )
-
-        answer: GiftAnswer
-        match blank:
-            case ChoiceBlank():
-                choice_options = [
-                    GiftOption(
-                        text=choice.text,
-                        credit=moodle_score(score, format="GIFT"),
-                        feedback=choice.feedback,
-                    )
-                    for choice, score in zip(blank.choices, blank_choice_scores(blank))
-                ]
-                answer = GiftChoice(options=choice_options)
-            case ShortAnswerBlank():
-                answer = GiftShort(
-                    options=[
-                        GiftOption(text=answer_text, credit=1.0)
-                        for answer_text in literal_answers(blank.accept, format="GIFT")
-                    ]
-                )
-            case NumericBlank():
-                value = float_answer(blank.answer, blank.tolerance, format="GIFT")
-                tolerance = numeric_tolerance(value, blank.tolerance)
-                answer = GiftNumeric(
-                    options=[GiftNumericOption(value=value, tolerance=tolerance)]
-                )
-            case _:
-                assert_never(blank)
-
-        return gift_block(
-            question,
-            join_blocks(stem_part),
-            answer,
-            tail=join_blocks(tail_part, question.epilogue),
         )
+    return blocks
 
-
-class GiftDecoder:
-    """Converts a `GiftQuestion` into an MDQ `Question`."""
-
-    def decode(self, gift: GiftQuestion) -> Question:
-        """A single block converts directly; several blocks must form a true/false group."""
-        if not gift.blocks:
-            raise ValueError("GIFT question has no blocks")
-        if len(gift.blocks) == 1:
-            return self.block_to_mdq(gift.blocks[0])
-        if all(isinstance(b.answer, GiftBoolean) for b in gift.blocks):
-            return self.true_false_from_blocks(gift.blocks)
+def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
+    if len(question.blanks) != 1:
         raise ValueError(
-            "a GIFT question group with more than one block is only "
-            "supported when every block is a true/false statement"
+            "cannot convert to GIFT: fill-in question must have exactly one blank"
+        )
+    blank = question.blanks[0]
+    marker = f"[^{blank.id}]"
+    stem_part, sep, tail_part = question.stem.partition(marker)
+    if not sep:
+        raise ValueError(
+            f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
         )
 
-    def block_to_mdq(self, block: GiftBlock) -> Question:
-        answer = block.answer
-
-        match answer:
-            case GiftEssay():
-                return EssayQuestion(
-                    stem=block.stem,
-                    answer_key=block.general_feedback,
-                    title=block.title,
-                    comment=block.comment,
+    answer: GiftAnswer
+    match blank:
+        case ChoiceBlank():
+            choice_options = [
+                GiftOption(
+                    text=choice.text,
+                    credit=moodle_score(score, format="GIFT"),
+                    feedback=choice.feedback,
                 )
-            case GiftBoolean():
-                if block.tail:
-                    raise ValueError(
-                        "GIFT missing-word tail is not supported for boolean answers"
-                    )
-                return MultipleChoiceQuestion(
-                    stem=block.stem,
-                    choices=[
-                        ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
-                        ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
-                    ],
-                    title=block.title,
-                    comment=block.comment,
-                )
-            case GiftChoice() | GiftShort() | GiftNumeric():
-                pass
-            case _:
-                assert_never(answer)
-
-        if block.tail:
-            blank = self.blank_from_answer(answer)
-            stem = f"{block.stem}[^blank]{block.tail}".strip()
-            return FillInQuestion(
-                stem=stem, blanks=[blank], title=block.title, comment=block.comment
+                for choice, score in zip(blank.choices, blank_choice_scores(blank))
+            ]
+            answer = GiftChoice(options=choice_options)
+        case ShortAnswerBlank():
+            answer = GiftShort(
+                options=[
+                    GiftOption(text=answer_text, credit=1.0)
+                    for answer_text in literal_answers(blank.accept, format="GIFT")
+                ]
             )
+        case NumericBlank():
+            value = float_answer(blank.answer, blank.tolerance, format="GIFT")
+            tolerance = numeric_tolerance(value, blank.tolerance)
+            answer = GiftNumeric(
+                options=[GiftNumericOption(value=value, tolerance=tolerance)]
+            )
+        case _:
+            assert_never(blank)
 
-        match answer:
-            case GiftChoice():
-                return MultipleChoiceQuestion(
-                    stem=block.stem,
-                    choices=[
-                        ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
-                        for o in answer.options
-                    ],
-                    title=block.title,
-                    comment=block.comment,
-                )
-            case GiftShort():
-                return ShortAnswerQuestion(
-                    stem=block.stem,
-                    accept=[
-                        literal_pattern(o.text, format="GIFT") for o in answer.options
-                    ],
-                    title=block.title,
-                    comment=block.comment,
-                )
-            case GiftNumeric():
-                opt = answer.options[0]
-                tolerance = absolute_tolerance(opt.tolerance)
-                return NumericQuestion(
-                    stem=block.stem,
-                    answer=mdq_numeric_answer(format_num(opt.value)),
-                    tolerance=tolerance,
-                    title=block.title,
-                    comment=block.comment,
-                )
-            case _:
-                assert_never(answer)
+    return gift_block(
+        question,
+        join_blocks(stem_part),
+        answer,
+        tail=join_blocks(tail_part, question.epilogue),
+    )
 
-    def blank_from_answer(self, answer: GiftAnswer) -> Blank:
-        match answer:
-            case GiftChoice():
-                return ChoiceBlank(
-                    id="blank",
-                    choices=[
-                        ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
-                        for o in answer.options
-                    ],
-                )
-            case GiftShort():
-                return ShortAnswerBlank(
-                    id="blank",
-                    accept=[
-                        literal_pattern(o.text, format="GIFT") for o in answer.options
-                    ],
-                )
-            case GiftNumeric():
-                opt = answer.options[0]
-                tolerance = absolute_tolerance(opt.tolerance)
-                return NumericBlank(
-                    id="blank",
-                    answer=mdq_numeric_answer(format_num(opt.value)),
-                    tolerance=tolerance,
-                )
-            case GiftEssay() | GiftBoolean():
+
+
+def decode_question(gift: GiftQuestion) -> Question:
+    """A single block converts directly; several blocks must form a true/false group."""
+    if not gift.blocks:
+        raise ValueError("GIFT question has no blocks")
+    if len(gift.blocks) == 1:
+        return block_to_mdq(gift.blocks[0])
+    if all(isinstance(b.answer, GiftBoolean) for b in gift.blocks):
+        return true_false_from_blocks(gift.blocks)
+    raise ValueError(
+        "a GIFT question group with more than one block is only "
+        "supported when every block is a true/false statement"
+    )
+
+def block_to_mdq(block: GiftBlock) -> Question:
+    answer = block.answer
+
+    match answer:
+        case GiftEssay():
+            return EssayQuestion(
+                stem=block.stem,
+                answer_key=block.general_feedback,
+                title=block.title,
+                comment=block.comment,
+            )
+        case GiftBoolean():
+            if block.tail:
                 raise ValueError(
-                    "GIFT missing-word tail is not supported for "
-                    f"{type(answer).__name__} answers"
+                    "GIFT missing-word tail is not supported for boolean answers"
                 )
-            case _:
-                assert_never(answer)
+            return MultipleChoiceQuestion(
+                stem=block.stem,
+                choices=[
+                    ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
+                    ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
+                ],
+                title=block.title,
+                comment=block.comment,
+            )
+        case GiftChoice() | GiftShort() | GiftNumeric():
+            pass
+        case _:
+            assert_never(answer)
 
-    def true_false_from_blocks(self, blocks: list[GiftBlock]) -> TrueFalseQuestion:
-        group_stem, statement_texts = split_true_false_group([b.stem for b in blocks])
-
-        choices = []
-        for text, block in zip(statement_texts, blocks):
-            assert isinstance(block.answer, GiftBoolean)
-            choices.append(Statement(text=text.strip(), correct=block.answer.value))
-
-        return TrueFalseQuestion(
-            stem=group_stem,
-            choices=choices,
-            title=blocks[0].title,
-            comment=blocks[0].comment,
+    if block.tail:
+        blank = blank_from_answer(answer)
+        stem = f"{block.stem}[^blank]{block.tail}".strip()
+        return FillInQuestion(
+            stem=stem, blanks=[blank], title=block.title, comment=block.comment
         )
+
+    match answer:
+        case GiftChoice():
+            return MultipleChoiceQuestion(
+                stem=block.stem,
+                choices=[
+                    ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
+                    for o in answer.options
+                ],
+                title=block.title,
+                comment=block.comment,
+            )
+        case GiftShort():
+            return ShortAnswerQuestion(
+                stem=block.stem,
+                accept=[
+                    literal_pattern(o.text, format="GIFT") for o in answer.options
+                ],
+                title=block.title,
+                comment=block.comment,
+            )
+        case GiftNumeric():
+            opt = answer.options[0]
+            tolerance = absolute_tolerance(opt.tolerance)
+            return NumericQuestion(
+                stem=block.stem,
+                answer=mdq_numeric_answer(format_num(opt.value)),
+                tolerance=tolerance,
+                title=block.title,
+                comment=block.comment,
+            )
+        case _:
+            assert_never(answer)
+
+def blank_from_answer(answer: GiftAnswer) -> Blank:
+    match answer:
+        case GiftChoice():
+            return ChoiceBlank(
+                id="blank",
+                choices=[
+                    ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
+                    for o in answer.options
+                ],
+            )
+        case GiftShort():
+            return ShortAnswerBlank(
+                id="blank",
+                accept=[
+                    literal_pattern(o.text, format="GIFT") for o in answer.options
+                ],
+            )
+        case GiftNumeric():
+            opt = answer.options[0]
+            tolerance = absolute_tolerance(opt.tolerance)
+            return NumericBlank(
+                id="blank",
+                answer=mdq_numeric_answer(format_num(opt.value)),
+                tolerance=tolerance,
+            )
+        case GiftEssay() | GiftBoolean():
+            raise ValueError(
+                "GIFT missing-word tail is not supported for "
+                f"{type(answer).__name__} answers"
+            )
+        case _:
+            assert_never(answer)
+
+def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
+    group_stem, statement_texts = split_true_false_group([b.stem for b in blocks])
+
+    choices = []
+    for text, block in zip(statement_texts, blocks):
+        assert isinstance(block.answer, GiftBoolean)
+        choices.append(Statement(text=text.strip(), correct=block.answer.value))
+
+    return TrueFalseQuestion(
+        stem=group_stem,
+        choices=choices,
+        title=blocks[0].title,
+        comment=blocks[0].comment,
+    )
 
 
 class GiftParser(StringParser[GiftQuestion]):

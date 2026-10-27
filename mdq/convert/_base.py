@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any, ClassVar, Literal
@@ -278,24 +279,24 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
     return AnswerPattern(pattern=stripped if multiline else text)
 
 
-class ConversionBase[Q]:
+class ConversionBase[Q](ABC):
     """
     Base class for conversion types.
     """
 
     supports: ClassVar[dict[QuestionType, Literal["import", "export", "both"]]]
 
+    @abstractmethod
     def to_mdq(self, external: Q, /) -> Question:
         """
         Import question to a MDQ representation.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def from_mdq(self, mdq: Question, /) -> Q:
         """
         Convert MDQ question to the external question format
         """
-        raise NotImplementedError
 
     def render(self, external: Q, /) -> str:
         """
@@ -303,12 +304,12 @@ class ConversionBase[Q]:
         """
         return str(external)
 
+    @abstractmethod
     def parse(self, source: str, /) -> Q:
         """
         Parse source code in the external format into the internal
         representation.
         """
-        raise NotImplementedError
 
 
 def load_converter(format: str) -> ConversionBase[Any]:

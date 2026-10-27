@@ -21,8 +21,6 @@ from mdq.convert._moodle_xml import (
     MoodleCloze,
     MoodleXml,
     MoodleXmlBlock,
-    MoodleXmlDecoder,
-    MoodleXmlEncoder,
     MoodleXmlParser,
     MoodleXmlQuestion,
     MultianswerBlock,
@@ -30,6 +28,9 @@ from mdq.convert._moodle_xml import (
     NumericalBlock,
     ShortAnswerBlock,
     TrueFalseBlock,
+    cloze_from_blank,
+    decode_question,
+    encode_question,
     parse_cloze,
     render_cloze,
 )
@@ -1136,12 +1137,12 @@ def test_moodle_xml_supports_all_seven_types_both_directions():
 
 
 def test_encoder_and_decoder_are_reachable_directly():
-    """`MoodleXmlEncoder`/`MoodleXmlDecoder` are exported for direct use, not only via `MoodleXml`."""
+    """`encode_question`/`decode_question` are exported for direct use, not only via `MoodleXml`."""
     question = EssayQuestion(stem="Explain the Cerrado biome.")
-    moodle = MoodleXmlEncoder().encode(question)
+    moodle = encode_question(question)
     [block] = moodle.blocks
     assert block.type == "essay"
-    back = MoodleXmlDecoder().decode(moodle)
+    back = decode_question(moodle)
     assert isinstance(back, EssayQuestion)
 
 
@@ -1161,7 +1162,7 @@ def test_fill_in_choice_blank_allows_unscored_choices():
             )
         ],
     )
-    cloze = MoodleXmlEncoder().cloze_from_blank(question.blanks[0])
+    cloze = cloze_from_blank(question.blanks[0])
     assert [answer.fraction for answer in cloze.answers] == [0.0, 100.0, 0.0]
 
 
