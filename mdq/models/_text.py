@@ -792,10 +792,7 @@ def _check_pattern_list(
 ) -> Iterator[Diagnostic]:
     """Lints one pattern list, named by its frontmatter `key`: the regex lints of every entry."""
     for index, pattern in enumerate(patterns or []):
-        # Not `AnswerPattern.kind`: this check strips every Unicode space
-        # (`str.strip()`) before testing for the opening `/`, while the
-        # matcher strips only spaces and tabs.
-        if not pattern.pattern.strip().startswith("/"):
+        if pattern.kind != "regex":
             continue
         try:
             body, raw_flags = parse_regex(pattern.pattern)
