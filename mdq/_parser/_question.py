@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import cached_property
 from collections.abc import Mapping
 from typing import Any, cast
 
@@ -274,114 +275,33 @@ def _redundant_id(front_id: Any, slug: str) -> Diagnostic:
 #
 # Implementation
 #
-@dataclass
-class MDQParser:
+@dataclass(frozen=True)
+class BlockReader:
     """
-    A recursive-descent parser for one MDQ question document.
+    The top-level blocks of a Markdown text, with the helpers that
+    rebuild their source text.
 
-    Holds a cursor (`children`/`lines`/`pos`) over the question's
-    markdown-it block tree, the parsed frontmatter (`front`/`comment`),
-    and the output document being built up (`doc`). Grammar-rule methods
-    read from the cursor and write into `doc` as they go, which avoids
-    threading `(children, lines, index, front, doc)` through a long chain
-    of free functions.
+    The text is read as is: a leading `---` is a thematic break, not a
+    frontmatter. `MDQParser` splits the frontmatter off first and reads
+    the body; the field helpers read a `stem`, `epilogue` or `answerKey`
+    field.
 
     Attributes:
-        frontmatter: The question's parsed YAML frontmatter.
-        comment: The leading `#`-comment block from the frontmatter, if any.
-        children: The body's top-level markdown-it block nodes.
-        lines: The body's raw source lines, indexed by `node.map`.
-        pos: Index of the next unread node in `children`.
-        doc: The output document being assembled.
+        text: The Markdown source.
+        children: The top-level markdown-it block nodes.
+        lines: The raw source lines, indexed by `node.map`.
     """
 
-    src: str
+    text: str
 
-    #: Position in the token stream.
-    pos: int = field(default=0, init=False)
+    @cached_property
+    def children(self) -> list[Node]:
+        return list(Node(md.parse(self.text)).children)
 
-    #: Accumulate the currently parsed object
-    state: dict[str, Any] = field(default_factory=dict, init=False)
+    @cached_property
+    def lines(self) -> list[str]:
+        return split_lines(self.text)
 
-    #: Frontmatter for the current element
-    frontmatter: dict[str, Any] = field(default_factory=dict, init=False)
-
-    #: Frontmatter comment
-    comment: str | None = field(default=None, init=False)
-
-    #: Unprocessed md nodes.
-    children: list[Node] = field(default_factory=list, init=False)
-
-    #: File lines as strings. For rendering back to text.
-    lines: list[str] = field(default_factory=list, init=False)
-
-    #: Warnings the parser found in the source layout.
-    diagnostics: list[Diagnostic] = field(default_factory=list, init=False)
-
-    def __post_init__(self) -> None:
-        frontmatter_text, body_text = _split_frontmatter(self.src)
-        if frontmatter_text is not None:
-            self.frontmatter = _load_frontmatter_yaml(frontmatter_text)
-            self.comment = _extract_comment(frontmatter_text)
-        else:
-            self.frontmatter = {}
-            self.comment = None
-
-        tokens = md.parse(body_text)
-        self.children = list(Node(tokens).children)
-        self.lines = split_lines(body_text)
-
-    #
-    # Cursor primitives
-    #
-    def read(self) -> Node:
-        """
-        Consume and return the current node, advancing the cursor.
-
-        Raises:
-            ParseError: If the cursor is already exhausted.
-        """
-
-        node = self.seek()
-        if node is None:
-            raise ParseError("unexpected end of document")
-        self.pos += 1
-        return node
-
-    def seek(self) -> Node | None:
-        """
-        Return the current node without consuming it, or None at the end.
-
-        Despite the name, this is a non-consuming peek at the cursor's
-        current position, not a `file.seek`-style jump to an arbitrary one.
-        """
-
-        if self.pos >= len(self.children):
-            return None
-        return self.children[self.pos]
-
-    def expect(self, node_type: str, error_msg: str) -> Node:
-        """
-        Consume and return the current node if it has type `node_type`.
-
-        Raises:
-            ParseError: If the cursor is exhausted or the current node's
-                type does not match `node_type`.
-        """
-
-        node = self.seek()
-        if node is None or node.type != node_type:
-            raise ParseError(error_msg, node)
-        return self.read()
-
-    def at_end(self) -> bool:
-        """True once every child node has been consumed."""
-
-        return self.pos >= len(self.children)
-
-    #
-    # Line/text reconstruction
-    #
     def raw_lines(self, node: Node) -> list[str]:
         if node.map is None:
             return []
@@ -457,6 +377,129 @@ class MDQParser:
             return None
         return "\n\n".join(self.block_text(n) for n in nodes)
 
+    def item_lines(self, item: Node) -> list[str]:
+        """
+        The content lines of a list item, as CommonMark gives them
+        (grammar.md, "Content of a list item"): the first line without the
+        list marker and its padding, the other lines without the
+        indentation of the item content. Trailing blank lines are dropped.
+
+        The content column comes from markdown-it (`meta["indent"]`, see
+        `mdq._markdown`). An empty first line has none: CommonMark then
+        puts the content one column after the marker.
+        """
+        lines = self.raw_lines(item)
+        while lines and not lines[-1].strip(" \t"):
+            lines.pop()
+        if not lines:
+            return [""]
+        first = lines[0]
+        marker = len(first) - len(first.lstrip(" \t"))
+        first = first[:marker] + " " + first[marker + 1 :]
+        column = item.meta.get("indent")
+        if column is None:
+            column = indentation(lines[0]) + 2
+        return [dedent(first, column)] + [dedent(line, column) for line in lines[1:]]
+
+
+@dataclass
+class MDQParser:
+    """
+    A recursive-descent parser for one MDQ question document.
+
+    Holds a cursor (`reader`/`pos`) over the question's markdown-it block
+    tree, the parsed frontmatter (`front`/`comment`),
+    and the output document being built up (`doc`). Grammar-rule methods
+    read from the cursor and write into `doc` as they go, which avoids
+    threading `(children, lines, index, front, doc)` through a long chain
+    of free functions.
+
+    Attributes:
+        frontmatter: The question's parsed YAML frontmatter.
+        comment: The leading `#`-comment block from the frontmatter, if any.
+        reader: The block reader over the body, after the frontmatter.
+        pos: Index of the next unread node in `reader.children`.
+        doc: The output document being assembled.
+    """
+
+    src: str
+
+    #: Position in the token stream.
+    pos: int = field(default=0, init=False)
+
+    #: Accumulate the currently parsed object
+    state: dict[str, Any] = field(default_factory=dict, init=False)
+
+    #: Frontmatter for the current element
+    frontmatter: dict[str, Any] = field(default_factory=dict, init=False)
+
+    #: Frontmatter comment
+    comment: str | None = field(default=None, init=False)
+
+    #: The body blocks, after the frontmatter.
+    reader: BlockReader = field(init=False)
+
+    #: Warnings the parser found in the source layout.
+    diagnostics: list[Diagnostic] = field(default_factory=list, init=False)
+
+    def __post_init__(self) -> None:
+        frontmatter_text, body_text = _split_frontmatter(self.src)
+        if frontmatter_text is not None:
+            self.frontmatter = _load_frontmatter_yaml(frontmatter_text)
+            self.comment = _extract_comment(frontmatter_text)
+        else:
+            self.frontmatter = {}
+            self.comment = None
+        self.reader = BlockReader(body_text)
+
+    #
+    # Cursor primitives
+    #
+    def read(self) -> Node:
+        """
+        Consume and return the current node, advancing the cursor.
+
+        Raises:
+            ParseError: If the cursor is already exhausted.
+        """
+
+        node = self.seek()
+        if node is None:
+            raise ParseError("unexpected end of document")
+        self.pos += 1
+        return node
+
+    def seek(self) -> Node | None:
+        """
+        Return the current node without consuming it, or None at the end.
+
+        Despite the name, this is a non-consuming peek at the cursor's
+        current position, not a `file.seek`-style jump to an arbitrary one.
+        """
+
+        if self.pos >= len(self.reader.children):
+            return None
+        return self.reader.children[self.pos]
+
+    def expect(self, node_type: str, error_msg: str) -> Node:
+        """
+        Consume and return the current node if it has type `node_type`.
+
+        Raises:
+            ParseError: If the cursor is exhausted or the current node's
+                type does not match `node_type`.
+        """
+
+        node = self.seek()
+        if node is None or node.type != node_type:
+            raise ParseError(error_msg, node)
+        return self.read()
+
+    def at_end(self) -> bool:
+        """True once every child node has been consumed."""
+
+        return self.pos >= len(self.reader.children)
+
     #
     # Frontmatter
     #
@@ -486,30 +529,6 @@ class MDQParser:
     #
     # Body-start / tag detection
     #
-    def item_lines(self, item: Node) -> list[str]:
-        """
-        The content lines of a list item, as CommonMark gives them
-        (grammar.md, "Content of a list item"): the first line without the
-        list marker and its padding, the other lines without the
-        indentation of the item content. Trailing blank lines are dropped.
-
-        The content column comes from markdown-it (`meta["indent"]`, see
-        `mdq._markdown`). An empty first line has none: CommonMark then
-        puts the content one column after the marker.
-        """
-        lines = self.raw_lines(item)
-        while lines and not lines[-1].strip(" \t"):
-            lines.pop()
-        if not lines:
-            return [""]
-        first = lines[0]
-        marker = len(first) - len(first.lstrip(" \t"))
-        first = first[:marker] + " " + first[marker + 1 :]
-        column = item.meta.get("indent")
-        if column is None:
-            column = indentation(lines[0]) + 2
-        return [dedent(first, column)] + [dedent(line, column) for line in lines[1:]]
-
     def is_choice_list(self, node: Node) -> bool:
         """
         Whether `node` is a choice list: an unordered list whose every
@@ -518,7 +537,7 @@ class MDQParser:
         if node.type != "bullet_list" or not node.children:
             return False
         return all(
-            match_choice_marker(self.item_lines(item)[0]) is not None
+            match_choice_marker(self.reader.item_lines(item)[0]) is not None
             for item in node.children
         )
 
@@ -530,7 +549,7 @@ class MDQParser:
         """
         if node is None or node.type != "heading" or node.markup not in ("-", "="):
             return
-        first_line = self.raw_lines(node)[:1]
+        first_line = self.reader.raw_lines(node)[:1]
         if first_line and pattern.match(first_line[0].strip(" \t")):
             raise ParseError(_setext_message(first_line[0].strip(" \t")))
 
@@ -542,7 +561,7 @@ class MDQParser:
         """
         for child in item.children:
             if child.type == "heading" and child.markup in ("-", "="):
-                text = self.raw_lines(child)[:1]
+                text = self.reader.raw_lines(child)[:1]
                 raise ParseError(_setext_message(text[0].strip(" \t") if text else ""))
 
     def check_pattern_item_paragraph(self, item: Node) -> None:
@@ -554,7 +573,7 @@ class MDQParser:
         """
         if not item.children or item.children[0].type == "paragraph":
             return
-        line = self.item_lines(item)[0].strip(" \t")
+        line = self.reader.item_lines(item)[0].strip(" \t")
         raise ParseError(
             f"the pattern line {line!r} starts a block of its own "
             f"({_BLOCK_NAMES.get(item.children[0].type, item.children[0].type)}) "
@@ -564,7 +583,7 @@ class MDQParser:
 
     def find_body_start(self) -> int:
         """
-        Return the index of the first body node in `self.children`.
+        Return the index of the first body node in `self.reader.children`.
 
         Scans from the start of the document (independent of `self.pos`,
         which is still 0 at call time) for the first paragraph matching a
@@ -579,17 +598,17 @@ class MDQParser:
         """
 
         setext_tag: str | None = None
-        for i, child in enumerate(self.children):
+        for i, child in enumerate(self.reader.children):
             if (
                 setext_tag is None
                 and child.type == "heading"
                 and child.markup in ("-", "=")
             ):
-                first_line = self.raw_lines(child)[:1]
+                first_line = self.reader.raw_lines(child)[:1]
                 if first_line and _matches_tag(first_line[0].strip()):
                     setext_tag = first_line[0].strip()
             if child.type == "paragraph":
-                text = self.raw_text(child)
+                text = self.reader.raw_text(child)
                 if _matches_tag(text):
                     return i
             elif self.is_choice_list(child):
@@ -602,7 +621,7 @@ class MDQParser:
         if self.frontmatter.get("type") == "fill-in":
             # A fill-in stem with no blank has no body at all: every block
             # is the stem and `blanks` stays empty (fill-in.md).
-            return len(self.children)
+            return len(self.reader.children)
         raise MissingField("body")
 
     #
@@ -618,16 +637,16 @@ class MDQParser:
         """
 
         first_node = intro_blocks[0]
-        first_text = self.raw_text(first_node)
+        first_text = self.reader.raw_text(first_node)
         slug_match = (
             SLUG_PREFIX_RE.match(first_text) if first_node.type == "paragraph" else None
         )
         if not slug_match:
-            return "\n\n".join(self.block_text(n) for n in intro_blocks), None
+            return "\n\n".join(self.reader.block_text(n) for n in intro_blocks), None
 
         stem_text = "\n\n".join(
             [first_text[slug_match.end() :]]
-            + [self.block_text(n) for n in intro_blocks[1:]]
+            + [self.reader.block_text(n) for n in intro_blocks[1:]]
         )
         return stem_text, slug_match.group("slug")
 
@@ -637,7 +656,7 @@ class MDQParser:
     def parse_item_list(self, node: Node) -> list[RawChoice]:
         for item in node.children:
             self.check_no_setext_item(item)
-        return [self.parse_item(self.item_lines(item)) for item in node.children]
+        return [self.parse_item(self.reader.item_lines(item)) for item in node.children]
 
     def parse_item(self, item_lines: list[str]) -> RawChoice:
         """
@@ -774,12 +793,12 @@ class MDQParser:
         first_section = next(
             (
                 i
-                for i in range(self.pos, len(self.children))
-                if self.is_ordering_section(self.children[i])
+                for i in range(self.pos, len(self.reader.children))
+                if self.is_ordering_section(self.reader.children[i])
             ),
-            len(self.children),
+            len(self.reader.children),
         )
-        epilogue_nodes = self.children[self.pos : first_section]
+        epilogue_nodes = self.reader.children[self.pos : first_section]
         self.pos = first_section
 
         extra_raw: list[RawLine] | None = None
@@ -790,7 +809,7 @@ class MDQParser:
             node = self.seek()
             if node is None or node.type != "heading" or node.tag != "h2":
                 break
-            m = ORDERING_SECTION_RE.match(self.raw_text(node))
+            m = ORDERING_SECTION_RE.match(self.reader.raw_text(node))
             if m is None:
                 break
             self.read()
@@ -815,11 +834,11 @@ class MDQParser:
                 target = accept_raw if name == "accept" else reject_raw
                 target.append(RawAlternative(raw, feedback, comment))
 
-        if self.pos < len(self.children):
+        if self.pos < len(self.reader.children):
             raise ParseError(
                 "only [extra], [accept] and [reject] sections can follow the "
                 "first section; the epilogue goes before it",
-                self.children[self.pos],
+                self.reader.children[self.pos],
             )
 
         # A `ul` line already holds its nesting depth: no unit applies.
@@ -882,7 +901,7 @@ class MDQParser:
         return (
             node.type == "heading"
             and node.tag == "h2"
-            and ORDERING_SECTION_RE.match(self.raw_text(node)) is not None
+            and ORDERING_SECTION_RE.match(self.reader.raw_text(node)) is not None
         )
 
     def parse_ordering_content(
@@ -938,7 +957,7 @@ class MDQParser:
         return (
             "text",
             None,
-            ordering_ul_lines(self.raw_lines(node), depths, first_line, parents),
+            ordering_ul_lines(self.reader.raw_lines(node), depths, first_line, parents),
         )
 
     def check_ordering_item_blocks(self, node: Node) -> None:
@@ -955,7 +974,7 @@ class MDQParser:
                 if child.type in ("bullet_list", "ordered_list"):
                     self.check_ordering_item_blocks(child)
                 elif child.type != "paragraph":
-                    line = self.raw_lines(item)[0].strip(" \t")
+                    line = self.reader.raw_lines(item)[0].strip(" \t")
                     raise ParseError(
                         f"an ordering item is one paragraph, but the item "
                         f"{line!r} holds a "
@@ -985,7 +1004,7 @@ class MDQParser:
             if node is None or node.map is None:
                 break
             if node.type == "blockquote" or (
-                node.type == "paragraph" and is_comment_block(self.raw_lines(node)[:1])
+                node.type == "paragraph" and is_comment_block(self.reader.raw_lines(node)[:1])
             ):
                 if first is None:
                     first = node
@@ -996,7 +1015,7 @@ class MDQParser:
         if first is None or last is None:
             return None, None
         assert first.map is not None and last.map is not None
-        return parse_observations(self.lines[first.map[0] : last.map[1]])
+        return parse_observations(self.reader.lines[first.map[0] : last.map[1]])
 
     def parse_short_answer_body(self, tag_text: str, tag_node: Node) -> None:
         """
@@ -1044,7 +1063,7 @@ class MDQParser:
             self.check_no_setext_tag(node, SHORT_ANSWER_RE)
             if node is None or node.type != "paragraph":
                 break
-            text = self.raw_text(node)
+            text = self.reader.raw_text(node)
             if _match_short_answer(text) is None:
                 break
             tag_node = self.read()
@@ -1059,7 +1078,7 @@ class MDQParser:
         (docs/references/patterns.md, "Continuation lines"). `rest` is the
         text `raw_text` gave, whose line endings already are spaces.
         """
-        lines = self.raw_lines(tag_node)
+        lines = self.reader.raw_lines(tag_node)
         if len(lines) < 2:
             return rest.strip(" \t")
         first = TAG_REST_RE.match(lines[0])
@@ -1126,7 +1145,7 @@ class MDQParser:
         rest = self._join_content_lines(tag_node, rest)
         # The tag paragraph also holds the lazy continuation lines of the
         # content. A `!` line is not lazy (a comment), so it is an error.
-        for line in self.raw_lines(tag_node)[1:]:
+        for line in self.reader.raw_lines(tag_node)[1:]:
             if _is_comment_line(line):
                 raise ParseError(_OBSERVATION_AFTER_CONTENT)
         node = self.seek()
@@ -1154,7 +1173,7 @@ class MDQParser:
             )
         if not attached:
             check_exact_pattern(rest)
-            tag_line, *other_lines = self.raw_lines(tag_node)
+            tag_line, *other_lines = self.reader.raw_lines(tag_node)
             first = TAG_REST_RE.match(tag_line)
             content_lines = [first.group("rest") if first else "", *other_lines]
             self._warn_multi_line_pattern(
@@ -1167,7 +1186,7 @@ class MDQParser:
         for item in node.children:
             self.check_no_setext_item(item)
             self.check_pattern_item_paragraph(item)
-        raw_items = [self.parse_plain_item(self.item_lines(item)) for item in node.children]
+        raw_items = [self.parse_plain_item(self.reader.item_lines(item)) for item in node.children]
         entries = [_pattern_entry(item) for item in raw_items]
         for index, (entry, raw_item) in enumerate(zip(entries, raw_items)):
             pattern = entry if isinstance(entry, str) else entry["pattern"]
@@ -1415,7 +1434,7 @@ class MDQParser:
             self.check_no_setext_tag(node, BLANK_RE)
             if node is None or node.type != "paragraph":
                 break
-            text = self.raw_text(node)
+            text = self.reader.raw_text(node)
             if not (BLANK_RE.match(text) or BLANK_BARE_RE.match(text)):
                 break
             tag_node = self.read()
@@ -1432,11 +1451,11 @@ class MDQParser:
         (question-base.md, "Body tags"). A label that does not start with a
         type name is an ordinary link reference definition.
         """
-        for node in self.children:
+        for node in self.reader.children:
             if node.type != "paragraph":
                 continue
-            text = self.raw_text(node)
-            lines = self.raw_lines(node)
+            text = self.reader.raw_text(node)
+            lines = self.reader.raw_lines(node)
             for label, colon in tag_lines(text, lines):
                 check_tag_label(label, colon)
             check_bare_tag_alone(text, lines)
@@ -1459,7 +1478,7 @@ class MDQParser:
         for node in blocks:
             if node.type != "paragraph":
                 continue
-            for label, colon in tag_lines(self.raw_text(node), self.raw_lines(node)):
+            for label, colon in tag_lines(self.reader.raw_text(node), self.reader.raw_lines(node)):
                 choice_blank = (
                     fill_in and colon and re.fullmatch(rf"\^{SLUG_BODY_RE}", label)
                 )
@@ -1490,7 +1509,7 @@ class MDQParser:
             return
         # The map of a list includes the blank lines inside it.
         end = content.map[1]
-        while end > content.map[0] and not self.lines[end - 1].strip(" \t"):
+        while end > content.map[0] and not self.reader.lines[end - 1].strip(" \t"):
             end -= 1
         if (
             node.type in ("bullet_list", "ordered_list")
@@ -1630,22 +1649,22 @@ class MDQParser:
             remaining nodes otherwise). Does not advance `self.pos`.
         """
 
-        remaining = self.children[self.pos :]
+        remaining = self.reader.children[self.pos :]
         for i, node in enumerate(remaining):
             if node.type == "heading" and node.tag == "h2":
-                text = self.raw_text(node)
+                text = self.reader.raw_text(node)
                 if ANSWER_KEY_RE.match(text):
                     answer_blocks = remaining[i + 1 :]
                     for later in answer_blocks:
                         if (
                             later.type == "heading"
                             and later.tag == "h2"
-                            and ANSWER_KEY_RE.match(self.raw_text(later))
+                            and ANSWER_KEY_RE.match(self.reader.raw_text(later))
                         ):
                             raise ParseError(
                                 "a question defines at most one [answer-key] section"
                             )
-                    answer_text = self.join_blocks(answer_blocks)
+                    answer_text = self.reader.join_blocks(answer_blocks)
                     if answer_text:
                         self.state["answerKey"] = answer_text
                     return remaining[:i]
@@ -1676,7 +1695,7 @@ class MDQParser:
             self.state["comment"] = self.comment
         self.apply_common_frontmatter()
 
-        if not self.children:
+        if not self.reader.children:
             raise MissingField("stem")
 
         self.check_tag_lines()
@@ -1714,7 +1733,7 @@ class MDQParser:
             self.parse_choice_body(question_type, raw_choices)
         else:
             body_node = self.expect("paragraph", "unrecognized question body")
-            text = self.raw_text(body_node)
+            text = self.reader.raw_text(body_node)
             tag = _matches_tag(text)
             if tag == "essay":
                 question_type = question_type or "essay"
@@ -1742,11 +1761,11 @@ class MDQParser:
             if question_type == "essay"
             else epilogue_nodes
             if epilogue_nodes is not None
-            else self.children[self.pos :]
+            else self.reader.children[self.pos :]
         )
         self.report_detached_tags(epilogue_blocks, fill_in=question_type == "fill-in")
         if epilogue_blocks:
-            epilogue_text = self.join_blocks(epilogue_blocks)
+            epilogue_text = self.reader.join_blocks(epilogue_blocks)
             if epilogue_text:
                 self.state["epilogue"] = epilogue_text
 
@@ -1772,7 +1791,7 @@ def tag_lines(text: str, lines: list[str]) -> list[tuple[str, bool]]:
     holds only a bracketed label.
 
     Args:
-        text: The text of the paragraph, as `MDQParser.raw_text` gives it.
+        text: The text of the paragraph, as `BlockReader.raw_text` gives it.
         lines: The raw source lines of the paragraph.
     """
     found: list[tuple[str, bool]] = []
@@ -1794,7 +1813,7 @@ def check_bare_tag_alone(text: str, lines: list[str]) -> None:
     its own (short-answer.md, "Block with no pattern").
 
     Args:
-        text: The text of the paragraph, as `MDQParser.raw_text` gives it.
+        text: The text of the paragraph, as `BlockReader.raw_text` gives it.
         lines: The raw source lines of the paragraph.
     """
     m = SHORT_ANSWER_TAG_START_RE.match(lines[0]) if lines else None
@@ -1987,7 +2006,7 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     reconstruct each one exactly as it would read after being embedded in
     a full MDQ document and parsed back out.
 
-    This is `MDQParser.raw_text`, applied to every top-level block `src`
+    This is `BlockReader.raw_text`, applied to every top-level block `src`
     parses into: a plain paragraph's soft-wrapped lines collapse to
     single spaces, while a list, blockquote, heading or code block is
     reproduced byte-for-byte. It exists so `mdq.models` can canonicalize
@@ -1998,14 +2017,13 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
     Args:
         src: Markdown source for a stem or epilogue -- a
             sequence of block elements with no YAML frontmatter of its
-            own (a bare `---` at the very start would be misread as one,
-            but no MDQ block legitimately starts with a thematic break).
+            own. A leading `---` is a thematic break.
 
     Returns:
         One `(node_type, text)` pair per top-level block found in `src`,
         in source order.
     """
-    reader = MDQParser(src)
+    reader = BlockReader(src)
     return [(node.type, reader.block_text(node)) for node in reader.children]
 
 
@@ -2108,7 +2126,7 @@ def find_forbidden_elements(
     if not src.strip():
         return []
 
-    reader = MDQParser(src)
+    reader = BlockReader(src)
     forbidden: list[str] = []
     for index, node in enumerate(reader.children):
         if node.type == "heading":
@@ -2156,7 +2174,7 @@ def find_answer_key_forbidden_elements(src: str) -> list[str]:
     """
     if not src.strip():
         return []
-    reader = MDQParser(src)
+    reader = BlockReader(src)
     return [
         "an H1 heading"
         for node in reader.children
@@ -2182,7 +2200,7 @@ def find_stray_choice_markers(src: str) -> list[str]:
     """
     if not src.strip():
         return []
-    reader = MDQParser(src)
+    reader = BlockReader(src)
     stray: list[str] = []
     for node in reader.children:
         if node.type != "bullet_list":
