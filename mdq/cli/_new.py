@@ -14,34 +14,32 @@ from typing import Annotated
 import typer
 
 from ..types import QUESTION_TYPES as _QUESTION_TYPES
+from ..types import QuestionType
 from ._app import app
 
 #: Every question type `mdq new` can scaffold, sorted for stable CLI output.
-QUESTION_TYPES: tuple[str, ...] = tuple(sorted(_QUESTION_TYPES))
+QUESTION_TYPES: tuple[QuestionType, ...] = tuple(sorted(_QUESTION_TYPES))
 
 
-def render_template(question_type: str, *, complete: bool = False) -> str:
+def render_template(question_type: QuestionType, *, complete: bool = False) -> str:
     """
     Render the scaffold markdown for `question_type`.
 
     Args:
-        question_type: One of `QUESTION_TYPES`.
+        question_type: The type to scaffold.
         complete: Illustrate every feature the type supports instead of a
             minimal skeleton.
-
-    Raises:
-        KeyError: `question_type` isn't in `QUESTION_TYPES`.
     """
     templates = _COMPLETE_TEMPLATES if complete else _SIMPLE_TEMPLATES
     return templates[question_type]
 
 
-def default_output_path(question_type: str) -> Path:
+def default_output_path(question_type: QuestionType) -> Path:
     """Default file to write a `question_type` scaffold to."""
     return Path(f"{question_type}.mdq.md")
 
 
-_SIMPLE_TEMPLATES: dict[str, str] = {
+_SIMPLE_TEMPLATES: dict[QuestionType, str] = {
     "multiple-choice": """\
 ---
 title: Capital of Brazil
@@ -140,7 +138,7 @@ for _ in range(10):
 """,
 }
 
-_COMPLETE_TEMPLATES: dict[str, str] = {
+_COMPLETE_TEMPLATES: dict[QuestionType, str] = {
     "multiple-choice": """\
 ---
 id: mc-brazil-capital
@@ -455,9 +453,8 @@ def new(
     Scaffold a new question document.
     """
 
-    try:
-        content = render_template(question_type, complete=complete)
-    except KeyError:
+    kind = next((known for known in QUESTION_TYPES if known == question_type), None)
+    if kind is None:
         valid = ", ".join(QUESTION_TYPES)
         typer.echo(
             f"error: unknown question type {question_type!r} (expected one of: {valid})",
@@ -465,7 +462,8 @@ def new(
         )
         raise typer.Exit(code=2)
 
-    path = output or default_output_path(question_type)
+    content = render_template(kind, complete=complete)
+    path = output or default_output_path(kind)
     if path.exists():
         typer.echo(f"error: {path} already exists", err=True)
         raise typer.Exit(code=2)

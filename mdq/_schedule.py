@@ -43,7 +43,7 @@ _XD_YH_ZM_RE = re.compile(
 )
 
 
-def parse_duration(value: str | timedelta) -> timedelta:
+def parse_duration(value: object) -> timedelta:
     """
     Read an exam duration.
 
@@ -53,8 +53,9 @@ def parse_duration(value: str | timedelta) -> timedelta:
     A `timedelta` is returned unchanged.
 
     Raises:
-        ValueError: If `value` matches none of the forms, uses years or
-            months, or is not a positive duration.
+        ValueError: If `value` is neither a string nor a `timedelta`,
+            matches none of the forms, uses years or months, or is not a
+            positive duration.
     """
     if isinstance(value, timedelta):
         if value <= timedelta(0):
@@ -146,7 +147,7 @@ def format_duration(value: timedelta) -> str:
     return f"P{date_part}{time_part}"
 
 
-def parse_start(value: str | date | datetime) -> date | datetime:
+def parse_start(value: object) -> date | datetime:
     """
     Read an exam start time.
 
@@ -156,7 +157,8 @@ def parse_start(value: str | date | datetime) -> date | datetime:
     unchanged.
 
     Raises:
-        ValueError: If `value` is not a valid ISO 8601 date or date-time.
+        ValueError: If `value` is not a string, `date` or `datetime`, or
+            is not a valid ISO 8601 date or date-time.
     """
     if isinstance(value, datetime | date):
         return value

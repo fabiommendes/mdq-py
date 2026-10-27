@@ -5,7 +5,7 @@ Hint for a key that misspells an exam include key (`include`,
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Mapping
 
 __all__ = ["include_key_hint", "misspelled_include_key"]
 
@@ -17,7 +17,7 @@ def _normalized_key(key: str) -> str:
     return key.replace("-", "").replace("_", "").lower()
 
 
-def misspelled_include_key(entry: Any) -> tuple[str, str] | None:
+def misspelled_include_key(entry: object) -> tuple[str, str] | None:
     """
     `(key, include_key)` for the first key of `entry` that misspells an
     include key, or None if none does.
@@ -36,7 +36,7 @@ def misspelled_include_key(entry: Any) -> tuple[str, str] | None:
     return None
 
 
-def include_key_hint(entry: Any) -> str:
+def include_key_hint(entry: object) -> str:
     """
     ` (did you mean `includeAll` instead of `include-all`?)` for the first
     key of `entry` that misspells an include key, or `""` if none does.

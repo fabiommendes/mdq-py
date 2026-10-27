@@ -104,7 +104,7 @@ def _has_atx_h1(text: str) -> bool:
     )
 
 
-def _validate_start(value: Any) -> date | datetime:
+def _validate_start(value: object) -> date | datetime:
     """exam.md, "Duration and Start Time": `start` MUST be ISO 8601 (`malformed-start`)."""
     try:
         return _schedule.parse_start(value)
@@ -112,7 +112,7 @@ def _validate_start(value: Any) -> date | datetime:
         raise PydanticCustomError("malformed-start", str(exc)) from exc
 
 
-def _validate_duration(value: Any) -> timedelta:
+def _validate_duration(value: object) -> timedelta:
     """
     exam.md, "Duration and Start Time": `duration` MUST be a positive duration with
     fixed-length units (`invalid-duration`).
