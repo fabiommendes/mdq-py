@@ -11,8 +11,9 @@ cannot show anything else. (Markdown bullets stay `•`: Rich draws them.)
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from rich import box
 from rich.box import Box
@@ -21,7 +22,7 @@ from rich.console import Console
 __all__ = ["ThemeName", "Theme", "resolve_theme"]
 
 
-class ThemeName(str, Enum):
+class ThemeName(StrEnum):
     auto = "auto"
     dark = "dark"
     light = "light"
@@ -119,7 +120,6 @@ ASCII = Glyphs(
 
 @dataclass(frozen=True)
 class Theme:
-    name: str
     glyphs: Glyphs
     #: Outer card, the banner of an exam, and nested panels.
     card_box: Box
@@ -141,7 +141,7 @@ class Theme:
     badge_fg: str = ""
     exam_accent: str = ""
     #: Accent color of the type badge, by question type.
-    accents: dict[str, str] = field(default_factory=dict)
+    accents: Mapping[str, str] = field(default_factory=dict)
     code_theme: str = "default"
     #: Console style of `inline code`; overrides Rich's black background.
     inline_code: str = ""
@@ -171,7 +171,6 @@ class Theme:
 
 # Catppuccin Mocha
 _DARK = Theme(
-    name="dark",
     glyphs=UNICODE,
     card_box=box.ROUNDED,
     banner_box=box.DOUBLE,
@@ -205,7 +204,6 @@ _DARK = Theme(
 
 # Catppuccin Latte
 _LIGHT = Theme(
-    name="light",
     glyphs=UNICODE,
     card_box=box.ROUNDED,
     banner_box=box.DOUBLE,
@@ -238,7 +236,6 @@ _LIGHT = Theme(
 )
 
 _PLAIN = Theme(
-    name="plain",
     glyphs=ASCII,
     card_box=box.ASCII,
     banner_box=box.ASCII2,
@@ -247,10 +244,14 @@ _PLAIN = Theme(
     inline_code="bold",
 )
 
-_THEMES = {"dark": _DARK, "light": _LIGHT, "plain": _PLAIN}
+_THEMES: dict[ThemeName, Theme] = {
+    ThemeName.dark: _DARK,
+    ThemeName.light: _LIGHT,
+    ThemeName.plain: _PLAIN,
+}
 
 
-def resolve_theme(name: ThemeName | str | None, console: Console) -> Theme:
+def resolve_theme(name: ThemeName, console: Console) -> Theme:
     """
     The theme to use for `name`.
 
@@ -258,12 +259,13 @@ def resolve_theme(name: ThemeName | str | None, console: Console) -> Theme:
     light (the only hint terminals give), and `dark` otherwise. A console
     that cannot encode the unicode glyphs always gets `plain`.
     """
-    chosen = ThemeName(name) if name is not None else ThemeName.auto
+    # `ThemeName(...)` also accepts the plain string of an untyped caller.
+    chosen = ThemeName(name)
     if chosen is ThemeName.auto:
         chosen = ThemeName.light if _background_is_light() else ThemeName.dark
     if chosen is not ThemeName.plain and not _supports_unicode(console):
         chosen = ThemeName.plain
-    return _THEMES[chosen.value]
+    return _THEMES[chosen]
 
 
 def _background_is_light() -> bool:

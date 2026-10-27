@@ -78,7 +78,7 @@ def show_source(
     *,
     show_answer_key: bool = True,
     bank: QuestionBank | None = None,
-    theme: ThemeName | str | None = None,
+    theme: ThemeName = ThemeName.auto,
 ) -> None:
     """
     Load an MDQ document and print a human-readable rendering of it.
@@ -125,7 +125,7 @@ def render_question(
     console: Console,
     *,
     show_answer_key: bool = True,
-    theme: ThemeName | str | None = None,
+    theme: ThemeName = ThemeName.auto,
 ) -> None:
     """Print a human-readable rendering of a single question."""
     with _View(console, theme, show_answer_key) as view:
@@ -137,11 +137,10 @@ def render_exam(
     console: Console,
     *,
     show_answer_key: bool = True,
-    theme: ThemeName | str | None = None,
+    theme: ThemeName = ThemeName.auto,
 ) -> None:
     """Print a human-readable rendering of an exam and every question in it."""
-    with _View(console, theme, show_answer_key) as view:
-        view.exam = exam
+    with _View(console, theme, show_answer_key, exam) as view:
         console.print(view.exam_banner(exam))
         for index, question in enumerate(exam.questions, start=1):
             console.print()
@@ -201,8 +200,9 @@ class _View:
     def __init__(
         self,
         console: Console,
-        theme: ThemeName | str | None,
+        theme: ThemeName,
         show_answer_key: bool,
+        exam: models.Exam | None = None,
     ) -> None:
         self.console = console
         self.t = resolve_theme(theme, console)
@@ -210,7 +210,7 @@ class _View:
         self.show_key = show_answer_key
         #: The exam being rendered, if any. A question inherits its locale
         #: and author, so a card does not repeat the ones that match.
-        self.exam: models.Exam | None = None
+        self.exam = exam
 
     def __enter__(self) -> _View:
         if self.t.inline_code:
