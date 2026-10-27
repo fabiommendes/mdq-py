@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Iterable, Protocol, assert_never
 
 import typer
+from rich.box import Box
 from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
 from rich.markdown import Markdown
 from rich.padding import Padding
@@ -225,16 +226,6 @@ class _View:
     #
     def question_card(self, question: models.Question) -> RenderableType:
         heading = question.title or question.id or question.type
-        title = Text.assemble(
-            (f" {_type_label(question.type)} ", self.t.badge_style(question.type)),
-            "  ",
-            (heading, f"bold {self.t.fg}".strip()),
-        )
-        subtitle = (
-            Text(f" {question.id} ", style=self.t.muted)
-            if question.id and question.id != heading
-            else None
-        )
 
         parts: list[RenderableType] = []
         chips = self._question_chips(question)
@@ -256,27 +247,18 @@ class _View:
                     style=self.t.note_style,
                 ),
             ]
-        return Panel(
-            Group(*parts),
-            title=title,
-            title_align="left",
-            subtitle=subtitle,
-            subtitle_align="right",
+        return self._card(
+            parts,
+            kind=question.type,
+            label=_type_label(question.type),
+            heading=heading,
+            id=question.id,
             box=self.t.card_box,
-            border_style=self.t.border,
-            style=self.t.card_style,
-            padding=(1, 2),
-            width=self._card_width(),
+            border=self.t.border,
         )
 
     def exam_banner(self, exam: models.Exam) -> RenderableType:
         heading = exam.title or exam.id or "Exam"
-        title = Text.assemble(
-            (" EXAM ", self.t.badge_style("exam")), "  ", (heading, f"bold {self.t.fg}".strip())
-        )
-        subtitle = (
-            Text(f" {exam.id} ", style=self.t.muted) if exam.id and exam.id != heading else None
-        )
         parts: list[RenderableType] = []
         if exam.description:
             facts = Table.grid(padding=(0, 2))
@@ -297,17 +279,14 @@ class _View:
                     style="",
                 ),
             ]
-        return Panel(
-            Group(*parts),
-            title=title,
-            title_align="left",
-            subtitle=subtitle,
-            subtitle_align="right",
+        return self._card(
+            parts,
+            kind="exam",
+            label="EXAM",
+            heading=heading,
+            id=exam.id,
             box=self.t.banner_box,
-            border_style=self.t.exam_accent or self.t.border,
-            style=self.t.card_style,
-            padding=(1, 2),
-            width=self._card_width(),
+            border=self.t.exam_accent or self.t.border,
         )
 
     def question_divider(self, index: int, question: models.ExamEntry) -> RenderableType:
@@ -326,6 +305,35 @@ class _View:
             box=self.t.inner_box,
             border_style=self.t.border,
             style=self.t.card_style,
+            width=self._card_width(),
+        )
+
+    def _card(
+        self,
+        parts: list[RenderableType],
+        *,
+        kind: str,
+        label: str,
+        heading: str,
+        id: str | None,
+        box: Box,
+        border: str,
+    ) -> Panel:
+        """The outer panel of a question or exam: badge and heading on the border."""
+        title = Text.assemble(
+            (f" {label} ", self.t.badge_style(kind)), "  ", (heading, f"bold {self.t.fg}".strip())
+        )
+        subtitle = Text(f" {id} ", style=self.t.muted) if id and id != heading else None
+        return Panel(
+            Group(*parts),
+            title=title,
+            title_align="left",
+            subtitle=subtitle,
+            subtitle_align="right",
+            box=box,
+            border_style=border,
+            style=self.t.card_style,
+            padding=(1, 2),
             width=self._card_width(),
         )
 
@@ -397,9 +405,15 @@ class _View:
     def _callout(
         self, title: str, content: RenderableType, *, border: str, style: str
     ) -> Panel:
+        return self._inner_panel(content, title, border=border, style=style)
+
+    def _inner_panel(
+        self, body: RenderableType, title: str, *, border: str, style: str = ""
+    ) -> Panel:
+        """A compact titled panel nested in a card; an empty `title` means no title."""
         return Panel(
-            content,
-            title=Text(title, style=f"bold {border}".strip()),
+            body,
+            title=Text(title, style=f"bold {border}".strip()) if title else None,
             title_align="left",
             box=self.t.inner_box,
             border_style=border,
@@ -758,15 +772,7 @@ class _View:
                 _render.yield_ordering_content(lines, question.content, question.highlight)
             )
             body = self._md(source)
-        return Panel(
-            body,
-            title=Text(title, style=f"bold {border}".strip()) if title else None,
-            title_align="left",
-            box=self.t.inner_box,
-            border_style=border,
-            padding=(0, 1),
-            expand=False,
-        )
+        return self._inner_panel(body, title, border=border)
 
     #
     # Fill-in body
