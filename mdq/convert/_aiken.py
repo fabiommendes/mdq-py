@@ -35,7 +35,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
     For more details: https://docs.moodle.org/en/Aiken_format
     """
 
-    supports = {"multiple-choice": "both"}
+    supports = frozenset({"multiple-choice"})
 
     def from_mdq(self, question: Question) -> AikenQuestion:
         if not isinstance(question, MultipleChoiceQuestion):

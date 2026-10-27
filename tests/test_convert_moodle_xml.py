@@ -1123,15 +1123,15 @@ def test_numeric_round_trips_through_moodle_xml(stem: str, answer: float) -> Non
 # ---------------------------------------------------------------------
 
 
-def test_moodle_xml_supports_all_seven_types_both_directions():
+def test_moodle_xml_supports_all_seven_types():
     assert MoodleXml.supports == {
-        "multiple-choice": "both",
-        "multiple-selection": "both",
-        "true-false": "both",
-        "numeric": "both",
-        "short-answer": "both",
-        "essay": "both",
-        "fill-in": "both",
+        "multiple-choice",
+        "multiple-selection",
+        "true-false",
+        "numeric",
+        "short-answer",
+        "essay",
+        "fill-in",
     }
 
 

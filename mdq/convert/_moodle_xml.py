@@ -194,15 +194,17 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
     For more details: https://docs.moodle.org/502/en/Moodle_XML_format
     """
 
-    supports = {
-        "multiple-choice": "both",
-        "multiple-selection": "both",
-        "true-false": "both",
-        "numeric": "both",
-        "short-answer": "both",
-        "essay": "both",
-        "fill-in": "both",
-    }
+    supports = frozenset(
+        {
+            "multiple-choice",
+            "multiple-selection",
+            "true-false",
+            "numeric",
+            "short-answer",
+            "essay",
+            "fill-in",
+        }
+    )
 
     def from_mdq(self, question: Question) -> MoodleXmlQuestion:
         return encode_question(question)

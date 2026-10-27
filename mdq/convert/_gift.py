@@ -96,16 +96,18 @@ class Gift(ConversionBase["GiftQuestion"]):
     For more details: https://docs.moodle.org/502/en/GIFT_format
     """
 
-    supports = {
-        "multiple-choice": "both",
-        "true-false": "both",
-        "numeric": "both",
-        "essay": "both",
-        "fill-in": "both",
-        "short-answer": "both",
-        # matching: not yet implemented in MDQ
-        # multiple-numeric: not yet implemented in MDQ
-    }
+    supports = frozenset(
+        {
+            "multiple-choice",
+            "true-false",
+            "numeric",
+            "essay",
+            "fill-in",
+            "short-answer",
+            # matching: not yet implemented in MDQ
+            # multiple-numeric: not yet implemented in MDQ
+        }
+    )
 
     def from_mdq(self, question: Question) -> GiftQuestion:
         return encode_question(question)

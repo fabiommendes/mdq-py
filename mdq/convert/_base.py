@@ -545,7 +545,8 @@ class ConversionBase[Q](ABC):
     Base class for conversion types.
     """
 
-    supports: ClassVar[dict[QuestionType, Literal["import", "export", "both"]]]
+    #: The question types the format imports and exports.
+    supports: ClassVar[frozenset[QuestionType]]
 
     @abstractmethod
     def to_mdq(self, external: Q, /) -> Question:

@@ -56,6 +56,7 @@ Implements the unreleased MDQ specification.
   - A `[^x]` inside an autolink is literal; a definition of that id gets `unreferenced-blank`. A Markdown fill-in with no blank gives `blanks: []` and the `schema-error` at `blanks`. The `blank-text` path of a blank `incorrectFeedback` is `blanks[i].incorrectFeedback`.
   - True/false: `ru V`, `bn M` and `mr B` get `locale-mismatched-true-false-marker`; `sw K` gets `unlisted-true-false-marker`. `H` leaves the `sw` false friends, `否` joins `zh`, `fil` is its own row. A `marker` with whitespace around the letter is `malformed-true-false-marker`.
   - The message of `relative-tolerance-over-one` says that the tolerance stores a fraction.
+- Converter classes declare `supports` as a `frozenset` of question types, not a dict of directions (breaking for code that reads the dict).
 
 ### Fixed
 

@@ -869,18 +869,18 @@ def test_full_round_trip_fill_in():
 # ---------------------------------------------------------------------
 
 
-def test_gift_supports_short_answer_both_directions():
-    assert Gift.supports["short-answer"] == "both"
+def test_gift_supports_short_answer():
+    assert "short-answer" in Gift.supports
 
 
 def test_gift_supports_all_documented_types():
     assert Gift.supports == {
-        "multiple-choice": "both",
-        "true-false": "both",
-        "numeric": "both",
-        "essay": "both",
-        "fill-in": "both",
-        "short-answer": "both",
+        "multiple-choice",
+        "true-false",
+        "numeric",
+        "essay",
+        "fill-in",
+        "short-answer",
     }
 
 
