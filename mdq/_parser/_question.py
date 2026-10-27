@@ -60,7 +60,14 @@ from ..types import (
     ScoredChoiceDict,
     ShortAnswerBlankDict,
 )
-from ._blocks import BLOCK_NAMES, BlockReader, setext_message
+from ._blocks import (
+    BLOCK_NAMES,
+    BlockCursor,
+    BlockReader,
+    parse_item_list,
+    parse_plain_item,
+    setext_message,
+)
 from ._choices import (
     ChoiceType,
     RawChoice,
@@ -72,9 +79,7 @@ from ._choices import (
     CODE_INDENT,
     indentation,
     match_choice_marker,
-    parse_marker,
     parse_observations,
-    split_item,
 )
 from ._frontmatter import (
     GRADED_QUESTION_TYPES,
@@ -205,9 +210,9 @@ class MDQParser:
     """
     A recursive-descent parser for one MDQ question document.
 
-    Holds a cursor (`reader`/`pos`) over the question's markdown-it block
-    tree, the parsed frontmatter (`front`/`comment`),
-    and the output document being built up (`doc`). Grammar-rule methods
+    Holds a cursor over the question's markdown-it block tree, the parsed
+    frontmatter (`frontmatter`/`comment`), and the output document being
+    built up (`state`). Grammar-rule methods
     read from the cursor and write into `doc` as they go, which avoids
     threading `(children, lines, index, front, doc)` through a long chain
     of free functions.
@@ -216,14 +221,11 @@ class MDQParser:
         frontmatter: The question's parsed YAML frontmatter.
         comment: The leading `#`-comment block from the frontmatter, if any.
         reader: The block reader over the body, after the frontmatter.
-        pos: Index of the next unread node in `reader.children`.
-        doc: The output document being assembled.
+        cursor: The cursor over `reader`; it shares `diagnostics`.
+        state: The output document being assembled.
     """
 
     src: str
-
-    #: Position in the token stream.
-    pos: int = field(default=0, init=False)
 
     #: Accumulate the currently parsed object
     state: dict[str, object] = field(default_factory=dict, init=False)
@@ -237,6 +239,9 @@ class MDQParser:
     #: The body blocks, after the frontmatter.
     reader: BlockReader = field(init=False)
 
+    #: The cursor over the body blocks.
+    cursor: BlockCursor = field(init=False)
+
     #: Warnings the parser found in the source layout.
     diagnostics: list[Diagnostic] = field(default_factory=list, init=False)
 
@@ -249,46 +254,7 @@ class MDQParser:
             self.frontmatter = {}
             self.comment = None
         self.reader = BlockReader(body_text)
-
-    #
-    # Cursor primitives
-    #
-    def read(self) -> Node:
-        """
-        Consume and return the current node, advancing the cursor.
-
-        Raises:
-            ParseError: If the cursor is already exhausted.
-        """
-
-        node = self.peek()
-        if node is None:
-            raise ParseError("unexpected end of document")
-        self.pos += 1
-        return node
-
-    def peek(self) -> Node | None:
-        """
-        Return the current node without consuming it, or None at the end.
-        """
-
-        if self.pos >= len(self.reader.children):
-            return None
-        return self.reader.children[self.pos]
-
-    def expect(self, node_type: str, error_msg: str) -> Node:
-        """
-        Consume and return the current node if it has type `node_type`.
-
-        Raises:
-            ParseError: If the cursor is exhausted or the current node's
-                type does not match `node_type`.
-        """
-
-        node = self.peek()
-        if node is None or node.type != node_type:
-            raise ParseError(error_msg, node)
-        return self.read()
+        self.cursor = BlockCursor(self.reader, self.diagnostics)
 
     #
     # Body-start / tag detection
@@ -304,29 +270,6 @@ class MDQParser:
             match_choice_marker(self.reader.item_lines(item)[0]) is not None
             for item in node.children
         )
-
-    def check_no_setext_tag(self, node: Node | None, pattern: re.Pattern[str]) -> None:
-        """
-        Raise a `ParseError` if `node` is a setext heading whose first line
-        is a tag that `pattern` matches: the line after the tag content
-        was a setext underline (short-answer.md, "Pattern lines").
-        """
-        if node is None or node.type != "heading" or node.markup not in ("-", "="):
-            return
-        first_line = self.reader.raw_lines(node)[:1]
-        if first_line and pattern.match(first_line[0].strip(" \t")):
-            raise ParseError(setext_message(first_line[0].strip(" \t")))
-
-    def check_no_setext_item(self, item: Node) -> None:
-        """
-        Raise a `ParseError` if a setext underline follows the text of the
-        list item `item`: CommonMark turns the text into a heading
-        (grammar.md, "Feedback and comment lines").
-        """
-        for child in item.children:
-            if child.type == "heading" and child.markup in ("-", "="):
-                text = self.reader.raw_lines(child)[:1]
-                raise ParseError(setext_message(text[0].strip(" \t") if text else ""))
 
     def check_pattern_item_paragraph(self, item: Node) -> None:
         """
@@ -349,7 +292,7 @@ class MDQParser:
         """
         Return the index of the first body node in `self.reader.children`.
 
-        Scans from the start of the document (independent of `self.pos`,
+        Scans from the start of the document (independent of `self.cursor.pos`,
         which is still 0 at call time) for the first paragraph matching a
         known body tag, or the first bracket-led bullet list. A document
         that declares `type: fill-in` and has none is a stem with no blank:
@@ -413,40 +356,6 @@ class MDQParser:
             + [self.reader.block_text(n) for n in intro_blocks[1:]]
         )
         return stem_text, slug_match.group("slug")
-
-    #
-    # Choice/item-list parsing
-    #
-    def parse_item_list(self, node: Node) -> list[RawChoice]:
-        for item in node.children:
-            self.check_no_setext_item(item)
-        return [self.parse_item(self.reader.item_lines(item)) for item in node.children]
-
-    def parse_item(self, item_lines: list[str]) -> RawChoice:
-        """
-        Parse the content lines of one choice (choices.md, "Item").
-
-        Raises:
-            ParseError: The item does not start with a choice marker, the
-                marker is empty, or the lines after the text are not one
-                feedback block and one comment block.
-        """
-        value, explicit_id, rest = parse_marker(item_lines[0])
-        choice = split_item(rest, item_lines[1:])
-        choice.value = value
-        choice.explicit_id = explicit_id
-        return choice
-
-    def parse_plain_item(self, item_lines: list[str]) -> RawChoice:
-        """
-        Parse the content lines of a list item with no `[value]` marker,
-        e.g. a pattern line.
-
-        Raises:
-            ParseError: The lines after the text are not one feedback block
-                and one comment block.
-        """
-        return split_item(item_lines[0], item_lines[1:], join_pattern_lines)
 
     #
     # Per-type body fillers
@@ -523,26 +432,26 @@ class MDQParser:
         first_section = next(
             (
                 i
-                for i in range(self.pos, len(self.reader.children))
+                for i in range(self.cursor.pos, len(self.reader.children))
                 if self.is_ordering_section(self.reader.children[i])
             ),
             len(self.reader.children),
         )
-        epilogue_nodes = self.reader.children[self.pos : first_section]
-        self.pos = first_section
+        epilogue_nodes = self.reader.children[self.cursor.pos : first_section]
+        self.cursor.pos = first_section
 
         extra_raw: list[RawLine] | None = None
         accept_raw: list[RawAlternative] = []
         reject_raw: list[RawAlternative] = []
 
         while True:
-            node = self.peek()
+            node = self.cursor.peek()
             if node is None or node.type != "heading" or node.tag != "h2":
                 break
             m = ORDERING_SECTION_RE.match(self.reader.raw_text(node))
             if m is None:
                 break
-            self.read()
+            self.cursor.read()
             name = m.group("name")
             if name == "extra":
                 if extra_raw is not None:
@@ -564,11 +473,11 @@ class MDQParser:
                 target = accept_raw if name == "accept" else reject_raw
                 target.append(RawAlternative(raw, feedback, comment))
 
-        if self.pos < len(self.reader.children):
+        if self.cursor.pos < len(self.reader.children):
             raise ParseError(
                 "only [extra], [accept] and [reject] sections can follow the "
                 "first section; the epilogue goes before it",
-                self.reader.children[self.pos],
+                self.reader.children[self.cursor.pos],
             )
 
         # A `ul` line already holds its nesting depth: no unit applies.
@@ -653,7 +562,7 @@ class MDQParser:
                 bullet list, or a blank line separates the main block
                 from its tag.
         """
-        node = self.peek()
+        node = self.cursor.peek()
         if node is None or node.type not in ("fence", "bullet_list"):
             if section is not None:
                 raise ParseError(
@@ -671,9 +580,9 @@ class MDQParser:
                 "the tag, with no blank line in between",
                 node,
             )
-        self.read()
+        self.cursor.read()
         if node.type == "bullet_list":
-            self.check_no_adjacent_list(node)
+            self.cursor.check_no_adjacent_list(node)
         if node.type == "fence":
             return "code", fence_language(node.info), ordering_code_lines(node.content)
         self.check_ordering_item_blocks(node)
@@ -727,7 +636,7 @@ class MDQParser:
         first: Node | None = None
         last: Node | None = None
         while True:
-            node = self.peek()
+            node = self.cursor.peek()
             if node is None:
                 break
             if node.type == "blockquote" or (
@@ -736,7 +645,7 @@ class MDQParser:
                 if first is None:
                     first = node
                 last = node
-                self.read()
+                self.cursor.read()
             else:
                 break
         if first is None or last is None:
@@ -779,15 +688,15 @@ class MDQParser:
             if patterns:
                 doc[tag.role] = patterns
 
-            node = self.peek()
-            self.check_no_setext_tag(node, SHORT_ANSWER_RE)
+            node = self.cursor.peek()
+            self.reader.check_no_setext_tag(node, SHORT_ANSWER_RE)
             if node is None or node.type != "paragraph":
                 break
             next_tag = read_short_answer_tag(self.reader.raw_text(node))
             if next_tag is None:
                 break
             tag = next_tag
-            tag_node = self.read()
+            tag_node = self.cursor.read()
 
         _copy_pattern_lists(front, doc)
 
@@ -868,7 +777,7 @@ class MDQParser:
         for line in self.reader.raw_lines(tag_node)[1:]:
             if _is_comment_line(line):
                 raise ParseError(_OBSERVATION_AFTER_CONTENT)
-        node = self.peek()
+        node = self.cursor.peek()
         if (
             node is not None
             and node.type == "blockquote"
@@ -897,12 +806,12 @@ class MDQParser:
             )
             return [rest]
         assert node is not None
-        self.read()
-        self.check_no_adjacent_list(node)
+        self.cursor.read()
+        self.cursor.check_no_adjacent_list(node)
         for item in node.children:
-            self.check_no_setext_item(item)
+            self.reader.check_no_setext_item(item)
             self.check_pattern_item_paragraph(item)
-        raw_items = [self.parse_plain_item(self.reader.item_lines(item)) for item in node.children]
+        raw_items = [parse_plain_item(self.reader.item_lines(item)) for item in node.children]
         entries = [_pattern_entry(item) for item in raw_items]
         for index, (entry, raw_item) in enumerate(zip(entries, raw_items)):
             pattern = entry if isinstance(entry, str) else entry["pattern"]
@@ -923,7 +832,7 @@ class MDQParser:
                 f"[{tag}/reject] needs patterns: write `[{tag}/reject]:` "
                 "followed by a pattern or a list"
             )
-        node = self.peek()
+        node = self.cursor.peek()
         adjacent = node is not None and starts_after(tag_node, node)
         if adjacent and node is not None and node.type == "bullet_list":
             raise ParseError(
@@ -983,16 +892,16 @@ class MDQParser:
                 case UnrecognizedBlankTag(text=text):
                     raise ParseError(f"unrecognized blank definition: {text!r}")
                 case ChoiceBlankTag(id=blank_id, rest=rest):
-                    next_node = self.peek()
+                    next_node = self.cursor.peek()
                     if not rest and next_node is not None and next_node.type == "bullet_list":
                         if not starts_after(tag_node, next_node):
                             raise ParseError(
                                 f"the choice list of [^{blank_id}] must start on the "
                                 f"line right after its tag, with no blank line in between"
                             )
-                        self.read()
-                        self.check_no_adjacent_list(next_node)
-                        raw_choices = self.parse_item_list(next_node)
+                        self.cursor.read()
+                        self.cursor.check_no_adjacent_list(next_node)
+                        raw_choices = parse_item_list(self.reader, next_node)
                         # The choices of a multiple-choice blank are scored choices.
                         choices = cast(
                             "list[ScoredChoiceDict]",
@@ -1067,15 +976,15 @@ class MDQParser:
                 case _:
                     assert_never(tag)
 
-            node = self.peek()
-            self.check_no_setext_tag(node, BLANK_RE)
+            node = self.cursor.peek()
+            self.reader.check_no_setext_tag(node, BLANK_RE)
             if node is None or node.type != "paragraph":
                 break
             next_tag = read_blank_tag(self.reader.raw_text(node))
             if next_tag is None:
                 break
             tag = next_tag
-            tag_node = self.read()
+            tag_node = self.cursor.read()
 
         self.distribute_blank_pattern_lists(front, blanks)
         self.distribute_numeric_blank_maps(numeric_maps, blanks)
@@ -1134,27 +1043,6 @@ class MDQParser:
                         ),
                     )
                 )
-
-    def check_no_adjacent_list(self, content: Node) -> None:
-        """
-        Raise a `ParseError` if a list starts on the line right after the
-        content list `content`. In CommonMark a change of the list marker
-        (`*` to `-`, or to `1.`) starts a new list, and that list would go
-        to the epilogue with no sign: an item would leave the answer.
-        """
-        node = self.peek()
-        if node is None:
-            return
-        # The map of a list includes the blank lines inside it.
-        start, end = span(content)
-        while end > start and not self.reader.lines[end - 1].strip(" \t"):
-            end -= 1
-        if node.type in ("bullet_list", "ordered_list") and span(node)[0] == end:
-            raise ParseError(
-                "use the same list marker for every item, or separate the "
-                "epilogue with a blank line",
-                node,
-            )
 
     @staticmethod
     def numeric_blank_maps(front: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
@@ -1279,10 +1167,10 @@ class MDQParser:
         Returns:
             The nodes that should still be treated as epilogue (i.e.
             everything before the heading, if one was found, or all
-            remaining nodes otherwise). Does not advance `self.pos`.
+            remaining nodes otherwise). Does not advance `self.cursor.pos`.
         """
 
-        remaining = self.reader.children[self.pos :]
+        remaining = self.reader.children[self.cursor.pos :]
         for i, node in enumerate(remaining):
             if node.type == "heading" and node.tag == "h2":
                 text = self.reader.raw_text(node)
@@ -1336,7 +1224,7 @@ class MDQParser:
         if body_start == 0:
             raise MissingField("stem")
 
-        intro_blocks = [self.read() for _ in range(body_start)]
+        intro_blocks = [self.cursor.read() for _ in range(body_start)]
         stem_text, inline_slug = self.split_intro(intro_blocks)
 
         if inline_slug and "id" in self.state:
@@ -1346,7 +1234,7 @@ class MDQParser:
         self.state["stem"] = stem_text
 
         question_type = self.frontmatter.get("type")
-        node = self.peek()
+        node = self.cursor.peek()
         epilogue_nodes: list[Node] | None = None
 
         if node is None:
@@ -1357,13 +1245,13 @@ class MDQParser:
         elif node.type == "bullet_list":
             # Ambiguous between multiple-choice / multiple-selection /
             # true-false: infer from the bracket values unless declared.
-            body_node = self.expect("bullet_list", "malformed choice list")
-            raw_choices = self.parse_item_list(body_node)
+            body_node = self.cursor.expect("bullet_list", "malformed choice list")
+            raw_choices = parse_item_list(self.reader, body_node)
             values = [c.value for c in raw_choices]
             question_type = question_type or _infer_choice_type(values)
             self.parse_choice_body(as_choice_type(question_type), raw_choices)
         else:
-            body_node = self.expect("paragraph", "unrecognized question body")
+            body_node = self.cursor.expect("paragraph", "unrecognized question body")
             text = self.reader.raw_text(body_node)
             tag = read_body_tag(text)
             match tag:
@@ -1400,7 +1288,7 @@ class MDQParser:
             if question_type == "essay"
             else epilogue_nodes
             if epilogue_nodes is not None
-            else self.reader.children[self.pos :]
+            else self.reader.children[self.cursor.pos :]
         )
         self.report_detached_tags(epilogue_blocks, fill_in=question_type == "fill-in")
         if epilogue_blocks:

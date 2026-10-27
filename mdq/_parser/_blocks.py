@@ -8,13 +8,16 @@ checks of the `stem`, `epilogue` and `answerKey` fields shared with
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
+from .._diagnostics import Diagnostic
+from .._exact import join_pattern_lines
 from .._markdown import md, span, split_lines
+from ..errors import ParseError
 from ._choices import (
     CODE_INDENT,
     LINK_START_RE,
@@ -22,6 +25,9 @@ from ._choices import (
     indentation,
     is_choice_value,
     match_choice_marker,
+    RawChoice,
+    parse_marker,
+    split_item,
 )
 from ._tags import is_reserved_label, tag_lines
 
@@ -176,6 +182,138 @@ class BlockReader:
         if column is None:
             column = indentation(lines[0]) + 2
         return [dedent(first, column)] + [dedent(line, column) for line in lines[1:]]
+
+    def check_no_setext_tag(self, node: Node | None, pattern: re.Pattern[str]) -> None:
+        """
+        Raise a `ParseError` if `node` is a setext heading whose first line
+        is a tag that `pattern` matches: the line after the tag content
+        was a setext underline (short-answer.md, "Pattern lines").
+        """
+        if node is None or node.type != "heading" or node.markup not in ("-", "="):
+            return
+        first_line = self.raw_lines(node)[:1]
+        if first_line and pattern.match(first_line[0].strip(" \t")):
+            raise ParseError(setext_message(first_line[0].strip(" \t")))
+
+    def check_no_setext_item(self, item: Node) -> None:
+        """
+        Raise a `ParseError` if a setext underline follows the text of the
+        list item `item`: CommonMark turns the text into a heading
+        (grammar.md, "Feedback and comment lines").
+        """
+        for child in item.children:
+            if child.type == "heading" and child.markup in ("-", "="):
+                text = self.raw_lines(child)[:1]
+                raise ParseError(setext_message(text[0].strip(" \t") if text else ""))
+
+
+@dataclass
+class BlockCursor:
+    """
+    A cursor over the top-level blocks of a question body.
+
+    Attributes:
+        reader: The blocks to read.
+        diagnostics: The warnings found while reading, appended in order.
+        pos: Index of the next unread node in `reader.children`.
+    """
+
+    reader: BlockReader
+    diagnostics: list[Diagnostic] = field(default_factory=list)
+    pos: int = 0
+
+    def read(self) -> Node:
+        """
+        Consume and return the current node, advancing the cursor.
+
+        Raises:
+            ParseError: If the cursor is already exhausted.
+        """
+
+        node = self.peek()
+        if node is None:
+            raise ParseError("unexpected end of document")
+        self.pos += 1
+        return node
+
+    def peek(self) -> Node | None:
+        """
+        Return the current node without consuming it, or None at the end.
+        """
+
+        if self.pos >= len(self.reader.children):
+            return None
+        return self.reader.children[self.pos]
+
+    def expect(self, node_type: str, error_msg: str) -> Node:
+        """
+        Consume and return the current node if it has type `node_type`.
+
+        Raises:
+            ParseError: If the cursor is exhausted or the current node's
+                type does not match `node_type`.
+        """
+
+        node = self.peek()
+        if node is None or node.type != node_type:
+            raise ParseError(error_msg, node)
+        return self.read()
+
+    def check_no_adjacent_list(self, content: Node) -> None:
+        """
+        Raise a `ParseError` if a list starts on the line right after the
+        content list `content`. In CommonMark a change of the list marker
+        (`*` to `-`, or to `1.`) starts a new list, and that list would go
+        to the epilogue with no sign: an item would leave the answer.
+        """
+        node = self.peek()
+        if node is None:
+            return
+        # The map of a list includes the blank lines inside it.
+        start, end = span(content)
+        while end > start and not self.reader.lines[end - 1].strip(" \t"):
+            end -= 1
+        if node.type in ("bullet_list", "ordered_list") and span(node)[0] == end:
+            raise ParseError(
+                "use the same list marker for every item, or separate the "
+                "epilogue with a blank line",
+                node,
+            )
+
+
+def parse_item_list(reader: BlockReader, node: Node) -> list[RawChoice]:
+    """Parse the items of a choice list (choices.md, "Item")."""
+    for item in node.children:
+        reader.check_no_setext_item(item)
+    return [parse_item(reader.item_lines(item)) for item in node.children]
+
+
+def parse_item(item_lines: list[str]) -> RawChoice:
+    """
+    Parse the content lines of one choice (choices.md, "Item").
+
+    Raises:
+        ParseError: The item does not start with a choice marker, the
+            marker is empty, or the lines after the text are not one
+            feedback block and one comment block.
+    """
+    value, explicit_id, rest = parse_marker(item_lines[0])
+    choice = split_item(rest, item_lines[1:])
+    choice.value = value
+    choice.explicit_id = explicit_id
+    return choice
+
+
+def parse_plain_item(item_lines: list[str]) -> RawChoice:
+    """
+    Parse the content lines of a list item with no `[value]` marker,
+    e.g. a pattern line.
+
+    Raises:
+        ParseError: The lines after the text are not one feedback block
+            and one comment block.
+    """
+    return split_item(item_lines[0], item_lines[1:], join_pattern_lines)
 
 
 #
