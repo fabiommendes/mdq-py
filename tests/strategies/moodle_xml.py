@@ -116,7 +116,9 @@ def moodle_base_fields() -> dict[str, st.SearchStrategy]:
         questiontext=moodle_text(),
         name=st.none() | moodle_line_text(),
         idnumber=st.none() | moodle_line_text(),
-        text_format=st.sampled_from(["html", "moodle", "plain_text", "markdown"]),
+        text_format=st.sampled_from(
+            ["html", "moodle_auto_format", "plain_text", "markdown"]
+        ),
         general_feedback=st.none() | moodle_text(),
         default_grade=moodle_grade(),
         tags=st.lists(moodle_line_text(), max_size=3),

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any, ClassVar, Literal
 
 from .. import _parser
 from .._exact import exact_literal
-from .._markdown import starts_block
+from .._markdown import has_visible_character, starts_block
 from ..errors import ParseError
 from ..models import (
     AnswerPattern,
@@ -20,7 +22,7 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import QuestionType
-from ._common import common_prefix, join_blocks
+from ._common import common_prefix, format_num, join_blocks
 
 type Format = Literal["aiken", "gift", "moodle-xml"]
 
@@ -34,14 +36,14 @@ FORMATS: tuple[Format, ...] = ("aiken", "gift", "moodle-xml")
 TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
 
 
-def true_false_group_stem(question: TrueFalseQuestion, *, epilogue: bool) -> str:
+def true_false_group_stem(question: TrueFalseQuestion) -> str:
     """
     The text every statement of an exported true/false group starts with:
-    the question stem, plus the epilogue if the format keeps it. The
-    fallback stem stands for "no shared text", so it round-trips.
+    the question stem, plus the epilogue. The fallback stem stands for "no
+    shared text", so it round-trips.
     """
     stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
-    return join_blocks(stem, question.epilogue if epilogue else None)
+    return join_blocks(stem, question.epilogue)
 
 
 def split_true_false_group(texts: list[str]) -> tuple[str, list[str]]:
@@ -219,11 +221,45 @@ def require_automatic(question: ShortAnswerQuestion, *, format: str) -> None:
         )
 
 
+@dataclass(frozen=True)
+class ExportedAnswer:
+    """One literal answer of a short answer, as an external format stores it."""
+
+    text: str
+    #: `1.0` for an `accept` pattern, `0.0` for a `reject` pattern.
+    credit: float
+    feedback: str | None = None
+
+
+def literal_text(rule: AnswerPattern, *, format: str) -> str:
+    """
+    Return the text an external format stores for a literal pattern: a plain
+    literal as it is, a backtick-enclosed literal without its backticks.
+
+    Raises:
+        ValueError: `rule` is a regex, or a literal with a `*` inside its text,
+            which Moodle reads as a wildcard: an external format cannot express them.
+    """
+    pattern = rule.pattern.strip(" \t\r\n")
+    if pattern.startswith("/"):
+        raise ValueError(
+            f"cannot convert to {format}: the pattern {pattern!r} is a "
+            "regex, and only literal answers are supported"
+        )
+    content = exact_literal(pattern)
+    text = pattern if content is None else content
+    if "*" in text and text.strip(" \t\r\n") != "*":
+        raise ValueError(
+            f"cannot convert to {format}: the literal {text!r} has a `*`, "
+            f"which {format} reads as a wildcard"
+        )
+    return text
+
+
 def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[str]:
     """
     Return the texts an external format stores for a short answer's
-    `accept` list: a plain literal as it is, a backtick-enclosed literal
-    without its backticks.
+    `accept` list (see `literal_text`).
 
     Raises:
         ValueError: `accept` is missing or empty, or holds a regex, which
@@ -233,17 +269,29 @@ def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[
         raise ValueError(
             f"cannot convert to {format}: a short answer needs an `accept` list"
         )
-    texts: list[str] = []
-    for rule in accept:
-        pattern = rule.pattern.strip(" \t\r\n")
-        if pattern.startswith("/"):
-            raise ValueError(
-                f"cannot convert to {format}: the pattern {pattern!r} is a "
-                "regex, and only literal answers are supported"
-            )
-        content = exact_literal(pattern)
-        texts.append(pattern if content is None else content)
-    return texts
+    return [literal_text(rule, format=format) for rule in accept]
+
+
+def exported_short_answers(
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+    *,
+    format: str,
+) -> list[ExportedAnswer]:
+    """
+    Return the answers an external format stores for a short answer: each
+    `accept` literal worth full credit, then each `reject` literal worth
+    none, all with their feedback.
+
+    Raises:
+        ValueError: `accept` is missing or empty, or a pattern is a regex.
+    """
+    literal_answers(accept, format=format)
+    return [
+        ExportedAnswer(literal_text(rule, format=format), credit, rule.feedback)
+        for credit, rules in ((1.0, accept), (0.0, reject))
+        for rule in rules or []
+    ]
 
 
 #: A line ending and the indentation of the next line, which a pattern string
@@ -277,6 +325,219 @@ def literal_pattern(text: str, *, format: str) -> AnswerPattern:
             )
         return AnswerPattern(pattern=f"`{stripped}`")
     return AnswerPattern(pattern=stripped if multiline else text)
+
+
+#: The `meta` key that holds the general feedback of an imported question
+#: (GIFT `####`, Moodle `<generalfeedback>`). It is defined by the
+#: converters, not by the MDQ specification.
+GENERAL_FEEDBACK_KEY = "generalFeedback"
+
+_PLAIN_FORMATS = frozenset({"plain", "plain_text"})
+_MARKDOWN_SPECIALS_RE = re.compile(r"[\\`*_\[\]<>&~]")
+#: A character that starts a block at the beginning of a line: `#`, `-`, `1.`, ...
+_LINE_START_SPECIAL_RE = re.compile(r"^( {0,3})(?:([#+\-=])|(\d+)([.)]))")
+
+
+def _escape_line_start(match: re.Match[str]) -> str:
+    """Escape the character of a line start that `_LINE_START_SPECIAL_RE` matched."""
+    indent, mark, digits, delimiter = match.groups()
+    if mark:
+        return f"{indent}\\{mark}"
+    return f"{indent}{digits}\\{delimiter}"
+
+
+def plain_text_to_markdown(text: str) -> str:
+    r"""
+    Return the Markdown that renders as the plain text `text`: the
+    punctuation with a Markdown meaning is backslash-escaped (`*`, `_`,
+    `[`, `<`, `&`, a leading `#` or `1.`, ...) and each line break inside a
+    paragraph becomes a hard break (a trailing backslash).
+    """
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    escaped = [_MARKDOWN_SPECIALS_RE.sub(lambda m: "\\" + m.group(), line) for line in lines]
+    escaped = [
+        _LINE_START_SPECIAL_RE.sub(_escape_line_start, line) for line in escaped
+    ]
+    for i in range(len(escaped) - 1):
+        if lines[i].strip() and lines[i + 1].strip():
+            escaped[i] += "\\"
+    return "\n".join(escaped)
+
+
+def mdq_text(text: str, text_format: str) -> str:
+    """
+    Return the MDQ text for a `text` an external format wrote in
+    `text_format`: `plain` and `plain_text` are escaped
+    (`plain_text_to_markdown`); `html` (CommonMark carries raw HTML),
+    auto-format (`moodle`, `moodle_auto_format`) and `markdown` are copied
+    as they are.
+    """
+    return plain_text_to_markdown(text) if text_format in _PLAIN_FORMATS else text
+
+
+def general_feedback_meta(*feedbacks: str | None) -> dict[str, object] | None:
+    """
+    Return the `meta` of an imported question that carries `feedbacks`, the
+    general feedback of the question (of each statement, for a true/false
+    group: the distinct ones are joined by a blank line). `None` if all are
+    empty.
+    """
+    texts = list(
+        dict.fromkeys(f.strip() for f in feedbacks if f and has_visible_character(f))
+    )
+    return {GENERAL_FEEDBACK_KEY: "\n\n".join(texts)} if texts else None
+
+
+def exported_general_feedback(question: Question, *, format: str) -> str | None:
+    """
+    Return the general feedback to write for `question`: `meta.generalFeedback`,
+    or `None` if the question has none.
+
+    Raises:
+        ValueError: the value is not a string with a visible character.
+    """
+    if not question.meta or GENERAL_FEEDBACK_KEY not in question.meta:
+        return None
+    value = question.meta[GENERAL_FEEDBACK_KEY]
+    if not isinstance(value, str) or not has_visible_character(value):
+        raise ValueError(
+            f"cannot convert to {format}: `meta.{GENERAL_FEEDBACK_KEY}` must be "
+            f"a string with a visible character, got {value!r}"
+        )
+    return value
+
+
+@dataclass(frozen=True)
+class ImportedAnswer:
+    """One answer of an external short answer or numeric question."""
+
+    text: str
+    #: The fraction of full credit: `1.0` is 100%.
+    credit: float
+    feedback: str | None = None
+    #: Absolute tolerance, numeric answers only.
+    tolerance: float | None = None
+
+
+@dataclass(frozen=True)
+class ShortAnswerKey:
+    """The `accept`, `reject` and `incorrectFeedback` of an imported short answer."""
+
+    accept: list[AnswerPattern]
+    reject: list[AnswerPattern] | None
+    incorrect_feedback: str | None
+
+
+@dataclass(frozen=True)
+class NumericAnswerKey:
+    """The `answer`, `tolerance` and `incorrectFeedback` of an imported numeric answer."""
+
+    answer: int | float | str
+    tolerance: Tolerance | None
+    incorrect_feedback: str | None
+
+
+def _credit_kind(answer: ImportedAnswer, *, format: str, what: str) -> Literal["full", "none"]:
+    """
+    Classify the credit of `answer` as full (100%) or none (0%).
+
+    Raises:
+        ValueError: the credit is partial (or negative): the grading of
+            `what` is binary.
+    """
+    if abs(answer.credit - 1) < MOODLE_GRADE_TOLERANCE:
+        return "full"
+    if abs(answer.credit) < MOODLE_GRADE_TOLERANCE:
+        return "none"
+    raise ValueError(
+        f"cannot convert from {format}: the answer {answer.text!r} has partial "
+        f"credit ({format_num(answer.credit * 100)}%), and {what} grading is "
+        "binary: an answer is worth 100% or 0%"
+    )
+
+
+def _is_wildcard(text: str) -> bool:
+    """Whether `text` is Moodle's lone `*` ("any other answer")."""
+    return text.strip(" \t\r\n") == "*"
+
+
+def short_answer_key(
+    answers: Sequence[ImportedAnswer], *, format: str, any_answer: bool = False
+) -> ShortAnswerKey:
+    """
+    Split the answers of an imported short answer by credit: 100% is
+    `accept`, 0% is `reject` (both with their feedback). With `any_answer`, a
+    lone `*` is Moodle's "any other answer": at 100% it is the regex `/.*/`,
+    at 0% its feedback is the `incorrectFeedback`. Without it, a lone `*` is
+    a literal like any other text.
+
+    Raises:
+        ValueError: an answer has partial credit, or a `*` wildcard inside
+            its text, which MDQ patterns would read as a literal `*`.
+    """
+    accept: list[AnswerPattern] = []
+    reject: list[AnswerPattern] = []
+    incorrect_feedback: str | None = None
+    for answer in answers:
+        kind = _credit_kind(answer, format=format, what="short-answer")
+        if any_answer and _is_wildcard(answer.text):
+            if kind == "full":
+                accept.append(AnswerPattern(pattern="/.*/", feedback=answer.feedback))
+            elif answer.feedback:
+                incorrect_feedback = answer.feedback
+            continue
+        if "*" in answer.text and not _is_wildcard(answer.text):
+            raise ValueError(
+                f"cannot convert from {format}: the answer {answer.text!r} has a "
+                "`*` wildcard, which MDQ literal patterns do not support"
+            )
+        literal = literal_pattern(answer.text, format=format)
+        entry = AnswerPattern(pattern=literal.pattern, feedback=answer.feedback)
+        (accept if kind == "full" else reject).append(entry)
+    return ShortAnswerKey(accept, reject or None, incorrect_feedback)
+
+
+def numeric_answer_key(answers: Sequence[ImportedAnswer], *, format: str) -> NumericAnswerKey:
+    """
+    Pick the numeric key among the imported answers: the answer worth 100%.
+    A 0% answer is dropped, except a lone `*` ("any other answer") with
+    feedback, which is the `incorrectFeedback`. A second 100% answer is
+    dropped if it has the same value and tolerance as the first.
+
+    Raises:
+        ValueError: an answer has partial credit, there is no 100% answer or
+            two different ones, or a `*` has credit.
+    """
+    key: ImportedAnswer | None = None
+    incorrect_feedback: str | None = None
+    for answer in answers:
+        kind = _credit_kind(answer, format=format, what="numeric")
+        if _is_wildcard(answer.text):
+            if kind == "full":
+                raise ValueError(
+                    f"cannot convert from {format}: a numeric `*` answer worth "
+                    "100% accepts any number, which MDQ cannot express"
+                )
+            if answer.feedback:
+                incorrect_feedback = answer.feedback
+        elif kind == "full":
+            if key is None:
+                key = answer
+            elif (float(key.text), key.tolerance or 0.0) != (
+                float(answer.text),
+                answer.tolerance or 0.0,
+            ):
+                raise ValueError(
+                    f"cannot convert from {format}: more than one different "
+                    "answer is worth 100%, and a numeric question has one answer"
+                )
+    if key is None:
+        raise ValueError(
+            f"cannot convert from {format}: no numeric answer is worth full credit"
+        )
+    return NumericAnswerKey(
+        mdq_numeric_answer(key.text), absolute_tolerance(key.tolerance), incorrect_feedback
+    )
 
 
 class ConversionBase[Q](ABC):

@@ -120,8 +120,7 @@ def test_gift_export_ignores_incorrect_feedback() -> None:
 
 
 @pytest.mark.parametrize("format", FORMATS)
-def test_reject_patterns_are_not_exported_and_do_not_fail(format: str) -> None:
-    """Current behavior: `reject` entries (and their feedback) are dropped."""
+def test_reject_patterns_are_exported_with_their_feedback(format: str) -> None:
     question = _sa(
         accept=["Brasília"],
         reject=[
@@ -129,8 +128,8 @@ def test_reject_patterns_are_not_exported_and_do_not_fail(format: str) -> None:
         ],
     )
     output = export_question(question, format=format)
-    assert "Rio de Janeiro" not in output
-    assert "Foi até 1960." not in output
+    assert "Rio de Janeiro" in output
+    assert "Foi até 1960." in output
 
 
 #
@@ -151,10 +150,10 @@ def test_moodle_import_full_credit_asterisk_becomes_the_catch_all_regex() -> Non
 
 def test_moodle_import_keeps_other_texts_and_wraps_a_leading_slash() -> None:
     source = _moodle_xml(
-        _answer("Brasília", 100), _answer("/usr/bin", 100), _answer("Plano*", 100)
+        _answer("Brasília", 100), _answer("/usr/bin", 100), _answer("Plano", 100)
     )
     question = import_question(source, format="moodle-xml")
-    assert [p.pattern for p in question.accept] == ["Brasília", "`/usr/bin`", "Plano*"]
+    assert [p.pattern for p in question.accept] == ["Brasília", "`/usr/bin`", "Plano"]
 
 
 def test_gift_import_writes_a_lone_asterisk_as_an_exact_literal() -> None:

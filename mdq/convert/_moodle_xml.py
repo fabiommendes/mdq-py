@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from collections.abc import Sequence
 from typing import ClassVar, Literal, TypedDict, assert_never
 
@@ -28,17 +28,20 @@ from ..models import (
 )
 from ..types import EssayContent
 from ._base import (
-    absolute_tolerance,
     blank_choice_scores,
     split_true_false_group,
     true_false_group_stem,
     effective_scores,
     ConversionBase,
+    ImportedAnswer,
+    exported_general_feedback,
+    general_feedback_meta,
+    mdq_text,
+    exported_short_answers,
     float_answer,
-    literal_answers,
-    literal_pattern,
+    numeric_answer_key,
+    short_answer_key,
     require_automatic,
-    mdq_numeric_answer,
     moodle_percent,
     score_from_moodle_percent,
 )
@@ -78,7 +81,15 @@ __all__ = [
 type MoodleXmlType = Literal[
     "multichoice", "truefalse", "shortanswer", "numerical", "essay", "multianswer"
 ]
-type MoodleTextFormat = Literal["html", "moodle", "plain_text", "markdown"]
+type MoodleTextFormat = Literal["html", "moodle_auto_format", "plain_text", "markdown"]
+
+#: The `format` attribute values Moodle recognizes, except `wiki_like`.
+MOODLE_TEXT_FORMATS: tuple[MoodleTextFormat, ...] = (
+    "html",
+    "moodle_auto_format",
+    "plain_text",
+    "markdown",
+)
 type ClozeKind = Literal["SHORTANSWER", "NUMERICAL", "MULTICHOICE"]
 
 CLOZE_KIND_ALIASES: dict[str, ClozeKind] = {
@@ -108,6 +119,7 @@ class _BlockFields(TypedDict):
     idnumber: str | None
     text_format: MoodleTextFormat
     general_feedback: str | None
+    general_feedback_format: MoodleTextFormat | None
     default_grade: float
     tags: list[str]
 
@@ -119,6 +131,7 @@ class _BlockMeta(TypedDict):
     idnumber: str | None
     tags: list[str]
     default_grade: float
+    general_feedback: str | None
 
 
 class _QuestionMeta(TypedDict):
@@ -128,6 +141,7 @@ class _QuestionMeta(TypedDict):
     id: str | None
     tags: list[str]
     weight: float
+    meta: dict[str, object] | None
 
 
 def _block_meta(question: Question) -> _BlockMeta:
@@ -137,6 +151,7 @@ def _block_meta(question: Question) -> _BlockMeta:
         "idnumber": question.id,
         "tags": list(question.tags),
         "default_grade": question.weight,
+        "general_feedback": exported_general_feedback(question, format=_FORMAT),
     }
 
 
@@ -147,6 +162,7 @@ def _question_meta(block: _BlockBase) -> _QuestionMeta:
         "id": block.idnumber,
         "tags": list(block.tags),
         "weight": block.default_grade,
+        "meta": general_feedback_meta(block.general_feedback),
     }
 
 
@@ -206,6 +222,11 @@ class MoodleAnswer:
     fraction: float = 0.0
     feedback: str | None = None
     tolerance: float | None = None  # numerical only
+    #: The `format` of the `<answer>` and of its `<feedback>` as read from a
+    #: file (`None`: that of the question). A rendered answer takes the format
+    #: of its question, so these take no part in equality.
+    text_format: MoodleTextFormat | None = field(default=None, compare=False)
+    feedback_format: MoodleTextFormat | None = field(default=None, compare=False)
 
 
 @dataclass
@@ -230,6 +251,9 @@ class _BlockBase:
     general_feedback: str | None = None
     default_grade: float = 1.0
     tags: list[str] = field(default_factory=list)
+    #: The `format` of `<generalfeedback>` as read from a file (`None`: that
+    #: of the question). Not rendered, so not compared.
+    general_feedback_format: MoodleTextFormat | None = field(default=None, compare=False)
 
     def __str__(self) -> str:
         return render_element(self.to_element())
@@ -361,6 +385,8 @@ class EssayBlock(_BlockBase):
 
     grader_info: str | None = None
     response_format: str | None = None
+    #: The `format` of `<graderinfo>` as read from a file (`None`: that of the question).
+    grader_info_format: MoodleTextFormat | None = field(default=None, compare=False)
 
     def _add_details(self, question_el: ET.Element) -> None:
         if self.grader_info is not None:
@@ -472,7 +498,8 @@ def block_from_selection(question: MultipleSelectionQuestion
 
 def blocks_from_true_false(question: TrueFalseQuestion
 ) -> list[TrueFalseBlock]:
-    group_stem = true_false_group_stem(question, epilogue=True)
+    group_stem = true_false_group_stem(question)
+    group_feedback = exported_general_feedback(question, format=_FORMAT)
     blocks = []
     for i, statement in enumerate(question.choices):
         text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -491,6 +518,7 @@ def blocks_from_true_false(question: TrueFalseQuestion
                 idnumber=question.id if i == 0 else None,
                 tags=list(question.tags) if i == 0 else [],
                 default_grade=question.weight,
+                general_feedback=group_feedback if i == 0 else None,
             )
         )
     return blocks
@@ -501,6 +529,8 @@ def block_from_numeric(question: NumericQuestion) -> NumericalBlock:
     answers = [
         MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
     ]
+    if question.incorrect_feedback is not None:
+        answers.append(any_other_answer(question.incorrect_feedback))
     return NumericalBlock(
         questiontext=join_blocks(question.stem, question.epilogue),
         answers=answers,
@@ -510,22 +540,33 @@ def block_from_numeric(question: NumericQuestion) -> NumericalBlock:
 
 def block_from_short(question: ShortAnswerQuestion) -> ShortAnswerBlock:
     require_automatic(question, format=_FORMAT)
-    answers = [
-        MoodleAnswer(text=text, fraction=100.0)
-        for text in literal_answers(question.accept, format=_FORMAT)
-    ]
-    if question.incorrect_feedback is not None:
-        # Moodle's "any other answer" idiom.
-        answers.append(
-            MoodleAnswer(
-                text="*", fraction=0.0, feedback=question.incorrect_feedback
-            )
-        )
+    answers = short_moodle_answers(
+        question.accept, question.reject, question.incorrect_feedback
+    )
     return ShortAnswerBlock(
         questiontext=join_blocks(question.stem, question.epilogue),
         answers=answers,
         **_block_meta(question),
     )
+
+def any_other_answer(feedback: str) -> MoodleAnswer:
+    """Moodle's "any other answer" idiom: a `*` answer worth 0% with the feedback."""
+    return MoodleAnswer(text="*", fraction=0.0, feedback=feedback)
+
+
+def short_moodle_answers(
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+    incorrect_feedback: str | None,
+) -> list[MoodleAnswer]:
+    """The answers of a short answer, or of a short answer blank, in Moodle's order."""
+    answers = [
+        MoodleAnswer(text=a.text, fraction=a.credit * 100, feedback=a.feedback)
+        for a in exported_short_answers(accept, reject, format=_FORMAT)
+    ]
+    if incorrect_feedback is not None:
+        answers.append(any_other_answer(incorrect_feedback))
+    return answers
 
 def block_from_essay(question: EssayQuestion) -> EssayBlock:
     return EssayBlock(
@@ -583,29 +624,28 @@ def cloze_from_blank(blank: Blank) -> MoodleCloze:
     match blank:
         case ChoiceBlank():
             answers = [
-                MoodleAnswer(text=choice.text, fraction=score * 100)
+                MoodleAnswer(
+                    text=choice.text, fraction=score * 100, feedback=choice.feedback
+                )
                 for choice, score in zip(blank.choices, blank_choice_scores(blank))
             ]
             return MoodleCloze(kind="MULTICHOICE", answers=answers)
         case ShortAnswerBlank():
             return MoodleCloze(
                 kind="SHORTANSWER",
-                answers=[
-                    MoodleAnswer(text=text, fraction=100.0)
-                    for text in literal_answers(blank.accept, format=_FORMAT)
-                ],
+                answers=short_moodle_answers(
+                    blank.accept, blank.reject, blank.incorrect_feedback
+                ),
             )
         case NumericBlank():
             value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
             tolerance = numeric_tolerance(value, blank.tolerance)
-            return MoodleCloze(
-                kind="NUMERICAL",
-                answers=[
-                    MoodleAnswer(
-                        text=format_num(value), fraction=100.0, tolerance=tolerance
-                    )
-                ],
-            )
+            answers = [
+                MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
+            ]
+            if blank.incorrect_feedback is not None:
+                answers.append(any_other_answer(blank.incorrect_feedback))
+            return MoodleCloze(kind="NUMERICAL", answers=answers)
         case _:
             assert_never(blank)
 
@@ -615,15 +655,72 @@ def decode_question(moodle: MoodleXmlQuestion) -> Question:
     """A single block converts directly; several blocks must form a true/false group."""
     if not moodle.blocks:
         raise ValueError("Moodle XML question has no blocks")
-    if len(moodle.blocks) == 1:
-        return block_to_mdq(moodle.blocks[0])
-    statements = [b for b in moodle.blocks if isinstance(b, TrueFalseBlock)]
-    if len(statements) == len(moodle.blocks):
+    blocks = [markdown_block(block) for block in moodle.blocks]
+    if len(blocks) == 1:
+        return block_to_mdq(blocks[0])
+    statements = [b for b in blocks if isinstance(b, TrueFalseBlock)]
+    if len(statements) == len(blocks):
         return true_false_from_blocks(statements)
     raise ValueError(
         "a Moodle XML question group with more than one block is only "
         "supported when every block is a true/false statement"
     )
+
+def markdown_block(block: MoodleXmlBlock) -> MoodleXmlBlock:
+    """
+    The block with each text in MDQ's Markdown, by the `format` of its own
+    element (`mdq_text`): the question text, the general feedback, the grader
+    info, the feedback of every answer and the text of a choice. The text of a
+    short answer or numeric answer is not Markdown, so it is kept. The
+    question text of a cloze question is converted by `fill_in_from_block`,
+    around its blanks.
+    """
+    default = block.text_format
+
+    def convert(text: str | None, text_format: MoodleTextFormat | None) -> str | None:
+        return None if text is None else mdq_text(text, text_format or default)
+
+    def convert_answer(answer: MoodleAnswer, *, text: bool) -> MoodleAnswer:
+        return replace(
+            answer,
+            text=(convert(answer.text, answer.text_format) or "") if text else answer.text,
+            feedback=convert(answer.feedback, answer.feedback_format),
+        )
+
+    general_feedback = convert(block.general_feedback, block.general_feedback_format)
+    match block:
+        case MultichoiceBlock():
+            return replace(
+                block,
+                questiontext=mdq_text(block.questiontext, default),
+                general_feedback=general_feedback,
+                answers=[convert_answer(a, text=True) for a in block.answers],
+            )
+        case ShortAnswerBlock() | NumericalBlock():
+            return replace(
+                block,
+                questiontext=mdq_text(block.questiontext, default),
+                general_feedback=general_feedback,
+                answers=[convert_answer(a, text=False) for a in block.answers],
+            )
+        case EssayBlock():
+            return replace(
+                block,
+                questiontext=mdq_text(block.questiontext, default),
+                general_feedback=general_feedback,
+                grader_info=convert(block.grader_info, block.grader_info_format),
+            )
+        case TrueFalseBlock():
+            return replace(
+                block,
+                questiontext=mdq_text(block.questiontext, default),
+                general_feedback=general_feedback,
+            )
+        case MultianswerBlock():
+            return replace(block, general_feedback=general_feedback)
+        case _:
+            assert_never(block)
+
 
 def block_to_mdq(block: MoodleXmlBlock) -> Question:
     match block:
@@ -644,21 +741,22 @@ def block_to_mdq(block: MoodleXmlBlock) -> Question:
         case _:
             assert_never(block)
 
+def imported_answers(answers: Sequence[MoodleAnswer]) -> list[ImportedAnswer]:
+    """The answers of a Moodle short answer or numerical question, for the key helpers."""
+    return [
+        ImportedAnswer(a.text, score_from_moodle_percent(a.fraction), a.feedback, a.tolerance)
+        for a in answers
+    ]
+
 def short_answer_from_block(block: ShortAnswerBlock) -> ShortAnswerQuestion:
-    accept: list[AnswerPattern] = []
-    incorrect_feedback: str | None = None
-    for a in block.answers:
-        if a.text.strip(" \t\r\n") == "*":
-            if a.fraction == 100:
-                accept.append(AnswerPattern(pattern="/.*/"))
-            elif a.feedback:
-                incorrect_feedback = a.feedback
-            continue
-        accept.append(literal_pattern(a.text, format=_FORMAT))
+    key = short_answer_key(
+        imported_answers(block.answers), format=_FORMAT, any_answer=True
+    )
     return ShortAnswerQuestion(
         stem=block.questiontext,
-        accept=accept,
-        incorrect_feedback=incorrect_feedback,
+        accept=key.accept,
+        reject=key.reject,
+        incorrect_feedback=key.incorrect_feedback,
         **_question_meta(block),
     )
 
@@ -701,13 +799,13 @@ def choice_from_true_false_block(block: TrueFalseBlock
     )
 
 def numeric_from_block(block: NumericalBlock) -> NumericQuestion:
-    answer = block.answers[0]
-    tolerance = absolute_tolerance(answer.tolerance)
+    key = numeric_answer_key(imported_answers(block.answers), format=_FORMAT)
     return NumericQuestion(
         stem=block.questiontext,
-        answer=mdq_numeric_answer(answer.text),
+        answer=key.answer,
         unit=_mdq_unit(block.unit),
-        tolerance=tolerance,
+        tolerance=key.tolerance,
+        incorrect_feedback=key.incorrect_feedback,
         **_question_meta(block),
     )
 
@@ -721,11 +819,12 @@ def essay_from_block(block: EssayBlock) -> EssayQuestion:
 
 def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
     segments, clozes = parse_cloze(block.questiontext)
+    segments = [mdq_text(segment, block.text_format) for segment in segments]
     parts = [segments[0]]
     blanks: list[Blank] = []
     for i, cloze in enumerate(clozes):
         blank_id = f"blank{i + 1}"
-        blanks.append(blank_from_cloze(blank_id, cloze))
+        blanks.append(blank_from_cloze(blank_id, cloze, block.text_format))
         parts.append(f"[^{blank_id}]")
         parts.append(segments[i + 1])
     return FillInQuestion(
@@ -735,8 +834,20 @@ def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
         **_question_meta(block),
     )
 
-def blank_from_cloze(blank_id: str, cloze: MoodleCloze) -> Blank:
-    if cloze.kind == "MULTICHOICE":
+def blank_from_cloze(
+    blank_id: str, cloze: MoodleCloze, text_format: MoodleTextFormat
+) -> Blank:
+    """The blank of a cloze: its texts are written in the `text_format` of the question."""
+    is_choice = cloze.kind == "MULTICHOICE"
+    answers = [
+        replace(
+            a,
+            text=mdq_text(a.text, text_format) if is_choice else a.text,
+            feedback=None if a.feedback is None else mdq_text(a.feedback, text_format),
+        )
+        for a in cloze.answers
+    ]
+    if is_choice:
         return ChoiceBlank(
             id=blank_id,
             choices=[
@@ -745,18 +856,23 @@ def blank_from_cloze(blank_id: str, cloze: MoodleCloze) -> Blank:
                     score=score_from_moodle_percent(a.fraction),
                     feedback=a.feedback,
                 )
-                for a in cloze.answers
+                for a in answers
             ],
         )
     if cloze.kind == "SHORTANSWER":
+        short = short_answer_key(imported_answers(answers), format=_FORMAT)
         return ShortAnswerBlank(
             id=blank_id,
-            accept=[literal_pattern(a.text, format=_FORMAT) for a in cloze.answers],
+            accept=short.accept,
+            reject=short.reject,
+            incorrect_feedback=short.incorrect_feedback,
         )
-    answer = cloze.answers[0]
-    tolerance = absolute_tolerance(answer.tolerance)
+    numeric = numeric_answer_key(imported_answers(answers), format=_FORMAT)
     return NumericBlank(
-        id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance
+        id=blank_id,
+        answer=numeric.answer,
+        tolerance=numeric.tolerance,
+        incorrect_feedback=numeric.incorrect_feedback,
     )
 
 def true_false_from_blocks(blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
@@ -768,11 +884,13 @@ def true_false_from_blocks(blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
         for text, block in zip(statement_texts, blocks)
     ]
 
+    meta = _question_meta(blocks[0])
+    meta["meta"] = general_feedback_meta(*(b.general_feedback for b in blocks))
     return TrueFalseQuestion(
         stem=group_stem,
         choices=choices,
         shuffle=_mdq_shuffle(blocks[0].shuffle_answers),
-        **_question_meta(blocks[0]),
+        **meta,
     )
 
 
@@ -817,10 +935,8 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
         questiontext = (
             text_node_content(questiontext_el) if questiontext_el is not None else ""
         )
-        text_format = (
-            questiontext_el.get("format", "markdown")
-            if questiontext_el is not None
-            else "markdown"
+        text_format = moodle_text_format(
+            questiontext_el.get("format") if questiontext_el is not None else None
         )
 
         generalfeedback_el = question_el.find("generalfeedback")
@@ -829,6 +945,7 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
             if generalfeedback_el is not None
             else None
         )
+        general_feedback_format = element_text_format(generalfeedback_el, text_format)
 
         defaultgrade_el = question_el.find("defaultgrade")
         default_grade = (
@@ -842,8 +959,9 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
             questiontext=questiontext,
             name=name,
             idnumber=idnumber,
-            text_format=text_format,  # type: ignore[typeddict-item]  # Moodle format attribute is free text
+            text_format=text_format,
             general_feedback=general_feedback,
+            general_feedback_format=general_feedback_format,
             default_grade=default_grade,
             tags=tags,
         )
@@ -874,7 +992,10 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
                     responseformat_el.text if responseformat_el is not None else None
                 )
                 return EssayBlock(
-                    **common, grader_info=grader_info, response_format=response_format
+                    **common,
+                    grader_info=grader_info,
+                    response_format=response_format,
+                    grader_info_format=element_text_format(graderinfo_el, text_format),
                 )
             case "multianswer":
                 return MultianswerBlock(**common, shuffle_answers=shuffle_answers)
@@ -984,8 +1105,37 @@ def text_node_content(parent: ET.Element) -> str:
     return (text_el.text if text_el is not None else None) or ""
 
 
+def moodle_text_format(value: str | None) -> MoodleTextFormat:
+    """
+    The `format` attribute `value` as a `MoodleTextFormat`. A missing value,
+    `wiki_like` (which MDQ has no reading of) and an unknown one are `html`,
+    as Moodle's own importer reads them.
+    """
+    value = (value or "").strip()
+    for known in MOODLE_TEXT_FORMATS:
+        if value == known:
+            return known
+    return "html"
+
+
+def element_text_format(
+    element: ET.Element | None, default: MoodleTextFormat
+) -> MoodleTextFormat | None:
+    """
+    The `format` of a text element such as `<generalfeedback>`, which
+    defaults to `default` (the format of the question text) when missing.
+    `None` if there is no element.
+    """
+    if element is None:
+        return None
+    return moodle_text_format(element.get("format")) if "format" in element.attrib else default
+
+
 def answer_from_element(answer_el: ET.Element) -> MoodleAnswer:
-    """Parse one `<answer>` element into a `MoodleAnswer`."""
+    """
+    Parse one `<answer>` element into a `MoodleAnswer`. The `<answer>` and its
+    `<feedback>` are `html` when they have no `format`, as in Moodle.
+    """
     feedback_el = answer_el.find("feedback")
     feedback = text_node_content(feedback_el) if feedback_el is not None else None
     tolerance_el = answer_el.find("tolerance")
@@ -999,6 +1149,10 @@ def answer_from_element(answer_el: ET.Element) -> MoodleAnswer:
         fraction=float(answer_el.get("fraction", "0")),
         feedback=feedback or None,
         tolerance=tolerance,
+        text_format=moodle_text_format(answer_el.get("format")),
+        feedback_format=moodle_text_format(
+            feedback_el.get("format") if feedback_el is not None else None
+        ),
     )
 
 

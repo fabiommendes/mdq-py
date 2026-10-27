@@ -274,7 +274,7 @@ def test_b4_import_answers_become_accept_entries(importer: str) -> None:
         ("/usr/bin", "`/usr/bin`"),
         ("`x`", None),
         ("a`b", "a`b"),
-        ("Amazonas*", "Amazonas*"),
+        ("Amazonas*", None),
     ],
     ids=["slash", "backtick-start", "inner-backtick", "trailing-star"],
 )

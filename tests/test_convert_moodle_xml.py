@@ -65,12 +65,11 @@ def _plain_pattern() -> st.SearchStrategy[str]:
     """
     An `accept` pattern that is a plain literal and survives a Moodle round trip: no
     leading `/` or backtick, no line ending (a pattern string is one line), a
-    visible character, and not a lone `*` (Moodle imports `*` with fraction 100
-    as the regex `/.*/`).
+    visible character, and no `*` (Moodle reads it as a wildcard).
     """
     return mdq_text(max_size=15).filter(
         lambda text: not text.startswith(("/", "`"))
-        and text != "*"
+        and "*" not in text
         and not starts_block(text)
         and "\n" not in text
         and "\r" not in text

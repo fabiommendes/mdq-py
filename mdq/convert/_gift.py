@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal, NoReturn, assert_never
 
 from ..models import (
@@ -22,18 +22,21 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ._base import (
-    absolute_tolerance,
     blank_choice_scores,
     split_true_false_group,
     true_false_group_stem,
     effective_scores,
     ConversionBase,
+    ImportedAnswer,
+    exported_general_feedback,
+    exported_short_answers,
+    general_feedback_meta,
+    mdq_text,
     float_answer,
-    literal_answers,
-    literal_pattern,
+    numeric_answer_key,
+    short_answer_key,
     require_automatic,
     format_moodle_percent,
-    mdq_numeric_answer,
     moodle_grade,
     moodle_score,
     score_from_moodle_percent,
@@ -70,6 +73,7 @@ __all__ = [
 ]
 
 FORMAT_TAG_REGEX = re.compile(r"\[(html|moodle|plain|markdown)\]")
+BLANK_LINE_REGEX = re.compile(r"\n[ \t]*\n")
 
 
 class Gift(ConversionBase["GiftQuestion"]):
@@ -118,7 +122,7 @@ class GiftOption:
     """One `=`/`~` answer entry."""
 
     text: str
-    credit: float = 0.0
+    credit: float = 1.0
     feedback: str | None = None
 
 
@@ -180,6 +184,12 @@ class GiftBlock:
     comment: str | None = None
     text_format: GiftTextFormat = "moodle"
     general_feedback: str | None = None
+    #: The whitespace between the stem and `{`, and between `}` and the tail,
+    #: as the source had it (a missing-word question keeps the spaces around
+    #: its blank). Layout, not content: it takes no part in equality.
+    #: `None` is the single space before `{` that GIFT usually has.
+    stem_space: str | None = field(default=None, compare=False)
+    tail_space: str = field(default="", compare=False)
 
     def __str__(self) -> str:
         lines: list[str] = []
@@ -197,9 +207,10 @@ class GiftBlock:
             sep = " " if body else ""
             body = f"{body}{sep}#### {escape_gift(self.general_feedback)}"
 
-        line = f"{head} {{{body}}}"
+        space = " " if self.stem_space is None else self.stem_space
+        line = f"{head}{space}{{{body}}}"
         if self.tail:
-            line += escape_gift(self.tail)
+            line += self.tail_space + escape_gift(self.tail)
         lines.append(line)
         return "\n".join(lines)
 
@@ -219,23 +230,35 @@ def gift_block(
     stem: str,
     answer: GiftAnswer,
     *,
-    tail: str | None = None,
+    tail: str = "",
     general_feedback: str | None = None,
 ) -> GiftBlock:
     """
     Build the block of `question` with the metadata every GIFT encoder
-    copies. `tail` is the epilogue unless given.
+    copies. GIFT has no epilogue: the caller joins it to the stem, as Moodle
+    XML does, or puts it in the tail of a missing-word question. The general
+    feedback is `meta.generalFeedback`, or `general_feedback` (the answer key
+    of an essay, GIFT has one `####` for both).
+
+    Raises:
+        ValueError: `general_feedback` and `meta.generalFeedback` are both set,
+            or the latter is not valid.
     """
+    meta_feedback = exported_general_feedback(question, format="GIFT")
+    if general_feedback is not None and meta_feedback is not None:
+        raise ValueError(
+            "cannot convert to GIFT: the answer key and `meta.generalFeedback` "
+            "are both the `####` text of the question"
+        )
     return GiftBlock(
         stem=stem,
         answer=answer,
-        tail=(question.epilogue or "") if tail is None else tail,
+        tail=tail,
         title=question.title,
         comment=question.comment,
         text_format="markdown",
-        general_feedback=general_feedback,
+        general_feedback=general_feedback if meta_feedback is None else meta_feedback,
     )
-
 
 
 def encode_question(question: Question) -> GiftQuestion:
@@ -258,6 +281,10 @@ def encode_question(question: Question) -> GiftQuestion:
         case _:
             assert_never(question)
 
+def with_epilogue(question: Question) -> str:
+    """The stem followed by the epilogue: after `}` GIFT would read a missing-word question."""
+    return join_blocks(question.stem, question.epilogue)
+
 def block_from_choice(question: MultipleChoiceQuestion) -> GiftBlock:
     options = [
         GiftOption(
@@ -267,30 +294,32 @@ def block_from_choice(question: MultipleChoiceQuestion) -> GiftBlock:
         )
         for choice, score in zip(question.choices, effective_scores(question))
     ]
-    return gift_block(question, question.stem, GiftChoice(options=options))
+    return gift_block(question, with_epilogue(question), GiftChoice(options=options))
 
 def block_from_short(question: ShortAnswerQuestion) -> GiftBlock:
     require_automatic(question, format="GIFT")
     options = [
-        GiftOption(text=answer, credit=1.0)
-        for answer in literal_answers(question.accept, format="GIFT")
+        GiftOption(text=answer.text, credit=answer.credit, feedback=answer.feedback)
+        for answer in exported_short_answers(
+            question.accept, question.reject, format="GIFT"
+        )
     ]
-    return gift_block(question, question.stem, GiftShort(options=options))
+    return gift_block(question, with_epilogue(question), GiftShort(options=options))
 
 def block_from_numeric(question: NumericQuestion) -> GiftBlock:
     value = float_answer(question.answer, question.tolerance, format="GIFT")
     tolerance = numeric_tolerance(value, question.tolerance)
     answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
-    return gift_block(question, question.stem, answer)
+    return gift_block(question, with_epilogue(question), answer)
 
 def block_from_essay(question: EssayQuestion) -> GiftBlock:
     return gift_block(
-        question, question.stem, GiftEssay(), general_feedback=question.answer_key
+        question, with_epilogue(question), GiftEssay(), general_feedback=question.answer_key
     )
 
 def blocks_from_true_false(question: TrueFalseQuestion) -> list[GiftBlock]:
-    # GIFT has no place for the epilogue of a statement group.
-    group_stem = true_false_group_stem(question, epilogue=False)
+    group_stem = true_false_group_stem(question)
+    group_feedback = exported_general_feedback(question, format="GIFT")
     blocks = []
     for i, statement in enumerate(question.choices):
         stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -301,6 +330,7 @@ def blocks_from_true_false(question: TrueFalseQuestion) -> list[GiftBlock]:
                 title=question.title if i == 0 else None,
                 comment=question.comment if i == 0 else None,
                 text_format="markdown",
+                general_feedback=group_feedback if i == 0 else None,
             )
         )
     return blocks
@@ -333,8 +363,12 @@ def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
         case ShortAnswerBlank():
             answer = GiftShort(
                 options=[
-                    GiftOption(text=answer_text, credit=1.0)
-                    for answer_text in literal_answers(blank.accept, format="GIFT")
+                    GiftOption(
+                        text=answer.text, credit=answer.credit, feedback=answer.feedback
+                    )
+                    for answer in exported_short_answers(
+                        blank.accept, blank.reject, format="GIFT"
+                    )
                 ]
             )
         case NumericBlank():
@@ -346,12 +380,19 @@ def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
         case _:
             assert_never(blank)
 
-    return gift_block(
-        question,
-        join_blocks(stem_part),
-        answer,
-        tail=join_blocks(tail_part, question.epilogue),
-    )
+    tail = "\n".join(part for part in (tail_part.strip(), (question.epilogue or "").strip()) if part)
+    if BLANK_LINE_REGEX.search(tail):
+        raise ValueError(
+            "cannot convert to GIFT: the text after the blank has a blank line, "
+            "which would end the GIFT block"
+        )
+    stem = stem_part.strip()
+    block = gift_block(question, stem, answer, tail=tail)
+    if stem:
+        block.stem_space = stem_part[len(stem_part.rstrip()) :]
+    if tail_part.strip():
+        block.tail_space = tail_part[: len(tail_part) - len(tail_part.lstrip())]
+    return block
 
 
 
@@ -359,17 +400,61 @@ def decode_question(gift: GiftQuestion) -> Question:
     """A single block converts directly; several blocks must form a true/false group."""
     if not gift.blocks:
         raise ValueError("GIFT question has no blocks")
-    if len(gift.blocks) == 1:
-        return block_to_mdq(gift.blocks[0])
-    if all(isinstance(b.answer, GiftBoolean) for b in gift.blocks):
-        return true_false_from_blocks(gift.blocks)
+    blocks = [markdown_block(block) for block in gift.blocks]
+    if len(blocks) == 1:
+        return block_to_mdq(blocks[0])
+    if all(isinstance(b.answer, GiftBoolean) for b in blocks):
+        return true_false_from_blocks(blocks)
     raise ValueError(
         "a GIFT question group with more than one block is only "
         "supported when every block is a true/false statement"
     )
 
+def markdown_block(block: GiftBlock) -> GiftBlock:
+    """
+    The block with its Markdown texts in MDQ's Markdown: the stem, tail,
+    general feedback, choice texts and every feedback of a `[plain]` block
+    are escaped (`mdq_text`). The text of a short answer or numeric option
+    is not Markdown, so it is kept.
+    """
+    if block.text_format != "plain":
+        return block
+
+    def convert(text: str | None) -> str | None:
+        return None if text is None else mdq_text(text, block.text_format)
+
+    def convert_option(option: GiftOption, *, text: bool) -> GiftOption:
+        return replace(
+            option,
+            text=mdq_text(option.text, "plain") if text else option.text,
+            feedback=convert(option.feedback),
+        )
+
+    answer = block.answer
+    match answer:
+        case GiftChoice():
+            answer = GiftChoice([convert_option(o, text=True) for o in answer.options])
+        case GiftShort():
+            answer = GiftShort([convert_option(o, text=False) for o in answer.options])
+        case GiftNumeric():
+            answer = GiftNumeric(
+                [replace(o, feedback=convert(o.feedback)) for o in answer.options]
+            )
+        case GiftEssay() | GiftBoolean():
+            pass
+        case _:
+            assert_never(answer)
+    return replace(
+        block,
+        stem=mdq_text(block.stem, "plain"),
+        tail=mdq_text(block.tail, "plain"),
+        general_feedback=convert(block.general_feedback),
+        answer=answer,
+    )
+
 def block_to_mdq(block: GiftBlock) -> Question:
     answer = block.answer
+    meta = general_feedback_meta(block.general_feedback)
 
     match answer:
         case GiftEssay():
@@ -390,6 +475,7 @@ def block_to_mdq(block: GiftBlock) -> Question:
                     ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
                     ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
                 ],
+                meta=meta,
                 title=block.title,
                 comment=block.comment,
             )
@@ -400,9 +486,10 @@ def block_to_mdq(block: GiftBlock) -> Question:
 
     if block.tail:
         blank = blank_from_answer(answer)
-        stem = f"{block.stem}[^blank]{block.tail}".strip()
+        stem = f"{block.stem}{block.stem_space or ''}[^blank]{block.tail_space}{block.tail}"
         return FillInQuestion(
-            stem=stem, blanks=[blank], title=block.title, comment=block.comment
+            stem=stem, blanks=[blank], meta=meta,
+                title=block.title, comment=block.comment
         )
 
     match answer:
@@ -413,30 +500,49 @@ def block_to_mdq(block: GiftBlock) -> Question:
                     ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
                     for o in answer.options
                 ],
+                meta=meta,
                 title=block.title,
                 comment=block.comment,
             )
         case GiftShort():
+            short = short_answer_key(imported_options(answer.options), format="GIFT")
             return ShortAnswerQuestion(
                 stem=block.stem,
-                accept=[
-                    literal_pattern(o.text, format="GIFT") for o in answer.options
-                ],
+                accept=short.accept,
+                reject=short.reject,
+                incorrect_feedback=short.incorrect_feedback,
+                meta=meta,
                 title=block.title,
                 comment=block.comment,
             )
         case GiftNumeric():
-            opt = answer.options[0]
-            tolerance = absolute_tolerance(opt.tolerance)
+            numeric = numeric_answer_key(
+                imported_numeric_options(answer.options), format="GIFT"
+            )
             return NumericQuestion(
                 stem=block.stem,
-                answer=mdq_numeric_answer(format_num(opt.value)),
-                tolerance=tolerance,
+                answer=numeric.answer,
+                tolerance=numeric.tolerance,
+                incorrect_feedback=numeric.incorrect_feedback,
+                meta=meta,
                 title=block.title,
                 comment=block.comment,
             )
         case _:
             assert_never(answer)
+
+def imported_options(options: list[GiftOption]) -> list[ImportedAnswer]:
+    """The short-answer options of a GIFT body, as the answers of `short_answer_key`."""
+    return [ImportedAnswer(o.text, o.credit, o.feedback) for o in options]
+
+
+def imported_numeric_options(options: list[GiftNumericOption]) -> list[ImportedAnswer]:
+    """The numeric options of a GIFT body, as the answers of `numeric_answer_key`."""
+    return [
+        ImportedAnswer(format_num(o.value), o.credit, o.feedback, o.tolerance)
+        for o in options
+    ]
+
 
 def blank_from_answer(answer: GiftAnswer) -> Blank:
     match answer:
@@ -449,19 +555,22 @@ def blank_from_answer(answer: GiftAnswer) -> Blank:
                 ],
             )
         case GiftShort():
+            short = short_answer_key(imported_options(answer.options), format="GIFT")
             return ShortAnswerBlank(
                 id="blank",
-                accept=[
-                    literal_pattern(o.text, format="GIFT") for o in answer.options
-                ],
+                accept=short.accept,
+                reject=short.reject,
+                incorrect_feedback=short.incorrect_feedback,
             )
         case GiftNumeric():
-            opt = answer.options[0]
-            tolerance = absolute_tolerance(opt.tolerance)
+            numeric = numeric_answer_key(
+                imported_numeric_options(answer.options), format="GIFT"
+            )
             return NumericBlank(
                 id="blank",
-                answer=mdq_numeric_answer(format_num(opt.value)),
-                tolerance=tolerance,
+                answer=numeric.answer,
+                tolerance=numeric.tolerance,
+                incorrect_feedback=numeric.incorrect_feedback,
             )
         case GiftEssay() | GiftBoolean():
             raise ValueError(
@@ -482,6 +591,7 @@ def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
     return TrueFalseQuestion(
         stem=group_stem,
         choices=choices,
+        meta=general_feedback_meta(*(b.general_feedback for b in blocks)),
         title=blocks[0].title,
         comment=blocks[0].comment,
     )
@@ -543,7 +653,9 @@ class GiftParser(StringParser[GiftQuestion]):
         brace_pos = find_unescaped(rest, "{", pos)
         if brace_pos == -1:
             self.fail("missing answer '{...}' body", consumed + pos)
-        stem = unescape_gift(rest[pos:brace_pos]).strip()
+        stem_raw = unescape_gift(rest[pos:brace_pos])
+        stem = stem_raw.strip()
+        stem_space = stem_raw[len(stem_raw.rstrip()) :] if stem else None
         pos = brace_pos + 1
 
         close_pos = find_unescaped(rest, "}", pos)
@@ -560,7 +672,13 @@ class GiftParser(StringParser[GiftQuestion]):
                 "only one {...} answer body is allowed per block",
                 consumed + pos + extra_open,
             )
-        tail = unescape_gift(tail_raw).strip()
+        tail_unescaped = unescape_gift(tail_raw)
+        tail = tail_unescaped.strip()
+        tail_space = (
+            tail_unescaped[: len(tail_unescaped) - len(tail_unescaped.lstrip())]
+            if tail
+            else ""
+        )
 
         answer, general_feedback = self.parse_answer(body_raw, body_offset)
         return GiftBlock(
@@ -571,6 +689,8 @@ class GiftParser(StringParser[GiftQuestion]):
             comment=comment,
             text_format=text_format,
             general_feedback=general_feedback,
+            stem_space=stem_space,
+            tail_space=tail_space,
         )
 
     def parse_answer(self, body_raw: str, offset: int) -> tuple[GiftAnswer, str | None]:
