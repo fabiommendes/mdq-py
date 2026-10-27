@@ -12,12 +12,15 @@ from .._markdown import starts_block
 from ..errors import ParseError
 from ..models import (
     AnswerPattern,
+    ChoiceBlank,
     MultipleChoiceQuestion,
     Question,
     ShortAnswerQuestion,
     Tolerance,
+    TrueFalseQuestion,
 )
 from ..types import QuestionType
+from ._common import common_prefix, join_blocks
 
 #: Every format `mdq.convert` can import from and export to.
 FORMATS: tuple[str, ...] = ("aiken", "gift", "moodle-xml")
@@ -36,6 +39,44 @@ CONVERSION_REGISTRY: dict[str, "ConversionBase[Any] | str"] = {
 #: share no leading paragraph. MDQ requires a stem with a visible character
 #: (docs/question-types/base.md, "Additional Rules").
 TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
+
+
+def true_false_group_stem(question: TrueFalseQuestion, *, epilogue: bool) -> str:
+    """
+    The text every statement of an exported true/false group starts with:
+    the question stem, plus the epilogue if the format keeps it. The
+    fallback stem stands for "no shared text", so it round-trips.
+    """
+    stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
+    return join_blocks(stem, question.epilogue if epilogue else None)
+
+
+def split_true_false_group(texts: list[str]) -> tuple[str, list[str]]:
+    """
+    Split the texts of an imported true/false group into the shared stem
+    and the statements: the stem is what comes before the last blank line of
+    the common prefix. Without one, the stem is `TRUE_FALSE_FALLBACK_STEM`.
+    """
+    prefix = common_prefix(texts)
+    split = prefix.rfind("\n\n")
+    if split == -1:
+        return TRUE_FALSE_FALLBACK_STEM, texts
+    boundary = split + 2
+    return prefix[:split].strip(), [text[boundary:] for text in texts]
+
+
+def absolute_tolerance(absolute: float | None) -> Tolerance | None:
+    """The `Tolerance` for an imported absolute tolerance, `None` if there is none (or zero)."""
+    return Tolerance(absolute=absolute) if absolute else None
+
+
+def blank_choice_scores(blank: ChoiceBlank) -> list[float]:
+    """
+    The score of each choice in a blank. An unmarked choice inside a blank
+    keeps `score = None`, which MDQ reads as zero credit; only top-level
+    choices are strict.
+    """
+    return [choice.score or 0.0 for choice in blank.choices]
 
 
 def mdq_numeric_answer(text: str) -> int | float | str:

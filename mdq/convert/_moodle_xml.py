@@ -23,13 +23,15 @@ from ..models import (
     ShortAnswerBlank,
     ShortAnswerQuestion,
     Statement,
-    Tolerance,
     TrueFalseQuestion,
 )
 from ..types import EssayContent
 from ._base import (
+    absolute_tolerance,
+    blank_choice_scores,
+    split_true_false_group,
+    true_false_group_stem,
     effective_scores,
-    TRUE_FALSE_FALLBACK_STEM,
     ConversionBase,
     float_answer,
     literal_answers,
@@ -40,7 +42,6 @@ from ._base import (
     score_from_moodle_percent,
 )
 from ._common import (
-    common_prefix,
     escape_text,
     find_unescaped,
     format_num,
@@ -279,9 +280,7 @@ class MoodleXmlEncoder:
     def blocks_from_true_false(
         self, question: TrueFalseQuestion
     ) -> list[MoodleXmlBlock]:
-        # The fallback stem stands for "no shared text", so it round-trips.
-        stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
-        group_stem = join_blocks(stem, question.epilogue)
+        group_stem = true_false_group_stem(question, epilogue=True)
         blocks = []
         for i, statement in enumerate(question.choices):
             text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -404,11 +403,9 @@ class MoodleXmlEncoder:
     def cloze_from_blank(self, blank: Blank) -> MoodleCloze:
         match blank:
             case ChoiceBlank():
-                # An unmarked choice inside a blank keeps `score = None`, which
-                # MDQ reads as zero credit; only top-level choices are strict.
                 answers = [
-                    MoodleAnswer(text=choice.text, fraction=(choice.score or 0.0) * 100)
-                    for choice in blank.choices
+                    MoodleAnswer(text=choice.text, fraction=score * 100)
+                    for choice, score in zip(blank.choices, blank_choice_scores(blank))
                 ]
                 return MoodleCloze(kind="MULTICHOICE", answers=answers)
             case ShortAnswerBlank():
@@ -535,7 +532,7 @@ class MoodleXmlDecoder:
 
     def numeric_from_block(self, block: MoodleXmlBlock) -> NumericQuestion:
         answer = block.answers[0]
-        tolerance = Tolerance(absolute=answer.tolerance) if answer.tolerance else None
+        tolerance = absolute_tolerance(answer.tolerance)
         return NumericQuestion(
             stem=block.questiontext,
             answer=mdq_numeric_answer(answer.text),
@@ -596,23 +593,14 @@ class MoodleXmlDecoder:
                 accept=[literal_pattern(a.text, format=_FORMAT) for a in cloze.answers],
             )
         answer = cloze.answers[0]
-        tolerance = Tolerance(absolute=answer.tolerance) if answer.tolerance else None
+        tolerance = absolute_tolerance(answer.tolerance)
         return NumericBlank(
             id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance
         )
 
     def true_false_from_blocks(self, blocks: list[MoodleXmlBlock]) -> TrueFalseQuestion:
         texts = [b.questiontext for b in blocks]
-        prefix = common_prefix(texts)
-        split = prefix.rfind("\n\n")
-
-        if split == -1:
-            group_stem = TRUE_FALSE_FALLBACK_STEM
-            statement_texts = texts
-        else:
-            group_stem = prefix[:split].strip()
-            boundary = split + 2
-            statement_texts = [t[boundary:] for t in texts]
+        group_stem, statement_texts = split_true_false_group(texts)
 
         choices = [
             Statement(text=text.strip(), correct=statement_correct(block))

@@ -19,12 +19,14 @@ from ..models import (
     ShortAnswerBlank,
     ShortAnswerQuestion,
     Statement,
-    Tolerance,
     TrueFalseQuestion,
 )
 from ._base import (
+    absolute_tolerance,
+    blank_choice_scores,
+    split_true_false_group,
+    true_false_group_stem,
     effective_scores,
-    TRUE_FALSE_FALLBACK_STEM,
     ConversionBase,
     float_answer,
     literal_answers,
@@ -37,7 +39,6 @@ from ._base import (
     score_from_moodle_percent,
 )
 from ._common import (
-    common_prefix,
     find_unescaped,
     format_num,
     join_blocks,
@@ -295,9 +296,8 @@ class GiftEncoder:
         )
 
     def blocks_from_true_false(self, question: TrueFalseQuestion) -> list[GiftBlock]:
-        # The fallback stem stands for "no shared text", so it round-trips.
-        stem = None if question.stem == TRUE_FALSE_FALLBACK_STEM else question.stem
-        group_stem = join_blocks(stem)
+        # GIFT has no place for the epilogue of a statement group.
+        group_stem = true_false_group_stem(question, epilogue=False)
         blocks = []
         for i, statement in enumerate(question.choices):
             stem = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -328,15 +328,13 @@ class GiftEncoder:
         answer: GiftAnswer
         match blank:
             case ChoiceBlank():
-                # An unmarked choice inside a blank keeps `score = None`, which
-                # MDQ reads as zero credit; only top-level choices are strict.
                 choice_options = [
                     GiftOption(
                         text=choice.text,
-                        credit=moodle_score(choice.score or 0.0, format="GIFT"),
+                        credit=moodle_score(score, format="GIFT"),
                         feedback=choice.feedback,
                     )
-                    for choice in blank.choices
+                    for choice, score in zip(blank.choices, blank_choice_scores(blank))
                 ]
                 answer = GiftChoice(options=choice_options)
             case ShortAnswerBlank():
@@ -440,7 +438,7 @@ class GiftDecoder:
                 )
             case GiftNumeric():
                 opt = answer.options[0]
-                tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
+                tolerance = absolute_tolerance(opt.tolerance)
                 return NumericQuestion(
                     stem=block.stem,
                     answer=mdq_numeric_answer(format_num(opt.value)),
@@ -470,7 +468,7 @@ class GiftDecoder:
                 )
             case GiftNumeric():
                 opt = answer.options[0]
-                tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
+                tolerance = absolute_tolerance(opt.tolerance)
                 return NumericBlank(
                     id="blank",
                     answer=mdq_numeric_answer(format_num(opt.value)),
@@ -485,17 +483,7 @@ class GiftDecoder:
                 assert_never(answer)
 
     def true_false_from_blocks(self, blocks: list[GiftBlock]) -> TrueFalseQuestion:
-        stems = [b.stem for b in blocks]
-        prefix = common_prefix(stems)
-        split = prefix.rfind("\n\n")
-
-        if split == -1:
-            group_stem = TRUE_FALSE_FALLBACK_STEM
-            statement_texts = stems
-        else:
-            group_stem = prefix[:split].strip()
-            boundary = split + 2
-            statement_texts = [s[boundary:] for s in stems]
+        group_stem, statement_texts = split_true_false_group([b.stem for b in blocks])
 
         choices = []
         for text, block in zip(statement_texts, blocks):
