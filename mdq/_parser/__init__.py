@@ -33,13 +33,13 @@ from ._choices import SLUG_PREFIX_RE
 from ._exam import INHERITED_FIELDS, SEPARATOR, inherit, is_exam, parse_exam
 from ._frontmatter import dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer, parse_numeric_string
-from ._question import (
+from ._blocks import (
     find_answer_key_forbidden_elements,
     find_forbidden_elements,
     find_stray_choice_markers,
-    parse_question,
     reconstruct_blocks,
 )
+from ._question import parse_question
 from ._spaces import find_unicode_spaces
 
 __all__ = [
