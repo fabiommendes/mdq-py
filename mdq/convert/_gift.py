@@ -37,13 +37,12 @@ from ._base import (
     score_from_moodle_percent,
 )
 from ._common import (
-    CREDIT_TAG_REGEX,
     common_prefix,
     find_unescaped,
     format_num,
     join_blocks,
     numeric_tolerance,
-    split_unescaped,
+    parse_entries,
 )
 from ._common import escape_text as escape_gift
 from ._common import unescape_text as unescape_gift
@@ -627,29 +626,14 @@ class GiftParser(StringParser[GiftQuestion]):
         return GiftShort(options=text_options), general_feedback
 
     def parse_options(self, content: str) -> list[GiftOption]:
-        options = []
-        for entry in split_unescaped(content, "=~"):
-            credit = 1.0 if entry[0] == "=" else 0.0
-            rest = entry[1:]
-            match = CREDIT_TAG_REGEX.match(rest)
-            if match:
-                credit = score_from_moodle_percent(float(match.group(1)))
-                rest = rest[match.end() :]
-            hash_pos = find_unescaped(rest, "#")
-            text_raw, feedback_raw = (
-                (rest, None)
-                if hash_pos == -1
-                else (rest[:hash_pos], rest[hash_pos + 1 :])
+        return [
+            GiftOption(
+                text=unescape_gift(entry.text).strip(),
+                credit=entry.credit,
+                feedback=unescape_feedback(entry.feedback),
             )
-            feedback = unescape_gift(feedback_raw).strip() if feedback_raw else None
-            options.append(
-                GiftOption(
-                    text=unescape_gift(text_raw).strip(),
-                    credit=credit,
-                    feedback=feedback or None,
-                )
-            )
-        return options
+            for entry in parse_entries(content, "=~", score_from_moodle_percent)
+        ]
 
     def parse_numeric_options(
         self, content: str, offset: int
@@ -660,27 +644,14 @@ class GiftParser(StringParser[GiftQuestion]):
             return [GiftNumericOption(value=value, tolerance=tolerance)]
 
         options = []
-        for entry in split_unescaped(body, "="):
-            rest = entry[1:]
-            credit = 1.0
-            match = CREDIT_TAG_REGEX.match(rest)
-            if match:
-                credit = score_from_moodle_percent(float(match.group(1)))
-                rest = rest[match.end() :]
-            hash_pos = find_unescaped(rest, "#")
-            spec_raw, feedback_raw = (
-                (rest, None)
-                if hash_pos == -1
-                else (rest[:hash_pos], rest[hash_pos + 1 :])
-            )
-            value, tolerance = self.parse_numeric_spec(spec_raw.strip(), offset)
-            feedback = unescape_gift(feedback_raw).strip() if feedback_raw else None
+        for entry in parse_entries(body, "=", score_from_moodle_percent):
+            value, tolerance = self.parse_numeric_spec(entry.text.strip(), offset)
             options.append(
                 GiftNumericOption(
                     value=value,
                     tolerance=tolerance,
-                    credit=credit,
-                    feedback=feedback or None,
+                    credit=entry.credit,
+                    feedback=unescape_feedback(entry.feedback),
                 )
             )
         return options
@@ -704,6 +675,11 @@ class GiftParser(StringParser[GiftQuestion]):
         self.lineno = prefix.count("\n")
         self.colno = pos - prefix.rfind("\n") - 1
         self.error(message)
+
+
+def unescape_feedback(raw: str | None) -> str | None:
+    """The text of an entry's `#feedback`, or `None` if it is missing or blank."""
+    return (unescape_gift(raw).strip() or None) if raw else None
 
 
 def render_gift_answer(answer: GiftAnswer) -> str:

@@ -40,14 +40,13 @@ from ._base import (
     score_from_moodle_percent,
 )
 from ._common import (
-    CREDIT_TAG_REGEX,
     common_prefix,
     escape_text,
     find_unescaped,
     format_num,
     join_blocks,
     numeric_tolerance,
-    split_unescaped,
+    parse_entries,
     unescape_text,
 )
 from ._string_parser import StringParser
@@ -802,28 +801,19 @@ def normalize_cloze_kind(raw: str) -> ClozeKind:
 def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
     """Parse a cloze blank's `=`/`~`-delimited option list."""
     answers = []
-    for entry in split_unescaped(body, "=~"):
-        credit = 1.0 if entry[0] == "=" else 0.0
-        rest = entry[1:]
-        credit_match = CREDIT_TAG_REGEX.match(rest)
-        if credit_match:
-            credit = float(credit_match.group(1)) / 100
-            rest = rest[credit_match.end() :]
-        hash_pos = find_unescaped(rest, "#")
-        text_raw, feedback_raw = (
-            (rest, None) if hash_pos == -1 else (rest[:hash_pos], rest[hash_pos + 1 :])
-        )
+    for entry in parse_entries(body, "=~", lambda percent: percent / 100):
+        text_raw = entry.text
         tolerance = None
         if kind == "NUMERICAL":
             colon_pos = find_unescaped(text_raw, ":")
             if colon_pos != -1:
                 tolerance = float(unescape_text(text_raw[colon_pos + 1 :]))
                 text_raw = text_raw[:colon_pos]
-        feedback = unescape_text(feedback_raw) if feedback_raw else None
+        feedback = unescape_text(entry.feedback) if entry.feedback else None
         answers.append(
             MoodleAnswer(
                 text=unescape_text(text_raw),
-                fraction=credit * 100,
+                fraction=entry.credit * 100,
                 feedback=feedback or None,
                 tolerance=tolerance,
             )

@@ -8,6 +8,8 @@ converters escape, scan and format text the same way.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from ..models import Tolerance
 
@@ -58,6 +60,40 @@ def split_unescaped(text: str, chars: str) -> list[str]:
             positions.append(i)
         i += 1
     return [text[a:b] for a, b in zip(positions, positions[1:] + [n])]
+
+
+@dataclass
+class Entry:
+    """One `=`/`~` entry of an answer body. `text` and `feedback` are still escaped."""
+
+    credit: float
+    text: str
+    feedback: str | None
+
+
+def parse_entries(
+    body: str, markers: str, credit_from_percent: Callable[[float], float]
+) -> list[Entry]:
+    """
+    Split an answer body into its entries: a marker from `markers` (`=` is
+    full credit, `~` none), an optional `%credit%` tag, the text and an
+    optional `#feedback`. `credit_from_percent` converts the tag's percentage
+    to a credit, which GIFT and Cloze do differently.
+    """
+    entries = []
+    for entry in split_unescaped(body, markers):
+        credit = 1.0 if entry[0] == "=" else 0.0
+        rest = entry[1:]
+        credit_match = CREDIT_TAG_REGEX.match(rest)
+        if credit_match:
+            credit = credit_from_percent(float(credit_match.group(1)))
+            rest = rest[credit_match.end() :]
+        hash_pos = find_unescaped(rest, "#")
+        if hash_pos == -1:
+            entries.append(Entry(credit, rest, None))
+        else:
+            entries.append(Entry(credit, rest[:hash_pos], rest[hash_pos + 1 :] or None))
+    return entries
 
 
 def common_prefix(strings: list[str]) -> str:
