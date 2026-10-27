@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Iterable, Protocol, assert_never
+from typing import Callable, Iterable, Protocol, assert_never
 
 import typer
 from rich.box import Box
@@ -486,25 +486,11 @@ class _View:
     def _body(self, question: models.Question) -> list[RenderableType]:
         match question:
             case models.MultipleChoiceQuestion():
-                return [
-                    self._choices(
-                        question.choices, [self._radio(c.score) for c in question.choices]
-                    )
-                ]
+                return [self._choices(question.choices, lambda c: self._radio(c.score))]
             case models.MultipleSelectionQuestion():
-                return [
-                    self._choices(
-                        question.choices,
-                        [self._checkbox(c.correct) for c in question.choices],
-                    )
-                ]
+                return [self._choices(question.choices, lambda c: self._checkbox(c.correct))]
             case models.TrueFalseQuestion():
-                return [
-                    self._choices(
-                        question.choices,
-                        [self._true_false(c.correct) for c in question.choices],
-                    )
-                ]
+                return [self._choices(question.choices, lambda c: self._true_false(c.correct))]
             case models.NumericQuestion():
                 return self._numeric(question)
             case models.ShortAnswerQuestion():
@@ -527,62 +513,53 @@ class _View:
     #
     # Choice-based bodies (multiple-choice, multiple-selection, true-false)
     #
-    def _choices(
-        self,
-        choices: Iterable[models.ScoredChoice | models.BooleanChoice | models.Statement],
-        marks: list[Text],
+    def _choices[C: models.ScoredChoice | models.BooleanChoice | models.Statement](
+        self, choices: Iterable[C], mark: Callable[[C], tuple[Text, bool]]
     ) -> RenderableType:
+        """A grid of choices; `mark` draws a choice's button and tells if it is a key."""
         grid = Table.grid(padding=(0, 1), expand=True)
         grid.add_column(width=_MARK_WIDTH, justify="left", no_wrap=True)
         grid.add_column(ratio=1)
-        for choice, mark in zip(choices, marks):
+        for choice in choices:
+            button, is_key = mark(choice)
             content: list[RenderableType] = [self._md(choice.text)]
             if self.show_key and choice.feedback:
                 content.append(self._feedback("Feedback", choice.feedback))
             if self.show_key and choice.comment:
                 content.append(self._feedback("Comment", choice.comment))
-            grid.add_row(mark, Group(*content), style=self._row_style(choice))
+            grid.add_row(button, Group(*content), style=self.t.key_style if is_key else "")
         return grid
 
-    def _row_style(
-        self, choice: models.ScoredChoice | models.BooleanChoice | models.Statement
-    ) -> str:
-        if not self.show_key:
-            return ""
-        score = getattr(choice, "score", None)
-        correct = getattr(choice, "correct", None)
-        if correct is True or score == 1.0:
-            return self.t.key_style
-        return ""
-
-    def _radio(self, score: float | None) -> Text:
+    # The mark functions return the button and whether the choice is a key.
+    def _radio(self, score: float | None) -> tuple[Text, bool]:
         g, t = self.g, self.t
         if not self.show_key or score is None or score == 0.0:
-            return Text(f" {g.radio_off}", style=t.muted)
+            return Text(f" {g.radio_off}", style=t.muted), False
         if score == 1.0:
-            return Text(f" {g.radio_on}", style=f"bold {t.correct}")
+            return Text(f" {g.radio_on}", style=f"bold {t.correct}"), True
         if score < 0:
-            return Text(f" {g.radio_negative} {score:+.0%}", style=f"bold {t.wrong}")
-        return Text(f" {g.radio_partial} {score:+.0%}", style=f"bold {t.partial}")
+            return Text(f" {g.radio_negative} {score:+.0%}", style=f"bold {t.wrong}"), False
+        return Text(f" {g.radio_partial} {score:+.0%}", style=f"bold {t.partial}"), False
 
-    def _checkbox(self, correct: bool) -> Text:
+    def _checkbox(self, correct: bool) -> tuple[Text, bool]:
         g, t = self.g, self.t
         if self.show_key and correct:
-            return Text(f" {g.check_on}", style=f"bold {t.correct}")
-        return Text(f" {g.check_off}", style=t.muted)
+            return Text(f" {g.check_on}", style=f"bold {t.correct}"), True
+        return Text(f" {g.check_off}", style=t.muted), False
 
-    def _true_false(self, correct: bool) -> Text:
+    def _true_false(self, correct: bool) -> tuple[Text, bool]:
         g, t = self.g, self.t
         if not self.show_key:
-            return Text(f" {g.radio_off}T {g.radio_off}F", style=t.muted)
+            return Text(f" {g.radio_off}T {g.radio_off}F", style=t.muted), False
         on, off = (f"{g.radio_on}", f"{g.radio_off}")
         right = f"bold {t.correct}"
-        return Text.assemble(
+        button = Text.assemble(
             " ",
             (f"{on if correct else off}T", right if correct else t.muted),
             " ",
             (f"{off if correct else on}F", t.muted if correct else right),
         )
+        return button, correct
 
     #
     # Numeric bodies (numeric question, numeric blank)
@@ -795,8 +772,7 @@ class _View:
             )
             match blank:
                 case models.ChoiceBlank():
-                    marks = [self._radio(c.score) for c in blank.choices]
-                    parts.append(self._choices(blank.choices, marks))
+                    parts.append(self._choices(blank.choices, lambda c: self._radio(c.score)))
                 case models.ShortAnswerBlank():
                     parts += self._short_answer(
                         automation=blank.automation(unmatched),
