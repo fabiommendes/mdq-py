@@ -24,8 +24,11 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
     ValidationInfo,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic.alias_generators import to_camel
@@ -43,6 +46,9 @@ if TYPE_CHECKING:
 
 __all__ = ["MdqModel", "BaseQuestion", "FreeText"]
 
+
+#: The `model_dump` context key that makes `MdqModel` keep `type`.
+_KEEP_TYPE = "keep_type"
 
 #: A choice or blank `id`. Unlike a question `id`, which only SHOULD be
 #: url-safe (`unsafe-id`), this one is a `SLUG` by schema.
@@ -92,16 +98,33 @@ class MdqModel(BaseModel):
             by_alias=by_alias,
             exclude_none=True,
             exclude_defaults=True,
+            context={_KEEP_TYPE: True},
         )
-        # `type` is a defaulted Literal on every discriminated model, so
-        # `exclude_defaults` drops it -- on `self` and on every nested
-        # model `model_dump` recurses into (a question inside an exam,
-        # say). It is the one default worth keeping: without it the dict
-        # no longer says which schema it validates against, and no
-        # discriminated union can read it back.
-        _reinject_type_discriminators(self, data)
         if "type" in type(self).model_fields:
             data = {"type": getattr(self, "type"), **data}
+        return data
+
+    @model_serializer(mode="wrap")
+    def _keep_type(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> dict[str, Any]:
+        """
+        `type` is a defaulted Literal on every discriminated model, so
+        `exclude_defaults` drops it -- on every nested model `model_dump`
+        recurses into (a question inside an exam, say). `to_dict` keeps
+        it, by passing the `_KEEP_TYPE` context: without it the dict no
+        longer says which schema it validates against, and no
+        discriminated union can read it back. Plain `model_dump` is
+        untouched.
+        """
+        data: dict[str, Any] = handler(self)
+        if (
+            isinstance(info.context, dict)
+            and info.context.get(_KEEP_TYPE)
+            and "type" in type(self).model_fields
+            and "type" not in data
+        ):
+            data["type"] = getattr(self, "type")
         return data
 
     def _render_lines(self) -> Iterable[str]:
@@ -604,36 +627,6 @@ class BaseQuestion[R](MdqModel):
 #
 # Utilities
 #
-
-def _reinject_type_discriminators(model: BaseModel, data: dict[str, Any]) -> None:
-    """
-    Walk `model` and its already-dumped `data` in lockstep, re-adding the
-    `type` discriminator `exclude_defaults` stripped from any nested
-    `MdqModel` (a question inside an exam, a blank inside a fill-in).
-
-    `model_dump`'s recursion applies `exclude_defaults` at every level, not
-    just the top one `MdqModel.to_dict` patches up by hand, so a nested
-    discriminated model loses `type` the same way the top-level one would
-    without that patch. Mutates `data` in place; `model` itself is read-only.
-    """
-    for name, field in type(model).model_fields.items():
-        value = getattr(model, name)
-        key = field.alias or name
-        if key not in data:
-            continue
-        if isinstance(value, MdqModel):
-            nested_data = data[key]
-            _reinject_type_discriminators(value, nested_data)
-            if "type" in type(value).model_fields and "type" not in nested_data:
-                nested_data["type"] = getattr(value, "type")
-        elif isinstance(value, list):
-            for item, nested_data in zip(value, data[key], strict=False):
-                if not isinstance(item, MdqModel):
-                    continue
-                _reinject_type_discriminators(item, nested_data)
-                if "type" in type(item).model_fields and "type" not in nested_data:
-                    nested_data["type"] = getattr(item, "type")
-
 
 def clear_nones(d: dict[str, Any]) -> dict[str, Any]:
     """
