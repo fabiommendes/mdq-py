@@ -50,6 +50,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- The message of `foreign-choice-marker` shows an empty marker as `[ ]`, not `[]`.
 - `Exam.with_ids()` and `Exam.model_copy()` keep `question.exam` pointing at the new exam. `model_copy()` copies the questions, so the original keeps its own.
 - `Exam.tags` rejects a repeated entry with `schema-error`, as `BaseQuestion.tags` does.
 - `score_response()` raises `ResponseError` for a response of the wrong shape (for example an `int` for a fill-in, ordering, true/false or multiple-selection question), where it raised `TypeError` or `AttributeError`.

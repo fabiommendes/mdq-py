@@ -169,8 +169,11 @@ class ForeignChoiceMarker(ParseError):
         path: tuple[str | int, ...],
         node: Node | None = None,
     ):
+        # The parser strips the spaces of the marker; an empty value came
+        # from `[ ]`, since `[]` is a different error.
+        shown = value or " "
         super().__init__(
-            f"[{value}] is not a {question_type} choice marker", node=node
+            f"[{shown}] is not a {question_type} choice marker", node=node
         )
         self.value = value
         self.question_type = question_type
