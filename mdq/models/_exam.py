@@ -70,6 +70,7 @@ from ._choice import (
     MultipleSelectionQuestion,
     TrueFalseQuestion,
 )
+from ._lint_codes import diag
 from ._fill_in import FillInQuestion
 from ._numeric import NumericQuestion
 from ._ordering import OrderingQuestion
@@ -481,8 +482,7 @@ class Exam(MdqModel):
                 taken.update(chosen)
                 if not chosen and warnings is not None:
                     warnings.append(
-                        Diagnostic(
-                            severity="warning",
+                        diag(
                             code="empty-include-all",
                             path=("questions", index),
                             message=(
@@ -660,7 +660,9 @@ class Exam(MdqModel):
         the exam shares with a question (`id`, `uuid`, `locale`, `title`,
         `author`, `tags`, `meta`; base.md, "Additional Rules").
         """
-        diagnostics = _lint.check_exam_without_questions(self.questions, ("questions",))
+        diagnostics = list(
+            _lint.check_exam_without_questions(self.questions, ("questions",))
+        )
         diagnostics.extend(_lint.check_id_is_url_safe(self.id))
         diagnostics.extend(_lint.check_id_and_title_defined(self.id, self.title))
         diagnostics.extend(_lint.check_uuid_version_and_variant(self.uuid))

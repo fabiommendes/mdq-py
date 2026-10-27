@@ -49,4 +49,4 @@ def test_fence_glued_to_a_question_stem_warns() -> None:
 
 
 def test_atx_heading_is_not_reported() -> None:
-    assert check_setext_heading("## Título\n\nTexto.", ("instructions",)) == []
+    assert list(check_setext_heading("## Título\n\nTexto.", ("instructions",))) == []

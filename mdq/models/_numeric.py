@@ -206,12 +206,14 @@ class NumericKey(MdqModel):
 
     def lint_key(self, path: tuple[str | int, ...]) -> list[Diagnostic]:
         """Lint the key, which sits at `path` of the document."""
-        return _lint.check_numeric(
-            answer=self.answer,
-            domain=self.domain,
-            decimal_places=self.decimal_places,
-            tolerance=self.tolerance,
-            path=path,
+        return list(
+            _lint.check_numeric(
+                answer=self.answer,
+                domain=self.domain,
+                decimal_places=self.decimal_places,
+                tolerance=self.tolerance,
+                path=path,
+            )
         )
 
     def score_numeric(self, response: t.NumericResponse) -> QuestionScore:
