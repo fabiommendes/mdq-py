@@ -25,7 +25,7 @@ FORMATS: tuple[str, ...] = ("aiken", "gift", "moodle-xml")
 #: A format name maps to its converter, either already instantiated or as
 #: a lazy `"module:ClassName"` reference -- `load_converter` imports it on
 #: first use, so importing `mdq.convert` never imports every converter.
-CONVERSION_REGISTRY: dict[str, "ConversionBase | str"] = {
+CONVERSION_REGISTRY: dict[str, "ConversionBase[Any] | str"] = {
     "aiken": "mdq.convert._aiken:Aiken",
     "gift": "mdq.convert._gift:Gift",
     "moodle-xml": "mdq.convert._moodle_xml:MoodleXml",
@@ -317,7 +317,7 @@ def import_question(source: str, /, *, format: str) -> Question:
     return converter.to_mdq(external)
 
 
-def export_question(question: Question, /, *, format: str):
+def export_question(question: Question, /, *, format: str) -> str:
     """
     Convert a mdq question to a different format.
 

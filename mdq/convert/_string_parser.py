@@ -3,13 +3,13 @@ from __future__ import annotations
 import re
 from collections import deque
 from re import Pattern
-from typing import NoReturn
+from typing import Any, NoReturn
 
 WS_REGEX = re.compile(r"\s+")
 
 
 class ParserError(ValueError):
-    def __init__(self, message: str, parser: StringParser):
+    def __init__(self, message: str, parser: StringParser[Any]):
         super().__init__(message)
         self.lineno = parser.lineno
         self.colno = parser.colno
@@ -72,7 +72,7 @@ class StringParser[T]:
         self.colno = 0
         return result
 
-    def ws(self):
+    def ws(self) -> None:
         """
         Consume whitespace and empty lines.
         """
@@ -84,7 +84,7 @@ class StringParser[T]:
 
     def expect(
         self,
-        pattern: str | Pattern,
+        pattern: str | Pattern[str],
         /,
         message: str | None = None,
         *,
@@ -102,7 +102,7 @@ class StringParser[T]:
         return match
 
     def match(
-        self, pattern: str | Pattern, /, *, full: bool = False, raw: bool = False
+        self, pattern: str | Pattern[str], /, *, full: bool = False, raw: bool = False
     ) -> str | None:
         """
         Match line against regex pattern.
@@ -129,7 +129,7 @@ class StringParser[T]:
         return None if result is None else result[""]
 
     def match_group(
-        self, pattern: Pattern, /, *, full: bool = False
+        self, pattern: Pattern[str], /, *, full: bool = False
     ) -> dict[str, str] | None:
         """
         Match line against regex pattern.

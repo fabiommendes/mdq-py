@@ -86,7 +86,7 @@ class MdqModel(BaseModel):
         """
         return self.render()
 
-    def to_dict(self, by_alias: bool = True) -> dict:
+    def to_dict(self, by_alias: bool = True) -> dict[str, Any]:
         """
         Return a dict representation of the model that is compatible with the
         JSON schema and the original document.

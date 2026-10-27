@@ -34,7 +34,7 @@ def yield_frontmatter(
 
 
 def yield_introduction(
-    model: _base.BaseQuestion, id: str | None = None
+    model: _base.BaseQuestion[Any], id: str | None = None
 ) -> Iterable[str]:
     """
     Yield lines of the introductory section (the stem) as strings.
@@ -49,7 +49,7 @@ def yield_introduction(
 
 
 def yield_conclusion(
-    model: _base.BaseQuestion, skip_line: bool = False
+    model: _base.BaseQuestion[Any], skip_line: bool = False
 ) -> Iterable[str]:
     """
     Yield lines of the concluding sections (epilogue) as strings.
@@ -141,7 +141,7 @@ def score_mark(score: float | None) -> str:
 
 def yield_choice(
     choice: _choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement, mark: str
-):
+) -> Iterable[str]:
     """
     Yield lines of a choice as strings. An `id` is written as the
     `[choice-id]` of the item grammar, so it survives a round trip.

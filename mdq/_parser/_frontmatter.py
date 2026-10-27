@@ -176,7 +176,7 @@ class _FrontmatterDumper(yaml.SafeDumper):
 _FrontmatterDumper.yaml_implicit_resolvers = _core_resolver_table()
 
 
-def _construct_core_int(loader: yaml.SafeLoader, node: yaml.Node) -> int:
+def _construct_core_int(loader: yaml.SafeLoader, node: yaml.ScalarNode) -> int:
     """
     YAML 1.2 Core integers: decimal, `0o` octal, `0x` hex. PyYAML's own
     constructor reads a leading zero as YAML 1.1 octal (`010` is 8), and

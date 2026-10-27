@@ -100,7 +100,7 @@ class AikenQuestion:
 
 
 class AikenParser(StringParser[AikenQuestion]):
-    def start(self):
+    def start(self) -> AikenQuestion:
         stem_lines = []
 
         while not (m := self.match_group(CHOICE_REGEX, full=True)):

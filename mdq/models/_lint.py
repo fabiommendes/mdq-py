@@ -39,7 +39,7 @@ import re
 import unicodedata
 from collections import Counter
 from fractions import Fraction
-from typing import TYPE_CHECKING, Sequence, Union
+from typing import TYPE_CHECKING, Any, Sequence, Union
 
 from markdown_it import MarkdownIt
 from pygments.lexers import find_lexer_class_by_name
@@ -1105,7 +1105,7 @@ def check_ordering_duplicate_alternatives(
     """
     warnings: list[Diagnostic] = []
     for section in ("accept", "reject"):
-        seen: dict[tuple, tuple[str, int]] = {}
+        seen: dict[tuple[Any, ...], tuple[str, int]] = {}
         for index, alt in enumerate(getattr(question, section)):
             key = question.comparison_key(alt.lines)
             first = seen.get(key)
@@ -1287,7 +1287,7 @@ def check_ordering_reject_without_feedback(
 
 def _render_visual_key(text: str) -> str:
     """How `text` renders, for comparing lines/choices as a reader would."""
-    return _RENDER_MD.renderInline(text).strip()
+    return str(_RENDER_MD.renderInline(text)).strip()
 
 
 def check_ordering_visually_identical_lines(

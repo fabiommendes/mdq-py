@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-import unicodedata2  # type: ignore[import-not-found]  # ships no stubs
+import unicodedata2
 
 __all__ = [
     "FALSE_LETTERS",
@@ -38,7 +38,7 @@ def is_letter(text: str) -> bool:
 
 def nfkc(text: str) -> str:
     """The NFKC form of `text`."""
-    return unicodedata2.normalize("NFKC", text)
+    return str(unicodedata2.normalize("NFKC", text))
 
 
 def strip_marker_space(value: str) -> str:

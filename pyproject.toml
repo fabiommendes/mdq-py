@@ -48,14 +48,24 @@ dev = [
     "pytest-coverage>=0.0",
     "taskipy>=1.14.1",
     "doc-zero>=0.2.1",
+    "types-pyyaml>=6.0.12.20260906",
+    "types-pygments>=2.21.0.20260819",
 ]
 
 [tool.taskipy.tasks]
+typecheck = "mypy mdq"
 test = "pytest tests"
 cov = "pytest --cov=mdq --cov-report=term-missing"
 doc = "uv run doc0 build"
 doc-watch = "uv run doc0 watch"
 
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["unicodedata2"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["jsonschema.*"]

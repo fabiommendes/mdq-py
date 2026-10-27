@@ -159,7 +159,7 @@ Question = Annotated[
 ]
 
 
-class QuestionRoot(RootModel):
+class QuestionRoot(RootModel[Question]):
     root: Question
 
 
@@ -754,7 +754,7 @@ class Exam(MdqModel):
         yield ""
         yield entry.model_copy(update=inherited).render()
 
-    def model_post_init(self, __ctx):
+    def model_post_init(self, __ctx: Any) -> None:
         questions = [q for q in self.questions if isinstance(q, BaseQuestion)]
         for i, question in enumerate(questions):
             if question.exam is not None:
