@@ -26,7 +26,6 @@ from typing import (
     Mapping,
     Self,
     Sequence,
-    cast,
     get_args,
 )
 
@@ -50,11 +49,11 @@ from .._banks import QuestionBank
 from ..types import (
     ExamGrading,
     FillInGrading,
+    GradedQuestionType,
     GradingStrategy,
     MultipleChoiceGrading,
     MultipleSelectionGrading,
     PenaltyPolicy,
-    QuestionGrading,
     TrueFalseGrading,
 )
 from . import _lint, _render
@@ -154,6 +153,12 @@ Question = Annotated[
     | OrderingQuestion,
     Field(discriminator="type"),
 ]
+
+
+#: The questions that choose a grading strategy (`GradedQuestionType`).
+GradedQuestion = (
+    MultipleChoiceQuestion | MultipleSelectionQuestion | TrueFalseQuestion | FillInQuestion
+)
 
 
 class QuestionRoot(RootModel[Question]):
@@ -267,7 +272,7 @@ def select_random(candidates: list[str], max: int | None) -> list[str]:
 #: exam's scalar `grading`. Multiple choice has a single pick, and
 #: multiple selection has no abstention, so `no-mistakes` and
 #: `all-or-nothing` collapse there.
-_SCALAR_GRADING: dict[GradingStrategy, dict[str, GradingStrategy]] = {
+_SCALAR_GRADING: dict[GradingStrategy, dict[GradedQuestionType, GradingStrategy]] = {
     "partial": {
         "multiple-choice": "partial",
         "multiple-selection": "partial",
@@ -508,13 +513,13 @@ class Exam(MdqModel):
         mapping for the question's type, or
         `symmetric` (exam.md, "Grading").
         """
-        own: QuestionGrading = getattr(question, "grading", "inherit")
-        if own != "inherit":
-            return own
-        if isinstance(self.grading, str):
-            return _SCALAR_GRADING[self.grading].get(question.type, self.grading)
-        by_type = cast("Mapping[str, GradingStrategy]", self.grading)
-        return by_type.get(question.type, "symmetric")
+        if not isinstance(question, GradedQuestion):
+            return self.grading if not isinstance(self.grading, dict) else "symmetric"
+        if question.grading != "inherit":
+            return question.grading
+        if not isinstance(self.grading, dict):
+            return _SCALAR_GRADING[self.grading][question.type]
+        return self.grading.get(question.type, "symmetric")
 
     def shuffle_for(self, question: Question) -> bool:
         """
