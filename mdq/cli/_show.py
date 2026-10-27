@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Iterable, assert_never
+from typing import Iterable, Protocol, assert_never
 
 import typer
 from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
@@ -153,6 +153,21 @@ def render_exam(
                 )
             else:
                 console.print(view.question_card(question))
+
+
+class _NumericKey(Protocol):
+    """The answer key a numeric question and a numeric blank both carry."""
+
+    @property
+    def answer(self) -> int | float | str: ...
+    @property
+    def unit(self) -> str | None: ...
+    @property
+    def domain(self) -> NumericDomain | None: ...
+    @property
+    def decimal_places(self) -> int | None: ...
+    @property
+    def tolerance(self) -> models.Tolerance | None: ...
 
 
 class _LeftBar:
@@ -477,13 +492,7 @@ class _View:
                     )
                 ]
             case models.NumericQuestion():
-                return self._numeric(
-                    answer=question.answer,
-                    unit=question.unit,
-                    domain=question.domain,
-                    decimal_places=question.decimal_places,
-                    tolerance=question.tolerance,
-                )
+                return self._numeric(question)
             case models.ShortAnswerQuestion():
                 return self._short_answer(
                     automation=question.automation,
@@ -564,31 +573,23 @@ class _View:
     #
     # Numeric bodies (numeric question, numeric blank)
     #
-    def _numeric(
-        self,
-        *,
-        answer: int | float | str,
-        unit: str | None,
-        domain: NumericDomain | None,
-        decimal_places: int | None,
-        tolerance: models.Tolerance | None,
-    ) -> list[RenderableType]:
+    def _numeric(self, key: _NumericKey, /) -> list[RenderableType]:
         rows: list[tuple[str, str]] = []
-        if domain:
-            rows.append(("domain", domain))
-        if decimal_places is not None:
-            rows.append(("decimal places", str(decimal_places)))
+        if key.domain:
+            rows.append(("domain", key.domain))
+        if key.decimal_places is not None:
+            rows.append(("decimal places", str(key.decimal_places)))
         parts: list[RenderableType] = []
         if rows:
             parts += [self._facts(rows), _GAP]
-        parts.append(self._input_box("Your answer", unit=unit))
+        parts.append(self._input_box("Your answer", unit=key.unit))
         parts.append(_GAP)
         if not self.show_key:
             parts.append(self._hidden_key())
             return parts
         # `text` embeds `unit`, which is document content: `Text`, never
         # a bare `str`, which Rich would markup-parse.
-        text = Text(_format_numeric_answer(answer, unit, tolerance), style="bold")
+        text = Text(_format_numeric_answer(key.answer, key.unit, key.tolerance), style="bold")
         parts.append(self._key_panel(text))
         return parts
 
@@ -797,13 +798,7 @@ class _View:
                         reject=blank.reject,
                     )
                 case models.NumericBlank():
-                    parts += self._numeric(
-                        answer=blank.answer,
-                        unit=blank.unit,
-                        domain=blank.domain,
-                        decimal_places=blank.decimal_places,
-                        tolerance=blank.tolerance,
-                    )
+                    parts += self._numeric(blank)
                 case _:
                     assert_never(blank)
         return parts
