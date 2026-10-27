@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal, NoReturn
+from typing import Literal, NoReturn, assert_never
 
 from ..models import (
     Blank,
@@ -10,8 +10,10 @@ from ..models import (
     EssayQuestion,
     FillInQuestion,
     MultipleChoiceQuestion,
+    MultipleSelectionQuestion,
     NumericBlank,
     NumericQuestion,
+    OrderingQuestion,
     Question,
     ScoredChoice,
     ShortAnswerBlank,
@@ -209,19 +211,23 @@ class GiftEncoder:
 
     def encode(self, question: Question) -> GiftQuestion:
         """Dispatch on `question.type` to the matching `block_from_*` builder."""
-        if isinstance(question, MultipleChoiceQuestion):
-            return GiftQuestion(blocks=[self.block_from_choice(question)])
-        if isinstance(question, ShortAnswerQuestion):
-            return GiftQuestion(blocks=[self.block_from_short(question)])
-        if isinstance(question, NumericQuestion):
-            return GiftQuestion(blocks=[self.block_from_numeric(question)])
-        if isinstance(question, EssayQuestion):
-            return GiftQuestion(blocks=[self.block_from_essay(question)])
-        if isinstance(question, TrueFalseQuestion):
-            return GiftQuestion(blocks=self.blocks_from_true_false(question))
-        if isinstance(question, FillInQuestion):
-            return GiftQuestion(blocks=[self.block_from_fill_in(question)])
-        raise ValueError(f"GIFT does not support {question.type!r} questions")
+        match question:
+            case MultipleChoiceQuestion():
+                return GiftQuestion(blocks=[self.block_from_choice(question)])
+            case ShortAnswerQuestion():
+                return GiftQuestion(blocks=[self.block_from_short(question)])
+            case NumericQuestion():
+                return GiftQuestion(blocks=[self.block_from_numeric(question)])
+            case EssayQuestion():
+                return GiftQuestion(blocks=[self.block_from_essay(question)])
+            case TrueFalseQuestion():
+                return GiftQuestion(blocks=self.blocks_from_true_false(question))
+            case FillInQuestion():
+                return GiftQuestion(blocks=[self.block_from_fill_in(question)])
+            case MultipleSelectionQuestion() | OrderingQuestion():
+                raise ValueError(f"GIFT does not support {question.type!r} questions")
+            case _:
+                assert_never(question)
 
     def block_from_choice(self, question: MultipleChoiceQuestion) -> GiftBlock:
         options = [
@@ -312,31 +318,35 @@ class GiftEncoder:
                 f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
             )
 
-        if isinstance(blank, ChoiceBlank):
-            # An unmarked choice inside a blank keeps `score = None`, which
-            # MDQ reads as zero credit; only top-level choices are strict.
-            choice_options = [
-                GiftOption(
-                    text=choice.text,
-                    credit=moodle_score(choice.score or 0.0, format="GIFT"),
-                    feedback=choice.feedback,
-                )
-                for choice in blank.choices
-            ]
-            answer: GiftAnswer = GiftChoice(options=choice_options)
-        elif isinstance(blank, ShortAnswerBlank):
-            answer = GiftShort(
-                options=[
-                    GiftOption(text=answer_text, credit=1.0)
-                    for answer_text in literal_answers(blank.accept, format="GIFT")
+        answer: GiftAnswer
+        match blank:
+            case ChoiceBlank():
+                # An unmarked choice inside a blank keeps `score = None`, which
+                # MDQ reads as zero credit; only top-level choices are strict.
+                choice_options = [
+                    GiftOption(
+                        text=choice.text,
+                        credit=moodle_score(choice.score or 0.0, format="GIFT"),
+                        feedback=choice.feedback,
+                    )
+                    for choice in blank.choices
                 ]
-            )
-        else:
-            value = float_answer(blank.answer, blank.tolerance, format="GIFT")
-            tolerance = gift_numeric_tolerance(value, blank.tolerance)
-            answer = GiftNumeric(
-                options=[GiftNumericOption(value=value, tolerance=tolerance)]
-            )
+                answer = GiftChoice(options=choice_options)
+            case ShortAnswerBlank():
+                answer = GiftShort(
+                    options=[
+                        GiftOption(text=answer_text, credit=1.0)
+                        for answer_text in literal_answers(blank.accept, format="GIFT")
+                    ]
+                )
+            case NumericBlank():
+                value = float_answer(blank.answer, blank.tolerance, format="GIFT")
+                tolerance = gift_numeric_tolerance(value, blank.tolerance)
+                answer = GiftNumeric(
+                    options=[GiftNumericOption(value=value, tolerance=tolerance)]
+                )
+            case _:
+                assert_never(blank)
 
         return GiftBlock(
             stem=join_blocks(stem_part),
@@ -367,28 +377,32 @@ class GiftDecoder:
     def block_to_mdq(self, block: GiftBlock) -> Question:
         answer = block.answer
 
-        if isinstance(answer, GiftEssay):
-            return EssayQuestion(
-                stem=block.stem,
-                answer_key=block.general_feedback,
-                title=block.title,
-                comment=block.comment,
-            )
-
-        if isinstance(answer, GiftBoolean):
-            if block.tail:
-                raise ValueError(
-                    "GIFT missing-word tail is not supported for boolean answers"
+        match answer:
+            case GiftEssay():
+                return EssayQuestion(
+                    stem=block.stem,
+                    answer_key=block.general_feedback,
+                    title=block.title,
+                    comment=block.comment,
                 )
-            return MultipleChoiceQuestion(
-                stem=block.stem,
-                choices=[
-                    ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
-                    ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
-                ],
-                title=block.title,
-                comment=block.comment,
-            )
+            case GiftBoolean():
+                if block.tail:
+                    raise ValueError(
+                        "GIFT missing-word tail is not supported for boolean answers"
+                    )
+                return MultipleChoiceQuestion(
+                    stem=block.stem,
+                    choices=[
+                        ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
+                        ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
+                    ],
+                    title=block.title,
+                    comment=block.comment,
+                )
+            case GiftChoice() | GiftShort() | GiftNumeric():
+                pass
+            case _:
+                assert_never(answer)
 
         if block.tail:
             blank = self.blank_from_answer(answer)
@@ -397,63 +411,71 @@ class GiftDecoder:
                 stem=stem, blanks=[blank], title=block.title, comment=block.comment
             )
 
-        if isinstance(answer, GiftChoice):
-            return MultipleChoiceQuestion(
-                stem=block.stem,
-                choices=[
-                    ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
-                    for o in answer.options
-                ],
-                title=block.title,
-                comment=block.comment,
-            )
-
-        if isinstance(answer, GiftShort):
-            return ShortAnswerQuestion(
-                stem=block.stem,
-                accept=[literal_pattern(o.text, format="GIFT") for o in answer.options],
-                title=block.title,
-                comment=block.comment,
-            )
-
-        if isinstance(answer, GiftNumeric):
-            opt = answer.options[0]
-            tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
-            return NumericQuestion(
-                stem=block.stem,
-                answer=mdq_numeric_answer(format_num(opt.value)),
-                tolerance=tolerance,
-                title=block.title,
-                comment=block.comment,
-            )
-
-        raise TypeError(f"unsupported GIFT answer kind: {type(answer).__name__}")
+        match answer:
+            case GiftChoice():
+                return MultipleChoiceQuestion(
+                    stem=block.stem,
+                    choices=[
+                        ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
+                        for o in answer.options
+                    ],
+                    title=block.title,
+                    comment=block.comment,
+                )
+            case GiftShort():
+                return ShortAnswerQuestion(
+                    stem=block.stem,
+                    accept=[
+                        literal_pattern(o.text, format="GIFT") for o in answer.options
+                    ],
+                    title=block.title,
+                    comment=block.comment,
+                )
+            case GiftNumeric():
+                opt = answer.options[0]
+                tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
+                return NumericQuestion(
+                    stem=block.stem,
+                    answer=mdq_numeric_answer(format_num(opt.value)),
+                    tolerance=tolerance,
+                    title=block.title,
+                    comment=block.comment,
+                )
+            case _:
+                assert_never(answer)
 
     def blank_from_answer(self, answer: GiftAnswer) -> Blank:
-        if isinstance(answer, GiftChoice):
-            return ChoiceBlank(
-                id="blank",
-                choices=[
-                    ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
-                    for o in answer.options
-                ],
-            )
-        if isinstance(answer, GiftShort):
-            return ShortAnswerBlank(
-                id="blank",
-                accept=[literal_pattern(o.text, format="GIFT") for o in answer.options],
-            )
-        if isinstance(answer, GiftNumeric):
-            opt = answer.options[0]
-            tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
-            return NumericBlank(
-                id="blank",
-                answer=mdq_numeric_answer(format_num(opt.value)),
-                tolerance=tolerance,
-            )
-        raise ValueError(
-            f"GIFT missing-word tail is not supported for {type(answer).__name__} answers"
-        )
+        match answer:
+            case GiftChoice():
+                return ChoiceBlank(
+                    id="blank",
+                    choices=[
+                        ScoredChoice(text=o.text, score=o.credit, feedback=o.feedback)
+                        for o in answer.options
+                    ],
+                )
+            case GiftShort():
+                return ShortAnswerBlank(
+                    id="blank",
+                    accept=[
+                        literal_pattern(o.text, format="GIFT") for o in answer.options
+                    ],
+                )
+            case GiftNumeric():
+                opt = answer.options[0]
+                tolerance = Tolerance(absolute=opt.tolerance) if opt.tolerance else None
+                return NumericBlank(
+                    id="blank",
+                    answer=mdq_numeric_answer(format_num(opt.value)),
+                    tolerance=tolerance,
+                )
+            case GiftEssay() | GiftBoolean():
+                raise ValueError(
+                    "GIFT missing-word tail is not supported for "
+                    f"{type(answer).__name__} answers"
+                )
+            case _:
+                assert_never(answer)
 
     def true_false_from_blocks(self, blocks: list[GiftBlock]) -> TrueFalseQuestion:
         stems = [b.stem for b in blocks]
@@ -678,17 +700,19 @@ class GiftParser(StringParser[GiftQuestion]):
 
 def render_gift_answer(answer: GiftAnswer) -> str:
     """Render a GIFT answer body's content, without the enclosing braces."""
-    if isinstance(answer, GiftEssay):
-        return ""
-    if isinstance(answer, GiftBoolean):
-        return "TRUE" if answer.value else "FALSE"
-    if isinstance(answer, GiftChoice):
-        return " ".join(render_gift_option(o) for o in answer.options)
-    if isinstance(answer, GiftShort):
-        return " ".join(render_gift_short_option(o) for o in answer.options)
-    if isinstance(answer, GiftNumeric):
-        return render_gift_numeric(answer.options)
-    raise TypeError(f"unsupported GIFT answer kind: {type(answer).__name__}")
+    match answer:
+        case GiftEssay():
+            return ""
+        case GiftBoolean():
+            return "TRUE" if answer.value else "FALSE"
+        case GiftChoice():
+            return " ".join(render_gift_option(o) for o in answer.options)
+        case GiftShort():
+            return " ".join(render_gift_short_option(o) for o in answer.options)
+        case GiftNumeric():
+            return render_gift_numeric(answer.options)
+        case _:
+            assert_never(answer)
 
 
 def render_gift_numeric(options: list[GiftNumericOption]) -> str:

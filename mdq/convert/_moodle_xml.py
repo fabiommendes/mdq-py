@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, assert_never
 
 from .._markdown import UNICODE_SPACE
 from ..models import (
@@ -17,6 +17,7 @@ from ..models import (
     MultipleSelectionQuestion,
     NumericBlank,
     NumericQuestion,
+    OrderingQuestion,
     Question,
     ScoredChoice,
     ShortAnswerBlank,
@@ -196,21 +197,27 @@ class MoodleXmlEncoder:
 
     def encode(self, question: Question) -> MoodleXmlQuestion:
         """Dispatch on `question.type` to the matching `block_from_*` builder."""
-        if isinstance(question, MultipleChoiceQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_choice(question)])
-        if isinstance(question, MultipleSelectionQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_selection(question)])
-        if isinstance(question, TrueFalseQuestion):
-            return MoodleXmlQuestion(blocks=self.blocks_from_true_false(question))
-        if isinstance(question, NumericQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_numeric(question)])
-        if isinstance(question, ShortAnswerQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_short(question)])
-        if isinstance(question, EssayQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_essay(question)])
-        if isinstance(question, FillInQuestion):
-            return MoodleXmlQuestion(blocks=[self.block_from_fill_in(question)])
-        raise ValueError(f"Moodle XML does not support {question.type!r} questions")
+        match question:
+            case MultipleChoiceQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_choice(question)])
+            case MultipleSelectionQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_selection(question)])
+            case TrueFalseQuestion():
+                return MoodleXmlQuestion(blocks=self.blocks_from_true_false(question))
+            case NumericQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_numeric(question)])
+            case ShortAnswerQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_short(question)])
+            case EssayQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_essay(question)])
+            case FillInQuestion():
+                return MoodleXmlQuestion(blocks=[self.block_from_fill_in(question)])
+            case OrderingQuestion():
+                raise ValueError(
+                    f"Moodle XML does not support {question.type!r} questions"
+                )
+            case _:
+                assert_never(question)
 
     def block_from_choice(self, question: MultipleChoiceQuestion) -> MoodleXmlBlock:
         answers = [
@@ -388,32 +395,36 @@ class MoodleXmlEncoder:
         )
 
     def cloze_from_blank(self, blank: Blank) -> MoodleCloze:
-        if isinstance(blank, ChoiceBlank):
-            # An unmarked choice inside a blank keeps `score = None`, which
-            # MDQ reads as zero credit; only top-level choices are strict.
-            answers = [
-                MoodleAnswer(text=choice.text, fraction=(choice.score or 0.0) * 100)
-                for choice in blank.choices
-            ]
-            return MoodleCloze(kind="MULTICHOICE", answers=answers)
-        if isinstance(blank, ShortAnswerBlank):
-            return MoodleCloze(
-                kind="SHORTANSWER",
-                answers=[
-                    MoodleAnswer(text=text, fraction=100.0)
-                    for text in literal_answers(blank.accept, format=_FORMAT)
-                ],
-            )
-        value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
-        tolerance = numeric_tolerance(value, blank.tolerance)
-        return MoodleCloze(
-            kind="NUMERICAL",
-            answers=[
-                MoodleAnswer(
-                    text=format_num(value), fraction=100.0, tolerance=tolerance
+        match blank:
+            case ChoiceBlank():
+                # An unmarked choice inside a blank keeps `score = None`, which
+                # MDQ reads as zero credit; only top-level choices are strict.
+                answers = [
+                    MoodleAnswer(text=choice.text, fraction=(choice.score or 0.0) * 100)
+                    for choice in blank.choices
+                ]
+                return MoodleCloze(kind="MULTICHOICE", answers=answers)
+            case ShortAnswerBlank():
+                return MoodleCloze(
+                    kind="SHORTANSWER",
+                    answers=[
+                        MoodleAnswer(text=text, fraction=100.0)
+                        for text in literal_answers(blank.accept, format=_FORMAT)
+                    ],
                 )
-            ],
-        )
+            case NumericBlank():
+                value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
+                tolerance = numeric_tolerance(value, blank.tolerance)
+                return MoodleCloze(
+                    kind="NUMERICAL",
+                    answers=[
+                        MoodleAnswer(
+                            text=format_num(value), fraction=100.0, tolerance=tolerance
+                        )
+                    ],
+                )
+            case _:
+                assert_never(blank)
 
 
 class MoodleXmlDecoder:
