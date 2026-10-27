@@ -47,10 +47,8 @@ from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
 from .._exact import exact_literal, join_pattern_lines
-from .._letters import FALSE_LETTERS, normalize_value
 from .._markdown import SLUG_BODY_RE, UNICODE_SPACE, md, span, split_lines, starts_after
 from ..errors import (
-    ForeignChoiceMarker,
     IncompleteQuestion,
     MissingField,
     ParseError,
@@ -65,15 +63,15 @@ from ..types import (
     ShortAnswerBlankDict,
 )
 from ._choices import (
+    ChoiceType,
     LINK_START_RE,
     RawChoice,
     SLUG_PREFIX_RE,
-    _assign_choice_ids,
     _infer_choice_type,
     _pattern_entry,
     dedent,
-    foreign_choice_index,
-    _score_from_value,
+    as_choice_type,
+    build_choices,
     CODE_INDENT,
     indentation,
     is_choice_value,
@@ -686,41 +684,9 @@ class MDQParser:
     # Per-type body fillers
     #
     def parse_choice_body(
-        self, question_type: str, raw_choices: list[RawChoice]
+        self, question_type: ChoiceType | None, raw_choices: list[RawChoice]
     ) -> None:
-        foreign = foreign_choice_index(question_type, [c.value for c in raw_choices])
-        if foreign is not None:
-            raise ForeignChoiceMarker(
-                raw_choices[foreign].value, question_type, ("choices", foreign)
-            )
-        ids = _assign_choice_ids(raw_choices)
-        choices = []
-        for choice, choice_id in zip(raw_choices, ids):
-            entry: dict[str, Any] = {"text": choice.text}
-            if choice_id is not None:
-                entry["id"] = choice_id
-            if question_type == "multiple-choice":
-                # `[ ]` omits the score; `[0%]` is an explicit zero
-                # (multiple-choice.md, "Choices").
-                score = _score_from_value(choice.value)
-                if score is not None:
-                    entry["score"] = score
-            elif question_type == "multiple-selection":
-                # `correct` is required: a blank `[ ]` is an explicit false.
-                entry["correct"] = normalize_value(choice.value) == "x"
-            elif question_type == "true-false":
-                letter = choice.value
-                # TRUE and WARNING letters both mean true; only FALSE
-                # letters mean false (docs/question-types/true-false.md).
-                entry["correct"] = normalize_value(letter) not in FALSE_LETTERS
-                if letter:
-                    entry["marker"] = letter
-            if choice.feedback is not None:
-                entry["feedback"] = choice.feedback
-            if choice.comment is not None:
-                entry["comment"] = choice.comment
-            choices.append(entry)
-        self.state["choices"] = choices
+        self.state["choices"] = build_choices(question_type, raw_choices)
 
     def parse_essay_body(self) -> None:
         front = self.frontmatter
@@ -1310,34 +1276,14 @@ class MDQParser:
                 self.read()
                 self.check_no_adjacent_list(next_node)
                 raw_choices = self.parse_item_list(next_node)
-                foreign = foreign_choice_index(
-                    "multiple-choice", [c.value for c in raw_choices]
+                existing = (
+                    list(blanks).index(blank_id) if blank_id in blanks else len(blanks)
                 )
-                if foreign is not None:
-                    existing = (
-                        list(blanks).index(blank_id)
-                        if blank_id in blanks
-                        else len(blanks)
-                    )
-                    raise ForeignChoiceMarker(
-                        raw_choices[foreign].value,
-                        "multiple-choice",
-                        ("blanks", existing, "choices", foreign),
-                    )
-                ids = _assign_choice_ids(raw_choices)
-                choices: list[ScoredChoiceDict] = []
-                for choice, choice_id in zip(raw_choices, ids):
-                    entry: ScoredChoiceDict = {"text": choice.text}
-                    if choice_id is not None:
-                        entry["id"] = choice_id
-                    score = _score_from_value(choice.value)
-                    if score is not None:
-                        entry["score"] = score
-                    if choice.feedback is not None:
-                        entry["feedback"] = choice.feedback
-                    if choice.comment is not None:
-                        entry["comment"] = choice.comment
-                    choices.append(entry)
+                # The choices of a multiple-choice blank are scored choices.
+                choices = cast(
+                    "list[ScoredChoiceDict]",
+                    build_choices("multiple-choice", raw_choices, ("blanks", existing)),
+                )
                 self._add_blank(
                     blanks,
                     {"id": blank_id, "type": "multiple-choice", "choices": choices},
@@ -1705,9 +1651,7 @@ class MDQParser:
             raw_choices = self.parse_item_list(body_node)
             values = [c.value for c in raw_choices]
             question_type = question_type or _infer_choice_type(values)
-            if not question_type:
-                raise IncompleteQuestion()
-            self.parse_choice_body(question_type, raw_choices)
+            self.parse_choice_body(as_choice_type(question_type), raw_choices)
         else:
             body_node = self.expect("paragraph", "unrecognized question body")
             text = self.reader.raw_text(body_node)

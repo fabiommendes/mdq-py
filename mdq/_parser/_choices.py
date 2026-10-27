@@ -16,14 +16,19 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal, NamedTuple
+from typing import Literal, NamedTuple, cast
 
 from .._markdown import SLUG_BODY_RE
-from .._letters import is_letter, normalize_value, strip_marker_space
-from ..errors import ParseError
-from ..types import PatternDict
+from .._letters import FALSE_LETTERS, is_letter, normalize_value, strip_marker_space
+from ..errors import ForeignChoiceMarker, ParseError
+from ..types import BooleanChoiceDict, PatternDict, ScoredChoiceDict, StatementDict
 
 __all__ = ["RawChoice", "SLUG_PREFIX_RE"]
+
+#: The question types whose body is a choice list.
+type ChoiceType = Literal["multiple-choice", "multiple-selection", "true-false"]
+#: A choice of any `ChoiceType`.
+type ChoiceDict = ScoredChoiceDict | BooleanChoiceDict | StatementDict
 
 # The grammar's `ws` is only spaces and tabs (docs/references/grammar.md):
 # every `[ \t]` below is `ws`, and every `strip(" \t")` in this package
@@ -286,20 +291,7 @@ def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
     )
 
 
-def _assign_choice_ids(choices: list[RawChoice]) -> list[str | None]:
-    """
-    Return each choice's id, exactly as the author wrote it -- `None` for
-    a choice with no explicit id.
-
-    A choice without an id used to get one derived from its text here;
-    that derivation now lives in `mdq.models.BaseQuestion.with_ids`,
-    called by whoever needs an addressable document
-    (dev/specs/to-do/derived-ids.md).
-    """
-    return [choice.explicit_id for choice in choices]
-
-
-def foreign_choice_index(question_type: str, values: list[str]) -> int | None:
+def foreign_choice_index(question_type: ChoiceType, values: list[str]) -> int | None:
     """
     The index of the first value that is not in the `value` rule of
     `question_type` (base.md, "Type inference"), or None when every value
@@ -315,16 +307,14 @@ def foreign_choice_index(question_type: str, values: list[str]) -> int | None:
             ok = normalized in ("", "*") or bool(PERCENT_RE.match(normalized))
         elif question_type == "multiple-selection":
             ok = normalized in ("", "x")
-        elif question_type == "true-false":
-            ok = is_letter(normalized) and normalized != "x"
         else:
-            continue
+            ok = is_letter(normalized) and normalized != "x"
         if not ok:
             return index
     return None
 
 
-def _infer_choice_type(values: list[str]) -> str | None:
+def _infer_choice_type(values: list[str]) -> ChoiceType:
     """
     Infer multiple-choice / multiple-selection / true-false from the
     bracket values used in a choice list, per generic.md's rule that a
@@ -346,6 +336,75 @@ def _infer_choice_type(values: list[str]) -> str | None:
         if is_letter(n):
             return "true-false"
     return "multiple-selection"
+
+
+def as_choice_type(question_type: object) -> ChoiceType | None:
+    """The `ChoiceType` that `question_type` declares, or None for any other value."""
+    match question_type:
+        case "multiple-choice" | "multiple-selection" | "true-false":
+            return question_type
+        case _:
+            return None
+
+
+def build_choices(
+    question_type: ChoiceType | None,
+    raw_choices: list[RawChoice],
+    path: tuple[str | int, ...] = (),
+) -> list[ChoiceDict]:
+    """
+    Build the `choices` of a choice list body or of a fill-in choice blank.
+
+    Args:
+        question_type: The type that decides the fields of each choice. None
+            when the frontmatter forces a type that has no choices: the
+            choices keep their text, id, feedback and comment, and the schema
+            rejects the document.
+        raw_choices: The parsed list items.
+        path: The path of the object that holds the choices, for the error.
+
+    Raises:
+        ForeignChoiceMarker: A marker is not in the `value` rule of
+            `question_type`.
+    """
+    if question_type is not None:
+        foreign = foreign_choice_index(question_type, [c.value for c in raw_choices])
+        if foreign is not None:
+            raise ForeignChoiceMarker(
+                raw_choices[foreign].value,
+                question_type,
+                (*path, "choices", foreign),
+            )
+    return [_build_choice(question_type, choice) for choice in raw_choices]
+
+
+def _build_choice(question_type: ChoiceType | None, choice: RawChoice) -> ChoiceDict:
+    """One choice of a list item, with the fields of `question_type`."""
+    entry: dict[str, object] = {"text": choice.text}
+    if choice.explicit_id is not None:
+        entry["id"] = choice.explicit_id
+    if question_type == "multiple-choice":
+        # `[ ]` omits the score; `[0%]` is an explicit zero
+        # (multiple-choice.md, "Choices").
+        score = _score_from_value(choice.value)
+        if score is not None:
+            entry["score"] = score
+    elif question_type == "multiple-selection":
+        # `correct` is required: a blank `[ ]` is an explicit false.
+        entry["correct"] = normalize_value(choice.value) == "x"
+    elif question_type == "true-false":
+        # TRUE and WARNING letters both mean true; only FALSE letters mean
+        # false (docs/question-types/true-false.md).
+        entry["correct"] = normalize_value(choice.value) not in FALSE_LETTERS
+        if choice.value:
+            entry["marker"] = choice.value
+    if choice.feedback is not None:
+        entry["feedback"] = choice.feedback
+    if choice.comment is not None:
+        entry["comment"] = choice.comment
+    # The keys written above are the ones `question_type` allows; the
+    # fields are added one by one to keep the key order of the document.
+    return cast(ChoiceDict, entry)
 
 
 def _score_from_value(value: str) -> float | int | None:

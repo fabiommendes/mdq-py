@@ -100,6 +100,22 @@ def _check_double_range(value: str, text: str) -> None:
             raise ParseError(f"number out of the range of a double: {text!r}")
 
 
+def _check_value(value: str, text: str, noun: str) -> None:
+    """
+    Check a `numeric_value` of `text`: a fraction has no zero denominator
+    and a number is in the range of a double.
+
+    Args:
+        noun: What `text` is, `"body"` or `"value"`, for the message.
+
+    Raises:
+        ParseError: The check fails.
+    """
+    if "/" in value and not value.split("/")[1].strip("0"):
+        raise ParseError(f"zero denominator in numeric {noun}: {text!r}")
+    _check_double_range(value, text)
+
+
 def _percent_to_fraction(spelling: str) -> float:
     """
     numeric.md, "Tolerances": `p / 100` in exact decimal arithmetic on the
@@ -129,9 +145,7 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
     sign = m.group("sign") or ""
     value_str = m.group("value")
 
-    if "/" in value_str and not value_str.split("/")[1].strip("0"):
-        raise ParseError(f"zero denominator in numeric body: {expr!r}")
-    _check_double_range(value_str, expr)
+    _check_value(value_str, expr, "body")
     answer = _answer_value(sign, value_str)
 
     result: _NumericExpr
@@ -249,9 +263,7 @@ def parse_numeric_answer(text: str) -> int | float | str:
     if not m:
         raise ParseError(f"malformed numeric value: {text!r}")
     value = m.group("value")
-    if "/" in value and not value.split("/")[1].strip("0"):
-        raise ParseError(f"zero denominator in numeric value: {text!r}")
-    _check_double_range(value, text)
+    _check_value(value, text, "value")
     return _answer_value(m.group("sign") or "", value)
 
 
@@ -272,7 +284,5 @@ def parse_numeric_string(text: str) -> tuple[Fraction, bool]:
     if not m:
         raise ParseError(f"malformed numeric value: {text!r}")
     value = m.group("value")
-    if "/" in value and not value.split("/")[1].strip("0"):
-        raise ParseError(f"zero denominator in numeric value: {text!r}")
-    _check_double_range(value, text)
+    _check_value(value, text, "value")
     return Fraction(text), "/" in value
