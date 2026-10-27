@@ -21,10 +21,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
+
 from jsonschema import Draft202012Validator
 
 from mdq import load
+from mdq._parser import load_yaml
 from _corpus import (
     INVALID_MODEL_ONLY_PARSED,
     INVALID_PARSED,
@@ -73,7 +74,7 @@ def test_examples_dir_has_documents() -> None:
     "path", VALID_PARSED, ids=[relative_id(p) for p in VALID_PARSED]
 )
 def test_valid_example_satisfies_schema_and_loads_cleanly(path: Path) -> None:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path.read_text(encoding="utf-8"))
 
     schema_errors = _schema_errors(document)
     loaded = load(path)
@@ -104,7 +105,7 @@ def test_valid_example_satisfies_schema_and_loads_cleanly(path: Path) -> None:
     "path", INVALID_PARSED, ids=[relative_id(p) for p in INVALID_PARSED]
 )
 def test_invalid_example_fails_schema_and_load(path: Path) -> None:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path.read_text(encoding="utf-8"))
 
     schema_errors = _schema_errors(document)
     loaded = load(path)
@@ -144,7 +145,7 @@ def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(
     -- dev/specs/to-do/unique-ids.md) cannot be expressed in JSON Schema.
     These documents satisfy the schema, and are rejected by `load` alone.
     """
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path.read_text(encoding="utf-8"))
 
     schema_errors = _schema_errors(document)
     loaded = load(path)

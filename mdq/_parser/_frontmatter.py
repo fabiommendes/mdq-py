@@ -13,7 +13,9 @@ tables.
 
 from __future__ import annotations
 
+import decimal
 import json
+import math
 import re
 from functools import cache
 from importlib import resources
@@ -96,26 +98,84 @@ class _FrontmatterLoader(yaml.SafeLoader):
     documents follow the Core schema, where all of these are plain
     strings or decimal numbers, so the resolvers are replaced wholesale
     (`_CORE_RESOLVERS`) and the int constructor reads decimal, `0o` and
-    `0x` only (`_construct_core_int`).
+    `0x` only (`_construct_core_int`). Tags outside the Core schema are
+    errors, a mapping key becomes a string (`construct_mapping`) and NEL,
+    LS and PS are content (`_hide_unicode_breaks`).
     """
 
+    #: Maps each placeholder character in the text to the NEL, LS or PS it
+    #: stands for (`_hide_unicode_breaks`).
+    unicode_breaks: dict[str, str] = {}
+
+    def construct_scalar(self, node: yaml.ScalarNode | yaml.MappingNode) -> Any:
+        value = super().construct_scalar(node)
+        if isinstance(value, str):
+            for placeholder, char in self.unicode_breaks.items():
+                value = value.replace(placeholder, char)
+        return value
+
+    def flatten_mapping(self, node: yaml.MappingNode) -> None:
+        """The Core schema has no merge key: `<<` is an ordinary key."""
+
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
-        seen: set[Any] = set()
-        for key_node, _ in node.value:
-            key = self.construct_object(key_node, deep=deep)
-            try:
-                duplicate = key in seen
-                seen.add(key)
-            except TypeError:  # an unhashable key; the base class reports it
-                continue
-            if duplicate:
+        mapping: dict[str, Any] = {}
+        for key_node, value_node in node.value:
+            if not isinstance(key_node, yaml.ScalarNode):
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    "found a key that is not a scalar",
+                    key_node.start_mark,
+                )
+            key = _key_string(self.construct_object(key_node, deep=True))
+            if key in mapping:
                 raise _DuplicateKeyError(
                     "while constructing a mapping",
                     node.start_mark,
                     f"found duplicate key {key!r}",
                     key_node.start_mark,
                 )
-        return super().construct_mapping(node, deep=deep)
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+
+def _key_string(key: object) -> str:
+    """
+    The string form of a scalar key, as JSON and `js-yaml` write it: `true`,
+    `null`, `31` for `0x1F`, `1000` for `1e3`, `Infinity`, `NaN`.
+    """
+    if key is None:
+        return "null"
+    if isinstance(key, bool):
+        return "true" if key else "false"
+    if isinstance(key, float):
+        return _js_number_string(key)
+    return str(key)
+
+
+def _js_number_string(value: float) -> str:
+    """`Number.prototype.toString` of ECMAScript for a float."""
+    if value != value:
+        return "NaN"
+    if value in (math.inf, -math.inf):
+        return "Infinity" if value > 0 else "-Infinity"
+    if value == 0:
+        return "0"
+    sign = "-" if value < 0 else ""
+    _, digit_tuple, exponent = decimal.Decimal(repr(abs(value))).as_tuple()
+    assert isinstance(exponent, int)
+    digits = "".join(map(str, digit_tuple)).rstrip("0") or "0"
+    point = len(digit_tuple) + exponent  # the value is 0.<digits> * 10**point
+    count = len(digits)
+    if count <= point <= 21:
+        return sign + digits + "0" * (point - count)
+    if 0 < point <= 21:
+        return f"{sign}{digits[:point]}.{digits[point:]}"
+    if -6 < point <= 0:
+        return f"{sign}0.{'0' * -point}{digits}"
+    power = point - 1
+    mantissa = digits if count == 1 else f"{digits[0]}.{digits[1:]}"
+    return f"{sign}{mantissa}e{'+' if power >= 0 else '-'}{abs(power)}"
 
 
 #: The implicit resolvers of the YAML 1.2 Core schema
@@ -188,6 +248,18 @@ def _construct_core_int(loader: yaml.SafeLoader, node: yaml.ScalarNode) -> int:
 
 _FrontmatterLoader.add_constructor("tag:yaml.org,2002:int", _construct_core_int)
 
+#: The tags of the Core schema. `yaml.SafeLoader` also builds `!!timestamp`,
+#: `!!binary`, `!!set`, `!!omap` and `!!pairs`; a tag outside the schema is a
+#: constructor error.
+_CORE_TAGS = frozenset(
+    f"tag:yaml.org,2002:{name}" for name in ("null", "bool", "int", "float", "str", "seq", "map")
+)
+_FrontmatterLoader.yaml_constructors = {
+    tag: constructor
+    for tag, constructor in _FrontmatterLoader.yaml_constructors.items()
+    if tag in _CORE_TAGS or tag is None
+}
+
 
 class YamlSyntaxError(ParseError):
     """The frontmatter is not valid YAML, or repeats a key."""
@@ -201,9 +273,39 @@ def load_yaml(text: str) -> Any:
     `_FrontmatterLoader`.
 
     Raises:
-        yaml.YAMLError: `text` is not valid YAML, or repeats a key.
+        yaml.YAMLError: `text` is not valid YAML, repeats a key, has a key
+            that is not a scalar, or has a tag outside the Core schema.
     """
-    return yaml.load(text, Loader=_FrontmatterLoader)
+    text, unicode_breaks = _hide_unicode_breaks(text)
+    loader = _FrontmatterLoader(text)
+    loader.unicode_breaks = unicode_breaks
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
+
+
+def _hide_unicode_breaks(text: str) -> tuple[str, dict[str, str]]:
+    """
+    Replace NEL (U+0085), LS (U+2028) and PS (U+2029) by private use
+    characters that `text` does not hold, and return the replacement table.
+
+    PyYAML implements YAML 1.1, where these are line breaks. In YAML 1.2
+    they are content characters of a scalar, so the loader must not see
+    them (`_FrontmatterLoader.construct_scalar` puts them back).
+    """
+    breaks = [char for char in "\x85\u2028\u2029" if char in text]
+    if not breaks:
+        return text, {}
+    free = (chr(code) for code in range(0xE000, 0xF900) if chr(code) not in text)
+    table: dict[str, str] = {}
+    for char in breaks:
+        placeholder = next(free, None)
+        if placeholder is None:
+            raise yaml.YAMLError("no private use character is free to stand for a line separator")
+        table[placeholder] = char
+        text = text.replace(char, placeholder)
+    return text, table
 
 
 def dump_yaml(data: Any) -> str:

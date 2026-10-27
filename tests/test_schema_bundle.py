@@ -11,10 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
+
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError as JsonSchemaError
 from jsonschema.validators import validator_for
+
+from mdq._parser import load_yaml
 
 from _corpus import (
     INVALID_PARSED,
@@ -54,7 +56,7 @@ def test_bundle_has_one_frontmatter_schema_per_document_type() -> None:
     "path", VALID_PARSED, ids=[relative_id(p) for p in VALID_PARSED]
 )
 def test_valid_example_validates_against_bundle(path: Path) -> None:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path.read_text(encoding="utf-8"))
     question_type = document.get("type") or (
         "exam" if "questions" in document else None
     )
@@ -80,7 +82,7 @@ def test_valid_example_validates_against_bundle(path: Path) -> None:
     "path", INVALID_PARSED, ids=[relative_id(p) for p in INVALID_PARSED]
 )
 def test_invalid_example_still_fails_against_bundle(path: Path) -> None:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path.read_text(encoding="utf-8"))
     question_type = document.get("type") if isinstance(document, dict) else None
     if question_type not in BUNDLED_TYPES:
         # No type to look up a fragment by -- exactly the kind of

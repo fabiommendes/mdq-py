@@ -18,6 +18,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- YAML follows the Core schema further (breaking). A scalar mapping key that is not a string becomes its string form, as in `js-yaml` (`1` is `"1"`, `0x1F` is `"31"`, `1e3` is `"1000"`, `null` is `"null"`), in the frontmatter and in YAML documents; a key that repeats after the conversion, or a sequence or mapping key, is a `yaml-syntax-error`. NEL, LS and PS inside a scalar are content, not line breaks. A tag outside the Core schema (`!!timestamp`, `!!binary`, `!!set`, `!!omap`) is a `yaml-syntax-error`, and `!!merge` no longer merges.
 - A tag line right after content, or after a pattern or choice item, is a `parse-error` with a "blank line before the tag" message (breaking).
 - A setext H1 in exam instructions, a stem or an epilogue is `forbidden-block-element` (breaking).
 - Moodle XML and GIFT import split short-answer and numeric answers by credit: 100% is `accept` (or the numeric `answer`), 0% is `reject` with its feedback, and a partial credit or a `*` inside a short answer raises `ValueError` (breaking). The numeric key is the 100% answer, not the first one. A Moodle `*` at 0% with feedback becomes `incorrectFeedback`.
