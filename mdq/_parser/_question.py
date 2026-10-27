@@ -459,18 +459,15 @@ class MDQParser:
             ParseError: If the cursor is already exhausted.
         """
 
-        node = self.seek()
+        node = self.peek()
         if node is None:
             raise ParseError("unexpected end of document")
         self.pos += 1
         return node
 
-    def seek(self) -> Node | None:
+    def peek(self) -> Node | None:
         """
         Return the current node without consuming it, or None at the end.
-
-        Despite the name, this is a non-consuming peek at the cursor's
-        current position, not a `file.seek`-style jump to an arbitrary one.
         """
 
         if self.pos >= len(self.reader.children):
@@ -486,19 +483,10 @@ class MDQParser:
                 type does not match `node_type`.
         """
 
-        node = self.seek()
+        node = self.peek()
         if node is None or node.type != node_type:
             raise ParseError(error_msg, node)
         return self.read()
-
-    def at_end(self) -> bool:
-        """True once every child node has been consumed."""
-
-        return self.pos >= len(self.reader.children)
-
-    #
-    # Frontmatter
-    #
 
     #
     # Body-start / tag detection
@@ -748,7 +736,7 @@ class MDQParser:
         reject_raw: list[RawAlternative] = []
 
         while True:
-            node = self.seek()
+            node = self.peek()
             if node is None or node.type != "heading" or node.tag != "h2":
                 break
             m = ORDERING_SECTION_RE.match(self.reader.raw_text(node))
@@ -865,7 +853,7 @@ class MDQParser:
                 bullet list, or a blank line separates the main block
                 from its tag.
         """
-        node = self.seek()
+        node = self.peek()
         if node is None or node.type not in ("fence", "bullet_list"):
             if section is not None:
                 raise ParseError(
@@ -939,7 +927,7 @@ class MDQParser:
         first: Node | None = None
         last: Node | None = None
         while True:
-            node = self.seek()
+            node = self.peek()
             if node is None:
                 break
             if node.type == "blockquote" or (
@@ -984,7 +972,7 @@ class MDQParser:
                 break
             tag_variant, rest = tag
             variant = "reject" if tag_variant == "reject" else "accept"
-            if variant in doc or variant in seen:
+            if variant in seen:
                 raise ParseError(f"repeated [short-answer] {variant} block")
             seen.add(variant)
             patterns = self.parse_answer_block(
@@ -997,7 +985,7 @@ class MDQParser:
             if patterns:
                 doc[variant] = patterns
 
-            node = self.seek()
+            node = self.peek()
             self.check_no_setext_tag(node, SHORT_ANSWER_RE)
             if node is None or node.type != "paragraph":
                 break
@@ -1020,8 +1008,7 @@ class MDQParser:
         if len(lines) < 2:
             return rest.strip(" \t")
         first = TAG_REST_RE.match(lines[0])
-        if first is None:  # pragma: no cover - the caller matched a tag
-            return rest.strip(" \t")
+        assert first is not None  # the caller matched a tag
         return join_pattern_lines([first.group("rest"), *lines[1:]])
 
     def _warn_multi_line_pattern(
@@ -1086,7 +1073,7 @@ class MDQParser:
         for line in self.reader.raw_lines(tag_node)[1:]:
             if _is_comment_line(line):
                 raise ParseError(_OBSERVATION_AFTER_CONTENT)
-        node = self.seek()
+        node = self.peek()
         if (
             node is not None
             and node.type == "blockquote"
@@ -1141,7 +1128,7 @@ class MDQParser:
                 f"[{tag}/reject] needs patterns: write `[{tag}/reject]:` "
                 "followed by a pattern or a list"
             )
-        node = self.seek()
+        node = self.peek()
         adjacent = node is not None and starts_after(tag_node, node)
         if adjacent and node is not None and node.type == "bullet_list":
             raise ParseError(
@@ -1229,7 +1216,7 @@ class MDQParser:
                 unit = km.group("unit")
                 variant = km.group("variant")
 
-            next_node = self.seek()
+            next_node = self.peek()
             if (
                 blank_type is None
                 and not rest
@@ -1244,13 +1231,14 @@ class MDQParser:
                 self.read()
                 self.check_no_adjacent_list(next_node)
                 raw_choices = self.parse_item_list(next_node)
-                existing = (
-                    list(blanks).index(blank_id) if blank_id in blanks else len(blanks)
-                )
                 # The choices of a multiple-choice blank are scored choices.
                 choices = cast(
                     "list[ScoredChoiceDict]",
-                    build_choices("multiple-choice", raw_choices, ("blanks", existing)),
+                    build_choices(
+                        "multiple-choice",
+                        raw_choices,
+                        ("blanks", _blank_index(blanks, blank_id)),
+                    ),
                 )
                 self._add_blank(
                     blanks,
@@ -1295,7 +1283,7 @@ class MDQParser:
                     tag=f"^{blank_id}/short-answer",
                     path=(
                         "blanks",
-                        list(blanks).index(blank_id) if blank_id in blanks else len(blanks),
+                        _blank_index(blanks, blank_id),
                         role,
                     ),
                 )
@@ -1323,7 +1311,7 @@ class MDQParser:
             else:
                 raise ParseError(f"unrecognized blank definition: {text!r}")
 
-            node = self.seek()
+            node = self.peek()
             self.check_no_setext_tag(node, BLANK_RE)
             if node is None or node.type != "paragraph":
                 break
@@ -1397,7 +1385,7 @@ class MDQParser:
         (`*` to `-`, or to `1.`) starts a new list, and that list would go
         to the epilogue with no sign: an item would leave the answer.
         """
-        node = self.seek()
+        node = self.peek()
         if node is None:
             return
         # The map of a list includes the blank lines inside it.
@@ -1504,7 +1492,7 @@ class MDQParser:
 
         Raises:
             ParseError: the slug is already defined with a different
-                kind, or this form of definition is already present.
+                kind, or it is a repeated choice or numeric definition.
         """
         blank_id = new["id"]
         existing = blanks.get(blank_id)
@@ -1519,11 +1507,10 @@ class MDQParser:
         if existing["type"] != "short-answer":
             raise ParseError(f"repeated definition of blank {blank_id!r}")
         for key, value in new.items():
-            if key in ("id", "type"):
-                continue
-            if key in existing:
-                raise ParseError(f"repeated {key!r} definition for blank {blank_id!r}")
-            _set_field(existing, key, value)
+            if key not in ("id", "type"):
+                # The caller rejects a repeated `accept` or `reject`
+                # definition of a short-answer blank before it gets here.
+                _set_field(existing, key, value)
 
     def parse_answer_key(self) -> list[Node]:
         """
@@ -1602,7 +1589,7 @@ class MDQParser:
         self.state["stem"] = stem_text
 
         question_type = self.frontmatter.get("type")
-        node = self.seek()
+        node = self.peek()
         epilogue_nodes: list[Node] | None = None
 
         if node is None:
@@ -1662,6 +1649,11 @@ class MDQParser:
         # contradict the body, so the document is checked by the schema, not
         # by construction.
         return cast(QuestionDict, self.state)
+
+
+def _blank_index(blanks: Mapping[str, BlankDict], blank_id: str) -> int:
+    """The index `blank_id` has, or will have, in the `blanks` list."""
+    return list(blanks).index(blank_id) if blank_id in blanks else len(blanks)
 
 
 def _set_field(blank: BlankDict, key: str, value: object) -> None:
