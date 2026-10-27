@@ -25,7 +25,7 @@ from mdq.convert._gift import Gift, GiftBlock, GiftQuestion, GiftShort, GiftOpti
 from mdq.convert._moodle_xml import (
     MoodleAnswer,
     MoodleXml,
-    MoodleXmlBlock,
+    ShortAnswerBlock,
     MoodleXmlQuestion,
 )
 from mdq.models import (
@@ -230,8 +230,7 @@ def _gift_import(*texts: str) -> ShortAnswerQuestion:
 
 
 def _moodle_import(*texts: str) -> ShortAnswerQuestion:
-    block = MoodleXmlBlock(
-        type="shortanswer",
+    block = ShortAnswerBlock(
         questiontext="Qual o maior rio do Brasil?",
         answers=[MoodleAnswer(text=t, fraction=100.0) for t in texts],
     )

@@ -11,7 +11,16 @@ from hypothesis import strategies as st
 
 from mdq import _parser
 from mdq._markdown import has_visible_character
-from mdq.convert._moodle_xml import MoodleAnswer, MoodleCloze, MoodleXmlBlock
+from mdq.convert._moodle_xml import (
+    EssayBlock,
+    MoodleAnswer,
+    MoodleCloze,
+    MoodleXmlBlock,
+    MultichoiceBlock,
+    NumericalBlock,
+    ShortAnswerBlock,
+    TrueFalseBlock,
+)
 
 __all__ = [
     "moodle_text",
@@ -118,55 +127,35 @@ def moodle_multichoice_block(
     single: st.SearchStrategy[bool | None] | None = None,
 ) -> st.SearchStrategy[MoodleXmlBlock]:
     return st.builds(
-        MoodleXmlBlock,
-        type=st.just("multichoice"),
+        MultichoiceBlock,
         answers=moodle_answers(min_size=2, max_size=4),
         single=single if single is not None else (st.none() | st.booleans()),
         shuffle_answers=st.none() | st.booleans(),
-        grader_info=st.none(),
-        response_format=st.none(),
-        unit=st.none(),
         **moodle_base_fields(),
     )
 
 
 def moodle_truefalse_block() -> st.SearchStrategy[MoodleXmlBlock]:
     return st.builds(
-        MoodleXmlBlock,
-        type=st.just("truefalse"),
+        TrueFalseBlock,
         answers=moodle_answers(min_size=2, max_size=2),
-        single=st.none(),
         shuffle_answers=st.none(),
-        grader_info=st.none(),
-        response_format=st.none(),
-        unit=st.none(),
         **moodle_base_fields(),
     )
 
 
 def moodle_shortanswer_block() -> st.SearchStrategy[MoodleXmlBlock]:
     return st.builds(
-        MoodleXmlBlock,
-        type=st.just("shortanswer"),
+        ShortAnswerBlock,
         answers=moodle_answers(min_size=1, max_size=3),
-        single=st.none(),
-        shuffle_answers=st.none(),
-        grader_info=st.none(),
-        response_format=st.none(),
-        unit=st.none(),
         **moodle_base_fields(),
     )
 
 
 def moodle_numerical_block() -> st.SearchStrategy[MoodleXmlBlock]:
     return st.builds(
-        MoodleXmlBlock,
-        type=st.just("numerical"),
+        NumericalBlock,
         answers=moodle_answers(min_size=1, max_size=2, tolerance=True),
-        single=st.none(),
-        shuffle_answers=st.none(),
-        grader_info=st.none(),
-        response_format=st.none(),
         unit=st.none() | moodle_line_text(max_size=10),
         **moodle_base_fields(),
     )
@@ -174,14 +163,9 @@ def moodle_numerical_block() -> st.SearchStrategy[MoodleXmlBlock]:
 
 def moodle_essay_block() -> st.SearchStrategy[MoodleXmlBlock]:
     return st.builds(
-        MoodleXmlBlock,
-        type=st.just("essay"),
-        answers=st.just([]),
-        single=st.none(),
-        shuffle_answers=st.none(),
+        EssayBlock,
         grader_info=st.none() | moodle_text(),
         response_format=st.none() | st.sampled_from(["editor", "plain", "monospaced"]),
-        unit=st.none(),
         **moodle_base_fields(),
     )
 

@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import Literal, TypedDict, assert_never
+from collections.abc import Sequence
+from typing import ClassVar, Literal, TypedDict, assert_never
 
 from .._markdown import UNICODE_SPACE
 from ..models import (
@@ -60,6 +61,12 @@ __all__ = [
     "MoodleAnswer",
     "MoodleCloze",
     "MoodleXmlBlock",
+    "MultichoiceBlock",
+    "TrueFalseBlock",
+    "ShortAnswerBlock",
+    "NumericalBlock",
+    "EssayBlock",
+    "MultianswerBlock",
     "MoodleXmlQuestion",
     "MoodleXmlEncoder",
     "MoodleXmlDecoder",
@@ -74,9 +81,6 @@ type MoodleXmlType = Literal[
 type MoodleTextFormat = Literal["html", "moodle", "plain_text", "markdown"]
 type ClozeKind = Literal["SHORTANSWER", "NUMERICAL", "MULTICHOICE"]
 
-MOODLE_XML_TYPES: frozenset[str] = frozenset(
-    {"multichoice", "truefalse", "shortanswer", "numerical", "essay", "multianswer"}
-)
 CLOZE_KIND_ALIASES: dict[str, ClozeKind] = {
     "SHORTANSWER": "SHORTANSWER",
     "SA": "SHORTANSWER",
@@ -97,8 +101,20 @@ _FORMAT = "Moodle XML"
 
 
 
+class _BlockFields(TypedDict):
+    """The `_BlockBase` fields, as the arguments of any block."""
+
+    questiontext: str
+    name: str | None
+    idnumber: str | None
+    text_format: MoodleTextFormat
+    general_feedback: str | None
+    default_grade: float
+    tags: list[str]
+
+
 class _BlockMeta(TypedDict):
-    """The `MoodleXmlBlock` fields that come from the metadata of an MDQ question."""
+    """The `_BlockBase` fields that come from the metadata of an MDQ question."""
 
     name: str | None
     idnumber: str | None
@@ -107,7 +123,7 @@ class _BlockMeta(TypedDict):
 
 
 class _QuestionMeta(TypedDict):
-    """The MDQ question fields that come from the metadata of a `MoodleXmlBlock`."""
+    """The MDQ question fields that come from the metadata of a block."""
 
     title: str | None
     id: str | None
@@ -116,7 +132,7 @@ class _QuestionMeta(TypedDict):
 
 
 def _block_meta(question: Question) -> _BlockMeta:
-    """The metadata of `question`, as the arguments of a `MoodleXmlBlock`."""
+    """The metadata of `question`, as the arguments of a block."""
     return {
         "name": question.title,
         "idnumber": question.id,
@@ -125,7 +141,7 @@ def _block_meta(question: Question) -> _BlockMeta:
     }
 
 
-def _question_meta(block: MoodleXmlBlock) -> _QuestionMeta:
+def _question_meta(block: _BlockBase) -> _QuestionMeta:
     """The metadata of `block`, as the arguments of an MDQ question."""
     return {
         "title": block.name,
@@ -203,38 +219,189 @@ class MoodleCloze:
 
 
 @dataclass
-class MoodleXmlBlock:
-    """One `<question>` element."""
+class _BlockBase:
+    """The fields every `<question>` element has."""
 
-    type: MoodleXmlType
+    type: ClassVar[MoodleXmlType]
+
     questiontext: str
     name: str | None = None
     idnumber: str | None = None
     text_format: MoodleTextFormat = "markdown"
     general_feedback: str | None = None
-    answers: list[MoodleAnswer] = field(default_factory=list)
-    single: bool | None = None  # multichoice
-    shuffle_answers: bool | None = None
-    grader_info: str | None = None  # essay
-    response_format: str | None = None  # essay
-    unit: str | None = None  # numerical
     default_grade: float = 1.0
     tags: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
-        return render_element(build_question_element(self))
+        return render_element(self.to_element())
+
+    def to_element(self) -> ET.Element:
+        """Build the `<question>` element of this block."""
+        question_el = ET.Element("question", attrib={"type": self.type})
+        if self.name is not None:
+            name_el = ET.SubElement(question_el, "name")
+            ET.SubElement(name_el, "text").text = self.name
+        if self.idnumber is not None:
+            ET.SubElement(question_el, "idnumber").text = self.idnumber
+
+        questiontext_el = ET.SubElement(
+            question_el, "questiontext", attrib={"format": self.text_format}
+        )
+        ET.SubElement(questiontext_el, "text").text = self.questiontext
+
+        if self.general_feedback is not None:
+            feedback_el = ET.SubElement(
+                question_el, "generalfeedback", attrib={"format": self.text_format}
+            )
+            ET.SubElement(feedback_el, "text").text = self.general_feedback
+
+        ET.SubElement(question_el, "defaultgrade").text = format_num(self.default_grade)
+
+        self._add_details(question_el)
+
+        if self.tags:
+            tags_el = ET.SubElement(question_el, "tags")
+            for tag in self.tags:
+                tag_el = ET.SubElement(tags_el, "tag")
+                ET.SubElement(tag_el, "text").text = tag
+        return question_el
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        """Add the elements that only this type of question has."""
+
+    def _add_answers(self, question_el: ET.Element, answers: list[MoodleAnswer]) -> None:
+        """Add one `<answer>` element per answer."""
+        for answer in answers:
+            answer_el = ET.SubElement(
+                question_el,
+                "answer",
+                attrib={
+                    "fraction": format_num(answer.fraction),
+                    "format": self.text_format,
+                },
+            )
+            ET.SubElement(answer_el, "text").text = answer.text
+            if answer.feedback is not None:
+                answer_feedback_el = ET.SubElement(
+                    answer_el, "feedback", attrib={"format": self.text_format}
+                )
+                ET.SubElement(answer_feedback_el, "text").text = answer.feedback
+            if answer.tolerance is not None:
+                ET.SubElement(answer_el, "tolerance").text = format_num(answer.tolerance)
+
+
+@dataclass
+class MultichoiceBlock(_BlockBase):
+    """A `multichoice` question. `single` is `None` when the element has no `<single>`."""
+
+    type: ClassVar[MoodleXmlType] = "multichoice"
+
+    answers: list[MoodleAnswer] = field(default_factory=list)
+    single: bool | None = None
+    shuffle_answers: bool | None = None
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        if self.single is not None:
+            ET.SubElement(question_el, "single").text = bool_to_moodle(self.single)
+        if self.shuffle_answers is not None:
+            ET.SubElement(question_el, "shuffleanswers").text = bool_to_moodle(
+                self.shuffle_answers
+            )
+        self._add_answers(question_el, self.answers)
+
+
+@dataclass
+class TrueFalseBlock(_BlockBase):
+    """A `truefalse` question."""
+
+    type: ClassVar[MoodleXmlType] = "truefalse"
+
+    answers: list[MoodleAnswer] = field(default_factory=list)
+    shuffle_answers: bool | None = None
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        self._add_answers(question_el, self.answers)
+
+
+@dataclass
+class ShortAnswerBlock(_BlockBase):
+    """A `shortanswer` question."""
+
+    type: ClassVar[MoodleXmlType] = "shortanswer"
+
+    answers: list[MoodleAnswer] = field(default_factory=list)
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        ET.SubElement(question_el, "usecase").text = "0"
+        self._add_answers(question_el, self.answers)
+
+
+@dataclass
+class NumericalBlock(_BlockBase):
+    """A `numerical` question."""
+
+    type: ClassVar[MoodleXmlType] = "numerical"
+
+    answers: list[MoodleAnswer] = field(default_factory=list)
+    unit: str | None = None
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        self._add_answers(question_el, self.answers)
+        if self.unit is not None:
+            units_el = ET.SubElement(question_el, "units")
+            unit_el = ET.SubElement(units_el, "unit")
+            ET.SubElement(unit_el, "unit_name").text = self.unit
+            ET.SubElement(unit_el, "unit_multiplier").text = "1"
+
+
+@dataclass
+class EssayBlock(_BlockBase):
+    """An `essay` question."""
+
+    type: ClassVar[MoodleXmlType] = "essay"
+
+    grader_info: str | None = None
+    response_format: str | None = None
+
+    def _add_details(self, question_el: ET.Element) -> None:
+        if self.grader_info is not None:
+            graderinfo_el = ET.SubElement(
+                question_el, "graderinfo", attrib={"format": self.text_format}
+            )
+            ET.SubElement(graderinfo_el, "text").text = self.grader_info
+        if self.response_format is not None:
+            ET.SubElement(question_el, "responseformat").text = self.response_format
+
+
+@dataclass
+class MultianswerBlock(_BlockBase):
+    """A `multianswer` (cloze) question: its blanks live inside `questiontext`."""
+
+    type: ClassVar[MoodleXmlType] = "multianswer"
+
+    shuffle_answers: bool | None = None
+
+
+type MoodleXmlBlock = (
+    MultichoiceBlock
+    | TrueFalseBlock
+    | ShortAnswerBlock
+    | NumericalBlock
+    | EssayBlock
+    | MultianswerBlock
+)
 
 
 @dataclass
 class MoodleXmlQuestion:
     """A Moodle XML question: one block, or several for a true/false group."""
 
-    blocks: list[MoodleXmlBlock] = field(default_factory=list)
+    blocks: Sequence[MoodleXmlBlock] = field(default_factory=list)
 
     def __str__(self) -> str:
         quiz = ET.Element("quiz")
         for block in self.blocks:
-            quiz.append(build_question_element(block))
+            quiz.append(block.to_element())
         return f'<?xml version="1.0" encoding="UTF-8"?>\n{render_element(quiz)}'
 
 
@@ -265,7 +432,7 @@ class MoodleXmlEncoder:
             case _:
                 assert_never(question)
 
-    def block_from_choice(self, question: MultipleChoiceQuestion) -> MoodleXmlBlock:
+    def block_from_choice(self, question: MultipleChoiceQuestion) -> MultichoiceBlock:
         answers = [
             MoodleAnswer(
                 text=choice.text,
@@ -274,8 +441,7 @@ class MoodleXmlEncoder:
             )
             for choice, score in zip(question.choices, effective_scores(question))
         ]
-        return MoodleXmlBlock(
-            type="multichoice",
+        return MultichoiceBlock(
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             single=True,
@@ -285,7 +451,7 @@ class MoodleXmlEncoder:
 
     def block_from_selection(
         self, question: MultipleSelectionQuestion
-    ) -> MoodleXmlBlock:
+    ) -> MultichoiceBlock:
         n_correct = sum(1 for c in question.choices if c.correct)
         n_incorrect = len(question.choices) - n_correct
         answers = []
@@ -300,8 +466,7 @@ class MoodleXmlEncoder:
                     text=choice.text, fraction=fraction, feedback=choice.feedback
                 )
             )
-        return MoodleXmlBlock(
-            type="multichoice",
+        return MultichoiceBlock(
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             single=False,
@@ -311,7 +476,7 @@ class MoodleXmlEncoder:
 
     def blocks_from_true_false(
         self, question: TrueFalseQuestion
-    ) -> list[MoodleXmlBlock]:
+    ) -> list[TrueFalseBlock]:
         group_stem = true_false_group_stem(question, epilogue=True)
         blocks = []
         for i, statement in enumerate(question.choices):
@@ -323,8 +488,7 @@ class MoodleXmlEncoder:
                 ),
             ]
             blocks.append(
-                MoodleXmlBlock(
-                    type="truefalse",
+                TrueFalseBlock(
                     questiontext=text,
                     answers=answers,
                     shuffle_answers=_moodle_shuffle(question.shuffle) if i == 0 else None,
@@ -336,21 +500,20 @@ class MoodleXmlEncoder:
             )
         return blocks
 
-    def block_from_numeric(self, question: NumericQuestion) -> MoodleXmlBlock:
+    def block_from_numeric(self, question: NumericQuestion) -> NumericalBlock:
         value = float_answer(question.answer, question.tolerance, format=_FORMAT)
         tolerance = numeric_tolerance(value, question.tolerance)
         answers = [
             MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
         ]
-        return MoodleXmlBlock(
-            type="numerical",
+        return NumericalBlock(
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             unit=question.unit,
             **_block_meta(question),
         )
 
-    def block_from_short(self, question: ShortAnswerQuestion) -> MoodleXmlBlock:
+    def block_from_short(self, question: ShortAnswerQuestion) -> ShortAnswerBlock:
         require_automatic(question, format=_FORMAT)
         answers = [
             MoodleAnswer(text=text, fraction=100.0)
@@ -363,23 +526,21 @@ class MoodleXmlEncoder:
                     text="*", fraction=0.0, feedback=question.incorrect_feedback
                 )
             )
-        return MoodleXmlBlock(
-            type="shortanswer",
+        return ShortAnswerBlock(
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             **_block_meta(question),
         )
 
-    def block_from_essay(self, question: EssayQuestion) -> MoodleXmlBlock:
-        return MoodleXmlBlock(
-            type="essay",
+    def block_from_essay(self, question: EssayQuestion) -> EssayBlock:
+        return EssayBlock(
             questiontext=join_blocks(question.stem, question.epilogue),
             grader_info=question.answer_key,
             response_format=essay_response_format_from_content(question.content),
             **_block_meta(question),
         )
 
-    def block_from_fill_in(self, question: FillInQuestion) -> MoodleXmlBlock:
+    def block_from_fill_in(self, question: FillInQuestion) -> MultianswerBlock:
         blanks_by_id = {blank.id: blank for blank in question.blanks}
         referenced: set[str] = set()
 
@@ -413,8 +574,7 @@ class MoodleXmlEncoder:
             raise ValueError(
                 f"cannot convert to Moodle XML: blank(s) not referenced by the stem: {missing!r}"
             )
-        return MoodleXmlBlock(
-            type="multianswer",
+        return MultianswerBlock(
             questiontext=join_blocks(questiontext, question.epilogue),
             shuffle_answers=_moodle_shuffle(question.shuffle),
             **_block_meta(question),
@@ -460,46 +620,52 @@ class MoodleXmlDecoder:
             raise ValueError("Moodle XML question has no blocks")
         if len(moodle.blocks) == 1:
             return self.block_to_mdq(moodle.blocks[0])
-        if all(b.type == "truefalse" for b in moodle.blocks):
-            return self.true_false_from_blocks(moodle.blocks)
+        statements = [b for b in moodle.blocks if isinstance(b, TrueFalseBlock)]
+        if len(statements) == len(moodle.blocks):
+            return self.true_false_from_blocks(statements)
         raise ValueError(
             "a Moodle XML question group with more than one block is only "
             "supported when every block is a true/false statement"
         )
 
     def block_to_mdq(self, block: MoodleXmlBlock) -> Question:
-        if block.type == "multichoice":
-            if block.single is False:
+        match block:
+            case MultichoiceBlock(single=False):
                 return self.selection_from_block(block)
-            return self.choice_from_block(block)
-        if block.type == "truefalse":
-            return self.choice_from_true_false_block(block)
-        if block.type == "shortanswer":
-            accept: list[AnswerPattern] = []
-            incorrect_feedback: str | None = None
-            for a in block.answers:
-                if a.text.strip(" \t\r\n") == "*":
-                    if a.fraction == 100:
-                        accept.append(AnswerPattern(pattern="/.*/"))
-                    elif a.feedback:
-                        incorrect_feedback = a.feedback
-                    continue
-                accept.append(literal_pattern(a.text, format=_FORMAT))
-            return ShortAnswerQuestion(
-                stem=block.questiontext,
-                accept=accept,
-                incorrect_feedback=incorrect_feedback,
-                **_question_meta(block),
-            )
-        if block.type == "numerical":
-            return self.numeric_from_block(block)
-        if block.type == "essay":
-            return self.essay_from_block(block)
-        if block.type == "multianswer":
-            return self.fill_in_from_block(block)
-        raise ValueError(f"Moodle XML does not support {block.type!r} questions")
+            case MultichoiceBlock():
+                return self.choice_from_block(block)
+            case TrueFalseBlock():
+                return self.choice_from_true_false_block(block)
+            case ShortAnswerBlock():
+                return self.short_answer_from_block(block)
+            case NumericalBlock():
+                return self.numeric_from_block(block)
+            case EssayBlock():
+                return self.essay_from_block(block)
+            case MultianswerBlock():
+                return self.fill_in_from_block(block)
+            case _:
+                assert_never(block)
 
-    def choice_from_block(self, block: MoodleXmlBlock) -> MultipleChoiceQuestion:
+    def short_answer_from_block(self, block: ShortAnswerBlock) -> ShortAnswerQuestion:
+        accept: list[AnswerPattern] = []
+        incorrect_feedback: str | None = None
+        for a in block.answers:
+            if a.text.strip(" \t\r\n") == "*":
+                if a.fraction == 100:
+                    accept.append(AnswerPattern(pattern="/.*/"))
+                elif a.feedback:
+                    incorrect_feedback = a.feedback
+                continue
+            accept.append(literal_pattern(a.text, format=_FORMAT))
+        return ShortAnswerQuestion(
+            stem=block.questiontext,
+            accept=accept,
+            incorrect_feedback=incorrect_feedback,
+            **_question_meta(block),
+        )
+
+    def choice_from_block(self, block: MultichoiceBlock) -> MultipleChoiceQuestion:
         return MultipleChoiceQuestion(
             stem=block.questiontext,
             choices=[
@@ -514,7 +680,7 @@ class MoodleXmlDecoder:
             **_question_meta(block),
         )
 
-    def selection_from_block(self, block: MoodleXmlBlock) -> MultipleSelectionQuestion:
+    def selection_from_block(self, block: MultichoiceBlock) -> MultipleSelectionQuestion:
         return MultipleSelectionQuestion(
             stem=block.questiontext,
             choices=[
@@ -526,7 +692,7 @@ class MoodleXmlDecoder:
         )
 
     def choice_from_true_false_block(
-        self, block: MoodleXmlBlock
+        self, block: TrueFalseBlock
     ) -> MultipleChoiceQuestion:
         correct = statement_correct(block)
         return MultipleChoiceQuestion(
@@ -538,7 +704,7 @@ class MoodleXmlDecoder:
             **_question_meta(block),
         )
 
-    def numeric_from_block(self, block: MoodleXmlBlock) -> NumericQuestion:
+    def numeric_from_block(self, block: NumericalBlock) -> NumericQuestion:
         answer = block.answers[0]
         tolerance = absolute_tolerance(answer.tolerance)
         return NumericQuestion(
@@ -549,7 +715,7 @@ class MoodleXmlDecoder:
             **_question_meta(block),
         )
 
-    def essay_from_block(self, block: MoodleXmlBlock) -> EssayQuestion:
+    def essay_from_block(self, block: EssayBlock) -> EssayQuestion:
         return EssayQuestion(
             stem=block.questiontext,
             answer_key=block.grader_info,
@@ -557,7 +723,7 @@ class MoodleXmlDecoder:
             **_question_meta(block),
         )
 
-    def fill_in_from_block(self, block: MoodleXmlBlock) -> FillInQuestion:
+    def fill_in_from_block(self, block: MultianswerBlock) -> FillInQuestion:
         segments, clozes = parse_cloze(block.questiontext)
         parts = [segments[0]]
         blanks: list[Blank] = []
@@ -597,7 +763,7 @@ class MoodleXmlDecoder:
             id=blank_id, answer=mdq_numeric_answer(answer.text), tolerance=tolerance
         )
 
-    def true_false_from_blocks(self, blocks: list[MoodleXmlBlock]) -> TrueFalseQuestion:
+    def true_false_from_blocks(self, blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
         texts = [b.questiontext for b in blocks]
         group_stem, statement_texts = split_true_false_group(texts)
 
@@ -639,14 +805,11 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
             qtype = question_el.get("type")
             if qtype == "category":
                 continue
-            if qtype not in MOODLE_XML_TYPES:
-                raise ValueError(f"unsupported Moodle XML question type: {qtype!r}")
             blocks.append(self.block_from_element(question_el))
         return MoodleXmlQuestion(blocks=blocks)
 
     def block_from_element(self, question_el: ET.Element) -> MoodleXmlBlock:
         qtype = question_el.get("type")
-        assert qtype in MOODLE_XML_TYPES
 
         name_el = question_el.find("name")
         name = text_node_content(name_el) if name_el is not None else None
@@ -678,41 +841,49 @@ class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
             else 1.0
         )
 
-        single = parse_bool_element(question_el.find("single"))
-        shuffle_answers = parse_bool_element(question_el.find("shuffleanswers"))
-        answers = [answer_from_element(a) for a in question_el.findall("answer")]
-
-        graderinfo_el = question_el.find("graderinfo")
-        grader_info = (
-            text_node_content(graderinfo_el) if graderinfo_el is not None else None
-        )
-
-        responseformat_el = question_el.find("responseformat")
-        response_format = (
-            responseformat_el.text if responseformat_el is not None else None
-        )
-
-        unit_name_el = question_el.find("units/unit/unit_name")
-        unit = unit_name_el.text if unit_name_el is not None else None
-
         tags = [text_node_content(tag_el) for tag_el in question_el.findall("tags/tag")]
-
-        return MoodleXmlBlock(
-            type=qtype,  # type: ignore[arg-type]  # narrowed by the membership check above
+        common = _BlockFields(
             questiontext=questiontext,
             name=name,
             idnumber=idnumber,
-            text_format=text_format,  # type: ignore[arg-type]  # Moodle format attribute is free text
+            text_format=text_format,  # type: ignore[typeddict-item]  # Moodle format attribute is free text
             general_feedback=general_feedback,
-            answers=answers,
-            single=single,
-            shuffle_answers=shuffle_answers,
-            grader_info=grader_info,
-            response_format=response_format,
-            unit=unit,
             default_grade=default_grade,
             tags=tags,
         )
+
+        shuffle_answers = parse_bool_element(question_el.find("shuffleanswers"))
+        answers = [answer_from_element(a) for a in question_el.findall("answer")]
+        match qtype:
+            case "multichoice":
+                single = parse_bool_element(question_el.find("single"))
+                return MultichoiceBlock(
+                    **common, answers=answers, single=single, shuffle_answers=shuffle_answers
+                )
+            case "truefalse":
+                return TrueFalseBlock(**common, answers=answers, shuffle_answers=shuffle_answers)
+            case "shortanswer":
+                return ShortAnswerBlock(**common, answers=answers)
+            case "numerical":
+                unit_name_el = question_el.find("units/unit/unit_name")
+                unit = unit_name_el.text if unit_name_el is not None else None
+                return NumericalBlock(**common, answers=answers, unit=unit)
+            case "essay":
+                graderinfo_el = question_el.find("graderinfo")
+                grader_info = (
+                    text_node_content(graderinfo_el) if graderinfo_el is not None else None
+                )
+                responseformat_el = question_el.find("responseformat")
+                response_format = (
+                    responseformat_el.text if responseformat_el is not None else None
+                )
+                return EssayBlock(
+                    **common, grader_info=grader_info, response_format=response_format
+                )
+            case "multianswer":
+                return MultianswerBlock(**common, shuffle_answers=shuffle_answers)
+            case _:
+                raise ValueError(f"unsupported Moodle XML question type: {qtype!r}")
 
 
 def _mdq_unit(unit: str | None) -> str | None:
@@ -805,79 +976,6 @@ def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
     return answers
 
 
-def build_question_element(block: MoodleXmlBlock) -> ET.Element:
-    """Build the `<question>` element for one `MoodleXmlBlock`."""
-    question_el = ET.Element("question", attrib={"type": block.type})
-    if block.name is not None:
-        name_el = ET.SubElement(question_el, "name")
-        ET.SubElement(name_el, "text").text = block.name
-    if block.idnumber is not None:
-        ET.SubElement(question_el, "idnumber").text = block.idnumber
-
-    questiontext_el = ET.SubElement(
-        question_el, "questiontext", attrib={"format": block.text_format}
-    )
-    ET.SubElement(questiontext_el, "text").text = block.questiontext
-
-    if block.general_feedback is not None:
-        feedback_el = ET.SubElement(
-            question_el, "generalfeedback", attrib={"format": block.text_format}
-        )
-        ET.SubElement(feedback_el, "text").text = block.general_feedback
-
-    ET.SubElement(question_el, "defaultgrade").text = format_num(block.default_grade)
-
-    if block.type == "multichoice":
-        if block.single is not None:
-            ET.SubElement(question_el, "single").text = bool_to_moodle(block.single)
-        if block.shuffle_answers is not None:
-            ET.SubElement(question_el, "shuffleanswers").text = bool_to_moodle(
-                block.shuffle_answers
-            )
-    elif block.type == "shortanswer":
-        ET.SubElement(question_el, "usecase").text = "0"
-
-    for answer in block.answers:
-        answer_el = ET.SubElement(
-            question_el,
-            "answer",
-            attrib={
-                "fraction": format_num(answer.fraction),
-                "format": block.text_format,
-            },
-        )
-        ET.SubElement(answer_el, "text").text = answer.text
-        if answer.feedback is not None:
-            answer_feedback_el = ET.SubElement(
-                answer_el, "feedback", attrib={"format": block.text_format}
-            )
-            ET.SubElement(answer_feedback_el, "text").text = answer.feedback
-        if answer.tolerance is not None:
-            ET.SubElement(answer_el, "tolerance").text = format_num(answer.tolerance)
-
-    if block.grader_info is not None:
-        graderinfo_el = ET.SubElement(
-            question_el, "graderinfo", attrib={"format": block.text_format}
-        )
-        ET.SubElement(graderinfo_el, "text").text = block.grader_info
-    if block.response_format is not None:
-        ET.SubElement(question_el, "responseformat").text = block.response_format
-
-    if block.unit is not None:
-        units_el = ET.SubElement(question_el, "units")
-        unit_el = ET.SubElement(units_el, "unit")
-        ET.SubElement(unit_el, "unit_name").text = block.unit
-        ET.SubElement(unit_el, "unit_multiplier").text = "1"
-
-    if block.tags:
-        tags_el = ET.SubElement(question_el, "tags")
-        for tag in block.tags:
-            tag_el = ET.SubElement(tags_el, "tag")
-            ET.SubElement(tag_el, "text").text = tag
-
-    return question_el
-
-
 def render_element(elem: ET.Element) -> str:
     """Indent `elem` in place and serialize it (no XML declaration)."""
     ET.indent(elem, space="  ")
@@ -920,7 +1018,7 @@ def bool_to_moodle(value: bool) -> str:
     return "true" if value else "false"
 
 
-def statement_correct(block: MoodleXmlBlock) -> bool:
+def statement_correct(block: TrueFalseBlock) -> bool:
     """A true/false block's statement is correct when its `True` answer has positive fraction."""
     for answer in block.answers:
         if answer.text.strip().lower() == "true":

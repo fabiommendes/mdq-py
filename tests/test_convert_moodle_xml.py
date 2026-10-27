@@ -16,6 +16,7 @@ from mdq._markdown import starts_block
 from mdq._markdown import has_visible_character
 from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert._moodle_xml import (
+    EssayBlock,
     MoodleAnswer,
     MoodleCloze,
     MoodleXml,
@@ -24,6 +25,11 @@ from mdq.convert._moodle_xml import (
     MoodleXmlEncoder,
     MoodleXmlParser,
     MoodleXmlQuestion,
+    MultianswerBlock,
+    MultichoiceBlock,
+    NumericalBlock,
+    ShortAnswerBlock,
+    TrueFalseBlock,
     parse_cloze,
     render_cloze,
 )
@@ -448,14 +454,14 @@ def test_truefalse_group_round_trips(blocks: list[MoodleXmlBlock]) -> None:
 
 def test_render_includes_xml_declaration():
     q = MoodleXmlQuestion(
-        blocks=[MoodleXmlBlock(type="essay", questiontext="Explain the Cerrado biome.")]
+        blocks=[EssayBlock(questiontext="Explain the Cerrado biome.")]
     )
     assert str(q).startswith(XML_DECLARATION)
 
 
 def test_render_wraps_blocks_in_quiz_element():
     q = MoodleXmlQuestion(
-        blocks=[MoodleXmlBlock(type="essay", questiontext="Explain the Cerrado biome.")]
+        blocks=[EssayBlock(questiontext="Explain the Cerrado biome.")]
     )
     assert "<quiz>" in str(q)
     assert "</quiz>" in str(q)
@@ -467,8 +473,7 @@ def test_render_wraps_blocks_in_quiz_element():
 
 
 def test_to_mdq_multichoice_single_true_becomes_multiple_choice():
-    block = MoodleXmlBlock(
-        type="multichoice",
+    block = MultichoiceBlock(
         questiontext="What is the capital of Brazil?",
         answers=[
             MoodleAnswer(text="Brasilia", fraction=100.0, feedback="Correct."),
@@ -485,8 +490,7 @@ def test_to_mdq_multichoice_single_true_becomes_multiple_choice():
 
 
 def test_to_mdq_multichoice_single_absent_defaults_to_multiple_choice():
-    block = MoodleXmlBlock(
-        type="multichoice",
+    block = MultichoiceBlock(
         questiontext="Pick the correct biome.",
         answers=[
             MoodleAnswer(text="Amazonia", fraction=100.0),
@@ -499,8 +503,7 @@ def test_to_mdq_multichoice_single_absent_defaults_to_multiple_choice():
 
 
 def test_to_mdq_multichoice_single_false_becomes_multiple_selection():
-    block = MoodleXmlBlock(
-        type="multichoice",
+    block = MultichoiceBlock(
         questiontext="Select all Brazilian biomes.",
         answers=[
             MoodleAnswer(text="Amazonia", fraction=50.0, feedback="Correct biome."),
@@ -517,8 +520,7 @@ def test_to_mdq_multichoice_single_false_becomes_multiple_selection():
 
 
 def test_to_mdq_truefalse_alone_becomes_multiple_choice():
-    block = MoodleXmlBlock(
-        type="truefalse",
+    block = TrueFalseBlock(
         questiontext="The Amazon River is the longest river in the world.",
         answers=[
             MoodleAnswer(text="true", fraction=100.0),
@@ -532,8 +534,7 @@ def test_to_mdq_truefalse_alone_becomes_multiple_choice():
 
 
 def test_to_mdq_shortanswer_becomes_short_answer():
-    block = MoodleXmlBlock(
-        type="shortanswer",
+    block = ShortAnswerBlock(
         questiontext="Name Brazil's longest river.",
         answers=[
             MoodleAnswer(text="Amazon", fraction=100.0),
@@ -546,8 +547,7 @@ def test_to_mdq_shortanswer_becomes_short_answer():
 
 
 def test_to_mdq_numerical_with_tolerance():
-    block = MoodleXmlBlock(
-        type="numerical",
+    block = NumericalBlock(
         questiontext="Speed of light in vacuum (x10^8 m/s)?",
         answers=[MoodleAnswer(text="3", fraction=100.0, tolerance=0.1)],
         unit="x10^8 m/s",
@@ -560,8 +560,7 @@ def test_to_mdq_numerical_with_tolerance():
 
 
 def test_to_mdq_numerical_zero_tolerance_omits_tolerance_field():
-    block = MoodleXmlBlock(
-        type="numerical",
+    block = NumericalBlock(
         questiontext="Number of Brazilian states?",
         answers=[MoodleAnswer(text="26", fraction=100.0, tolerance=0.0)],
     )
@@ -583,8 +582,7 @@ def test_to_mdq_numerical_zero_tolerance_omits_tolerance_field():
 def test_to_mdq_essay_response_format_mapping(
     response_format: str | None, expected_content: str
 ) -> None:
-    block = MoodleXmlBlock(
-        type="essay",
+    block = EssayBlock(
         questiontext="Explain natural selection using an example from Brazilian fauna.",
         grader_info="Look for variation, heredity, selection.",
         response_format=response_format,
@@ -596,8 +594,7 @@ def test_to_mdq_essay_response_format_mapping(
 
 
 def test_to_mdq_multianswer_becomes_fill_in():
-    block = MoodleXmlBlock(
-        type="multianswer",
+    block = MultianswerBlock(
         questiontext=(
             "The ship used by Darwin was the {1:SHORTANSWER:=Beagle}, "
             "and Brazil has {1:NUMERICAL:=26:1} states."
@@ -615,8 +612,7 @@ def test_to_mdq_multianswer_becomes_fill_in():
 
 
 def test_to_mdq_common_fields_carry_over():
-    block = MoodleXmlBlock(
-        type="essay",
+    block = EssayBlock(
         questiontext="Explain photosynthesis.",
         name="Bio1",
         idnumber="bio-1",
@@ -637,16 +633,14 @@ def test_to_mdq_common_fields_carry_over():
 
 def test_to_mdq_truefalse_group_becomes_true_false():
     blocks = [
-        MoodleXmlBlock(
-            type="truefalse",
+        TrueFalseBlock(
             questiontext="About Brazilian geography.\n\nBrasilia is the capital.",
             answers=[
                 MoodleAnswer(text="true", fraction=100.0),
                 MoodleAnswer(text="false", fraction=0.0),
             ],
         ),
-        MoodleXmlBlock(
-            type="truefalse",
+        TrueFalseBlock(
             questiontext="About Brazilian geography.\n\nRio de Janeiro is the capital.",
             answers=[
                 MoodleAnswer(text="true", fraction=0.0),
@@ -666,16 +660,14 @@ def test_to_mdq_truefalse_group_becomes_true_false():
 
 def test_to_mdq_truefalse_group_without_common_prefix_uses_fallback_stem():
     blocks = [
-        MoodleXmlBlock(
-            type="truefalse",
+        TrueFalseBlock(
             questiontext="Brasilia is the capital of Brazil.",
             answers=[
                 MoodleAnswer(text="true", fraction=100.0),
                 MoodleAnswer(text="false", fraction=0.0),
             ],
         ),
-        MoodleXmlBlock(
-            type="truefalse",
+        TrueFalseBlock(
             questiontext="The Amazon is the longest river.",
             answers=[
                 MoodleAnswer(text="true", fraction=100.0),
@@ -694,15 +686,14 @@ def test_to_mdq_truefalse_group_without_common_prefix_uses_fallback_stem():
 
 def test_to_mdq_mixed_multi_block_group_raises():
     blocks = [
-        MoodleXmlBlock(
-            type="truefalse",
+        TrueFalseBlock(
             questiontext="Brasilia is the capital of Brazil.",
             answers=[
                 MoodleAnswer(text="true", fraction=100.0),
                 MoodleAnswer(text="false", fraction=0.0),
             ],
         ),
-        MoodleXmlBlock(type="essay", questiontext="Explain photosynthesis."),
+        EssayBlock(questiontext="Explain photosynthesis."),
     ]
     with pytest.raises(ValueError):
         MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks))
@@ -1181,8 +1172,7 @@ def test_fill_in_choice_blank_allows_unscored_choices():
 def test_to_mdq_numerical_unit_is_made_valid(moodle_unit, unit):
     """numeric.md, "Unit conversion": an MDQ unit has no whitespace and
     no `()[]`. Moodle allows both, so the importer removes them."""
-    block = MoodleXmlBlock(
-        type="numerical",
+    block = NumericalBlock(
         questiontext="Velocidade média de um trem-bala?",
         answers=[MoodleAnswer(text="300", fraction=100.0, tolerance=0)],
         unit=moodle_unit,
