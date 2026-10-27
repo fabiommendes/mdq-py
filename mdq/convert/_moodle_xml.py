@@ -928,17 +928,26 @@ def statement_correct(block: MoodleXmlBlock) -> bool:
     return bool(block.answers) and block.answers[0].fraction > 0
 
 
+#: Moodle's essay `<responseformat>` values that MDQ has an essay `content` for.
+_ESSAY_CONTENT_BY_RESPONSE_FORMAT: dict[str, EssayContent] = {
+    "editor": "text",
+    "plain": "plain",
+    "monospaced": "code",
+}
+_ESSAY_RESPONSE_FORMAT_BY_CONTENT = {
+    content: response_format
+    for response_format, content in _ESSAY_CONTENT_BY_RESPONSE_FORMAT.items()
+}
+
+
 def essay_content_from_response_format(response_format: str | None) -> EssayContent:
-    """Map a Moodle `<responseformat>` value to an MDQ essay `content` kind."""
-    if response_format == "editor":
-        return "text"
-    if response_format == "plain":
-        return "plain"
-    if response_format == "monospaced":
-        return "code"
-    return "text"
+    """
+    Map a Moodle `<responseformat>` value to an MDQ essay `content` kind.
+    A value MDQ has no kind for (or a missing one) is read as `"text"`.
+    """
+    return _ESSAY_CONTENT_BY_RESPONSE_FORMAT.get(response_format or "", "text")
 
 
 def essay_response_format_from_content(content: EssayContent) -> str:
     """Inverse of `essay_content_from_response_format`."""
-    return {"text": "editor", "plain": "plain", "code": "monospaced"}[content]
+    return _ESSAY_RESPONSE_FORMAT_BY_CONTENT[content]
