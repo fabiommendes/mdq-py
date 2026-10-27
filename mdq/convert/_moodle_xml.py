@@ -54,7 +54,7 @@ from ._common import (
     parse_entries,
     unescape_text,
 )
-from ._string_parser import StringParser
+from ._string_parser import ParserError
 
 __all__ = [
     "MoodleXml",
@@ -896,25 +896,21 @@ def true_false_from_blocks(blocks: list[TrueFalseBlock]) -> TrueFalseQuestion:
     )
 
 
-class MoodleXmlParser(StringParser[MoodleXmlQuestion]):
-    """
-    Moodle XML parses with `xml.etree.ElementTree` rather than the base
-    class's line-based helpers; `self.lines` is only used to locate errors.
-    """
+class MoodleXmlParser:
+    """Moodle XML parser, over `xml.etree.ElementTree`."""
 
-    def start(self) -> MoodleXmlQuestion:
+    def __init__(self, source: str):
+        self.source = source
+
+    def parse(self) -> MoodleXmlQuestion:
         try:
             root = ET.fromstring(self.source)
         except ET.ParseError as exc:
             line, col = exc.position
-            self.lineno = max(line - 1, 0)
-            self.colno = col
-            self.lines.clear()
-            self.error(f"malformed Moodle XML: {exc}")
-        self.lines.clear()
+            raise ParserError(f"malformed Moodle XML: {exc}", max(line - 1, 0), col)
 
         if root.tag != "quiz":
-            self.error(f"expected a <quiz> root element, got <{root.tag}>")
+            raise ParserError(f"expected a <quiz> root element, got <{root.tag}>", 0, 0)
 
         blocks = []
         for question_el in root.findall("question"):

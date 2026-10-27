@@ -57,6 +57,7 @@ Implements the unreleased MDQ specification.
   - True/false: `ru V`, `bn M` and `mr B` get `locale-mismatched-true-false-marker`; `sw K` gets `unlisted-true-false-marker`. `H` leaves the `sw` false friends, `否` joins `zh`, `fil` is its own row. A `marker` with whitespace around the letter is `malformed-true-false-marker`.
   - The message of `relative-tolerance-over-one` says that the tolerance stores a fraction.
 - Converter classes declare `supports` as a `frozenset` of question types, not a dict of directions (breaking for code that reads the dict).
+- Syntax errors of the GIFT, Moodle XML and Aiken importers are `mdq.errors.ParseError` (still a `ValueError`), with the same message.
 
 ### Fixed
 

@@ -172,3 +172,13 @@ def test_match_group_full_line_advances_lineno():
     parser.match_group(re.compile("line1"), full=True)
     assert parser.peek() == "line2"
     assert parser.lineno == 1
+
+
+def test_parser_error_is_a_parse_error_and_a_value_error():
+    from mdq.convert import import_question
+    from mdq.errors import ParseError
+
+    with pytest.raises(ParserError) as error:
+        import_question("not a quiz", format="moodle-xml")
+    assert isinstance(error.value, ParseError)
+    assert isinstance(error.value, ValueError)

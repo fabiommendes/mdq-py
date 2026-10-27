@@ -50,7 +50,7 @@ from ._common import (
 )
 from ._common import escape_text as escape_gift
 from ._common import unescape_text as unescape_gift
-from ._string_parser import StringParser
+from ._string_parser import fail_at
 
 __all__ = [
     "Gift",
@@ -599,20 +599,21 @@ def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
     )
 
 
-class GiftParser(StringParser[GiftQuestion]):
+class GiftParser:
     """
     Character-level GIFT parser.
 
     GIFT is not line-oriented (an answer body may span several lines), so
-    parsing scans `self.source` directly by character offset instead of
-    using the line-based helpers in `StringParser`.
+    parsing scans `self.source` directly by character offset.
     """
 
-    def start(self) -> GiftQuestion:
+    def __init__(self, source: str):
+        self.source = source
+
+    def parse(self) -> GiftQuestion:
         blocks = [
             self.parse_block(raw, offset) for raw, offset in split_blocks(self.source)
         ]
-        self.lines.clear()
         if not blocks:
             self.fail("no GIFT question found", 0)
         return GiftQuestion(blocks=blocks)
@@ -770,10 +771,7 @@ class GiftParser(StringParser[GiftQuestion]):
 
     def fail(self, message: str, pos: int) -> NoReturn:
         """Raise a `ParserError` located at absolute source offset `pos`."""
-        prefix = self.source[:pos]
-        self.lineno = prefix.count("\n")
-        self.colno = pos - prefix.rfind("\n") - 1
-        self.error(message)
+        fail_at(self.source, pos, message)
 
 
 def unescape_feedback(raw: str | None) -> str | None:
