@@ -50,6 +50,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `score_response()` raises `ResponseError` for a response of the wrong shape (for example an `int` for a fill-in, ordering, true/false or multiple-selection question), where it raised `TypeError` or `AttributeError`.
 - A `stem`, `epilogue` or `answerKey` that starts with a `---` line is no longer read as a frontmatter. `normalize()` kept only the text after the second `---`, an H1 between two thematic breaks was not reported as `forbidden-block-element`, and invalid YAML between them gave a `schema-error`.
 - Choice marker values (audit findings F23 and F24): one pipeline, normalize (NFKC, then ASCII lowercase), then validate, then interpret. A character whose NFKC form is a space is `ws` in the marker, so `[U+00A0]` is `[ ]`. A true/false marker must be one code point of `LETTER` after normalization: `[ﬁ]` is a `foreign-choice-marker`, no longer a WARNING letter. New examples `valid/multiple-selection/nbsp-blank-marker`, `invalid/true-false-ligature-marker` and `invalid/true-false-nbsp-marker`.
 - Ordering: `accept-outside-answer-key` and `unreachable-alternative` identify a line by text only under `indentation: lenient` and `strict` (by level and text under `fixed`), as the response check does. A `content: text` response with an invalid outline is graded under `fixed` (a wrong answer, `unmatched` applies) and stays a `ResponseError` under `lenient` and `strict`.
