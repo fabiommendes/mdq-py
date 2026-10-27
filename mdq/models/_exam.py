@@ -92,16 +92,10 @@ __all__ = [
 ]
 
 
-def _has_atx_h1(text: str) -> bool:
-    """
-    Whether `text` holds an ATX `# Heading`. A setext H1 (`Text` over
-    `===`) is left to the `setext-heading` warning.
-    """
+def _has_h1(text: str) -> bool:
+    """Whether `text` holds an H1 heading, ATX (`# Heading`) or setext (`Text` over `===`)."""
     return any(
-        token.type == "heading_open"
-        and token.tag == "h1"
-        and token.markup == "#"
-        for token in md.parse(text)
+        token.type == "heading_open" and token.tag == "h1" for token in md.parse(text)
     )
 
 
@@ -370,10 +364,10 @@ class Exam(MdqModel):
     @classmethod
     def check_instructions_have_no_h1(cls, value: str | None) -> str | None:
         """
-        exam.md, "Body": the instructions MUST NOT hold an H1 heading
-        (`forbidden-block-element`).
+        exam.md, "Body": the instructions MUST NOT hold an H1 heading, ATX or
+        setext (`forbidden-block-element`).
         """
-        if value and _has_atx_h1(value):
+        if value and _has_h1(value):
             raise PydanticCustomError(
                 "forbidden-block-element",
                 "'instructions' holds an H1 heading, which exam.md's \"Body\" forbids",
@@ -699,6 +693,12 @@ class Exam(MdqModel):
                 diagnostics.extend(
                     replace(d, path=path + d.path) for d in entry.lint()
                 )
+                for field in ("stem", "epilogue"):
+                    diagnostics.extend(
+                        _lint.check_setext_heading(
+                            getattr(entry, field), path + (field,)
+                        )
+                    )
         return diagnostics
 
     def _render_lines(self) -> Iterable[str]:
@@ -729,12 +729,12 @@ class Exam(MdqModel):
         )
         if title_fits:
             heading.append(str(title))
-        else:
-            # Also written when `title` is None: the H1 below then holds a
-            # placeholder, and `title: null` keeps it out of the model.
+        elif title is not None:
+            # The frontmatter wins over the H1, so the H1 only needs some
+            # text for the title to be written exactly.
             frontmatter["title"] = title
             if not heading:
-                lines = (title or "").strip().splitlines()
+                lines = title.strip().splitlines()
                 placeholder = lines[0] if lines else ""
                 if not placeholder or _parser.SLUG_PREFIX_RE.match(placeholder):
                     placeholder = "Exam"
@@ -743,7 +743,8 @@ class Exam(MdqModel):
         if frontmatter or self.comment:
             yield from _render.yield_frontmatter(frontmatter, self.comment)
             yield ""
-        yield "# " + " ".join(heading)
+        # An exam with no title and no id has an empty H1.
+        yield ("# " + " ".join(heading)) if heading else "#"
         if self.instructions:
             yield ""
             yield self.instructions

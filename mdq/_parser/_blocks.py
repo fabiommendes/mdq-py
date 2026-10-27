@@ -146,12 +146,17 @@ class BlockReader:
         """
         A block's text as it reads in a `stem`, `epilogue` or
         `answerKey` field: `raw_text`, plus the `#` markers of an ATX
+        heading and the source lines (underline included) of a setext
         heading, which stay part of the field so a heading is still a
         heading when the field is parsed again.
         """
         text = self.raw_text(node)
         if node.type == "heading" and node.markup.startswith("#"):
             return f"{node.markup} {text}"
+        if node.type == "heading":
+            # A setext heading: keep the underline, or the heading turns
+            # into a paragraph (an H1 would go unreported).
+            return "\n".join(self.raw_lines(node))
         return text
 
     def join_blocks(self, nodes: list[Node]) -> str | None:

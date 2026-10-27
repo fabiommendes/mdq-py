@@ -90,6 +90,7 @@ from ._tags import (
     ShortAnswerTag,
     UnrecognizedBlankTag,
     check_bare_tag_alone,
+    check_no_tag_in_content,
     check_tag_label,
     is_reserved_label,
     read_body_tag,
@@ -337,7 +338,8 @@ class MDQParser:
 
 
 
-    def parse_numeric_body(self, tag: NumericTag) -> None:
+    def parse_numeric_body(self, tag: NumericTag, tag_node: Node) -> None:
+        check_no_tag_in_content(self.reader.raw_lines(tag_node)[1:])
         parsed = _parse_numeric_expression(tag.rest)
         front = self.frontmatter
         doc = self.state
@@ -527,7 +529,7 @@ class MDQParser:
                     )
                 case NumericTag():
                     question_type = question_type or "numeric"
-                    self.parse_numeric_body(tag)
+                    self.parse_numeric_body(tag, body_node)
                 case (
                     ChoiceBlankTag()
                     | NumericBlankTag()

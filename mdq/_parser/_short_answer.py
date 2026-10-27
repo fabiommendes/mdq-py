@@ -17,7 +17,13 @@ from ..types import PatternEntry
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader, parse_plain_item
 from ._choices import CODE_INDENT, _pattern_entry, indentation
 from ._frontmatter import _copy_pattern_lists
-from ._tags import SHORT_ANSWER_RE, TAG_REST_RE, ShortAnswerTag, read_short_answer_tag
+from ._tags import (
+    SHORT_ANSWER_RE,
+    TAG_REST_RE,
+    ShortAnswerTag,
+    check_no_tag_in_content,
+    read_short_answer_tag,
+)
 
 
 def parse_short_answer_body(
@@ -150,6 +156,7 @@ def parse_answer_block(
     rest = _join_content_lines(cursor.reader, tag_node, rest)
     # The tag paragraph also holds the lazy continuation lines of the
     # content. A `!` line is not lazy (a comment), so it is an error.
+    check_no_tag_in_content(cursor.reader.raw_lines(tag_node)[1:])
     for line in cursor.reader.raw_lines(tag_node)[1:]:
         if _is_comment_line(line):
             raise ParseError(_OBSERVATION_AFTER_CONTENT)

@@ -52,8 +52,12 @@ _NEAR_SEPARATOR_RE = re.compile(r"[ \t]*=[ \t]*=[ \t]*=[ \t=]*")
 #: not a `malformed-separator` right after a text line.
 _SETEXT_UNDERLINE_RE = re.compile(r" {0,3}=+[ \t]*")
 
+#: The fields of a question where `Exam.lint` reports `setext-heading`: their
+#: text keeps the setext underline. `parse_exam` reports the other fields.
+_LINTED_SETEXT_FIELDS = {("stem",), ("epilogue",)}
+
 #: `# Title` or `# [slug] Title`.
-H1_RE = re.compile(r"^#[ \t]+(?P<rest>.*?)[ \t]*$")
+H1_RE = re.compile(r"^#(?:[ \t]+(?P<rest>.*?))?[ \t]*$")
 
 #: Fields a question inherits from the exam when it declares none itself.
 #: `tags` is deliberately absent -- tags classify a question individually.
@@ -123,9 +127,7 @@ def parse_exam(
     frontmatter_text, body = _split_frontmatter(text)
     front: dict[str, Any] = {}
     if frontmatter_text is not None:
-        # A null `title` is kept: the renderer writes it to keep a
-        # placeholder H1 out of the model.
-        front = _load_frontmatter_yaml(frontmatter_text, keep_null=("title",))
+        front = _load_frontmatter_yaml(frontmatter_text)
 
     if warnings is not None:
         warnings.extend(_invalid_frontmatter_fields(front, "exam"))
@@ -140,7 +142,7 @@ def parse_exam(
         if title_index in code_lines:
             continue
         if m := H1_RE.match(line):
-            heading = m.group("rest")
+            heading = m.group("rest") or ""
             break
     if heading is None:
         raise MissingField("title")
@@ -191,6 +193,9 @@ def parse_exam(
                 )
             )
         for block_index, field in glued.items():
+            if field in _LINTED_SETEXT_FIELDS:
+                # The text keeps the underline, so `Exam.lint` reports it.
+                continue
             warnings.append(
                 Diagnostic(
                     severity="warning",

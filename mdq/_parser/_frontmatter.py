@@ -219,13 +219,10 @@ def dump_yaml(data: Any) -> str:
     return yaml.dump(data, Dumper=_FrontmatterDumper)
 
 
-def _load_frontmatter_yaml(
-    text: str, keep_null: tuple[str, ...] = ()
-) -> dict[str, Any]:
+def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
     """
     Load the frontmatter mapping. A key with a `null` value is the same
-    as an absent key (base.md, "Frontmatter"), so it is dropped, except
-    the keys in `keep_null`.
+    as an absent key (base.md, "Frontmatter"), so it is dropped.
 
     Raises:
         YamlSyntaxError: the frontmatter is not valid YAML, or repeats a key.
@@ -236,7 +233,7 @@ def _load_frontmatter_yaml(
         raise YamlSyntaxError(f"invalid YAML frontmatter: {exc}") from exc
     if not isinstance(data, dict):
         return {}
-    return {k: v for k, v in data.items() if v is not None or k in keep_null}
+    return {k: v for k, v in data.items() if v is not None}
 
 
 @cache

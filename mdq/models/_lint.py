@@ -182,9 +182,9 @@ def check_setext_heading(
     setext heading underline in CommonMark, not a block boundary, so a
     frontmatter or include block glued to a paragraph is swallowed into
     the text before it. One warning per field, at the first heading.
-    The model only sees the exam's `instructions` verbatim; the question
-    parser rewrites a setext heading in a question, so `parse_exam`
-    reports those from the raw lines.
+    A `===` underline gives an H1, which `instructions` and the stem and
+    epilogue of a question forbid (`forbidden-block-element`), so a field
+    that passed validation only reports `---` there.
     """
     if not text:
         return
@@ -194,13 +194,15 @@ def check_setext_heading(
             and token.level == 0
             and token.markup in ("-", "=")
         ):
+            underline = token.markup * 3
+            role = "opens a block" if token.markup == "-" else "separates questions"
             yield diag(
                 code="setext-heading",
                 path=path,
                 message=(
-                    f"a {token.markup * 3!r} line right after text is a "
-                    "setext heading, not a block boundary; put a blank "
-                    "line before the '---' that opens a block"
+                    f"a {underline!r} line right after text is a setext "
+                    "heading, not a block boundary; put a blank line "
+                    f"before the {underline!r} that {role}"
                 ),
             )
             return

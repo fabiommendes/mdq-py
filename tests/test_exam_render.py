@@ -80,6 +80,23 @@ def test_render_exam_without_title() -> None:
     assert parse(exam.render(), kind="exam", format="mdq") == exam
 
 
+def test_render_exam_without_title_invents_no_title() -> None:
+    exam = models.Exam(locale="en", questions=[models.EssayQuestion(stem="A")])
+    rendered = exam.render()
+    assert rendered == "---\nlocale: en\n---\n\n#\n\n===\n\nA\n\n[essay]"
+    assert "title" not in rendered
+    reparsed = parse(rendered, kind="exam", format="mdq")
+    assert reparsed.title is None
+    assert reparsed.locale == "en"
+    assert reparsed.render() == rendered
+
+
+def test_render_exam_with_id_only() -> None:
+    exam = models.Exam(id="p1", questions=[])
+    assert exam.render() == "# [p1]"
+    assert parse(exam.render(), kind="exam", format="mdq") == exam
+
+
 def test_render_exam_keeps_title_that_looks_like_a_slug() -> None:
     exam = models.Exam(title="[draft] Final exam", questions=[])
     assert parse(exam.render(), kind="exam", format="mdq") == exam

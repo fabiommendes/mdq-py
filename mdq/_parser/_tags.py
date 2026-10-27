@@ -283,6 +283,44 @@ def is_reserved_label(label: str) -> bool:
     return RESERVED_LABEL_RE.match(label) is not None
 
 
+def is_tag_line(line: str) -> bool:
+    """
+    Whether `line` starts with a tag that `LAZY_START` excludes
+    (grammar.md, "Feedback and comment lines"): a reserved label or a blank
+    label `^id`, between brackets, and a colon. A line with four or more
+    columns of indentation is continuation text, so it is no tag line.
+    """
+    if len(line) - len(line.lstrip(" ")) >= 4 or line.startswith("\t"):
+        return False
+    m = TAG_COLON_LINE_RE.match(line)
+    if m is None:
+        return False
+    label = m.group("label")
+    return label.startswith("^") or is_reserved_label(label)
+
+
+def tag_after_content_message(line: str) -> str:
+    """The `ParseError` message for a tag `line` right after the content."""
+    text = line.strip(" \t")
+    return (
+        f"the line {text!r} is a tag, so it cannot continue the content before "
+        "it; add a blank line before the tag"
+    )
+
+
+def check_no_tag_in_content(lines: list[str]) -> None:
+    """
+    Raise a `ParseError` if one of the content lines that follow the tag
+    line is a tag line itself (grammar.md, "Feedback and comment lines").
+
+    Args:
+        lines: The lines of the tag paragraph after its first line.
+    """
+    for line in lines:
+        if is_tag_line(line):
+            raise ParseError(tag_after_content_message(line))
+
+
 def check_tag_label(label: str, colon: bool) -> None:
     """
     Raise a `ParseError` if `label`, the text between the brackets of a

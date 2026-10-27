@@ -24,6 +24,7 @@ from ._tags import (
     NumericBlankTag,
     ShortAnswerBlankTag,
     UnrecognizedBlankTag,
+    check_no_tag_in_content,
     read_blank_tag,
 )
 
@@ -96,6 +97,7 @@ def parse_fill_in_body(
                         f"[^{blank_id}/short-answer]: {rest}"
                     )
             case NumericBlankTag(id=blank_id, unit=unit, rest=rest):
+                check_no_tag_in_content(cursor.reader.raw_lines(tag_node)[1:])
                 parsed = _parse_numeric_expression(rest)
                 # A numeric blank is graded exactly like a numeric
                 # question (fill-in.md), so the domain is inferred from

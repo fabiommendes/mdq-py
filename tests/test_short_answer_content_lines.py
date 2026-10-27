@@ -35,3 +35,15 @@ def test_missing_body_without_setext_keeps_the_default_message() -> None:
 def test_marker_line_after_content_points_to_the_list_form() -> None:
     with pytest.raises(ParseError, match="list form"):
         parse_question(_q("[short-answer]: Brasília\n> Good"))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "[short-answer]: Brasília\n[short-answer/reject]: Rio",
+        "[short-answer]:\n* Brasília\n[short-answer/reject]: Rio",
+    ],
+)
+def test_tag_line_after_content_message_suggests_a_blank_line(body: str) -> None:
+    with pytest.raises(ParseError, match=r"is a tag.*add a blank line before the tag"):
+        parse_question(_q(body))

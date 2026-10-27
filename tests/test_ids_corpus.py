@@ -11,6 +11,12 @@ docs/question-types/multiple-choice.md, "Choice ids"). Keys:
 * `questions`: exam only, the ids of its questions, in order.
 
 A key that is absent is not checked.
+
+The files pin the derivation of mdq-py and mdq-js, not the spec: the spec
+leaves the derived ids implementation-defined. When two texts give the same
+slug, the texts are processed in code point order of the raw text (not by
+position), and the first one takes the bare slug. A later one falls back to
+its full slug, then to the full slug with `-2`, `-3`, ...
 """
 
 from __future__ import annotations

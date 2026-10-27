@@ -22,6 +22,7 @@ from .._markdown import SLUG_BODY_RE
 from .._letters import FALSE_LETTERS, is_letter, normalize_value, strip_marker_space
 from ..errors import ForeignChoiceMarker, ParseError
 from ..types import BooleanChoiceDict, PatternDict, ScoredChoiceDict, StatementDict
+from ._tags import is_tag_line, tag_after_content_message
 
 __all__ = ["RawChoice", "SLUG_PREFIX_RE"]
 
@@ -191,7 +192,7 @@ def classify_line(line: str) -> tuple[LineKind, str]:
         return ">", stripped[1:].strip(" \t")
     if stripped.startswith("!") and not stripped.startswith("!["):
         return "!", stripped[1:].strip(" \t")
-    if LAZY_START_RE.match(stripped):
+    if LAZY_START_RE.match(stripped) and not is_tag_line(stripped):
         return "lazy", stripped
     return "block", stripped
 
@@ -279,6 +280,8 @@ def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
         elif kind == "lazy" and current is not None:
             blocks[current].append(content)
         else:
+            if is_tag_line(line):
+                raise ParseError(tag_after_content_message(line))
             raise ParseError(
                 "only a feedback block and a comment block can follow the text "
                 f"of an element: {line!r}"

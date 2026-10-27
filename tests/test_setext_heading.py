@@ -5,9 +5,7 @@ a setext heading underline and the block is swallowed into the text
 before it. Lint `setext-heading` (warning) points at the field holding it.
 
 `examples/valid/exam/setext-heading` covers the `instructions` case. The cases
-below keep the ones the corpus cannot hold: the `.yaml` sibling of a pair has no
-setext heading to report, since the parser drops the underline from the stem and
-epilogue.
+below keep the ones the corpus cannot hold, such as the text of a message.
 """
 
 from __future__ import annotations
@@ -50,3 +48,14 @@ def test_fence_glued_to_a_question_stem_warns() -> None:
 
 def test_atx_heading_is_not_reported() -> None:
     assert list(check_setext_heading("## Título\n\nTexto.", ("instructions",))) == []
+
+
+def test_equals_underline_message_names_the_equals_line() -> None:
+    [diag] = list(check_setext_heading("Parte 1\n===", ("answerKey",)))
+    assert "'==='" in diag.message
+    assert "'---'" not in diag.message
+
+
+def test_dash_underline_message_names_the_dash_line() -> None:
+    [diag] = list(check_setext_heading("Parte 1\n---", ("answerKey",)))
+    assert "'---' that opens a block" in diag.message
