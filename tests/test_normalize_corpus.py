@@ -1,6 +1,7 @@
 """
 `examples/normalize.yaml`: inputs the models accept and normalize (a nested
-`null`, a YAML 1.1 form, a non-canonical duration). The header of the file
+`null`, a YAML 1.1 form, a non-canonical duration), and, with
+`normalize: true`, the result of `normalize()`. The header of the file
 describes the format.
 """
 
@@ -33,4 +34,5 @@ def test_load_normalizes_the_input(case: dict[str, Any]) -> None:
     loaded = load(case["input"], **kwargs)
     assert [d for d in loaded.diagnostics if d.severity == "error"] == []
     assert loaded.document is not None
-    assert loaded.document.to_dict() == case["output"]
+    document = loaded.document.normalize() if case.get("normalize") else loaded.document
+    assert document.to_dict() == case["output"]
