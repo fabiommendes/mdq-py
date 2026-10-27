@@ -25,6 +25,7 @@ from pydantic import ValidationError as PydanticValidationError
 from pydantic_core.core_schema import ErrorType
 
 from . import _parser, models
+from ._banks import SOURCE_SUFFIXES
 from ._diagnostics import RANK, Diagnostic, Severity
 from ._include_keys import include_key_hint
 from .errors import InvalidDocument, MdqError, UnresolvedInclude
@@ -42,8 +43,9 @@ __all__ = [
 D = TypeVar("D", covariant=True)
 
 #: `Path` suffixes that select each format, checked against the whole
-#: filename (not `Path.suffix`). `.md` also covers `.mdq.md`.
-_MDQ_SUFFIXES = (".md", ".mdq")
+#: filename (not `Path.suffix`). `.md` also covers `.mdq.md`, the first of
+#: the shared `SOURCE_SUFFIXES`.
+_MDQ_SUFFIXES = SOURCE_SUFFIXES[1:]
 _YAML_SUFFIXES = (".yaml", ".yml")
 _JSON_SUFFIXES = (".json",)
 
