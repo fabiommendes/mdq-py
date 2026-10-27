@@ -768,14 +768,32 @@ class Exam(MdqModel):
         yield entry.model_copy(update=inherited).render()
 
     def model_post_init(self, __ctx: Any) -> None:
-        questions = [q for q in self.questions if isinstance(q, BaseQuestion)]
-        for i, question in enumerate(questions):
+        for i, question in enumerate(self._owned_questions()):
             if question.exam is not None:
                 raise ValueError(f"Question at index {i} already belongs to an exam")
+        self._bind_questions()
 
-        for question in questions:
+    def model_copy(
+        self, *, update: Mapping[str, Any] | None = None, deep: bool = False
+    ) -> Self:
+        """
+        Return a copy of this exam. The copy holds copies of the questions,
+        and each one points back to the copy, not to `self`.
+        """
+        copy = super().model_copy(update=update, deep=deep)
+        copy.questions = [
+            entry.model_copy() if isinstance(entry, BaseQuestion) else entry
+            for entry in copy.questions
+        ]
+        copy._bind_questions()
+        return copy
+
+    def _owned_questions(self) -> list[BaseQuestion[Any]]:
+        return [q for q in self.questions if isinstance(q, BaseQuestion)]
+
+    def _bind_questions(self) -> None:
+        for question in self._owned_questions():
             question._exam = weakref.ref(self)
-
 
 
 #

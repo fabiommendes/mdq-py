@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
+import mdq
 from mdq import load
-from mdq.models import Exam, Include
+from mdq.models import EssayQuestion, Exam, Include
 from mdq._banks import DictLoader, FileLoader, IncludeNotFound, QuestionBank
 from _corpus import VALID_DIR
 
@@ -96,3 +97,37 @@ def test_equal_exams_compare_equal_without_recursing() -> None:
 
     assert first == second
     assert first != other
+
+
+def _exam_with_essay() -> Exam:
+    return Exam.model_validate(
+        {"type": "exam", "questions": [{"type": "essay", "stem": "Fale do Cerrado."}]}
+    )
+
+
+def test_with_ids_binds_questions_to_the_new_exam() -> None:
+    exam = _exam_with_essay()
+    with_ids = exam.with_ids()
+    question = with_ids.questions[0]
+    assert isinstance(question, EssayQuestion)
+    assert question.exam is with_ids
+
+
+def test_model_copy_binds_questions_to_the_copy_only() -> None:
+    exam = _exam_with_essay()
+    copy = exam.model_copy()
+    original, copied = exam.questions[0], copy.questions[0]
+    assert isinstance(original, EssayQuestion) and isinstance(copied, EssayQuestion)
+    assert copied is not original
+    assert copied.exam is copy
+    assert original.exam is exam
+
+
+def test_loading_with_filled_ids_binds_questions_to_the_document() -> None:
+    document = mdq.load(
+        "# Prova\n\n===\n\nFale do Cerrado.\n\n[essay]\n", format="mdq", ids="fill"
+    ).document
+    assert isinstance(document, Exam)
+    question = document.questions[0]
+    assert isinstance(question, EssayQuestion)
+    assert question.exam is document
