@@ -95,7 +95,7 @@ _URL_SAFE_ID_RE = re.compile(SLUG_PATTERN)
 
 def check_id_is_url_safe(id: str | None) -> Iterator[Diagnostic]:
     """base.md:252: `id` SHOULD be url-safe (`[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*`)."""
-    if id is None or _URL_SAFE_ID_RE.match(id):
+    if id is None or _URL_SAFE_ID_RE.fullmatch(id):
         return
     yield diag(
         code="unsafe-id",

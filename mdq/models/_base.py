@@ -308,7 +308,7 @@ def _validate_locale(value: str | None) -> str | None:
     """generic.md [^4]: raise `malformed-locale` for an ill-formed tag."""
     if value is None:
         return value
-    if not _BCP47_RE.match(value) and value.lower() not in _GRANDFATHERED_TAGS:
+    if not _BCP47_RE.fullmatch(value) and value.lower() not in _GRANDFATHERED_TAGS:
         raise PydanticCustomError(
             "malformed-locale",
             f"{value!r} is not a well-formed BCP 47 language tag; expected "
@@ -319,7 +319,7 @@ def _validate_locale(value: str | None) -> str | None:
 
 def _validate_uuid(value: str | None) -> str | None:
     """generic.md [^3]: raise `malformed-uuid` for a value that isn't UUID-shaped."""
-    if value is not None and not UUID_RE.match(value):
+    if value is not None and not UUID_RE.fullmatch(value):
         raise PydanticCustomError(
             "malformed-uuid",
             f"{value!r} is not a valid UUID; expected the form "

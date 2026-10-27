@@ -139,7 +139,7 @@ def _parse_numeric_expression(expr: str) -> _NumericExpr:
             or a tolerance kind is written twice.
     """
 
-    m = NUM_VALUE_RE.match(expr.strip(" \t"))
+    m = NUM_VALUE_RE.fullmatch(expr.strip(" \t"))
     if not m:
         raise ParseError(f"malformed numeric body: {expr!r}{_spelling_hint(expr)}")
 
@@ -290,7 +290,7 @@ def parse_numeric_answer(text: str) -> int | float | str:
         ParseError: `text` does not match the grammar, is a fraction
             with a zero denominator, or is out of the range of a double.
     """
-    m = VALUE_RE.match(text.strip(" \t"))
+    m = VALUE_RE.fullmatch(text.strip(" \t"))
     if not m:
         raise ParseError(f"malformed numeric value: {text!r}")
     value = m.group("value")

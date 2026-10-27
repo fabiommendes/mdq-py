@@ -61,6 +61,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- A trailing newline no longer passes where the grammar ends the text: `parse_numeric_answer("5\n")` and a numeric body raise `ParseError`, a `uuid` or `locale` that ends in a newline is `malformed-uuid` or `malformed-locale`, and an `id` that ends in a newline gets `unsafe-id`. The checks used `$`, which matches before a final newline; they use `fullmatch` now.
 - The Markdown parser no longer drops a setext underline in the `stem` and `epilogue`. `Exam.lint()` reports `setext-heading` for the `stem` and `epilogue` of its questions.
 - `Exam.render()` no longer writes `title: null` and a `# Exam` heading for an exam with no title; it writes `#`.
 - The `setext-heading` message names the `===` line instead of `---`.
