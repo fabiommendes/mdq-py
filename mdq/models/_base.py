@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import unicodedata
 import weakref
-from typing import TYPE_CHECKING, Annotated, Any, Iterable, Mapping, Self, Sequence
+from typing import TYPE_CHECKING, Annotated, Any, Iterable, Literal, Mapping, Self, Sequence
 
 import opt
 import pydantic_core
@@ -154,9 +154,34 @@ def _visual_key(text: str) -> str:
     return unicodedata.normalize("NFC", "".join(normalized)).strip()
 
 
-def _raise_unique_id_error(
+#: Codes of the model errors raised through `raise_model_error`; they are
+#: the `type` of the pydantic error and the `code` of the diagnostic.
+ModelErrorCode = Literal[
+    "accept-outside-answer-key",
+    "accept-reject-overlap",
+    "blank-text",
+    "block-start-pattern",
+    "duplicate-blank-id",
+    "duplicate-blank-reference",
+    "duplicate-choice-id",
+    "duplicate-choice-text",
+    "duplicate-question-id",
+    "empty-ordering-answer",
+    "empty-ordering-line",
+    "forbidden-block-element",
+    "invalid-outline-level",
+    "invalid-regex",
+    "misplaced-blank",
+    "true-false-marker-disagrees-with-correct",
+    "undefined-blank",
+    "unknown-include-field",
+    "unreferenced-blank",
+]
+
+
+def raise_model_error(
     model_name: str,
-    code: str,
+    code: ModelErrorCode,
     message: str,
     loc: tuple[str | int, ...],
     input_value: Any,
@@ -193,7 +218,7 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
         if choice_id is not None:
             first_index = seen_ids.get(choice_id)
             if first_index is not None:
-                _raise_unique_id_error(
+                raise_model_error(
                     model_name,
                     "duplicate-choice-id",
                     f"choice id {choice_id!r} is already used by choices[{first_index}]",
@@ -205,7 +230,7 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
         visual = _visual_key(choice.text)
         first_index = seen_visuals.get(visual)
         if first_index is not None:
-            _raise_unique_id_error(
+            raise_model_error(
                 model_name,
                 "duplicate-choice-text",
                 f"choice text {choice.text!r} is already used by choices[{first_index}]",
@@ -366,7 +391,7 @@ class BaseQuestion[R](MdqModel):
             for description in _parser.find_forbidden_elements(
                 text, allow_first_paragraph_bracket=allow_leading_bracket
             ):
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "forbidden-block-element",
                     (

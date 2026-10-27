@@ -27,7 +27,7 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Diacritics, EssayContent, Unmatched
 from . import _lint
-from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
+from ._base import BaseQuestion, FreeText, MdqModel, raise_model_error
 from ._lint_codes import diag
 from ._regex import (
     IGNORED_FLAGS,
@@ -94,7 +94,7 @@ class AnswerPattern(MdqModel):
             )
         if starts_block(value):
             text = value.strip(" \t")
-            _raise_unique_id_error(
+            raise_model_error(
                 "AnswerPattern",
                 "block-start-pattern",
                 "an inexact pattern cannot start a markdown block (a block "
@@ -146,7 +146,7 @@ class AnswerPattern(MdqModel):
         if self.exact_content is not None:
             text = self.exact_content
         if not has_visible_character(text):
-            _raise_unique_id_error(
+            raise_model_error(
                 type(self).__name__,
                 "blank-text",
                 "pattern has no visible character",
@@ -169,7 +169,7 @@ class AnswerPattern(MdqModel):
             try:
                 self.regex
             except InvalidRegexError as exc:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "invalid-regex",
                     f"regex does not compile: {exc}",
@@ -440,7 +440,7 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
             for description in _parser.find_answer_key_forbidden_elements(
                 self.answer_key
             ):
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "forbidden-block-element",
                     f"'answerKey' holds {description}, which essay.md's "

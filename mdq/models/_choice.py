@@ -52,7 +52,7 @@ from ._base import (
     FreeText,
     SlugId,
     _check_unique_choices,
-    _raise_unique_id_error,
+    raise_model_error,
 )
 from ._lint_codes import diag
 from ._score import QuestionScore
@@ -388,7 +388,7 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
             expected_correct = normalize_value(marker) not in FALSE_LETTERS
             disagrees = choice.correct != expected_correct
             if disagrees:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "true-false-marker-disagrees-with-correct",
                     (

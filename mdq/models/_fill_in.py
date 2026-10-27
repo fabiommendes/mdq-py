@@ -45,7 +45,7 @@ from ._base import (
     MdqModel,
     BaseQuestion,
     _check_unique_choices,
-    _raise_unique_id_error,
+    raise_model_error,
 )
 from ._choice import (
     ScoredChoice,
@@ -330,7 +330,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         for index, blank in enumerate(self.blanks):
             first_index = seen.get(blank.id)
             if first_index is not None:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "duplicate-blank-id",
                     (
@@ -363,7 +363,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
                         f"; blank ids are case-sensitive, did you mean "
                         f"[^{variants[0]}]?"
                     )
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "undefined-blank",
                     f"the stem references [^{name}] but no blank with that "
@@ -375,7 +375,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         seen_markers = set(referenced)
         for index, blank in enumerate(self.blanks):
             if blank.id not in seen_markers:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "unreferenced-blank",
                     f"blank {blank.id!r} is never referenced by a "
@@ -395,7 +395,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         """
         misplaced = _markdown.find_misplaced_blank_markers(self.stem)
         if misplaced:
-            _raise_unique_id_error(
+            raise_model_error(
                 type(self).__name__,
                 "misplaced-blank",
                 (
@@ -416,7 +416,7 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         seen: set[str] = set()
         for name, _ in _markdown.find_blank_markers(self.stem):
             if name in seen:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "duplicate-blank-reference",
                     (

@@ -22,7 +22,7 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
 from . import _lint, _render
-from ._base import BaseQuestion, FreeText, MdqModel, _raise_unique_id_error
+from ._base import BaseQuestion, FreeText, MdqModel, raise_model_error
 from ._lint_codes import diag
 from ._score import QuestionScore
 
@@ -208,7 +208,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         blocks = [self.lines, self.extra]
         blocks += [alt.lines for alt in (*self.accept, *self.reject)]
         if any(text == "" for block in blocks for _, text in block):
-            _raise_unique_id_error(
+            raise_model_error(
                 type(self).__name__,
                 "empty-ordering-line",
                 "a line of a text ordering question must not be empty",
@@ -230,7 +230,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
                 block or some `accept` entry is empty after normalization.
         """
         if not self.comparison_key(self.lines):
-            _raise_unique_id_error(
+            raise_model_error(
                 type(self).__name__,
                 "empty-ordering-answer",
                 "the lines block is empty after normalization",
@@ -239,7 +239,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
             )
         for index, alt in enumerate(self.accept):
             if not self.comparison_key(alt.lines):
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "empty-ordering-answer",
                     "an accept entry is empty after normalization",
@@ -264,7 +264,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         reject_keys = {self.comparison_key(alt.lines) for alt in self.reject}
         for index, alt in enumerate(self.accept):
             if self.comparison_key(alt.lines) in reject_keys:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "accept-reject-overlap",
                     "the same lines must not be declared in both accept and reject",
@@ -274,7 +274,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         answer_key = self.comparison_key(self.lines)
         for index, alt in enumerate(self.reject):
             if self.comparison_key(alt.lines) == answer_key:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "accept-reject-overlap",
                     "a reject entry must not hold the same lines as the answer key",
@@ -298,7 +298,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         available = Counter(self.identity_key(self.lines))
         for index, alt in enumerate(self.accept):
             if Counter(self.identity_key(alt.lines)) - available:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "accept-outside-answer-key",
                     "an accept entry must not hold a line the answer key lacks",
@@ -330,7 +330,7 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         for loc, block in blocks:
             problem = outline_problem(block)
             if problem is not None:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__, "invalid-outline-level", problem, loc, block
                 )
         return self

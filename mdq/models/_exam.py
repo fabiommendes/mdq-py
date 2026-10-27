@@ -61,7 +61,7 @@ from . import _lint, _render
 from ._base import (
     BaseQuestion,
     MdqModel,
-    _raise_unique_id_error,
+    raise_model_error,
     _validate_locale,
     FreeText,
     _validate_uuid,
@@ -181,7 +181,7 @@ def _check_no_extra_include_fields(model: MdqModel) -> None:
     if not extra:
         return
     key = next(iter(extra))
-    _raise_unique_id_error(
+    raise_model_error(
         type(model).__name__,
         "unknown-include-field",
         f"{key!r} is not a field an include block accepts",
@@ -400,7 +400,7 @@ class Exam(MdqModel):
                 continue
             first_index = seen.get(question_id)
             if first_index is not None:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "duplicate-question-id",
                     (
@@ -420,7 +420,7 @@ class Exam(MdqModel):
             implicit_id = _implicit_question_id(index)
             colliding_index = seen.get(implicit_id)
             if colliding_index is not None:
-                _raise_unique_id_error(
+                raise_model_error(
                     type(self).__name__,
                     "duplicate-question-id",
                     (
