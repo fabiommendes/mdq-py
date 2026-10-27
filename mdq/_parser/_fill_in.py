@@ -46,11 +46,6 @@ def parse_fill_in_body(
             repeated definition of the same form.
     """
     doc: dict[str, object] = {}
-    if "shuffle" in front:
-        doc["shuffle"] = front["shuffle"]
-    for key in ("diacritics", "unmatched"):
-        if key in front:
-            doc[key] = front[key]
 
     numeric_maps = numeric_blank_maps(front)
     blanks: dict[str, BlankDict] = {}

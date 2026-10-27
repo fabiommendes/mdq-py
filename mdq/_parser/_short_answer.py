@@ -5,8 +5,6 @@ short-answer blanks of a fill-in question share with it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
@@ -16,7 +14,6 @@ from ..errors import ParseError
 from ..types import PatternEntry
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader, parse_plain_item
 from ._choices import CODE_INDENT, _pattern_entry, indentation
-from ._frontmatter import _copy_pattern_lists
 from ._tags import (
     SHORT_ANSWER_RE,
     TAG_REST_RE,
@@ -28,7 +25,6 @@ from ._tags import (
 
 def parse_short_answer_body(
     cursor: BlockCursor,
-    front: Mapping[str, object],
     tag: ShortAnswerTag,
     tag_node: Node,
 ) -> dict[str, object]:
@@ -47,10 +43,6 @@ def parse_short_answer_body(
             it from its list, or a reject tag has no colon.
     """
     doc: dict[str, object] = {}
-    for key in ("diacritics", "unmatched", "incorrectFeedback"):
-        if key in front:
-            doc[key] = front[key]
-
     seen: set[str] = set()
     while True:
         if tag.role in seen:
@@ -76,7 +68,6 @@ def parse_short_answer_body(
         tag = next_tag
         tag_node = cursor.read()
 
-    _copy_pattern_lists(front, doc)
     return doc
 
 

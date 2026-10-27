@@ -325,12 +325,6 @@ def parse_ordering_body(
     doc["content"] = main_kind
     if main_highlight:
         doc["highlight"] = main_highlight
-    if "indentation" in front:
-        doc["indentation"] = front["indentation"]
-    if "unmatched" in front:
-        doc["unmatched"] = front["unmatched"]
-    if "incorrectFeedback" in front:
-        doc["incorrectFeedback"] = front["incorrectFeedback"]
     if front.get("normalizations") is not None:
         doc["normalizations"] = _normalize_list(front["normalizations"])
 

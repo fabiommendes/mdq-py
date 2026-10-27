@@ -28,6 +28,7 @@ from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import (
     _extract_comment,
     common_frontmatter,
+    copy_passthrough_fields,
     _load_frontmatter_yaml,
     _split_frontmatter,
 )
@@ -62,17 +63,6 @@ H1_RE = re.compile(r"^#(?:[ \t]+(?P<rest>.*?))?[ \t]*$")
 #: Fields a question inherits from the exam when it declares none itself.
 #: `tags` is deliberately absent -- tags classify a question individually.
 INHERITED_FIELDS = ("locale", "author")
-
-#: Frontmatter fields only an exam has, copied verbatim into the exam
-#: document by `parse_exam`. The fields of a question too come from
-#: `common_frontmatter`; `start` and `duration` need their own parsing.
-EXAM_PASSTHROUGH_KEYS = (
-    "course",
-    "description",
-    "penalty",
-    "grading",
-    "shuffle",
-)
 
 #: A block with no `include:`/`includeAll:` is an inline question
 #: instead, and its frontmatter is checked like any other question's, by
@@ -157,9 +147,7 @@ def parse_exam(
     # The frontmatter wins over the H1 for `id` and `title`.
     comment = _extract_comment(frontmatter_text) if frontmatter_text is not None else None
     doc.update(common_frontmatter(front, comment))
-    for key in EXAM_PASSTHROUGH_KEYS:
-        if key in front:
-            doc[key] = front[key]
+    copy_passthrough_fields(front, doc, "exam")
     if "start" in front:
         try:
             doc["start"] = _schedule.format_start(_schedule.parse_start(front["start"]))

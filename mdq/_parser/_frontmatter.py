@@ -25,16 +25,7 @@ from .._diagnostics import Diagnostic
 from .._markdown import split_lines, strip_bom
 from ..errors import ParseError
 
-__all__ = [
-    "GRADED_QUESTION_TYPES",
-    "PATTERN_LIST_KEYS",
-]
-
-#: The question types that choose a grading strategy and may be shuffled,
-#: read by `MDQParser.apply_type_specific_frontmatter`. Mirrors
-#: `mdq.models.GradedQuestionType`, which cannot be imported here since
-#: `mdq.models` imports this package.
-GRADED_QUESTION_TYPES = ("multiple-choice", "multiple-selection", "true-false", "fill-in")
+__all__: list[str] = []
 
 
 def _split_frontmatter(text: str) -> tuple[str | None, str]:
@@ -336,14 +327,35 @@ def _invalid_frontmatter_fields(
     return diagnostics
 
 
-#: Frontmatter keys holding pattern lists, copied through verbatim. The
-#: `accept` and `reject` lists are set by body blocks only.
-PATTERN_LIST_KEYS = ("preAccept", "preReject")
+#: Frontmatter keys the parser reads one by one, for every document type.
+_TRANSFORMED_KEYS = frozenset({"type", "id", "tags", "normalizations", "start", "duration"})
+
+#: Further keys a fill-in question or a numeric question reads itself: the
+#: frontmatter maps go onto the blanks, and the numeric fields weigh the
+#: frontmatter against the body.
+_TRANSFORMED_KEYS_OF_TYPE: dict[str, frozenset[str]] = {
+    "fill-in": frozenset(
+        {"domain", "decimalPlaces", "preAccept", "preReject", "incorrectFeedback"}
+    ),
+    "numeric": frozenset({"domain", "decimalPlaces"}),
+}
 
 
-def _copy_pattern_lists(front: Mapping[str, object], doc: dict[str, object]) -> None:
-    """Copy the frontmatter's pattern lists onto the parsed document."""
-    for key in PATTERN_LIST_KEYS:
+def copy_passthrough_fields(
+    front: Mapping[str, Any], doc: dict[str, Any], document_type: object
+) -> None:
+    """
+    Copy onto `doc` the frontmatter fields that need no transform: those
+    the frontmatter table of `document_type` allows, except the keys read
+    one by one (`_TRANSFORMED_KEYS`). A field the body already set is kept.
+    A `document_type` with no frontmatter schema copies nothing.
+    """
+    if not isinstance(document_type, str) or (
+        f"frontmatter-{document_type}" not in _bundle()["$defs"]
+    ):
+        return
+    skipped = _TRANSFORMED_KEYS | _TRANSFORMED_KEYS_OF_TYPE.get(document_type, frozenset())
+    for key in sorted(_frontmatter_fields(document_type) - skipped):
         if key in front and key not in doc:
             doc[key] = front[key]
 

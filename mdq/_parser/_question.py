@@ -69,7 +69,7 @@ from ._choices import (
     match_choice_marker,
 )
 from ._frontmatter import (
-    GRADED_QUESTION_TYPES,
+    copy_passthrough_fields,
     _extract_comment,
     common_frontmatter,
     _load_frontmatter_yaml,
@@ -319,25 +319,6 @@ class MDQParser:
     ) -> None:
         self.state["choices"] = build_choices(question_type, raw_choices)
 
-    def parse_essay_body(self) -> None:
-        front = self.frontmatter
-        if "content" in front:
-            self.state["content"] = front["content"]
-        if "highlight" in front:
-            self.state["highlight"] = front["highlight"]
-
-
-
-
-
-
-
-
-
-
-
-
-
     def parse_numeric_body(self, tag: NumericTag, tag_node: Node) -> None:
         check_no_tag_in_content(self.reader.raw_lines(tag_node)[1:])
         parsed = _parse_numeric_expression(tag.rest)
@@ -350,8 +331,6 @@ class MDQParser:
         doc.update(numeric_fields(parsed, front))
         if "tolerance" in parsed:
             doc["tolerance"] = parsed["tolerance"]
-        if "incorrectFeedback" in front:
-            doc["incorrectFeedback"] = front["incorrectFeedback"]
 
 
     def check_tag_lines(self) -> None:
@@ -446,12 +425,6 @@ class MDQParser:
                     return remaining[:i]
         return remaining
 
-    def apply_type_specific_frontmatter(self, question_type: object) -> None:
-        if question_type in GRADED_QUESTION_TYPES:
-            for key in ("shuffle", "grading"):
-                if key in self.frontmatter and key not in self.state:
-                    self.state[key] = self.frontmatter[key]
-
     #
     # Main driver
     #
@@ -468,8 +441,6 @@ class MDQParser:
         """
 
         self.state.update(common_frontmatter(self.frontmatter, self.comment))
-        if "weight" in self.frontmatter:
-            self.state["weight"] = self.frontmatter["weight"]
 
         if not self.reader.children:
             raise MissingField("stem")
@@ -512,7 +483,6 @@ class MDQParser:
             match tag:
                 case EssayTag():
                     question_type = question_type or "essay"
-                    self.parse_essay_body()
                 case OrderingTag():
                     question_type = question_type or "ordering"
                     check_ordering_tag(tag)
@@ -523,9 +493,7 @@ class MDQParser:
                 case ShortAnswerTag():
                     question_type = question_type or "short-answer"
                     self.state.update(
-                        parse_short_answer_body(
-                            self.cursor, self.frontmatter, tag, body_node
-                        )
+                        parse_short_answer_body(self.cursor, tag, body_node)
                     )
                 case NumericTag():
                     question_type = question_type or "numeric"
@@ -560,7 +528,7 @@ class MDQParser:
             if epilogue_text:
                 self.state["epilogue"] = epilogue_text
 
-        self.apply_type_specific_frontmatter(question_type)
+        copy_passthrough_fields(self.frontmatter, self.state, question_type)
 
         # The one cast of the parser: a `type` forced by the frontmatter can
         # contradict the body, so the document is checked by the schema, not
