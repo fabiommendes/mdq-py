@@ -17,8 +17,8 @@ import unicodedata
 
 from .._diagnostics import Diagnostic, Severity
 from .._markdown import md, split_lines, strip_bom
-from ._exam import _code_line_indices, _looks_like_frontmatter, is_exam
-from ._frontmatter import _split_frontmatter
+from ._exam import _code_line_indices, is_exam
+from ._frontmatter import _split_frontmatter, closing_fence, is_fence_line, looks_like_frontmatter
 
 __all__ = ["find_unicode_spaces"]
 
@@ -154,18 +154,18 @@ def _question_frontmatter_lines(lines: list[str], code_lines: set[int]) -> set[i
     must load as a YAML mapping.
     """
     covered: set[int] = set()
-    fences = [
-        i for i, line in enumerate(lines)
-        if i not in code_lines and line.rstrip(" \t") == "---"
-    ]
-    position = 0
-    while position + 1 < len(fences):
-        start, end = fences[position], fences[position + 1]
-        if _looks_like_frontmatter(lines[start + 1 : end]):
+    start = 0
+    while start < len(lines):
+        end = None
+        if start not in code_lines and is_fence_line(lines[start]):
+            end = closing_fence(lines, start, code_lines)
+        if end is None:
+            start += 1
+        elif looks_like_frontmatter(lines[start + 1 : end]):
             covered.update(range(start, end + 1))
-            position += 2
+            start = end + 1
         else:
-            position += 1
+            start += 1
     return covered
 
 

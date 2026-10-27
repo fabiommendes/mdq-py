@@ -79,6 +79,10 @@ def _extract_comment(frontmatter_text: str) -> str | None:
     return " ".join(comment_lines).strip() or None
 
 
+class _DuplicateKeyError(yaml.constructor.ConstructorError):
+    """A mapping of the frontmatter repeats a key."""
+
+
 class _FrontmatterLoader(yaml.SafeLoader):
     """
     `yaml.SafeLoader` with the implicit resolvers of the YAML 1.2 Core
@@ -105,7 +109,7 @@ class _FrontmatterLoader(yaml.SafeLoader):
             except TypeError:  # an unhashable key; the base class reports it
                 continue
             if duplicate:
-                raise yaml.constructor.ConstructorError(
+                raise _DuplicateKeyError(
                     "while constructing a mapping",
                     node.start_mark,
                     f"found duplicate key {key!r}",
@@ -225,6 +229,41 @@ def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     return {k: v for k, v in data.items() if v is not None}
+
+
+def is_fence_line(line: str) -> bool:
+    """Whether `line` is a `---` frontmatter fence of an exam, trailing blanks aside."""
+    return line.rstrip(" \t") == "---"
+
+
+def closing_fence(lines: list[str], start: int, skipped: set[int]) -> int | None:
+    """
+    The index of the first fence line after `start` that is not in `skipped`
+    (the lines of code blocks), or `None`.
+    """
+    return next(
+        (j for j in range(start + 1, len(lines)) if j not in skipped and is_fence_line(lines[j])),
+        None,
+    )
+
+
+def looks_like_frontmatter(lines: list[str]) -> bool:
+    """
+    Report whether the lines between a candidate `---` pair load as a YAML
+    mapping, or as nothing at all (an empty frontmatter block).
+
+    A cheap secondary guard: whether a `---` may open a fence is decided by
+    position first (`_split_exam_blocks`). This keeps a candidate whose text
+    is plainly not YAML from being treated as frontmatter. A block that
+    repeats a key still counts: `_load_frontmatter_yaml` reports the key.
+    """
+    try:
+        loaded = load_yaml("\n".join(lines))
+    except _DuplicateKeyError:
+        return True
+    except yaml.YAMLError:
+        return False
+    return loaded is None or isinstance(loaded, dict)
 
 
 @cache

@@ -16,8 +16,6 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any, cast
 
-import yaml
-
 from .. import _schedule
 from .._markdown import md, split_lines
 from .._diagnostics import Diagnostic
@@ -28,6 +26,7 @@ from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import (
     _extract_comment,
     common_frontmatter,
+    closing_fence,
     copy_passthrough_fields,
     _load_frontmatter_yaml,
     _split_frontmatter,
@@ -420,14 +419,7 @@ def _split_exam_blocks(
                 # still require the enclosed text to actually look like
                 # YAML frontmatter (a cheap secondary guard, never the
                 # primary test) before committing to it.
-                closing = next(
-                    (
-                        j
-                        for j in range(index + 1, len(lines))
-                        if j not in code_lines and lines[j].rstrip(" \t") == "---"
-                    ),
-                    None,
-                )
+                closing = closing_fence(lines, index, code_lines)
                 if closing is not None:
                     if is_new_start:
                         starts.append(index)
@@ -472,29 +464,6 @@ def _split_exam_blocks(
                 break
         malformed.append((path, line_index + 1))
     return instructions, blocks, glued_by_block, malformed
-
-
-def _looks_like_frontmatter(lines: list[str]) -> bool:
-    """
-    Report whether the lines between a candidate `---` pair parse as a
-    YAML mapping, or nothing at all (an empty frontmatter block).
-
-    A cheap secondary guard only: `_split_exam_blocks` decides whether a
-    `---` is even eligible to open a fence by *position* first (see its
-    docstring); this just keeps a positionally-eligible candidate from
-    being treated as frontmatter when its enclosed text plainly isn't
-    YAML at all (e.g. a malformed document, or two coincidentally close
-    thematic breaks).
-    """
-
-    # PyYAML's own loader keeps the last of two equal keys, so a block that
-    # repeats a key still counts as frontmatter here; loading it with
-    # `_load_frontmatter_yaml` then reports the repeated key.
-    try:
-        loaded = yaml.safe_load("\n".join(lines))
-    except yaml.YAMLError:
-        return False
-    return loaded is None or isinstance(loaded, dict)
 
 
 def _clean_block(text: str) -> str | None:
