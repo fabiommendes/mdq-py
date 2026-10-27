@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from functools import cached_property
 from importlib import resources
 from typing import Annotated, Any, Iterable, Literal, Self
 
@@ -97,6 +98,33 @@ class AnswerPattern(MdqModel):
             )
         return value
 
+    @cached_property
+    def kind(self) -> Literal["regex", "exact", "inexact"]:
+        """
+        How `pattern` is read: a regex when it starts with `/` after
+        stripping spaces and tabs (short-answer.md, "Pattern lines"), an
+        exact literal when it is a complete code span, inexact otherwise.
+        """
+        text = self.pattern.strip(" \t")
+        if text.startswith("/"):
+            return "regex"
+        return "exact" if exact_literal(text) is not None else "inexact"
+
+    @cached_property
+    def exact_content(self) -> str | None:
+        """The text between the backticks of an exact literal, else None."""
+        return exact_literal(self.pattern.strip(" \t"))
+
+    @cached_property
+    def regex(self) -> RegexPattern:
+        """
+        The compiled regex of a `regex` pattern.
+
+        Raises:
+            InvalidRegexError: the regex does not compile.
+        """
+        return RegexPattern(self.pattern)
+
     @model_validator(mode="after")
     def check_pattern_has_visible_character(self) -> Self:
         """
@@ -108,9 +136,8 @@ class AnswerPattern(MdqModel):
         entry, not at `pattern`.
         """
         text = self.pattern.strip(" \t")
-        content = exact_literal(text)
-        if content is not None:
-            text = content
+        if self.exact_content is not None:
+            text = self.exact_content
         if not _lint.has_visible_character(text):
             _raise_unique_id_error(
                 type(self).__name__,
@@ -131,11 +158,9 @@ class AnswerPattern(MdqModel):
         stays at this model's own root, so the diagnostic points at the
         list entry (`accept[0]`), not `accept[0].pattern`.
         """
-        # short-answer.md, "Pattern lines": the pattern is a regex if it
-        # starts with `/` after stripping spaces and tabs.
-        if self.pattern.strip(" \t").startswith("/"):
+        if self.kind == "regex":
             try:
-                RegexPattern(self.pattern)
+                self.regex
             except InvalidRegexError as exc:
                 _raise_unique_id_error(
                     type(self).__name__,
@@ -161,14 +186,12 @@ class AnswerPattern(MdqModel):
         lets its own flags decide the rest (patterns.md, "Regex"). Neither
         the regex nor the backtick form consults `diacritics`.
         """
-        pattern = self.pattern.strip(" \t")
-        if pattern.startswith("/"):
-            return RegexPattern(pattern).match(response)
-        content = exact_literal(pattern)
-        if content is not None:
-            return _exact_form(response) == _exact_form(content)
+        if self.kind == "regex":
+            return self.regex.match(response)
+        if self.exact_content is not None:
+            return _exact_form(response) == _exact_form(self.exact_content)
         return normalize_text(response, diacritics=diacritics) == normalize_text(
-            pattern, diacritics=diacritics
+            self.pattern.strip(" \t"), diacritics=diacritics
         )
 
 

@@ -764,28 +764,30 @@ def _check_pattern_list(
     """Lints one pattern list, named by its frontmatter `key`: the regex lints of every entry."""
     warnings: list[Diagnostic] = []
     for index, pattern in enumerate(patterns or []):
+        # Not `AnswerPattern.kind`: this check strips every Unicode space
+        # (`str.strip()`) before testing for the opening `/`, while the
+        # matcher strips only spaces and tabs.
+        if not pattern.pattern.strip().startswith("/"):
+            continue
+        try:
+            body, raw_flags = parse_regex(pattern.pattern)
+        except InvalidRegexError:
+            continue
         item_path = path + (key, index)
-        warnings.extend(_check_redundant_regex_anchor(pattern.pattern, item_path))
-        warnings.extend(_check_ignored_regex_flags(pattern.pattern, item_path))
-        warnings.extend(_check_unmatchable_regex_escape(pattern.pattern, item_path))
+        warnings.extend(_check_redundant_regex_anchor(body, raw_flags, item_path))
+        warnings.extend(_check_ignored_regex_flags(raw_flags, item_path))
+        warnings.extend(_check_unmatchable_regex_escape(body, raw_flags, item_path))
     return warnings
 
 
 def _check_redundant_regex_anchor(
-    pattern: str, path: tuple[Union[str, int], ...]
+    body: str, raw_flags: str, path: tuple[Union[str, int], ...]
 ) -> list[Diagnostic]:
     """
     short-answer.md, "Regex flags": a leading `^` is implicit unless the
     `f` flag is set, and a trailing `$` is implicit unless `f` or `b` is
     set. A `$` preceded by an odd number of backslashes is a literal.
-    Only a `/`-delimited entry is a regex.
     """
-    if not pattern.strip().startswith("/"):
-        return []
-    try:
-        body, raw_flags = parse_regex(pattern)
-    except InvalidRegexError:
-        return []
     leading = body.startswith("^") and "f" not in raw_flags
     trailing = False
     if body.endswith("$") and not {"f", "b"} & set(raw_flags):
@@ -807,19 +809,12 @@ def _check_redundant_regex_anchor(
 
 
 def _check_ignored_regex_flags(
-    pattern: str, path: tuple[Union[str, int], ...]
+    raw_flags: str, path: tuple[Union[str, int], ...]
 ) -> list[Diagnostic]:
     """
     short-answer.md:385: `m`, `g`, `s`, `u`, `v`, `y` and `d` are accepted
     for compatibility but have no effect (see [regex flags](regex-flags)).
-    Only a delimited (`/.../flags`) pattern carries flags at all.
     """
-    if not pattern.strip().startswith("/"):
-        return []
-    try:
-        _, raw_flags = parse_regex(pattern)
-    except InvalidRegexError:
-        return []
     ignored = sorted(set(raw_flags) & IGNORED_FLAGS)
     if not ignored:
         return []
@@ -835,19 +830,13 @@ def _check_ignored_regex_flags(
 
 
 def _check_unmatchable_regex_escape(
-    pattern: str, path: tuple[Union[str, int], ...]
+    body: str, raw_flags: str, path: tuple[Union[str, int], ...]
 ) -> list[Diagnostic]:
     """
     patterns.md, "Regex flags": under `n`, an escape that denotes a code
     point is never stripped. If the strip changes that code point, the
     stripped response cannot contain it. One diagnostic per pattern.
     """
-    if not pattern.strip().startswith("/"):
-        return []
-    try:
-        body, raw_flags = parse_regex(pattern)
-    except InvalidRegexError:
-        return []
     if "n" not in raw_flags:
         return []
     if not any(_stripped_by_n(code_point) for code_point in escaped_code_points(body)):
