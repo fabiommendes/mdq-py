@@ -19,7 +19,7 @@ from .._markdown import span, starts_after
 from ..errors import ParseError
 from ..types import OrderingAlternativeDict
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader
-from ._choices import parse_observations
+from ._choices import is_comment_line, parse_observations
 from ._frontmatter import _normalize_list
 from ._tags import OrderingTag
 
@@ -192,8 +192,8 @@ def ordering_alternative(alt: RawAlternative, unit: int) -> OrderingAlternativeD
 
 
 def is_comment_block(lines: list[str]) -> bool:
-    """Whether every raw line of a paragraph is a `!`-prefixed comment line."""
-    return bool(lines) and all(line.strip(" \t").startswith("!") for line in lines)
+    """Whether every raw line of a paragraph is a comment line."""
+    return bool(lines) and all(is_comment_line(line) for line in lines)
 
 
 def check_ordering_tag(tag: OrderingTag) -> None:

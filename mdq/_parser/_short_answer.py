@@ -13,7 +13,7 @@ from .._markdown import starts_after
 from ..errors import ParseError
 from ..types import PatternEntry
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader, parse_plain_item
-from ._choices import CODE_INDENT, _pattern_entry, indentation
+from ._choices import _pattern_entry, is_comment_line
 from ._tags import (
     TAG_REST_RE,
     ShortAnswerTag,
@@ -149,7 +149,7 @@ def parse_answer_block(
     # content. A `!` line is not lazy (a comment), so it is an error.
     check_no_tag_in_content(cursor.reader.raw_lines(tag_node)[1:])
     for line in cursor.reader.raw_lines(tag_node)[1:]:
-        if _is_comment_line(line):
+        if is_comment_line(line):
             raise ParseError(_OBSERVATION_AFTER_CONTENT)
     node = cursor.peek()
     if (
@@ -284,14 +284,3 @@ def _empty_answer_tag_message(tag: str, *, reject: bool) -> str:
         "list on the line right after the tag, with no blank line in between, "
         f"or use `[{tag}]` for a manual question"
     )
-
-
-def _is_comment_line(line: str) -> bool:
-    """
-    Whether `line` starts a comment: `!` but not an image, `![`, with up to
-    three columns of indentation. With four or more, it is continuation text.
-    """
-    if indentation(line) >= CODE_INDENT:
-        return False
-    stripped = line.lstrip(" \t")
-    return stripped.startswith("!") and not stripped.startswith("![")

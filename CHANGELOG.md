@@ -95,6 +95,7 @@ Implements the unreleased MDQ specification.
 - Fill-in stem: a `[^id]` in a code span is literal text (no `misplaced-blank`, no reference to a blank), as in fenced and indented code. A `[^id]` in a heading, list item, table cell, blockquote, emphasis, strong, link text or image alt text is `misplaced-blank`. `[^id](url)` and `[^id][ref]` are links, not blanks. New `mdq._markdown.find_blank_markers`.
 - A numeric value with a huge exponent (`[numeric]: 1e999999999`) no longer hangs the parser: the range is checked before any `Fraction` exists. The exponent has at most 3 digits, and a value or tolerance above the largest finite double, or not zero but rounding to 0 as a double, is a `ParseError` in a body, `malformed-numeric-answer` in an `answer` and a `ResponseError` in a response (also a Python `int` beyond a double).
 - Numeric: new model error `missing-decimal-places` (fraction answer, `decimal` domain, no `decimalPlaces`, no absolute tolerance with decimal places), for a numeric question and a numeric blank. The inference of `decimalPlaces` never counts the places of a fraction: the parser used to give a fraction answer 0 places and round it to 0.
+- An image line (`![alt](src)`) after an ordering section tag is no longer read as a comment block, so the error no longer says that only a feedback and a comment block can follow.
 
 ### Added
 

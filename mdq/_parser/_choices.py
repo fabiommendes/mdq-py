@@ -247,6 +247,17 @@ def split_item(
     return RawChoice("", None, join_text(text), feedback, comment, len(text))
 
 
+def is_comment_line(line: str) -> bool:
+    """
+    Whether `line` starts a comment: `!` but not an image, `![`, with up to
+    three columns of indentation. With four or more, it is continuation text.
+    """
+    if indentation(line) >= CODE_INDENT:
+        return False
+    stripped = line.lstrip(" \t")
+    return stripped.startswith("!") and not stripped.startswith("![")
+
+
 def parse_observations(lines: list[str]) -> tuple[str | None, str | None]:
     """
     Read the feedback (`>`) and comment (`!`) blocks of an element, in

@@ -276,3 +276,14 @@ def test_setext_section_in_an_exam_is_reported_at_the_section() -> None:
         ("questions", 0, "accept", 0),
         ("questions", 1, "answerKey"),
     ]
+
+
+def test_image_paragraph_after_a_section_tag_is_not_a_comment() -> None:
+    """An image line starts with `!` but is not a comment line."""
+    source = (
+        "Order.\n\n[ordering]:\n* a\n* b\n\n"
+        "## [accept]\n\n![diagrama](folha.png)\n\n* b\n* a\n"
+    )
+    with pytest.raises(ParseError, match="has no content block") as error:
+        parse_question(source)
+    assert "feedback block and a comment block" not in str(error.value)
