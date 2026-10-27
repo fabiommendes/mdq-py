@@ -6,7 +6,15 @@ from ._diagnostics import Diagnostic
 class MdqError(ValueError):
     """
     Base class for errors that occur during parsing of the exam markdown.
+
+    The class attributes are what `mdq.load` reports as a diagnostic: its
+    `code`, the `path` of the field it is about, and the markdown `node`
+    that gives its line. A subclass or an instance overrides them.
     """
+
+    code: str = "parse-error"
+    path: tuple[str | int, ...] = ()
+    node: Node | None = None
 
     def __init__(self, message: str):
         super().__init__(message)

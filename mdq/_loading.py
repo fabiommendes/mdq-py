@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Generic, Literal, Mapping, TypeVar, get_args, overload
 
 import yaml
@@ -38,7 +39,7 @@ __all__ = [
     "parse",
 ]
 
-D = TypeVar("D")
+D = TypeVar("D", covariant=True)
 
 #: `Path` suffixes that select each format, checked against the whole
 #: filename (not `Path.suffix`). `.md` also covers `.mdq.md`.
@@ -115,7 +116,7 @@ def load(
     kind: Kind | None = None,
     format: Format | None = None,
     ids: Ids = "keep",
-) -> Loaded[Any]:
+) -> Loaded[models.Question | models.Exam]:
     """
     Load a question or exam document, and lint it.
 
@@ -235,7 +236,7 @@ def _load_text(
     *,
     kind: Kind | None,
     ids: Ids,
-) -> Loaded[Any]:
+) -> Loaded[models.Question | models.Exam]:
     if fmt == "mdq":
         return _load_mdq_text(text, kind=kind, ids=ids)
     if fmt in ("yaml", "yml"):
@@ -272,7 +273,7 @@ def _load_mdq_text(
     *,
     kind: Kind | None,
     ids: Ids,
-) -> Loaded[Any]:
+) -> Loaded[models.Question | models.Exam]:
     is_exam_doc = _parser.is_exam(text)
     mismatch = _kind_mismatch(kind, is_exam_doc)
     if mismatch is not None:
@@ -306,7 +307,7 @@ def _load_data(
     *,
     kind: Kind | None,
     ids: Ids = "keep",
-) -> Loaded[Any]:
+) -> Loaded[models.Question | models.Exam]:
     if not isinstance(data, Mapping):
         return Loaded(
             None,
@@ -353,13 +354,10 @@ def _kind_mismatch(kind: Kind | None, is_exam_doc: bool) -> Diagnostic | None:
 
 def _parse_error(exc: MdqError) -> Diagnostic:
     line = None
-    node = getattr(exc, "node", None)
-    if node is not None and node.map is not None:
-        line = node.map[0] + 1
-    code = getattr(exc, "code", "parse-error")
-    path = getattr(exc, "path", ())
+    if exc.node is not None and exc.node.map is not None:
+        line = exc.node.map[0] + 1
     return Diagnostic(
-        severity="error", code=code, message=str(exc), line=line, path=path
+        severity="error", code=exc.code, message=str(exc), line=line, path=exc.path
     )
 
 
@@ -508,20 +506,38 @@ def _pydantic_diagnostics(
     return diagnostics
 
 
-def _load_question(
-    data: dict[str, Any], diagnostics: list[Diagnostic], *, ids: Ids = "keep"
-) -> Loaded[Any]:
+def _validated[M: models.Question | models.Exam](
+    validate: Callable[[dict[str, Any]], M],
+    data: dict[str, Any],
+    diagnostics: list[Diagnostic],
+    *,
+    exam: bool,
+) -> Loaded[M]:
+    """Build the model of `data` with `validate`, then lint it."""
     diagnostics = list(diagnostics)
     try:
-        question = models.QuestionRoot.model_validate(data, by_alias=True, by_name=False).root
+        document = validate(data)
     except PydanticValidationError as exc:
-        diagnostics.extend(_pydantic_diagnostics(exc, data))
+        diagnostics.extend(_pydantic_diagnostics(exc, data, exam=exam))
         return Loaded(None, diagnostics)
+    diagnostics.extend(document.lint())
+    return Loaded(document, diagnostics)
 
-    diagnostics.extend(question.lint())
-    if ids == "fill":
-        question = question.with_ids()
-    return Loaded(question, diagnostics)
+
+def _load_question(
+    data: dict[str, Any], diagnostics: list[Diagnostic], *, ids: Ids = "keep"
+) -> Loaded[models.Question]:
+    loaded = _validated(
+        lambda data: models.QuestionRoot.model_validate(
+            data, by_alias=True, by_name=False
+        ).root,
+        data,
+        diagnostics,
+        exam=False,
+    )
+    if ids == "fill" and loaded.document is not None:
+        return Loaded(loaded.document.with_ids(), loaded.diagnostics)
+    return loaded
 
 
 def _load_exam(
@@ -529,21 +545,23 @@ def _load_exam(
     diagnostics: list[Diagnostic],
     *,
     ids: Ids = "keep",
-) -> Loaded[Any]:
-    diagnostics = list(diagnostics)
-    try:
-        exam = models.Exam.model_validate(data, by_alias=True, by_name=False)
-    except PydanticValidationError as exc:
-        diagnostics.extend(_pydantic_diagnostics(exc, data, exam=True))
-        return Loaded(None, diagnostics)
-
-    diagnostics.extend(exam.lint())
-    if ids == "fill":
+) -> Loaded[models.Exam]:
+    loaded = _validated(
+        lambda data: models.Exam.model_validate(data, by_alias=True, by_name=False),
+        data,
+        diagnostics,
+        exam=True,
+    )
+    if ids == "fill" and loaded.document is not None:
         try:
-            exam = exam.with_ids()
+            return Loaded(loaded.document.with_ids(), loaded.diagnostics)
         except UnresolvedInclude as exc:
-            diagnostics.append(
-                Diagnostic(severity="error", code="unresolved-include-all", message=str(exc))
+            loaded.diagnostics.append(
+                Diagnostic(
+                    severity="error",
+                    code="unresolved-include-all",
+                    message=str(exc),
+                )
             )
-            return Loaded(None, diagnostics)
-    return Loaded(exam, diagnostics)
+            return Loaded(None, loaded.diagnostics)
+    return loaded
