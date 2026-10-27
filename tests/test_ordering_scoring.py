@@ -24,9 +24,8 @@ from mdq.models import (
     QuestionRoot,
     QuestionScore,
 )
-from mdq.models._ordering import coerce_ordering_lines
 from _corpus import relative_id
-from test_ordering_models import MINIMAL, ORDERING_FIXTURES, ordering_questions
+from test_ordering_models import ORDERING_FIXTURES, ordering_questions
 
 
 def as_response(lines: Iterable[OrderingLine]) -> list[t.OrderingLineDict]:
@@ -120,30 +119,6 @@ def test_json_shaped_and_tuple_shaped_responses_score_the_same() -> None:
     # that each entry unpacks into an (int, str) pair.
     as_tuples = list(question.lines)
     assert question.score_response(as_lists) == question.score_response(as_tuples)
-
-
-#
-# Edge cases
-#
-
-
-@pytest.mark.parametrize(
-    "entry",
-    [
-        [0, "a", "extra"],
-        ["not-an-int", "a"],
-        [0, 123],
-    ],
-    ids=["three-element", "non-int-level", "non-str-text"],
-)
-def test_coerce_ordering_lines_rejects_malformed_entries(entry: list[object]) -> None:
-    with pytest.raises(ResponseError):
-        coerce_ordering_lines([entry])  # type: ignore[list-item]
-
-
-def test_score_response_rejects_a_malformed_response() -> None:
-    with pytest.raises(ResponseError):
-        MINIMAL.score_response([[0, "a", "extra"]])  # type: ignore[list-item]
 
 
 #

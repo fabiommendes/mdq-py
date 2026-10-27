@@ -22,10 +22,6 @@ def _errors(loaded: mdq.Loaded) -> list[mdq.Diagnostic]:
     return [d for d in loaded.diagnostics if d.severity == "error"]
 
 
-def _codes(loaded: mdq.Loaded) -> list[str]:
-    return [d.code for d in loaded.diagnostics]
-
-
 def _roundtrip(question: Any) -> Any:
     loaded = _load(str(question))
     assert _errors(loaded) == []
@@ -37,7 +33,9 @@ def _frontmatter_block(text: str) -> str:
 
 
 #
-# The six examples of short-answer.md "Examples" (Grading)
+# The six examples of short-answer.md "Examples" (Grading). Their parsing is
+# in the example pairs and their `automation` in
+# `examples/grading/automation.yaml`; here they must render back.
 #
 _STEM = "What is the capital of Brazil?\n\n"
 EXAMPLES = {
@@ -70,15 +68,12 @@ EXAMPLES = {
 
 
 @pytest.mark.parametrize("name", EXAMPLES)
-def test_grading_example_loads_without_errors_and_round_trips(name: str) -> None:
-    source, automation = EXAMPLES[name]
+def test_grading_example_round_trips(name: str) -> None:
+    source, _ = EXAMPLES[name]
     if name == "automatic":
         source = _STEM + source
     loaded = _load(source)
-    assert _errors(loaded) == []
-    assert "unknown-frontmatter-key" not in _codes(loaded)
     question = loaded.document
-    assert question.automation == automation
     assert _roundtrip(question) == question
 
 

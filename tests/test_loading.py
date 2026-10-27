@@ -587,20 +587,6 @@ def test_resolve_accepts_markdown_text() -> None:
     assert exam.questions[0].id == "recursao-fatorial"
 
 
-def test_included_question_diagnostics_are_prefixed_with_questions_index() -> None:
-    included_with_warning = {
-        "id": "recursao-fatorial",
-        "type": "essay",
-        "stem": "Converta este algoritmo iterativo de fatorial em um recursivo.",
-        "tags": ["cerrado,bioma"],
-    }
-    bank = DictLoader({"recursao-fatorial": included_with_warning})
-    exam = load(_exam_with_include("recursao-fatorial")).validate().resolve(bank)
-    matching = [d for d in exam.lint() if d.code == "unsplit-tag-list"]
-    assert len(matching) == 1
-    assert matching[0].path[:2] == ("questions", 0)
-
-
 def test_an_invalid_included_question_fails_to_resolve() -> None:
     broken = {"id": "recursao-fatorial", "type": "essay"}  # missing 'stem'
     exam = load(_exam_with_include("recursao-fatorial")).validate()

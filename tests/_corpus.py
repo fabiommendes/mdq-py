@@ -4,6 +4,31 @@ Locations of the example documents the test suite runs against.
 Every path below resolves relative to the repository root -- one level
 up from `mdq-py/` -- so it means nothing outside this checkout. Import
 this from the test suite only, never from library or CLI code.
+
+Files that sit in the corpus but are not documents, each with its own
+runner (`collect_files` leaves them out):
+
+* `<name>.lint.json` -- the diagnostics of the document of the same name
+  (`test_lint_corpus.py`, `test_invalid_sources.py`).
+* `valid/exam/<name>.resolved.yaml` -- an exam with includes after
+  `resolve` and `with_ids`: the `questions` ids in order,
+  `diagnostics`, and optionally `fields` (an inherited field -> its value
+  per position, e.g. `locale`) and `lint` (the diagnostics of
+  `Exam.lint()` on the resolved exam, with paths under `questions[i]`)
+  (`test_exam_resolution_corpus.py`).
+* `valid/**/<name>.ids.yaml` -- the ids of the document of the same name
+  after `with_ids()`, shared by its `.mdq.md` and `.yaml` siblings:
+  `id` (question), `choices` (ids in order), `blanks` (fill-in: blank id
+  -> choice ids) or, for an exam, `questions` (ids in order). A key
+  absent from the file is not checked (`test_ids_corpus.py`).
+
+Files outside `valid/` and `invalid/` that are test vectors, not
+documents (`EXAMPLES_ROOT`):
+
+* `normalize.yaml` -- `load(input).document.to_dict()` of inputs the
+  models normalize (`test_normalize_corpus.py`).
+* `matching/query.yaml` -- the `includeAll` query language
+  (`test_query_corpus.py`).
 """
 
 import json
@@ -48,6 +73,7 @@ def collect_files(root: Path) -> list[Path]:
         and path.suffix.lower() in DOCUMENT_SUFFIXES
         and not path.name.endswith(".lint.json")
         and not path.name.endswith(".resolved.yaml")
+        and not path.name.endswith(".ids.yaml")
     )
 
 
@@ -124,7 +150,6 @@ PARSER_ONLY_CODES = frozenset(
         "malformed-separator",
         "non-ascii-whitespace",
         "non-ascii-whitespace-in-prose",
-        "detached-answer-list",
         "multi-line-pattern",
     }
 )

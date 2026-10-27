@@ -2,10 +2,10 @@
 Tests for the `lint()` contract of the models.
 
 `lint()` on a model returns the same diagnostics as `load()` returns for the
-equivalent document, and `Exam.lint()` prefixes the path of each question
-diagnostic with `("questions", i)`.
+equivalent document.
 
-Which rules fire for which document is covered by the example corpus
+Which rules fire for which document, and the `("questions", i)` prefix of
+the paths of an exam, are covered by the example corpus
 (`examples/**/*.lint.json`).
 """
 
@@ -31,7 +31,7 @@ def test_question_lint_matches_load_diagnostics() -> None:
     assert "no-correct-choice" in {d.code for d in result}
 
 
-def test_exam_lint_matches_load_and_prefixes_question_paths() -> None:
+def test_exam_lint_matches_load() -> None:
     doc = {
         "type": "exam",
         "title": "Prova de Biologia",
@@ -57,5 +57,3 @@ def test_exam_lint_matches_load_and_prefixes_question_paths() -> None:
     loaded = load(doc, kind="exam")
     assert loaded.document is not None
     assert loaded.document.lint() == loaded.diagnostics
-    [matching] = [d for d in loaded.document.lint() if d.code == "no-correct-choice"]
-    assert matching.path == ("questions", 1, "choices")

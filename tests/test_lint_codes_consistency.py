@@ -42,6 +42,8 @@ from _corpus import (
 
 _LINT_CODES_MD = MDQ_ROOT / "docs" / "lint-codes.md"
 _ROW_RE = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|")
+#: A code of the "Load errors" list: `- `code`:` or `- `code`, `code`:`.
+_LOAD_ERROR_RE = re.compile(r"`([a-z0-9-]+)`")
 
 
 def _documented_codes() -> tuple[set[str], set[str]]:
@@ -58,6 +60,18 @@ def _documented_codes() -> tuple[set[str], set[str]]:
             continue
         (errors if in_errors_section else warning_or_info).add(match.group(1))
     return warning_or_info, errors
+
+
+def _load_error_codes() -> set[str]:
+    """The codes of the "Load errors" list of lint-codes.md."""
+    codes: set[str] = set()
+    in_load_errors = False
+    for line in _LINT_CODES_MD.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#"):
+            in_load_errors = "Load errors" in line
+        elif in_load_errors and line.startswith("- "):
+            codes.update(_LOAD_ERROR_RE.findall(line.split(":", 1)[0]))
+    return codes
 
 
 def _produced_warning_or_info_codes() -> set[str]:
@@ -123,7 +137,9 @@ def test_every_documented_error_code_is_produced_by_the_corpus() -> None:
     # its example as an `.mdq.md` source with no `.yaml` sibling.
     for path in [*INVALID_PARSED, *INVALID_SYNTAX, *INVALID_SOURCES]:
         loaded = load(path)
-        produced_errors.update(d.code for d in loaded.diagnostics if d.severity == "error")
+        produced_errors.update(
+            d.code for d in loaded.diagnostics if d.severity == "error"
+        )
     missing = documented_errors - produced_errors
     assert not missing, (
         f"docs/lint-codes.md's Errors table documents these codes, but no "
@@ -134,7 +150,10 @@ def test_every_documented_error_code_is_produced_by_the_corpus() -> None:
 
 def test_every_code_the_implementation_produces_is_documented() -> None:
     documented_warning_or_info, documented_errors = _documented_codes()
-    documented = documented_warning_or_info | documented_errors
+    # A load error is documented too: `schema-error` is what a model rule
+    # that the JSON Schema cannot express (a backtick run, a line feed in a
+    # pattern) reports.
+    documented = documented_warning_or_info | documented_errors | _load_error_codes()
     produced = _produced_warning_or_info_codes() | _produced_error_codes()
     undocumented = produced - documented
     assert not undocumented, (

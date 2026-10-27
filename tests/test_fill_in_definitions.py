@@ -18,8 +18,5 @@ def test_a_definition_after_a_paragraph_is_detached() -> None:
         "[^acre/short-answer]: Rio Branco\n",
         kind="question",
     )
-    assert loaded.document is None
-    assert [(d.code, d.severity, d.path) for d in loaded.diagnostics] == [
-        ("detached-tag", "error", ("epilogue",))
-    ]
-    assert "[^acre/short-answer]" in loaded.diagnostics[0].message
+    [diagnostic] = loaded.diagnostics
+    assert "[^acre/short-answer]" in diagnostic.message

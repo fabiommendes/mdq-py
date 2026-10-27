@@ -12,208 +12,19 @@ Derived ids move from the parser to the models:
   Lint always runs on the document as written, regardless of `ids`.
 
 Written against the public `mdq.load`/`mdq.parse` API and the public model
-classes only -- no parser/linter internals. Fixtures use Brazil-themed
-questions and exams, per AGENTS.md.
+classes only -- no parser/linter internals. The ids themselves (slug
+collisions, named glyphs, positions) are in `examples/valid/**/*.ids.yaml`
+(`test_ids_corpus.py`); this file keeps the API: purity, idempotence and the
+`ids` keyword.
 """
 
 from __future__ import annotations
 
 from mdq import load, parse
-from mdq._banks import DictLoader
-from mdq.models import (
-    BooleanChoice,
-    ChoiceBlank,
-    FillInQuestion,
-    MultipleChoiceQuestion,
-    MultipleSelectionQuestion,
-    ScoredChoice,
-)
 
 
 def _ids(choices) -> list[str | None]:
     return [c.id for c in choices]
-
-
-# ---------------------------------------------------------------------
-# with_ids(): disambiguation
-# ---------------------------------------------------------------------
-
-
-def test_with_ids_disambiguates_brasilia_and_its_ascii_spelling() -> None:
-    """
-    `Brasília` and `Brasilia` both fold to the same ASCII slug; `with_ids`
-    must not collide the two.
-    """
-    text = (
-        "Qual grafia consta no censo demográfico?\n"
-        "\n"
-        "* [ ] Brasília\n"
-        "* [*] Brasilia\n"
-        "* [ ] Nenhuma das anteriores\n"
-    )
-    doc = parse(text, kind="question")
-    filled = doc.with_ids()
-    ids = _ids(filled.choices)
-    assert None not in ids
-    assert len(ids) == len(set(ids)), f"derived ids collided: {ids}"
-
-
-def test_with_ids_disambiguates_punctuation_only_variants() -> None:
-    """
-    `São Paulo!` and `São Paulo?` both slugify to `sao-paulo` once
-    punctuation is stripped; `with_ids` must not collide the two.
-    """
-    text = (
-        "Qual pontuação está correta?\n"
-        "\n"
-        "* [ ] São Paulo!\n"
-        "* [*] São Paulo?\n"
-        "* [ ] Rio de Janeiro\n"
-    )
-    doc = parse(text, kind="question")
-    filled = doc.with_ids()
-    ids = _ids(filled.choices)
-    assert None not in ids
-    assert len(ids) == len(set(ids)), f"derived ids collided: {ids}"
-
-
-def test_with_ids_derived_id_never_takes_an_explicit_id_of_the_same_question() -> None:
-    """
-    Choice 2 declares the explicit id `brasilia`; choice 1 has no explicit
-    id but its text (`Brasília`) would naturally derive to `brasilia` too.
-    The derived id must avoid the explicit one.
-    """
-    text = (
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "* [ ] Brasília\n"
-        "* [*] [brasilia] Distrito Federal, sede do governo\n"
-        "* [ ] São Paulo\n"
-    )
-    doc = parse(text, kind="question")
-    filled = doc.with_ids()
-    derived_id, explicit_id, _ = _ids(filled.choices)
-    assert explicit_id == "brasilia"
-    assert derived_id != "brasilia"
-    assert derived_id is not None
-
-
-def test_with_ids_choice_ids_do_not_depend_on_order() -> None:
-    """
-    Reordering the choices gives each text the same derived id.
-    """
-
-    def build(order: list[str]) -> MultipleChoiceQuestion:
-        return MultipleChoiceQuestion(
-            stem="Qual é a capital do Brasil?",
-            choices=[ScoredChoice(text=text) for text in order],
-        )
-
-    forward = build(["Rio de Janeiro", "Brasília", "São Paulo"]).with_ids()
-    backward = build(["São Paulo", "Brasília", "Rio de Janeiro"]).with_ids()
-
-    assert {c.text: c.id for c in forward.choices} == {
-        c.text: c.id for c in backward.choices
-    }
-
-
-def test_with_ids_single_glyph_choices_get_named_ids() -> None:
-    """
-    A single-glyph choice text has nothing sluggable once punctuation is
-    stripped, so `with_ids` names it from a fixed table instead
-    (`docs/question-types/multiple-choice.md`; see also
-    `examples/valid/multiple-selection/all-correct.yaml`).
-    """
-    doc = MultipleSelectionQuestion(
-        stem="Quais destes são marcadores válidos de lista em Markdown?",
-        choices=[
-            BooleanChoice(text="-", correct=True),
-            BooleanChoice(text="*", correct=True),
-            BooleanChoice(text="+", correct=True),
-        ],
-    )
-    filled = doc.with_ids()
-    assert {c.text: c.id for c in filled.choices} == {
-        "-": "hyphen",
-        "*": "asterisk",
-        "+": "plus",
-    }
-
-
-def test_with_ids_single_digit_choices_get_named_ids() -> None:
-    doc = MultipleSelectionQuestion(
-        stem="Quais destes números são primos?",
-        choices=[
-            BooleanChoice(text="1", correct=False),
-            BooleanChoice(text="4", correct=False),
-            BooleanChoice(text="9", correct=False),
-        ],
-    )
-    filled = doc.with_ids()
-    assert {c.text: c.id for c in filled.choices} == {
-        "1": "one",
-        "4": "four",
-        "9": "nine",
-    }
-
-
-def test_with_ids_fills_fill_in_choice_blank_choice_ids() -> None:
-    blank = ChoiceBlank(
-        id="capital",
-        choices=[
-            ScoredChoice(text="Brasília", score=1),
-            ScoredChoice(text="Rio de Janeiro", score=0),
-        ],
-    )
-    doc = FillInQuestion(
-        stem="A capital do Brasil é [^capital].",
-        blanks=[blank],
-    )
-    filled = doc.with_ids()
-    ids = _ids(filled.blanks[0].choices)
-    assert None not in ids
-    assert len(ids) == len(set(ids))
-
-
-# ---------------------------------------------------------------------
-# with_ids(): exam position counting
-# ---------------------------------------------------------------------
-
-_AMAZONIA = {
-    "id": "amazonia",
-    "type": "essay",
-    "stem": "Onde fica a Floresta Amazônica?",
-}
-
-
-def test_with_ids_exam_position_counts_includes() -> None:
-    """
-    docs/exam.md, "Question ids": position counts every block, including
-    an `include`, so the second block's implicit id is `q2`, not `q1`.
-    """
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "---\n"
-        "include: amazonia\n"
-        "---\n"
-        "\n"
-        "---\n"
-        "---\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-    )
-    loader = DictLoader({"amazonia": _AMAZONIA})
-
-    kept = parse(text, kind="exam", ids="keep").resolve(loader)
-    assert kept.questions[0].id == "amazonia"
-    assert kept.questions[1].id is None
-
-    filled = kept.with_ids()
-    assert filled.questions[0].id == "amazonia"
-    assert filled.questions[1].id == "q2"
 
 
 # ---------------------------------------------------------------------
@@ -249,7 +60,6 @@ def test_with_ids_does_not_mutate_the_original_exam() -> None:
 
     assert filled is not doc
     assert doc.questions[0].id is None
-    assert filled.questions[0].id == "q1"
 
 
 def test_with_ids_is_idempotent_for_a_question() -> None:
@@ -287,57 +97,6 @@ def test_with_ids_is_idempotent_for_an_exam() -> None:
     once = doc.with_ids()
     twice = once.with_ids()
     assert twice == once
-
-
-# ---------------------------------------------------------------------
-# with_ids(): markdown and YAML agree
-# ---------------------------------------------------------------------
-
-
-def test_with_ids_gives_the_same_result_for_markdown_and_yaml() -> None:
-    md = (
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "* [ ] Rio de Janeiro\n"
-        "* [*] Brasília\n"
-        "* [ ] São Paulo\n"
-    )
-    yaml_text = (
-        "type: multiple-choice\n"
-        "stem: Qual é a capital do Brasil?\n"
-        "choices:\n"
-        "  - text: Rio de Janeiro\n"
-        "  - text: Brasília\n"
-        "    score: 1\n"
-        "  - text: São Paulo\n"
-    )
-    from_md = parse(md, kind="question", format="mdq")
-    from_yaml = parse(yaml_text, kind="question", format="yaml")
-
-    assert from_md.with_ids() == from_yaml.with_ids()
-
-
-def test_with_ids_gives_the_same_result_for_markdown_and_yaml_exams() -> None:
-    md = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-    )
-    yaml_text = (
-        "type: exam\n"
-        "title: Prova de Geografia do Brasil\n"
-        "questions:\n"
-        "  - type: essay\n"
-        "    stem: Qual é a capital do Brasil?\n"
-    )
-    from_md = parse(md, kind="exam", format="mdq")
-    from_yaml = parse(yaml_text, kind="exam", format="yaml")
-
-    assert from_md.with_ids() == from_yaml.with_ids()
 
 
 # ---------------------------------------------------------------------
@@ -381,28 +140,6 @@ def test_parse_accepts_the_ids_keyword_too() -> None:
 
     assert _ids(kept.choices) == [None, None]
     assert None not in _ids(filled.choices)
-
-
-def test_load_fill_on_an_exam_assigns_positional_ids() -> None:
-    text = (
-        "# Prova de Geografia do Brasil\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Qual é a capital do Brasil?\n"
-        "\n"
-        "[essay]\n"
-        "\n"
-        "===\n"
-        "\n"
-        "Onde fica a Floresta Amazônica?\n"
-        "\n"
-        "* [ ] Ásia\n"
-        "* [*] América do Sul\n"
-    )
-    loaded = load(text, kind="exam", ids="fill")
-    assert loaded.document is not None
-    assert [q.id for q in loaded.document.questions] == ["q1", "q2"]
 
 
 def test_lint_runs_on_the_document_as_written_in_both_modes() -> None:

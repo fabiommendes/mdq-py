@@ -123,7 +123,7 @@ def _group_documents(root: Path) -> dict[Path, list[Path]]:
     for path in sorted(root.rglob("*")):
         if not path.is_file() or not path.name.endswith(_SOURCE_SUFFIXES):
             continue
-        if path.name.endswith((".lint.json", ".resolved.yaml")):
+        if path.name.endswith((".lint.json", ".resolved.yaml", ".ids.yaml")):
             continue
         lint_json = path.with_name(f"{_stem(path)}.lint.json")
         groups.setdefault(lint_json, []).append(path)

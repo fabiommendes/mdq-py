@@ -3,7 +3,8 @@ docs/references/grammar.md: the grammar whitespace `ws` is only spaces and
 tabs. Every other Unicode space is text, and the `non-ascii-whitespace`
 lint reports it. The example corpus covers the parse results and lint
 codes; this file keeps what it cannot: lint line numbers, a Unicode
-space starting a regex pattern line, and the frontmatter comment helper.
+the matching of a pattern line that starts with a Unicode space, and the
+frontmatter comment helper.
 
 The characters are built with `chr` so that this file holds no invisible
 code point.
@@ -14,7 +15,6 @@ from __future__ import annotations
 import pytest
 
 from mdq import load
-from mdq._parser import parse_question
 from mdq._parser._frontmatter import _extract_comment
 
 NBSP = chr(0x00A0)
@@ -43,12 +43,8 @@ def _lint(source: str) -> list[tuple[str, int | None]]:
 # ws: only spaces and tabs
 # ---------------------------------------------------------------------
 @pytest.mark.parametrize("ch", [NBSP, EM_SPACE])
-def test_unicode_space_starts_a_pattern_line(ch: str) -> None:
-    doc = parse_question(
-        "Qual a capital?\n\n[short-answer/accept]:\n"
-        f"* {ch}/bras[íi]lia/i\n"
-    )
-    assert doc["accept"] == [f"{ch}/bras[íi]lia/i"]  # type: ignore[typeddict-item]
+def test_a_pattern_line_starting_with_a_unicode_space_is_not_a_regex(ch: str) -> None:
+    """The parse result is in the corpus (`*-starts-pattern-line`)."""
     loaded = load(
         f"Qual a capital?\n\n[short-answer/accept]:\n* {ch}/bras[íi]lia/i\n",
         format="mdq",

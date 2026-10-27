@@ -1,7 +1,8 @@
 """
-Exam documents: block splitting, include resolution and `Exam` model
-behavior. Recognition, inheritance, numbering and resolution of the
-documents themselves are covered by the corpus in `examples/valid/exam/`.
+Exam documents: the include-resolution API (banks, loaders, errors) and
+`Exam` model behavior. Block splitting, recognition, inheritance, numbering
+and resolution of the documents themselves are covered by the corpus in
+`examples/valid/exam/`.
 """
 
 from __future__ import annotations
@@ -14,26 +15,8 @@ from mdq import load
 from mdq.models import Exam, Include
 from mdq._banks import DictLoader, FileLoader, IncludeNotFound, QuestionBank
 from _corpus import VALID_DIR
-from _parse import parse_any
 
 MIDTERM = VALID_DIR / "exam" / "midterm.mdq.md"
-
-
-# ---------------------------------------------------------------------
-# block splitting
-# ---------------------------------------------------------------------
-
-
-def test_separator_needs_a_blank_line_before_it() -> None:
-    """Without one, CommonMark reads `===` as a setext underline and turns
-    the paragraph above into an H1 -- which is exam-title syntax."""
-    exam = parse_any("# Exam\n\nJudge this\n===\n\nmore text\n")
-    assert exam["questions"] == []
-
-
-#: `duplicate-question-id` is a model error now, not a lint warning --
-#: see test_two_inline_questions_with_the_same_id_is_a_model_error and
-#: friends in tests/test_unique_ids.py (dev/specs/to-do/unique-ids.md).
 
 
 # ---------------------------------------------------------------------
@@ -69,10 +52,6 @@ def test_file_loader_prefers_mdq_md_over_md(tmp_path: Path) -> None:
 def test_file_loader_can_be_restricted_to_its_root() -> None:
     with pytest.raises(IncludeNotFound):
         FileLoader(MIDTERM.parent, recursive=False).load("recursion-01")
-
-
-def test_a_resolved_include_inherits_from_the_exam() -> None:
-    assert resolved_midterm().questions[0].locale == "pt-BR"
 
 
 def test_resolve_does_not_change_the_exam() -> None:

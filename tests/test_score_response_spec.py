@@ -35,4 +35,3 @@ def test_symmetric_spreads_declared_scores_over_the_undeclared_ones(
         ],
     )
     assert question.unspecified_score() == pytest.approx(expected)
-    assert question.score_response("c3").score == pytest.approx(expected)

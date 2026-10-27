@@ -53,10 +53,6 @@ def blank_score(pattern: str, response: str, mode: Mode) -> float:
     return question.score_response({"capital": response}).score
 
 
-def test_vector_file_has_seventeen_cases() -> None:
-    assert len(_CASES) == 17
-
-
 @pytest.mark.parametrize(("pattern", "response", "match", "mode"), VECTORS)
 def test_short_answer_vectors(
     pattern: str, response: str, match: bool, mode: Mode

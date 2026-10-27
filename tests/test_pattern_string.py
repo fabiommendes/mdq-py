@@ -1,8 +1,9 @@
 """
 Pattern string rules (docs/references/patterns.md, "Pattern string"): an
-empty pattern and an incomplete backtick span are schema errors, and the
-exact literal follows the CommonMark code span. Blank patterns, the spaces
-and tabs at the ends and the matching of exact literals live in the corpus.
+empty pattern is a schema error, and the exact literal follows the CommonMark
+code span. Incomplete backtick spans, line endings, blank patterns, the
+spaces and tabs at the ends and the matching of exact literals live in the
+corpus (`examples/invalid/short-answer-backtick-*`).
 """
 
 from __future__ import annotations
@@ -24,46 +25,16 @@ def test_empty_pattern_is_schema_error() -> None:
     assert error_types(info.value) == ["string_too_short"]
 
 
-@pytest.mark.parametrize("pattern", [
-        "`math.isnan` (x)",
-        "`math.isnan",
-        "`a`b",
-        "`",
-        "``x`",
-        "`x``",
-        "`` `x` ``y",
-        "``",
-        "`` x",
-    ])
-def test_incomplete_backtick_span_is_schema_error(pattern: str) -> None:
-    with pytest.raises(ValidationError) as info:
-        AnswerPattern(pattern=pattern)
-    assert error_types(info.value) == ["schema-error"]
-
-
-@pytest.mark.parametrize("pattern", ["a\nb", "`a\nb`", "a\rb"])
-def test_pattern_with_line_ending_is_schema_error(pattern: str) -> None:
-    with pytest.raises(ValidationError) as info:
-        AnswerPattern(pattern=pattern)
-    assert error_types(info.value) == ["schema-error"]
-
-
 @pytest.mark.parametrize(
     ("pattern", "content"),
     [
-        ("`x`", "x"),
-        ("`` `print` ``", "`print`"),
-        ("``a`b``", "a`b"),
-        ("```a``b```", "a``b"),
-        ("`a``b`", "a``b"),
-        ("`` ` ``", "`"),
         ("`  x  `", " x "),
         ("`   `", "   "),
         ("` x`", " x"),
         ("  `` `date` ``\t", "`date`"),
     ],
 )
-def test_exact_literal_follows_the_commonmark_code_span(
+def test_exact_literal_removes_one_padding_space_from_each_end(
     pattern: str, content: str
 ) -> None:
     assert exact_literal(pattern) == content

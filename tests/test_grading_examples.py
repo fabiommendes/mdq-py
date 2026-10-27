@@ -3,7 +3,9 @@
 response gets. The choice types list every grading strategy
 (multiple-choice.md, multiple-selection.md and true-false.md, "Grading");
 numeric and short-answer are binary, and also list the responses that
-are malformed or pending (responses.md).
+are malformed or pending (responses.md). `exam.yaml` scores whole exams and
+resolves the inheritance of `grading` and `shuffle`; `automation.yaml` gives
+the `automation` of a question; `essay.yaml` lists the essay responses.
 """
 
 from __future__ import annotations
@@ -26,15 +28,21 @@ def _number(value: Any) -> float:
     return float(Fraction(str(value)))
 
 
-def _cases(name: str) -> list[Any]:
+def _cases(name: str, key: str = "questions") -> list[Any]:
     data = yaml.safe_load((GRADING_ROOT / f"{name}.yaml").read_text(encoding="utf-8"))
-    return data["questions"]
+    return data[key]
 
 
 def _question(type_: str, case: dict[str, Any], **choice_field: Any) -> Any:
     key = "score" if type_ == "multiple-choice" else "correct"
+    feedback = case.get("feedback", {})
     choices = [
-        {"id": cid, "text": cid, **({} if value is None else {key: value})}
+        {
+            "id": cid,
+            "text": cid,
+            **({} if value is None else {key: value}),
+            **({"feedback": feedback[cid]} if cid in feedback else {}),
+        }
         for cid, value in case["choices"].items()
     ]
     doc = {"type": type_, "stem": case["name"], "grading": case["grading"], "choices": choices}
@@ -54,7 +62,16 @@ def _mc_params() -> list[Any]:
 @pytest.mark.parametrize(("case", "response", "expected"), _mc_params())
 def test_multiple_choice(case: dict[str, Any], response: str, expected: Any) -> None:
     question = _question("multiple-choice", case)
-    assert question.score_response(response).score == pytest.approx(_number(expected))
+    if expected == "malformed":
+        with pytest.raises(ResponseError):
+            question.score_response(response)
+        return
+    result = question.score_response(response)
+    if isinstance(expected, dict):
+        assert result.score == pytest.approx(_number(expected["score"]))
+        assert result.feedback == expected["feedback"]
+    else:
+        assert result.score == pytest.approx(_number(expected))
 
 
 def _ms_params() -> list[Any]:
@@ -73,8 +90,10 @@ def test_multiple_selection(case: dict[str, Any], example: dict[str, Any]) -> No
         with pytest.raises(ResponseError):
             question.score_response(ticks)
         return
-    score = question.score_response(ticks).score
-    assert score == pytest.approx(_number(example["score"]))
+    result = question.score_response(ticks)
+    assert result.score == pytest.approx(_number(example["score"]))
+    if "feedback" in example:
+        assert result.feedback == example["feedback"]
 
 
 def _tf_params() -> list[Any]:
@@ -93,8 +112,10 @@ def test_true_false(case: dict[str, Any], example: dict[str, Any]) -> None:
         with pytest.raises(ResponseError):
             question.score_response(marks)
         return
-    score = question.score_response(marks).score
-    assert score == pytest.approx(_number(example["score"]))
+    result = question.score_response(marks)
+    assert result.score == pytest.approx(_number(example["score"]))
+    if "feedback" in example:
+        assert result.feedback == example["feedback"]
 
 
 def _binary_question(type_: str, case: dict[str, Any]) -> Any:
@@ -146,7 +167,11 @@ def test_short_answer(case: dict[str, Any], example: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize(("case", "example"), _binary_params("short-answer-prevalidation"))
 def test_short_answer_prevalidation(case: dict[str, Any], example: dict[str, Any]) -> None:
-    question = _binary_question("short-answer", case)
+    if "blank" in case:
+        fill_in = _binary_question("fill-in", case)
+        (question,) = [b for b in fill_in.blanks if b.id == case["blank"]]
+    else:
+        question = _binary_question("short-answer", case)
     assert question.prevalidate(example["response"]) == (
         example["valid"],
         example["feedback"],
@@ -199,6 +224,9 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
 def test_every_grading_file_is_covered() -> None:
     names = sorted(p.stem for p in GRADING_ROOT.glob("*.yaml"))
     assert names == [
+        "automation",
+        "essay",
+        "exam",
         "fill-in",
         "multiple-choice",
         "multiple-selection",
@@ -225,3 +253,109 @@ def test_ordering(case: dict[str, Any], example: dict[str, Any]) -> None:
     assert result.score == pytest.approx(_number(example["score"]))
     if "feedback" in example:
         assert (result.feedback[0] if result.feedback else None) == example["feedback"]
+
+
+@pytest.mark.parametrize(("case", "example"), _binary_params("essay"))
+def test_essay(case: dict[str, Any], example: dict[str, Any]) -> None:
+    question = _binary_question("essay", case)
+    expected = example["score"]
+    with pytest.raises(NotAutoGradable if expected == "pending" else ResponseError):
+        question.score_response(example["response"])
+
+
+def _automation_params() -> list[Any]:
+    return [pytest.param(case, id=case["name"]) for case in _cases("automation")]
+
+
+@pytest.mark.parametrize("case", _automation_params())
+def test_automation(case: dict[str, Any]) -> None:
+    loaded = mdq.load(case["question"], kind="question")
+    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
+    question = loaded.document
+    assert question.automation == case["automation"]
+    if "unmatched" in case:
+        assert question.effective_unmatched == case["unmatched"]
+    for blank in question.blanks if "blanks" in case else []:
+        expected = case["blanks"][blank.id]
+        assert blank.effective_unmatched(question.unmatched) == expected["unmatched"]
+        assert blank.automation(question.unmatched) == expected["automation"]
+
+
+def _load_exam(case: dict[str, Any]) -> Any:
+    if "source" in case:
+        source = EXAMPLES_ROOT / case["source"]
+        loaded = mdq.load(source, kind="exam")
+    else:
+        doc = {"type": "exam", "title": "Prova", **case["exam"]}
+        loaded = mdq.load(doc, kind="exam")
+    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
+    return loaded.document
+
+
+def _exam_cases(*keys: str) -> list[Any]:
+    return [
+        pytest.param(case, id=case["name"])
+        for case in _cases("exam", "cases")
+        if any(key in case for key in keys)
+    ]
+
+
+@pytest.mark.parametrize("case", [c for c in _exam_cases("effective") if "question" in c.values[0]])
+def test_effective_values_of_a_question(case: dict[str, Any]) -> None:
+    doc = {**case["question"], **case.get("override", {})}
+    loaded = mdq.load(doc, kind="question")
+    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
+    expected = case["effective"]
+    assert loaded.document.effective_grading() == expected["grading"]
+    assert loaded.document.effective_shuffle() is expected["shuffle"]
+
+
+@pytest.mark.parametrize("case", [c for c in _exam_cases("effective") if "question" not in c.values[0]])
+def test_effective_values_in_an_exam(case: dict[str, Any]) -> None:
+    exam = _load_exam(case)
+    by_id = {q.id: q for q in exam.questions}
+    for qid, expected in case["effective"].items():
+        question = by_id[qid]
+        resolved = exam.resolve_question(question)
+        if "grading" in expected:
+            assert exam.grading_for(question) == expected["grading"]
+            assert resolved.grading == expected["grading"]
+        if "shuffle" in expected:
+            assert exam.shuffle_for(question) is expected["shuffle"]
+            assert resolved.shuffle is expected["shuffle"]
+
+
+def _exam_example_params() -> list[Any]:
+    return [
+        pytest.param(case, example, id=f"{case['name']}/{index}")
+        for case in _cases("exam", "cases")
+        for index, example in enumerate(case.get("examples", []))
+    ]
+
+
+@pytest.mark.parametrize(("case", "example"), _exam_example_params())
+def test_exam_score(case: dict[str, Any], example: dict[str, Any]) -> None:
+    exam = _load_exam(case)
+    if example["score"] == "malformed":
+        with pytest.raises(ResponseError):
+            exam.score_responses(example["responses"])
+        return
+    result = exam.score_responses(example["responses"])
+    if example["score"] == "pending":
+        assert result.score is None
+    else:
+        assert result.score == pytest.approx(example["score"])
+    for key in ("provisional", "total_weight"):
+        if key in example:
+            assert getattr(result, key) == pytest.approx(example[key])
+    if "penalty" in example:
+        assert result.penalty == example["penalty"]
+    for key in ("skipped", "pending"):
+        if key in example:
+            assert list(getattr(result, key)) == example[key]
+    if "questions" in example:
+        scores = {
+            qid: None if question is None else question.score
+            for qid, question in result.questions.items()
+        }
+        assert scores == pytest.approx(example["questions"])

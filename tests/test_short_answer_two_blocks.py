@@ -32,8 +32,6 @@ from mdq.models import (
 STEM = "Qual é a capital do Brasil?"
 FILL_STEM = "O maior bioma brasileiro é a [^bioma]."
 
-ACCEPT_TAGS = ["[short-answer]", "[short-answer/accept]"]
-_BLANK_TAGS = ["[^bioma/short-answer]", "[^bioma/short-answer/accept]"]
 
 
 def _q(body: str) -> str:
@@ -52,12 +50,6 @@ def _errors(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
     return [d for d in diagnostics if d.severity == "error"]
 
 
-def _doc(source: str) -> dict:
-    loaded = load(source, format="mdq")
-    assert loaded.document is not None, [d.code for d in loaded.diagnostics]
-    return loaded.document.to_dict()
-
-
 def _assert_parse_error(source: str) -> None:
     loaded = load(source, format="mdq")
     assert loaded.document is None
@@ -70,18 +62,16 @@ def _error_messages(source: str) -> list[str]:
 
 
 #
-# AC4: blank line, no content on the tag line
+# Messages of the parse errors (codes and paths are in the corpus)
 #
-@pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_empty_tag_and_detached_list_is_a_parse_error(tag: str) -> None:
-    source = _q(f"{tag}:\n\n* Cite a evaporação.\n* Cite os rios voadores.\n")
+def test_b2_empty_tag_and_detached_list_is_a_parse_error() -> None:
+    source = _q("[short-answer]:\n\n* Cite a evaporação.\n* Cite os rios voadores.\n")
     _assert_parse_error(source)
     assert "right after the tag" in _error_messages(source)[0]
 
 
-@pytest.mark.parametrize("tag", ACCEPT_TAGS)
-def test_b2_empty_tag_and_blank_line_and_text_is_a_parse_error(tag: str) -> None:
-    source = _q(f"{tag}:\n\nBrasília.\n")
+def test_b2_empty_tag_and_blank_line_and_text_is_a_parse_error() -> None:
+    source = _q("[short-answer]:\n\nBrasília.\n")
     _assert_parse_error(source)
     assert "for a manual question" in _error_messages(source)[0]
 
@@ -92,12 +82,8 @@ def test_b2_tag_without_a_colon_and_a_glued_list_is_a_parse_error() -> None:
     assert "[short-answer]:" in _error_messages(source)[0]
 
 
-#
-# AC9: blank line or no content in a blank
-#
-@pytest.mark.parametrize("tag", _BLANK_TAGS)
-def test_b3_empty_blank_and_detached_list_is_a_parse_error(tag: str) -> None:
-    source = _f(f"{tag}:\n\n* Cite o rio Negro.\n")
+def test_b3_empty_blank_and_detached_list_is_a_parse_error() -> None:
+    source = _f("[^bioma/short-answer]:\n\n* Cite o rio Negro.\n")
     _assert_parse_error(source)
     assert "right after the tag" in _error_messages(source)[0]
 

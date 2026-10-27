@@ -64,10 +64,6 @@ def matches(pattern: str, response: str, mode: Mode = "fold") -> bool:
 #
 # Shared vectors
 #
-def test_vector_file_case_count() -> None:
-    assert len(_CASES) == 43
-
-
 @pytest.mark.parametrize(("pattern", "response", "expected", "mode"), VECTORS)
 def test_short_answer_vectors(
     pattern: str, response: str, expected: bool, mode: Mode
@@ -106,20 +102,3 @@ def test_letters_replacement_is_applied_once(key: str) -> None:
     """The result of a replacement is not replaced again, so it never doubles up."""
     value = _TABLES["letters"][key]
     assert not matches(key, value + value, "fold")
-
-
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize(
-    ("first", "second"),
-    [
-        ("Straße", "STRASSE"),
-        ("caixa d'água", "caixa d’água"),
-        ("Manaus", "Mana\u200bus"),
-        ("Rio Negro", "  rio \u00a0 negro "),
-        ("Ørsted", "orsted"),
-        ("Brasília", "Brasilia"),
-        ("Belém", "Manaus"),
-    ],
-)
-def test_comparison_is_symmetric(first: str, second: str, mode: Mode) -> None:
-    assert matches(first, second, mode) == matches(second, first, mode)

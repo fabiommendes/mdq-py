@@ -5,8 +5,9 @@ schema/exam.yaml).
 
 Property tests use the strategies in `strategies.schedule`, built
 directly from the spec's grammar and canonicalization rules rather than
-from `mdq._schedule` itself. Table-driven tests pin the rejections that
-the corpus cannot express (bare numbers, the empty start).
+from `mdq._schedule` itself. The rejections (bare numbers, the empty
+start) are invalid corpus examples: `exam-duration-bare-*`,
+`exam-start-empty-string`.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta
 
-import pytest
 from hypothesis import given
 
 from mdq import _schedule
@@ -129,21 +129,3 @@ def test_date_or_datetime_is_returned_unchanged_by_parse_start(
     value: date | datetime,
 ) -> None:
     assert _schedule.parse_start(value) == value
-
-
-#
-# Duration: rejections
-#
-@pytest.mark.parametrize("value", [90, 90.0])  # bare numbers: ambiguous unit
-def test_parse_duration_rejects(value: object) -> None:
-    with pytest.raises(ValueError):
-        _schedule.parse_duration(value)  # type: ignore[arg-type]
-
-
-#
-# Start: rejections
-#
-@pytest.mark.parametrize("value", [""])
-def test_parse_start_rejects(value: str) -> None:
-    with pytest.raises(ValueError):
-        _schedule.parse_start(value)

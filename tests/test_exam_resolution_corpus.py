@@ -5,7 +5,13 @@ becomes once it resolves against the bank in `examples/valid/exam/`
 
 Each file lists the question ids in order, after `resolve` and
 `with_ids`, and the diagnostics `resolve` reports. `max` picks the first
-candidates, so the expectation is deterministic.
+candidates, so the expectation is deterministic. Two optional keys:
+
+* `fields`: a field the questions inherit from the exam (e.g. `locale`) ->
+  its value for each question, in order.
+* `lint`: every diagnostic of the resolved exam (`Exam.lint()`, before
+  `with_ids`), as `{code, severity, path}`; the path of a question starts
+  with `questions[i]`.
 """
 
 from __future__ import annotations
@@ -40,16 +46,28 @@ def first(candidates: list[str], max: int | None) -> list[str]:
     return candidates if max is None else candidates[:max]
 
 
-def _resolved(path: Path) -> dict:
+def _entries(diagnostics: list) -> list[dict]:
+    return [{"code": d.code, "severity": d.severity, "path": list(d.path)} for d in diagnostics]
+
+
+def _resolved(path: Path, fields: list[str]) -> dict:
     warnings: list = []
     exam = load(path).validate().resolve(FileLoader(VALID_EXAMS_DIR), select=first, warnings=warnings)
-    exam = exam.with_ids()
+    lint = _entries(exam.lint())
+    filled = exam.with_ids()
     return {
-        "questions": [question.id for question in exam.questions],
-        "diagnostics": [
-            {"code": d.code, "severity": d.severity, "path": list(d.path)} for d in warnings
-        ],
+        "questions": [question.id for question in filled.questions],
+        "diagnostics": _entries(warnings),
+        "fields": {
+            field: [getattr(question, field) for question in filled.questions]
+            for field in fields
+        },
+        "lint": lint,
     }
+
+
+def _multiset(entries: list[dict]) -> Counter:
+    return Counter(json.dumps(entry, sort_keys=True) for entry in entries)
 
 
 def test_there_are_resolved_fixtures() -> None:
@@ -69,8 +87,10 @@ def test_resolved_exam_matches_its_fixture(fixture: Path) -> None:
     source = EXAMS_WITH_INCLUDES.get(stem)
     assert source is not None, f"{fixture.name} has no exam document"
     expected = yaml.safe_load(fixture.read_text(encoding="utf-8"))
-    actual = _resolved(source)
+    actual = _resolved(source, list(expected.get("fields", {})))
     assert actual["questions"] == expected["questions"]
-    assert Counter(json.dumps(d, sort_keys=True) for d in actual["diagnostics"]) == Counter(
-        json.dumps(d, sort_keys=True) for d in expected["diagnostics"]
-    )
+    assert _multiset(actual["diagnostics"]) == _multiset(expected["diagnostics"])
+    if "fields" in expected:
+        assert actual["fields"] == expected["fields"]
+    if "lint" in expected:
+        assert _multiset(actual["lint"]) == _multiset(expected["lint"])

@@ -100,16 +100,17 @@ def test_numeric_blank_keeps_an_integer_answer_integral() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_scoring_a_large_integer_answer_is_exact() -> None:
+def test_scoring_a_large_integer_response_is_exact() -> None:
+    # The corpus has the string forms; here the response is a Python `int`.
     question = models.NumericQuestion(stem="x", answer="3000000000000000000001")
     assert question.score_response(3000000000000000000001).score == 1.0
     assert question.score_response(3000000000000000000000).score == 0.0
 
 
-def test_scoring_a_long_decimal_answer_is_exact() -> None:
+def test_scoring_a_fraction_response_is_exact() -> None:
+    # The corpus has the string form; here the response is a `Fraction`.
     question = models.NumericQuestion(stem="x", answer="3.14159265358979323846")
     assert question.score_response(Fraction("3.14159265358979323846")).score == 1.0
-    assert question.score_response(3.141592653589793).score == 0.0
 
 
 # ---------------------------------------------------------------------

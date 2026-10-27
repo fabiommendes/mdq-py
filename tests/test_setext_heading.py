@@ -3,6 +3,11 @@ exam.md, "Questions": the `---` that opens a frontmatter or include block
 MUST be preceded by a blank line. Without it, CommonMark reads the line as
 a setext heading underline and the block is swallowed into the text
 before it. Lint `setext-heading` (warning) points at the field holding it.
+
+`examples/valid/exam/setext-heading` covers the `instructions` case. The cases
+below keep the ones the corpus cannot hold: the `.yaml` sibling of a pair has no
+setext heading to report, since the parser drops the underline from the stem and
+epilogue.
 """
 
 from __future__ import annotations
@@ -17,15 +22,10 @@ def _codes(loaded: mdq.Loaded) -> list[tuple[str, tuple[str | int, ...]]]:
     return [(d.code, tuple(d.path)) for d in loaded.diagnostics]
 
 
-def test_fence_glued_to_instructions_warns() -> None:
+def test_setext_heading_message_suggests_a_blank_line() -> None:
     loaded = mdq.load(TRAP, kind="exam")
-    assert loaded.document is not None
-    assert loaded.document.questions == []
-    diag = [d for d in loaded.diagnostics if d.code == "setext-heading"]
-    assert len(diag) == 1
-    assert diag[0].severity == "warning"
-    assert tuple(diag[0].path) == ("instructions",)
-    assert "blank line" in diag[0].message
+    [diag] = [d for d in loaded.diagnostics if d.code == "setext-heading"]
+    assert "blank line" in diag.message
 
 
 def test_fence_glued_to_a_question_epilogue_warns() -> None:

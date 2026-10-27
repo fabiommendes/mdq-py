@@ -7,8 +7,7 @@ parser always emits `accept`, and the pattern keeps its delimiters.
 
 The parser, model, lint and grading cases of the spec live in the corpus
 (`examples/valid/short-answer/`, `examples/invalid/short-answer-*`,
-`examples/grading/`). This module keeps what the corpus cannot express: the
-JSON source, `render()`, the converters and the CLI. `test_b4_*` cover AC10-AC12.
+`examples/grading/`). This module keeps what the corpus cannot express: `render()`, the converters and the CLI. `test_b4_*` cover AC10-AC12.
 """
 
 from __future__ import annotations
@@ -51,18 +50,6 @@ def _codes(diagnostics: list[Diagnostic]) -> list[str]:
 
 def _errors(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
     return [d for d in diagnostics if d.severity == "error"]
-
-
-#
-# AC3: `oneOf` and `regex` are rejected
-#
-
-
-def test_b1_json_source_with_one_of_is_a_schema_error() -> None:
-    source = '{"type": "short-answer", "stem": "Qual é a capital do Brasil?", "oneOf": ["Brasília"]}'
-    loaded = load(source, format="json")
-    assert loaded.document is None
-    assert "schema-error" in _codes(_errors(loaded.diagnostics))
 
 
 #

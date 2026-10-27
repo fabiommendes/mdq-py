@@ -1,5 +1,7 @@
 """
-`includeAll` blocks and their query language (docs/exam.md, "Include all").
+`includeAll` blocks (docs/exam.md, "Include all"): the `select` API and the
+bank index. The query language is in `examples/matching/query.yaml`; the
+resolution of the documents is in `examples/valid/exam/*.resolved.yaml`.
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ from mdq import load
 from mdq.errors import UnresolvedInclude
 from mdq._banks import DictLoader, FileLoader
 from mdq.models import Exam, select_random
-from mdq.models._query import QuerySyntaxError, is_standard_query, parse_query
+from mdq.models._query import parse_query
 from _corpus import VALID_DIR
 
 BANK = DictLoader(
@@ -52,47 +54,8 @@ def question_ids(text: str, select=first) -> list[str | None]:
 
 
 # ---------------------------------------------------------------------
-# Query language
+# Query index
 # ---------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("query", "tags", "expected"),
-    [
-        ("biome", {"biome"}, True),
-        ("biome", {"forest"}, False),
-        ("biome AND forest", {"biome", "forest"}, True),
-        ("biome AND forest", {"biome"}, False),
-        ("savanna OR wetland", {"wetland"}, True),
-        ("NOT draft", set(), True),
-        ("NOT NOT draft", {"draft"}, True),
-        ("a OR b AND c", {"a"}, True),
-        ("(a OR b) AND c", {"a"}, False),
-        ("biome AND NOT draft", {"biome", "draft"}, False),
-        ("física", {"física"}, True),
-        ("and", {"and"}, True),
-        ("ANDROID", {"ANDROID"}, True),
-    ],
-)
-def test_query_matches_tags(query: str, tags: set[str], expected: bool) -> None:
-    assert parse_query(query).matches(tags, "q") is expected
-
-
-def test_except_removes_listed_ids() -> None:
-    query = parse_query("biome EXCEPT cerrado, pantanal")
-    assert query.matches({"biome"}, "amazonia")
-    assert not query.matches({"biome"}, "cerrado")
-    assert not query.matches({"biome"}, "pantanal")
-
-
-@pytest.mark.parametrize(
-    "query",
-    ["", "AND", "biome AND", "(biome", "biome EXCEPT", "#biome OR"],
-)
-def test_invalid_query_is_rejected(query: str) -> None:
-    with pytest.raises(QuerySyntaxError):
-        parse_query(query)
-    assert not is_standard_query(query)
 
 
 class CountingIndex:
@@ -112,20 +75,18 @@ class CountingIndex:
 
 
 @pytest.mark.parametrize(
-    ("query", "expected", "lists_every_id"),
+    ("query", "lists_every_id"),
     [
-        ("NOT b AND a", {"1"}, False),
-        ("NOT a", {"3", "4"}, True),
-        ("NOT a AND NOT b", {"4"}, True),
-        ("a OR NOT b", {"1", "2", "4"}, True),
-        ("NOT d EXCEPT 4", {"1", "2"}, True),
+        ("NOT b AND a", False),
+        ("NOT a", True),
+        ("NOT a AND NOT b", True),
+        ("a OR NOT b", True),
+        ("NOT d EXCEPT 4", True),
     ],
 )
-def test_select_lists_every_id_only_for_a_complement(
-    query: str, expected: set[str], lists_every_id: bool
-) -> None:
+def test_select_lists_every_id_only_for_a_complement(query: str, lists_every_id: bool) -> None:
     index = CountingIndex()
-    assert parse_query(query).select(index) == expected
+    parse_query(query).select(index)
     assert index.listed is lists_every_id
 
 
@@ -148,18 +109,6 @@ def test_with_ids_needs_a_resolved_include_all() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_include_all_adds_every_match_sorted() -> None:
-    assert question_ids(exam(include_all("biome AND NOT draft"))) == [
-        "amazonia",
-        "cerrado",
-        "pantanal",
-    ]
-
-
-def test_markdown_source_in_the_bank_is_matched_by_its_tags() -> None:
-    assert question_ids(exam(include_all("fruit"))) == ["caju"]
-
-
 def test_select_receives_the_candidates_and_max() -> None:
     calls = []
 
@@ -169,21 +118,6 @@ def test_select_receives_the_candidates_and_max() -> None:
 
     assert question_ids(exam(include_all("biome", max=2)), select=spy) == ["pantanal"]
     assert calls == [(["amazonia", "cerrado", "mata", "pantanal"], 2)]
-
-
-def test_include_all_skips_an_explicit_include_even_a_later_one() -> None:
-    text = exam(include_all("biome AND NOT draft"), "---\ninclude: cerrado\n---")
-    assert question_ids(text) == ["amazonia", "pantanal", "cerrado"]
-
-
-def test_max_applies_after_skipping() -> None:
-    text = exam("---\ninclude: amazonia\n---", include_all("biome", max=2))
-    assert question_ids(text) == ["amazonia", "cerrado", "mata"]
-
-
-def test_later_include_all_skips_what_an_earlier_one_added() -> None:
-    text = exam(include_all("forest AND NOT draft"), include_all("biome AND NOT draft"))
-    assert question_ids(text) == ["amazonia", "cerrado", "pantanal"]
 
 
 def test_default_select_is_a_random_sample_of_max() -> None:
@@ -212,22 +146,6 @@ def test_default_select_keeps_every_candidate_in_order_without_max() -> None:
 def test_select_must_return_at_most_max_distinct_candidates(bad_select) -> None:
     with pytest.raises(ValueError):
         resolved(exam(include_all("biome", max=2)), select=bad_select)
-
-
-def test_included_questions_inherit_from_the_exam() -> None:
-    text = "---\nlocale: pt-BR\n---\n\n" + exam(include_all("savanna"))
-    assert resolved(text).questions[0].locale == "pt-BR"
-
-
-def test_derived_ids_count_positions_after_resolution() -> None:
-    text = exam(include_all("biome AND NOT draft"), "===\n\nNova questão.\n\n[essay]")
-    exam_ = resolved(text, select=first).with_ids()
-    assert exam_.questions[-1].id == "q4"
-
-
-def test_a_nonstandard_query_adds_nothing() -> None:
-    text = exam(include_all("tags ~ savanna"), "---\ninclude: cerrado\n---")
-    assert question_ids(text) == ["cerrado"]
 
 
 def test_file_loader_finds_questions_by_tag() -> None:
