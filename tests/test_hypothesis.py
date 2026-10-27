@@ -15,12 +15,16 @@ building blocks.
 from __future__ import annotations
 
 import re
+from typing import get_args
 
-from hypothesis import example, given
+import pytest
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 from markdown_it.tree import SyntaxTreeNode as Node
 
+from mdq import hypothesis as h
 from mdq import models, parse
+from mdq.types import QuestionType
 from mdq._markdown import md
 from mdq._markdown import SLUG_BODY_RE
 from mdq._parser import reconstruct_blocks
@@ -225,3 +229,60 @@ def test_generated_blocks_round_trip_through_a_full_question(
     src = question.render()
     round_tripped = parse(src, kind="question")
     assert round_tripped == question, src
+
+
+#
+# Public entry points: questions() and exams()
+#
+@pytest.mark.parametrize("question_type", get_args(QuestionType))
+@settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+@given(data=st.data())
+def test_questions_generates_every_type(question_type: QuestionType, data: st.DataObject) -> None:
+    question = data.draw(h.questions(type=question_type))
+    assert question.type == question_type
+    type(question).model_validate(question.to_dict())
+
+
+@settings(max_examples=50)
+@given(h.questions())
+def test_questions_without_a_type_is_valid(question: models.Question) -> None:
+    assert question.type in get_args(QuestionType)
+
+
+def test_questions_without_a_type_covers_every_type() -> None:
+    seen: set[str] = set()
+
+    @settings(max_examples=300, database=None)
+    @given(h.questions())
+    def collect(question: models.Question) -> None:
+        seen.add(question.type)
+
+    collect()
+    assert seen == set(get_args(QuestionType))
+
+
+def test_the_question_strategies_cover_every_type() -> None:
+    assert set(_st.QUESTION_STRATEGIES) == set(get_args(QuestionType))
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("question_type", get_args(QuestionType))
+@settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+@given(data=st.data())
+def test_normalized_questions_round_trip(question_type: QuestionType, data: st.DataObject) -> None:
+    question = data.draw(h.questions(type=question_type, normalize=True))
+    assert parse(question.render(), kind="question") == question
+
+
+@settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+@given(h.exams(3))
+def test_exams_are_valid(exam: models.Exam) -> None:
+    assert 1 <= len(exam.questions) <= 3
+    models.Exam.model_validate(exam.to_dict())
+
+
+@pytest.mark.slow
+@settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+@given(h.exams(3))
+def test_exams_round_trip(exam: models.Exam) -> None:
+    assert parse(exam.render(), kind="exam") == exam

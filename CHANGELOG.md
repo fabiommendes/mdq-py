@@ -50,6 +50,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `mdq.hypothesis`: `questions()` draws every question type (it drew only essays) and `questions(type=...)` no longer raises `KeyError` for the other types. `exams()` builds valid exams from `questions()` (it raised `ValidationError`) and `max_questions` defaults to 3. The per-type builders (`multiple_choice_questions()`, ..., `fill_in_questions()`) work, and `ordering_questions()` is new. They generate a simple valid subset: no regex or exact-literal patterns, no `unit`, `tolerance`, `extra`, `accept` or `reject` of ordering, and a fill-in stem of one paragraph. A normalized question round-trips through `render()` and `parse()`.
 - `mdq show` draws a blank chip only for a real `[^id]` marker: `[^x]` in a code span, indented or fenced code and `[^x](url)` stay text. Errors on a non-terminal stderr have no escape codes and are not wrapped. `--theme plain` draws code blocks with no color. New helper `mdq._markdown.locate_blank_markers` (private) returns the position of each marker.
 
 - The Moodle XML export of a fill-in question keeps `[^id]` in code spans, code blocks and `[^id](url)` links as text, and replaces only real blank markers.

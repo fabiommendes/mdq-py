@@ -27,11 +27,10 @@ from typing import Any, Callable, Literal, get_args
 
 from hypothesis import strategies as st
 
-from .. import models
-from ..types import EssayContent, QuestionType
+from .. import models, parse
+from ..types import EssayContent, OrderingContent, QuestionType
 
-# QUESTION_TYPES = get_args(QuestionType)
-QUESTION_TYPES: tuple[QuestionType, ...] = ("essay",)
+QUESTION_TYPES: tuple[QuestionType, ...] = get_args(QuestionType)
 CODE_HIGHLIGHT_FORMATS = [
     "python",
     "javascript",
@@ -59,9 +58,11 @@ def questions(
     normalize: bool = False,
 ) -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating valid questions of the given type.
 
-    If `type` is `None`, any question type is allowed.
+    If `type` is `None`, any question type is allowed. With `normalize`,
+    each question is passed through `normalize()` so it is the canonical
+    form a render then parse keeps unchanged.
     """
     possible_types = (type,) if type is not None else QUESTION_TYPES
     question = st.sampled_from(possible_types).flatmap(
@@ -75,51 +76,78 @@ def questions(
 
 def multiple_choice_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating multiple-choice questions.
 
-    If `type` is `None`, any question type is allowed.
+    Two to four choices, exactly one with score 1 and the others with
+    score 0 or no score. Either every choice has an `id` or none has.
     """
     return st.builds(
         models.MultipleChoiceQuestion,
-        **_base_question_kwargs(),
+        choices=_scored_choices(),
+        **_base_question_kwargs(answer_body=True),
     )
 
 
 def multiple_selection_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating multiple-selection questions.
 
-    If `type` is `None`, any question type is allowed.
+    Two to four choices, at least one correct and at least one incorrect.
     """
     return st.builds(
         models.MultipleSelectionQuestion,
-        **_base_question_kwargs(),
+        choices=_boolean_choices(),
+        **_base_question_kwargs(answer_body=True),
     )
 
 
 def true_false_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating true-false questions.
 
-    If `type` is `None`, any question type is allowed.
+    Two to four statements, each true or false, with the `T` or `F`
+    `marker` the parser reads back.
     """
     return st.builds(
         models.TrueFalseQuestion,
-        **_base_question_kwargs(),
+        choices=_statements(),
+        **_base_question_kwargs(answer_body=True),
     )
 
 
 def numeric_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating numeric questions.
 
-    If `type` is `None`, any question type is allowed.
+    The `answer` comes from `numeric_answers`. The `domain` and
+    `decimalPlaces` are the ones the parser infers from the answer, so a
+    render then parse keeps them. No `unit` or `tolerance`.
     """
     return st.builds(
-        models.NumericQuestion,
-        answer=numeric_answers(),
-        **_base_question_kwargs(),
+        lambda fields, base: models.NumericQuestion(**fields, **base),
+        _numeric_key_fields(),
+        st.fixed_dictionaries(_base_question_kwargs(answer_body=True)),
     )
+
+
+def _numeric_key_fields() -> st.SearchStrategy[dict[str, Any]]:
+    """
+    The `answer`, `domain` and `decimal_places` of a numeric question or
+    blank. The parser infers the last two from how the answer is written,
+    so they are read back from the parser instead of repeating its rules.
+    """
+
+    def fields(answer: int | float | str) -> dict[str, Any]:
+        probe = models.NumericQuestion(stem="Probe", answer=answer)
+        parsed = parse(probe.render(), kind="question")
+        assert isinstance(parsed, models.NumericQuestion)
+        return {
+            "answer": answer,
+            "domain": parsed.domain,
+            "decimal_places": parsed.decimal_places,
+        }
+
+    return numeric_answers().map(fields)
 
 
 _INT32_MIN = -(2**31)
@@ -171,13 +199,16 @@ def numeric_answers() -> st.SearchStrategy[int | float | str]:
 
 def short_answer_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating short answer questions.
 
-    If `type` is `None`, any question type is allowed.
+    One to three inexact literal patterns in `accept`, and optionally in
+    `reject`. No regex, exact literal, `preAccept` or `preReject`.
     """
     return st.builds(
         models.ShortAnswerQuestion,
-        **_base_question_kwargs(),
+        accept=_pattern_lists(min_size=1),
+        reject=st.none() | _pattern_lists(min_size=1),
+        **_base_question_kwargs(answer_body=True),
     )
 
 
@@ -206,37 +237,56 @@ def essay_questions(
 
 def fill_in_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating questions of the given type.
+    Return a strategy for generating fill-in questions.
 
-    If `type` is `None`, any question type is allowed.
+    The stem is one paragraph of plain words with one `[^id]` marker per
+    blank, in the order of the blanks. One to three blanks, each a short
+    answer blank (inexact literal patterns), a numeric blank (a small
+    integer answer) or a multiple-choice blank. The stem is not drawn
+    from `md_safe_multi_blocks`: a marker must sit in a plain text run.
+    """
+    return _fill_in_questions()
+
+
+def ordering_questions() -> st.SearchStrategy[models.Question]:
+    """
+    Return a strategy for generating ordering questions.
+
+    Two to five distinct lines at indentation level 0 to 2, as plain
+    `text` or as `code`. No `extra`, `accept` or `reject`.
     """
     return st.builds(
-        models.FillInQuestion,
-        **_base_question_kwargs(),
+        models.OrderingQuestion,
+        lines=_ordering_lines(),
+        content=st.sampled_from(get_args(OrderingContent)),
+        **_base_question_kwargs(answer_body=True),
     )
 
 
 #
 # Exam strategies
 #
-def exams(max_questions: int) -> st.SearchStrategy[models.Exam]:
+def exams(max_questions: int = 3) -> st.SearchStrategy[models.Exam]:
     """
-    Create a strategy for generating an exam with up to `max_questions`
-    questions.
+    Create a strategy for generating an exam with one to `max_questions`
+    questions of any type.
+
+    The questions have distinct `id`s (or none), so the exam is valid.
+    An exam has a `title` (a single line of text) and optional `tags`; the
+    other fields keep their defaults. It has no `locale` or `author`: its
+    questions would inherit them, and a render then parse would not
+    return the same questions.
     """
     return st.builds(
         models.Exam,
-        # id=st.none() | st.text(),
-        # uuid=st.none() | st.text(),
-        # title=st.none() | st.text(),
-        # course=st.none() | st.text(),
-        # author=st.none() | st.text(),
-        # locale=st.none() | st.text(),
-        # instructions=st.none() | st.text(),
-        # tags=st.none() | st.lists(st.text(), min_size=1),
-        # meta=st.none() | st.dictionaries(st.text(), st.just(None) | st.text()),
-        # penalty=st.just("none"),
-        # questions=st.lists(question(), min_size=1, max_size=max_questions),
+        title=_safe_line().map(str.strip),
+        tags=st.none() | st.lists(tags(), min_size=1, max_size=3, unique=True),
+        questions=st.lists(
+            questions(normalize=True),
+            min_size=1,
+            max_size=max_questions,
+            unique_by=lambda q: q.id if q.id is not None else object(),
+        ),
     )
 
 
@@ -583,9 +633,27 @@ def weights() -> st.SearchStrategy[float]:
 #
 # Utility functions
 #
-def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
+def _paragraph_first_blocks() -> st.SearchStrategy[str]:
+    """
+    Blocks that start with a paragraph.
+    """
+    return st.builds(
+        lambda first, rest: "\n\n".join([first, *rest]),
+        md_paragraphs(),
+        st.lists(md_safe_blocks(), max_size=2),
+    )
+
+
+def _base_question_kwargs(
+    *, answer_body: bool = False
+) -> dict[str, st.SearchStrategy[Any]]:
     """
     Return a dict of strategies to build question fields.
+
+    With `answer_body`, the body after the stem is an answer key (choices,
+    patterns, a blank definition, ordering lines), so the epilogue starts
+    with a paragraph: an indented code block or a list would continue the
+    key instead.
 
     We can't be very type-safe here due to Python's limitations on the type
     system.
@@ -596,7 +664,8 @@ def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
         "title": st.none() | safe_texts(),
         "author": st.none() | safe_texts(),
         "stem": md_safe_multi_blocks(),
-        "epilogue": st.none() | md_safe_multi_blocks(),
+        "epilogue": st.none()
+        | (_paragraph_first_blocks() if answer_body else md_safe_multi_blocks()),
         # The Markdown frontmatter strips the comment string, so a comment
         # with outer whitespace would not round-trip.
         "comment": st.none() | safe_texts(multiline=True).map(str.strip).filter(bool),
@@ -607,14 +676,158 @@ def _base_question_kwargs() -> dict[str, st.SearchStrategy[Any]]:
     }
 
 
+def _words() -> st.SearchStrategy[str]:
+    """Letters only: no character can start a block or an inline construct."""
+    return st.text(
+        alphabet=st.characters(whitelist_categories=("Ll", "Lu")),
+        min_size=1,
+        max_size=10,
+    )
+
+
+def _unique_lines(
+    min_size: int, max_size: int
+) -> st.SearchStrategy[list[str]]:
+    """Distinct single-line texts, without outer space, for choices and lines."""
+    return st.lists(
+        _safe_line(20).map(str.strip), min_size=min_size, max_size=max_size, unique=True
+    )
+
+
+def _optional_ids(count: int) -> st.SearchStrategy[list[str | None]]:
+    """Either `count` distinct slugs or `count` times `None`."""
+    ids: st.SearchStrategy[list[str | None]] = st.lists(
+        slugs(), min_size=count, max_size=count, unique=True
+    ).map(list)
+    return ids | st.just([None] * count)
+
+
+def _scored_choices() -> st.SearchStrategy[list[models.ScoredChoice]]:
+    """Choices of a multiple-choice question: exactly one has score 1."""
+
+    def build(
+        texts: list[str], ids: list[str | None], correct: int, wrong: list[float | None]
+    ) -> list[models.ScoredChoice]:
+        scores = iter(wrong)
+        return [
+            models.ScoredChoice(
+                id=id_,
+                text=text,
+                score=1.0 if index == correct % len(texts) else next(scores),
+            )
+            for index, (text, id_) in enumerate(zip(texts, ids))
+        ]
+
+    return _unique_lines(2, 4).flatmap(
+        lambda texts: st.builds(
+            build,
+            st.just(texts),
+            _optional_ids(len(texts)),
+            st.integers(min_value=0),
+            st.lists(
+                st.sampled_from([None, 0.0]),
+                min_size=len(texts),
+                max_size=len(texts),
+            ),
+        )
+    )
+
+
+def _boolean_choices() -> st.SearchStrategy[list[models.BooleanChoice]]:
+    """Choices of a multiple-selection question: some correct, some not."""
+
+    def build(
+        texts: list[str], ids: list[str | None], correct: int
+    ) -> list[models.BooleanChoice]:
+        # `correct` of the choices, from 1 to len - 1, are the first ones.
+        count = 1 + correct % (len(texts) - 1)
+        return [
+            models.BooleanChoice(id=id_, text=text, correct=index < count)
+            for index, (text, id_) in enumerate(zip(texts, ids))
+        ]
+
+    return _unique_lines(2, 4).flatmap(
+        lambda texts: st.builds(
+            build,
+            st.just(texts),
+            _optional_ids(len(texts)),
+            st.integers(min_value=0),
+        )
+    )
+
+
+def _statements() -> st.SearchStrategy[list[models.Statement]]:
+    """Statements of a true-false question."""
+    return _unique_lines(2, 4).flatmap(
+        lambda texts: st.builds(
+            lambda ids, flags: [
+                models.Statement(
+                    id=id_, text=text, correct=flag, marker="T" if flag else "F"
+                )
+                for text, id_, flag in zip(texts, ids, flags)
+            ],
+            _optional_ids(len(texts)),
+            st.lists(st.booleans(), min_size=len(texts), max_size=len(texts)),
+        )
+    )
+
+
+def _pattern_lists(min_size: int) -> st.SearchStrategy[list[models.AnswerPattern]]:
+    """Distinct inexact literal patterns."""
+    return st.lists(
+        _words().map(lambda w: models.AnswerPattern(pattern=w)),
+        min_size=min_size,
+        max_size=3,
+        unique_by=lambda p: p.pattern.casefold(),
+    )
+
+
+@st.composite
+def _ordering_lines(draw: st.DrawFn) -> list[tuple[int, str]]:
+    """Lines whose level is at most one deeper than the previous line."""
+    texts = draw(_unique_lines(2, 5))
+    lines = [(0, texts[0])]
+    level = 0
+    for text in texts[1:]:
+        level = draw(st.integers(min_value=0, max_value=min(level + 1, 2)))
+        lines.append((level, text))
+    return lines
+
+
+@st.composite
+def _fill_in_questions(draw: st.DrawFn) -> models.Question:
+    """Draw the blanks, then a stem that references each one once."""
+    blank_ids = draw(st.lists(slugs(), min_size=1, max_size=3, unique=True))
+    blanks: list[models.Blank] = []
+    for blank_id in blank_ids:
+        kind = draw(st.sampled_from(["short-answer", "numeric", "choice"]))
+        if kind == "short-answer":
+            blanks.append(
+                models.ShortAnswerBlank(id=blank_id, accept=draw(_pattern_lists(1)))
+            )
+        elif kind == "numeric":
+            blanks.append(models.NumericBlank(id=blank_id, **draw(_numeric_key_fields())))
+        else:
+            blanks.append(
+                models.ChoiceBlank(id=blank_id, choices=draw(_scored_choices()))
+            )
+    pieces = [draw(_words())]
+    for blank_id in blank_ids:
+        pieces.extend([f"[^{blank_id}]", draw(_words())])
+    fields = _base_question_kwargs(answer_body=True) | {"stem": st.just(" ".join(pieces))}
+    base = draw(st.fixed_dictionaries(fields))
+    return models.FillInQuestion(blanks=blanks, **base)
+
+
 QUESTION_STRATEGIES: dict[
     QuestionType, Callable[[], st.SearchStrategy[models.Question]]
 ] = {
+    "multiple-choice": multiple_choice_questions,
+    "multiple-selection": multiple_selection_questions,
+    "true-false": true_false_questions,
+    "numeric": numeric_questions,
+    "short-answer": short_answer_questions,
     "essay": essay_questions,
-    # "multiple-choice": multiple_choice_question,
-    # "multiple-selection": multiple_selection_question,
-    # "true-false": true_false_question,
-    # "numeric": numeric_question,
-    # "short-answer": short_answer_question,
-    # "fill-in": fill_in_question,
+    "fill-in": fill_in_questions,
+    "ordering": ordering_questions,
 }
