@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import Literal, assert_never
+from typing import Literal, TypedDict, assert_never
 
 from .._markdown import UNICODE_SPACE
 from ..models import (
@@ -95,6 +95,44 @@ BLANK_MARKER_REGEX = re.compile(r"\[\^([^\]]+)\]")
 #: The format name in error messages.
 _FORMAT = "Moodle XML"
 
+
+
+class _BlockMeta(TypedDict):
+    """The `MoodleXmlBlock` fields that come from the metadata of an MDQ question."""
+
+    name: str | None
+    idnumber: str | None
+    tags: list[str]
+    default_grade: float
+
+
+class _QuestionMeta(TypedDict):
+    """The MDQ question fields that come from the metadata of a `MoodleXmlBlock`."""
+
+    title: str | None
+    id: str | None
+    tags: list[str]
+    weight: float
+
+
+def _block_meta(question: Question) -> _BlockMeta:
+    """The metadata of `question`, as the arguments of a `MoodleXmlBlock`."""
+    return {
+        "name": question.title,
+        "idnumber": question.id,
+        "tags": list(question.tags),
+        "default_grade": question.weight,
+    }
+
+
+def _question_meta(block: MoodleXmlBlock) -> _QuestionMeta:
+    """The metadata of `block`, as the arguments of an MDQ question."""
+    return {
+        "title": block.name,
+        "id": block.idnumber,
+        "tags": list(block.tags),
+        "weight": block.default_grade,
+    }
 
 
 def _moodle_shuffle(value: bool | Literal["inherit"]) -> bool | None:
@@ -242,10 +280,7 @@ class MoodleXmlEncoder:
             answers=answers,
             single=True,
             shuffle_answers=_moodle_shuffle(question.shuffle),
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def block_from_selection(
@@ -271,10 +306,7 @@ class MoodleXmlEncoder:
             answers=answers,
             single=False,
             shuffle_answers=_moodle_shuffle(question.shuffle),
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def blocks_from_true_false(
@@ -315,10 +347,7 @@ class MoodleXmlEncoder:
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
             unit=question.unit,
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def block_from_short(self, question: ShortAnswerQuestion) -> MoodleXmlBlock:
@@ -338,10 +367,7 @@ class MoodleXmlEncoder:
             type="shortanswer",
             questiontext=join_blocks(question.stem, question.epilogue),
             answers=answers,
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def block_from_essay(self, question: EssayQuestion) -> MoodleXmlBlock:
@@ -350,10 +376,7 @@ class MoodleXmlEncoder:
             questiontext=join_blocks(question.stem, question.epilogue),
             grader_info=question.answer_key,
             response_format=essay_response_format_from_content(question.content),
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def block_from_fill_in(self, question: FillInQuestion) -> MoodleXmlBlock:
@@ -394,10 +417,7 @@ class MoodleXmlEncoder:
             type="multianswer",
             questiontext=join_blocks(questiontext, question.epilogue),
             shuffle_answers=_moodle_shuffle(question.shuffle),
-            name=question.title,
-            idnumber=question.id,
-            tags=list(question.tags),
-            default_grade=question.weight,
+            **_block_meta(question),
         )
 
     def cloze_from_blank(self, blank: Blank) -> MoodleCloze:
@@ -469,10 +489,7 @@ class MoodleXmlDecoder:
                 stem=block.questiontext,
                 accept=accept,
                 incorrect_feedback=incorrect_feedback,
-                title=block.name,
-                id=block.idnumber,
-                tags=list(block.tags),
-                weight=block.default_grade,
+                **_question_meta(block),
             )
         if block.type == "numerical":
             return self.numeric_from_block(block)
@@ -494,10 +511,7 @@ class MoodleXmlDecoder:
                 for a in block.answers
             ],
             shuffle=_mdq_shuffle(block.shuffle_answers),
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def selection_from_block(self, block: MoodleXmlBlock) -> MultipleSelectionQuestion:
@@ -508,10 +522,7 @@ class MoodleXmlDecoder:
                 for a in block.answers
             ],
             shuffle=_mdq_shuffle(block.shuffle_answers),
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def choice_from_true_false_block(
@@ -524,10 +535,7 @@ class MoodleXmlDecoder:
                 ScoredChoice(text="True", score=1.0 if correct else 0.0),
                 ScoredChoice(text="False", score=0.0 if correct else 1.0),
             ],
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def numeric_from_block(self, block: MoodleXmlBlock) -> NumericQuestion:
@@ -538,10 +546,7 @@ class MoodleXmlDecoder:
             answer=mdq_numeric_answer(answer.text),
             unit=_mdq_unit(block.unit),
             tolerance=tolerance,
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def essay_from_block(self, block: MoodleXmlBlock) -> EssayQuestion:
@@ -549,10 +554,7 @@ class MoodleXmlDecoder:
             stem=block.questiontext,
             answer_key=block.grader_info,
             content=essay_content_from_response_format(block.response_format),
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def fill_in_from_block(self, block: MoodleXmlBlock) -> FillInQuestion:
@@ -568,10 +570,7 @@ class MoodleXmlDecoder:
             stem="".join(parts),
             blanks=blanks,
             shuffle=_mdq_shuffle(block.shuffle_answers),
-            title=block.name,
-            id=block.idnumber,
-            tags=list(block.tags),
-            weight=block.default_grade,
+            **_question_meta(block),
         )
 
     def blank_from_cloze(self, blank_id: str, cloze: MoodleCloze) -> Blank:
@@ -611,10 +610,7 @@ class MoodleXmlDecoder:
             stem=group_stem,
             choices=choices,
             shuffle=_mdq_shuffle(blocks[0].shuffle_answers),
-            title=blocks[0].name,
-            id=blocks[0].idnumber,
-            tags=list(blocks[0].tags),
-            weight=blocks[0].default_grade,
+            **_question_meta(blocks[0]),
         )
 
 

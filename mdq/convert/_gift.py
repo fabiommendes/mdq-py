@@ -214,6 +214,29 @@ class GiftQuestion:
         return "\n\n".join(str(block) for block in self.blocks)
 
 
+def gift_block(
+    question: Question,
+    stem: str,
+    answer: GiftAnswer,
+    *,
+    tail: str | None = None,
+    general_feedback: str | None = None,
+) -> GiftBlock:
+    """
+    Build the block of `question` with the metadata every GIFT encoder
+    copies. `tail` is the epilogue unless given.
+    """
+    return GiftBlock(
+        stem=stem,
+        answer=answer,
+        tail=(question.epilogue or "") if tail is None else tail,
+        title=question.title,
+        comment=question.comment,
+        text_format="markdown",
+        general_feedback=general_feedback,
+    )
+
+
 class GiftEncoder:
     """Converts an MDQ `Question` into a `GiftQuestion`."""
 
@@ -246,14 +269,7 @@ class GiftEncoder:
             )
             for choice, score in zip(question.choices, effective_scores(question))
         ]
-        return GiftBlock(
-            stem=question.stem,
-            answer=GiftChoice(options=options),
-            tail=question.epilogue or "",
-            title=question.title,
-            comment=question.comment,
-            text_format="markdown",
-        )
+        return gift_block(question, question.stem, GiftChoice(options=options))
 
     def block_from_short(self, question: ShortAnswerQuestion) -> GiftBlock:
         require_automatic(question, format="GIFT")
@@ -261,38 +277,17 @@ class GiftEncoder:
             GiftOption(text=answer, credit=1.0)
             for answer in literal_answers(question.accept, format="GIFT")
         ]
-        return GiftBlock(
-            stem=question.stem,
-            answer=GiftShort(options=options),
-            tail=question.epilogue or "",
-            title=question.title,
-            comment=question.comment,
-            text_format="markdown",
-        )
+        return gift_block(question, question.stem, GiftShort(options=options))
 
     def block_from_numeric(self, question: NumericQuestion) -> GiftBlock:
         value = float_answer(question.answer, question.tolerance, format="GIFT")
         tolerance = numeric_tolerance(value, question.tolerance)
-        return GiftBlock(
-            stem=question.stem,
-            answer=GiftNumeric(
-                options=[GiftNumericOption(value=value, tolerance=tolerance)]
-            ),
-            tail=question.epilogue or "",
-            title=question.title,
-            comment=question.comment,
-            text_format="markdown",
-        )
+        answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
+        return gift_block(question, question.stem, answer)
 
     def block_from_essay(self, question: EssayQuestion) -> GiftBlock:
-        return GiftBlock(
-            stem=question.stem,
-            answer=GiftEssay(),
-            tail=question.epilogue or "",
-            title=question.title,
-            comment=question.comment,
-            general_feedback=question.answer_key,
-            text_format="markdown",
+        return gift_block(
+            question, question.stem, GiftEssay(), general_feedback=question.answer_key
         )
 
     def blocks_from_true_false(self, question: TrueFalseQuestion) -> list[GiftBlock]:
@@ -353,13 +348,11 @@ class GiftEncoder:
             case _:
                 assert_never(blank)
 
-        return GiftBlock(
-            stem=join_blocks(stem_part),
-            answer=answer,
+        return gift_block(
+            question,
+            join_blocks(stem_part),
+            answer,
             tail=join_blocks(tail_part, question.epilogue),
-            title=question.title,
-            comment=question.comment,
-            text_format="markdown",
         )
 
 
