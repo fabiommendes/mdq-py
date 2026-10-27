@@ -48,7 +48,7 @@ from markdown_it.tree import SyntaxTreeNode as Node
 from .._diagnostics import Diagnostic
 from .._exact import exact_literal, join_pattern_lines
 from .._letters import FALSE_LETTERS, normalize_value
-from .._markdown import SLUG_BODY_RE, UNICODE_SPACE, md, split_lines
+from .._markdown import SLUG_BODY_RE, UNICODE_SPACE, md, span, split_lines, starts_after
 from ..errors import (
     ForeignChoiceMarker,
     IncompleteQuestion,
@@ -303,9 +303,7 @@ class BlockReader:
         return split_lines(self.text)
 
     def raw_lines(self, node: Node) -> list[str]:
-        if node.map is None:
-            return []
-        start, end = node.map
+        start, end = span(node)
         return self.lines[start:end]
 
     def inline_source(self, node: Node) -> str | None:
@@ -934,10 +932,7 @@ class MDQParser:
                 node,
             )
         if (
-            tag_node is not None
-            and node.map is not None
-            and tag_node.map is not None
-            and node.map[0] != tag_node.map[1]
+            tag_node is not None and not starts_after(tag_node, node)
         ):
             raise ParseError(
                 "the content of [ordering]: must start on the line right after "
@@ -953,7 +948,7 @@ class MDQParser:
         depths: dict[int, int] = {}
         parents: set[int] = set()
         collect_item_depths(node, 0, depths, parents)
-        first_line = node.map[0] if node.map is not None else 0
+        first_line = span(node)[0]
         return (
             "text",
             None,
@@ -1001,7 +996,7 @@ class MDQParser:
         last: Node | None = None
         while True:
             node = self.seek()
-            if node is None or node.map is None:
+            if node is None:
                 break
             if node.type == "blockquote" or (
                 node.type == "paragraph" and is_comment_block(self.reader.raw_lines(node)[:1])
@@ -1014,8 +1009,7 @@ class MDQParser:
                 break
         if first is None or last is None:
             return None, None
-        assert first.map is not None and last.map is not None
-        return parse_observations(self.reader.lines[first.map[0] : last.map[1]])
+        return parse_observations(self.reader.lines[span(first)[0] : span(last)[1]])
 
     def parse_short_answer_body(self, tag_text: str, tag_node: Node) -> None:
         """
@@ -1152,17 +1146,13 @@ class MDQParser:
         if (
             node is not None
             and node.type == "blockquote"
-            and node.map is not None
-            and tag_node.map is not None
-            and node.map[0] == tag_node.map[1]
+            and starts_after(tag_node, node)
         ):
             raise ParseError(_OBSERVATION_AFTER_CONTENT)
         attached = (
             node is not None
             and node.type == "bullet_list"
-            and node.map is not None
-            and tag_node.map is not None
-            and node.map[0] == tag_node.map[1]
+            and starts_after(tag_node, node)
         )
         if not rest:
             if not attached:
@@ -1208,12 +1198,7 @@ class MDQParser:
                 "followed by a pattern or a list"
             )
         node = self.seek()
-        adjacent = (
-            node is not None
-            and node.map is not None
-            and tag_node.map is not None
-            and node.map[0] == tag_node.map[1]
-        )
+        adjacent = node is not None and starts_after(tag_node, node)
         if adjacent and node is not None and node.type == "bullet_list":
             raise ParseError(
                 f"[{tag}] without a colon has no content: write `[{tag}]:` "
@@ -1317,11 +1302,7 @@ class MDQParser:
                 and next_node is not None
                 and next_node.type == "bullet_list"
             ):
-                if (
-                    next_node.map is not None
-                    and tag_node.map is not None
-                    and next_node.map[0] != tag_node.map[1]
-                ):
+                if not starts_after(tag_node, next_node):
                     raise ParseError(
                         f"the choice list of [^{blank_id}] must start on the line "
                         f"right after its tag, with no blank line in between"
@@ -1505,17 +1486,13 @@ class MDQParser:
         to the epilogue with no sign: an item would leave the answer.
         """
         node = self.seek()
-        if node is None or content.map is None:
+        if node is None:
             return
         # The map of a list includes the blank lines inside it.
-        end = content.map[1]
-        while end > content.map[0] and not self.reader.lines[end - 1].strip(" \t"):
+        start, end = span(content)
+        while end > start and not self.reader.lines[end - 1].strip(" \t"):
             end -= 1
-        if (
-            node.type in ("bullet_list", "ordered_list")
-            and node.map is not None
-            and node.map[0] == end
-        ):
+        if node.type in ("bullet_list", "ordered_list") and span(node)[0] == end:
             raise ParseError(
                 "use the same list marker for every item, or separate the "
                 "epilogue with a blank line",

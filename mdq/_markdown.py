@@ -21,9 +21,12 @@ import unicodedata
 from markdown_it import MarkdownIt
 from markdown_it.rules_block import StateBlock
 from markdown_it.token import Token
+from markdown_it.tree import SyntaxTreeNode as Node
 
 __all__ = [
     "md",
+    "span",
+    "starts_after",
     "find_blank_markers",
     "find_misplaced_blank_markers",
     "UNICODE_SPACE",
@@ -67,6 +70,21 @@ _LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
 BOM = "\ufeff"
 
 md = MarkdownIt("gfm-like")
+
+
+def span(node: Node) -> tuple[int, int]:
+    """
+    The source lines of a block node, as a `(start, end)` range with `end`
+    exclusive.
+    """
+    # markdown-it sets the line map of every block node.
+    assert node.map is not None
+    return node.map
+
+
+def starts_after(previous: Node, node: Node) -> bool:
+    """Whether `node` starts on the line right after `previous` ends."""
+    return span(node)[0] == span(previous)[1]
 
 # MDQ's own tags (`[short-answer]: ...`, `[numeric]: ...`, `[^blank]: ...`)
 # are syntactically indistinguishable from CommonMark link reference

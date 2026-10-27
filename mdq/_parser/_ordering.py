@@ -13,6 +13,7 @@ from typing import Any, NamedTuple
 
 from markdown_it.common.utils import unescapeAll
 
+from .._markdown import span
 from ..errors import ParseError
 
 #: A line before its indentation is reduced to a level -- the leading
@@ -75,12 +76,11 @@ def collect_item_depths(
     for item in node.children:
         if item.type != "list_item":
             continue
-        if item.map is not None:
-            depths[item.map[0]] = depth
+        depths[span(item)[0]] = depth
         for child in item.children:
             if child.type in ("bullet_list", "ordered_list"):
-                if parents is not None and item.map is not None:
-                    parents.add(item.map[0])
+                if parents is not None:
+                    parents.add(span(item)[0])
                 collect_item_depths(child, depth + 1, depths, parents)
 
 
