@@ -32,7 +32,8 @@ from ._frontmatter import (
     _split_frontmatter,
 )
 from ._frontmatter import _invalid_frontmatter_fields
-from ._question import BRACKET_ITEM_RE, parse_question, read_body_tag
+from ._question import BRACKET_ITEM_RE, parse_question
+from ._tags import read_body_tag
 
 __all__ = ["parse_exam", "is_exam", "inherit", "INHERITED_FIELDS", "SEPARATOR"]
 
