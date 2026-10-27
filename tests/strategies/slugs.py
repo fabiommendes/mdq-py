@@ -30,7 +30,7 @@ def text_sets(
 ) -> st.SearchStrategy[frozenset[str]]:
     """
     Strategy for sets of distinct strings suitable as `items` for
-    `mdq.models._slugify.slugify`/`loose`/`simple`: a mix of plain random text and
+    `mdq.models._slugify.loose`: a mix of plain random text and
     deliberately collision-prone sets.
     """
     plain = st.sets(

@@ -1,6 +1,5 @@
 """
-Tests for `mdq.models._slugify`: the `loose`/`simple` unique-slugifier strategies,
-`validate_slug`, and the `slugify` dispatcher.
+Tests for `mdq.models._slugify`: the `loose` unique slugifier.
 
 `loose` is the interesting one -- it must *always* produce a valid, unique,
 non-forbidden slug for every item, no matter how degenerate the input text
@@ -13,73 +12,14 @@ sets built from cosmetic variants of the same text.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from strategies import slugs as st_slugs
-from mdq.models._slugify import (
-    DIGIT_NAMES,
-    SLUGIFIERS,
-    SYMBOL_NAMES,
-    loose,
-    simple,
-    slugify,
-    validate_slug,
-)
-
-
-#
-# validate_slug
-#
-@pytest.mark.parametrize(
-    "value", ["a", "a-b", "a1-b2", "0", "a-b-c", "x" * 100, "1-2-3"]
-)
-def test_validate_slug_accepts_valid_slugs(value: str) -> None:
-    assert validate_slug(value) == value
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        "",
-        "-a",
-        "a-",
-        "-",
-        "A",
-        "a_b",
-        "a b",
-        "a.b",
-        "café",
-        "µ",  # unicode lowercase letter, but not ASCII (str.islower() is True)
-        "٣",  # unicode digit, but not ASCII (str.isdigit() is True)
-    ],
-)
-def test_validate_slug_rejects_invalid_slugs(value: str) -> None:
-    with pytest.raises(ValueError):
-        validate_slug(value)
-
-
-def test_validate_slug_coerce_delegates_to_single_slugify() -> None:
-    assert validate_slug("Café com Leite!", coerce=True) == "cafe-com-leite"
-
-
-#
-# simple
-#
-def test_simple_slugifies_each_item_independently() -> None:
-    result = simple(frozenset({"Ouro Preto", "Amazônia"}))
-    assert result == {"Ouro Preto": "ouro-preto", "Amazônia": "amazonia"}
-
-
-def test_simple_raises_on_collision() -> None:
-    with pytest.raises(ValueError):
-        simple(frozenset({"Café", "cafe"}))
-
-
-def test_simple_raises_when_result_hits_forbid() -> None:
-    with pytest.raises(ValueError):
-        simple(frozenset({"Café"}), forbid=frozenset({"cafe"}))
+from mdq.models._slugify import DIGIT_NAMES, SYMBOL_NAMES, loose
 
 
 #
@@ -178,28 +118,6 @@ def test_loose_is_deterministic_regardless_of_set_build_order() -> None:
 
 
 #
-# slugify dispatcher
-#
-def test_slugify_rejects_duplicate_input() -> None:
-    with pytest.raises(ValueError):
-        slugify(["a", "a"])
-
-
-def test_slugify_rejects_unknown_strategy() -> None:
-    with pytest.raises(ValueError):
-        slugify(["a"], strategy="does-not-exist")
-
-
-def test_slugify_dispatches_to_registered_strategy() -> None:
-    assert slugify(["Ouro Preto"], strategy="loose") == {"Ouro Preto": "ouro-preto"}
-
-
-def test_loose_and_simple_are_registered() -> None:
-    assert SLUGIFIERS["loose"] is loose
-    assert SLUGIFIERS["simple"] is simple
-
-
-#
 # Hypothesis properties
 #
 @given(items=st_slugs.text_sets(max_size=12), forbid=st_slugs.forbid_sets())
@@ -287,7 +205,7 @@ def test_loose_is_a_no_op_on_short_text_that_is_already_a_unique_slug(
 def _assert_valid_unique_slugs(
     items: frozenset[str], forbid: frozenset[str], result: dict[str, str]
 ) -> None:
-    """Shared contract every `loose`/`simple` result must satisfy."""
+    """Shared contract every `loose` result must satisfy."""
     assert set(result) == set(items)
 
     values = list(result.values())
@@ -295,4 +213,5 @@ def _assert_valid_unique_slugs(
     assert not (set(values) & set(forbid)), f"forbidden slug used in {result}"
 
     for slug in values:
-        validate_slug(slug)  # raises ValueError if not a valid slug shape
+        # Lowercase ASCII letters, digits and hyphens, none at either end.
+        assert re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", slug), slug
