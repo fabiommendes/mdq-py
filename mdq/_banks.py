@@ -12,6 +12,8 @@ and this module provides the obvious filesystem and in-memory ones.
 from __future__ import annotations
 
 from collections.abc import Collection
+from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
@@ -60,32 +62,32 @@ class QuestionBank(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class _Index:
+    """The ids of a bank's questions, and which of them carry each tag."""
+
+    by_tag: Mapping[str, frozenset[str]]
+    ids: frozenset[str]
+
+
 class _IndexedBank:
     """
     `tagged`/`ids` for a bank that can list its sources: every question
     is read once, the first time a query needs the index.
     """
 
-    _index: dict[str, set[str]] | None = None
-    _ids: set[str] | None = None
-
     def _sources(self) -> Iterator[tuple[str, str | Mapping[str, Any]]]:
         raise NotImplementedError
 
     def tagged(self, tag: str) -> Collection[str]:
-        self._build_index()
-        assert self._index is not None
-        return self._index.get(tag, set())
+        return self._index.by_tag.get(tag, frozenset())
 
     def ids(self) -> Collection[str]:
-        self._build_index()
-        assert self._ids is not None
-        return self._ids
+        return self._index.ids
 
-    def _build_index(self) -> None:
-        if self._index is not None:
-            return
-        index: dict[str, set[str]] = {}
+    @cached_property
+    def _index(self) -> _Index:
+        by_tag: dict[str, set[str]] = {}
         ids: set[str] = set()
         for question_id, source in self._sources():
             tags = _tags(source)
@@ -93,8 +95,8 @@ class _IndexedBank:
                 continue
             ids.add(question_id)
             for tag in tags:
-                index.setdefault(tag, set()).add(question_id)
-        self._index, self._ids = index, ids
+                by_tag.setdefault(tag, set()).add(question_id)
+        return _Index({tag: frozenset(found) for tag, found in by_tag.items()}, frozenset(ids))
 
 
 class FileLoader(_IndexedBank):
@@ -122,12 +124,7 @@ class FileLoader(_IndexedBank):
                 found.extend(sorted(self.root.rglob(f"{question_id}{suffix}")))
         # Preserve order while dropping the duplicates rglob reintroduces
         # for files sitting directly in the root.
-        seen, unique = set(), []
-        for path in found:
-            if path not in seen:
-                seen.add(path)
-                unique.append(path)
-        return unique
+        return list(dict.fromkeys(found))
 
     def load(self, question_id: str) -> str:
         for path in self.candidates(question_id):
