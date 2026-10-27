@@ -18,6 +18,15 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- A tag line right after content, or after a pattern or choice item, is a `parse-error` with a "blank line before the tag" message (breaking).
+- A setext H1 in exam instructions, a stem or an epilogue is `forbidden-block-element` (breaking).
+- Moodle XML and GIFT import split short-answer and numeric answers by credit: 100% is `accept` (or the numeric `answer`), 0% is `reject` with its feedback, and a partial credit or a `*` inside a short answer raises `ValueError` (breaking). The numeric key is the 100% answer, not the first one. A Moodle `*` at 0% with feedback becomes `incorrectFeedback`.
+- Moodle XML import reads the text format of each element: a missing `format` is `html`, as in Moodle, and `moodle_auto_format` is accepted (`MoodleTextFormat` lists it instead of `moodle`). GIFT `[plain]` and Moodle `plain_text` are escaped as Markdown; other formats are copied as they are (breaking).
+- GIFT export puts the epilogue before the answer body, as Moodle XML does, and raises for a missing-word tail with a blank line (breaking).
+- GIFT and Moodle XML keep general feedback in `meta.generalFeedback` on import and write it back on export. GIFT and Moodle XML export write `reject` as a 0% answer and keep accept feedback.
+- CLI exit codes follow one policy in every command: 0 success, 1 invalid document or failed conversion, 2 usage or I/O (breaking). `mdq show` exits 2 (was 1) for an unknown suffix or a non-UTF-8 file; `mdq import` and `mdq export` exit 2 (was 1) for an unknown format; `mdq export` exits 2 for an input with an unknown suffix instead of reading it as MDQ, and now reads `.yaml`, `.yml` and `.json` input.
+- CLI errors print as `error: <message>` on stderr, without ANSI codes unless stderr is a terminal. `mdq show` and `mdq export` print `error: <code>: <message>` for the first error of an invalid document (no more `error: error`). `mdq import` and `mdq export` read stdin with `-`.
+- Question banks (`FileLoader`, `DictLoader`) index only sources that validate as a question; invalid sources and exams are skipped silently. A string `tags` in a mapping source is no longer split at commas (breaking).
 - `AnswerPattern` rejects an inexact pattern that starts a CommonMark block other than a paragraph (`# Brasília`, `> x`, `- x`, `1. x`, `<div>`, a lone `*`) with the new error code `block-start-pattern`, which suggests an exact literal or a regex (breaking). `render()` writes a pattern as it is: the exact-literal workaround for a list item is gone, since such a model cannot exist.
 - `E` and `Y` are FALSE letters (breaking): `[E]` and `[Y]` now grade as false, with no warning for an existing document. The locale table follows the spec: `pt` and `tr` accept them, `S` leaves six rows, `D` leaves `fa`, and `G` (`ko`), `B` (`bn`, `ja`) and `K` (`gu`) are false friends. A TRUE false friend gets `false-friend-true-false-marker`.
 - A Markdown `+- p%` tolerance is stored as the nearest double to the exact `p / 100` (`1000 +- 0.7%` gives `relative: 0.007`, no longer `0.006999999999999999`).
@@ -50,6 +59,11 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- The Markdown parser no longer drops a setext underline in the `stem` and `epilogue`. `Exam.lint()` reports `setext-heading` for the `stem` and `epilogue` of its questions.
+- `Exam.render()` no longer writes `title: null` and a `# Exam` heading for an exam with no title; it writes `#`.
+- The `setext-heading` message names the `===` line instead of `---`.
+- GIFT missing-word import and export keep the spaces around the blank. GIFT true/false export keeps the epilogue; Moodle cloze export keeps choice feedback.
+- `mdq import`, `mdq export`, `mdq show` (stdin) and `mdq new` no longer print a traceback for a non-UTF-8 input or a missing output directory. The unknown-suffix error of the CLI refers to `--format`, not to the library keyword `format=`; `mdq show` help lists the `.yaml`, `.yml` and `.json` suffixes.
 - `mdq.hypothesis`: `questions()` draws every question type (it drew only essays) and `questions(type=...)` no longer raises `KeyError` for the other types. `exams()` builds valid exams from `questions()` (it raised `ValidationError`) and `max_questions` defaults to 3. The per-type builders (`multiple_choice_questions()`, ..., `fill_in_questions()`) work, and `ordering_questions()` is new. They generate a simple valid subset: no regex or exact-literal patterns, no `unit`, `tolerance`, `extra`, `accept` or `reject` of ordering, and a fill-in stem of one paragraph. A normalized question round-trips through `render()` and `parse()`.
 - `mdq show` draws a blank chip only for a real `[^id]` marker: `[^x]` in a code span, indented or fenced code and `[^x](url)` stay text. Errors on a non-terminal stderr have no escape codes and are not wrapped. `--theme plain` draws code blocks with no color. New helper `mdq._markdown.locate_blank_markers` (private) returns the position of each marker.
 
