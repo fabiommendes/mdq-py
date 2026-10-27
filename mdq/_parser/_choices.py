@@ -3,12 +3,12 @@ Choice-list parsing, shared by multiple-choice, multiple-selection,
 true-false and fill-in choice blanks -- every question shape whose body
 is a bracket-led list (`* [x] ...`).
 
-Also home to the slug regexes (`SLUG_BODY_RE`/`SLUG_PREFIX_RE`): a
-choice id is written with the exact same syntax as a question/exam slug
-(`CHOICE_ID_PREFIX_RE`), so the body pattern lives here rather than in
-`_question`, which needs it too (for `BLANK_RE`'s id, and for the
-`[slug]` prefix on a stem/title) but must not become this module's
-dependency -- `MDQParser.parse_choice_body` already imports from here.
+Also home to `SLUG_PREFIX_RE`: a choice id is written with the exact
+same syntax as a question/exam slug (`CHOICE_ID_PREFIX_RE`), so the
+prefix pattern lives here rather than in `_question`, which needs it too
+(for the `[slug]` prefix on a stem/title) but must not become this
+module's dependency -- `MDQParser.parse_choice_body` already imports from
+here. Both build on `mdq._markdown.SLUG_BODY_RE`.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from .._letters import is_letter, normalize_value, strip_marker_space
 from ..errors import ParseError
 from ..types import PatternDict
 
-__all__ = ["RawChoice", "SLUG_BODY_RE", "SLUG_PREFIX_RE"]
+__all__ = ["RawChoice", "SLUG_PREFIX_RE"]
 
 # The grammar's `ws` is only spaces and tabs (docs/references/grammar.md):
 # every `[ \t]` below is `ws`, and every `strip(" \t")` in this package

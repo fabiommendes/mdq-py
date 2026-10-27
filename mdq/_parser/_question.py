@@ -47,7 +47,7 @@ from markdown_it.tree import SyntaxTreeNode as Node
 from .._diagnostics import Diagnostic
 from .._exact import exact_literal, join_pattern_lines
 from .._letters import FALSE_LETTERS, normalize_value
-from .._markdown import UNICODE_SPACE, md, split_lines
+from .._markdown import SLUG_BODY_RE, UNICODE_SPACE, md, split_lines
 from ..errors import (
     ForeignChoiceMarker,
     IncompleteQuestion,
@@ -66,7 +66,6 @@ from ..types import (
 from ._choices import (
     LINK_START_RE,
     RawChoice,
-    SLUG_BODY_RE,
     SLUG_PREFIX_RE,
     _assign_choice_ids,
     _infer_choice_type,

@@ -529,7 +529,7 @@ def safe_texts(multiline: bool = False) -> st.SearchStrategy[str]:
 def slugs() -> st.SearchStrategy[str]:
     """
     Return a strategy for generating slugs: ASCII alphanumeric groups
-    joined by a single `-`, matching `mdq._parser`'s `SLUG_BODY_RE`.
+    joined by a single `-`, matching `mdq._markdown.SLUG_BODY_RE`.
 
     A question's `id` is only ever recovered from the inline `[id]`
     prefix (`docs/question-types/generic.md`) when it matches that

@@ -33,7 +33,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from .. import _parser
 from .._diagnostics import Diagnostic
-from .._markdown import SLUG_PATTERN, UUID_RE, has_visible_character
+from .._markdown import SLUG_BODY_RE, SLUG_PATTERN, UUID_RE, has_visible_character
 from ..types import Automation
 from . import _lint, _render
 
@@ -459,7 +459,7 @@ class BaseQuestion[R](MdqModel):
         id = self.id
         skip_frontmatter = (
             frontmatter.keys() == {"id"}
-            and re.fullmatch(_parser.SLUG_BODY_RE, str(self.id)) is not None
+            and re.fullmatch(SLUG_BODY_RE, str(self.id)) is not None
             and can_inline_id(self.stem)
             and not self.comment
         )

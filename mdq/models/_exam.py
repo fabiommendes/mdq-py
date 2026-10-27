@@ -43,7 +43,7 @@ from pydantic import (
 from pydantic_core import PydanticCustomError
 
 from .. import _parser, _schedule
-from .._markdown import md
+from .._markdown import SLUG_BODY_RE, md
 from .._diagnostics import Diagnostic
 from ..errors import MissingIdError, NotAutoGradable, ResponseError, UnresolvedInclude
 from .._banks import QuestionBank
@@ -705,7 +705,7 @@ class Exam(MdqModel):
             frontmatter.pop(key, None)
 
         heading: list[str] = []
-        if self.id is not None and re.fullmatch(_parser.SLUG_BODY_RE, self.id):
+        if self.id is not None and re.fullmatch(SLUG_BODY_RE, self.id):
             heading.append(f"[{self.id}]")
         elif self.id is not None:
             frontmatter["id"] = self.id

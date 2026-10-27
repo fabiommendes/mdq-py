@@ -22,7 +22,8 @@ from markdown_it.tree import SyntaxTreeNode as Node
 
 from mdq import models, parse
 from mdq._markdown import md
-from mdq._parser import SLUG_BODY_RE, reconstruct_blocks
+from mdq._markdown import SLUG_BODY_RE
+from mdq._parser import reconstruct_blocks
 from mdq.hypothesis import documents as _st
 
 _SLUG_RE = re.compile(rf"^{SLUG_BODY_RE}$")
