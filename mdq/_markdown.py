@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from typing import NamedTuple
 
 from markdown_it import MarkdownIt
 from markdown_it.rules_block import StateBlock
+from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
 from markdown_it.tree import SyntaxTreeNode as Node
 
@@ -26,7 +28,9 @@ __all__ = [
     "md",
     "span",
     "starts_after",
+    "BlankMarker",
     "find_blank_markers",
+    "locate_blank_markers",
     "find_misplaced_blank_markers",
     "UNICODE_SPACE",
     "SLUG_BODY_RE",
@@ -127,10 +131,44 @@ _BLANK_MARKER_RE = re.compile(rf"\[\^({SLUG_BODY_RE})\](?![(\[])")
 _AUTOLINK_MARKUPS = frozenset({"autolink", "linkify"})
 
 
-def find_blank_markers(text: str) -> list[tuple[str, bool]]:
+#: Key of `env` where `_note_blank_position` records the offsets of the
+#: `[^id]` candidates: `{inline source: {offset, ...}}`.
+_POSITIONS_KEY = "mdq_blank_positions"
+
+
+def _note_blank_position(state: StateInline, silent: bool) -> bool:
+    """
+    Record the offset of a `[^id]` candidate in `env`, when `env` asks for it.
+
+    markdown-it does not keep source offsets in its tokens. The inline rules
+    reach a candidate only when it is not inside code or an autolink, so the
+    offsets recorded here are the ones `locate_blank_markers` needs. It never
+    consumes any text.
+    """
+    positions = state.env.get(_POSITIONS_KEY)
+    if positions is not None and _BLANK_MARKER_RE.match(state.src, state.pos):
+        positions.setdefault(state.src, set()).add(state.pos)
+    return False
+
+
+md.inline.ruler.before("link", "mdq_blank_position", _note_blank_position)
+
+
+class BlankMarker(NamedTuple):
+    """One `[^id]` marker of a stem, as `locate_blank_markers` reports it."""
+
+    id: str
+    #: Whether the marker sits where fill-in.md does not allow a blank.
+    misplaced: bool
+    #: `(start, end)` offsets of the marker in the text, `end` exclusive.
+    #: `None` when the marker cannot be located (an escaped `\\[^id]`).
+    span: tuple[int, int] | None
+
+
+def locate_blank_markers(text: str) -> list[BlankMarker]:
     """
     fill-in.md, "Where blanks may appear": find the `[^id]` markers of a
-    stem and tell which ones are misplaced.
+    stem, tell which ones are misplaced and where each one is.
 
     The inline parse of each paragraph comes first (CommonMark). A marker
     is misplaced if it sits in a heading, list item, table cell or
@@ -143,20 +181,106 @@ def find_blank_markers(text: str) -> list[tuple[str, bool]]:
         text: A fill-in question's stem.
 
     Returns:
-        A `(id, misplaced)` pair for every marker, in source order (an id
-        may appear more than once).
+        A `BlankMarker` for every marker, in source order (an id may appear
+        more than once).
     """
-    found: list[tuple[str, bool]] = []
+    env: dict[str, object] = {_POSITIONS_KEY: {}}
+    tokens = md.parse(text, env)
+    recorded = env[_POSITIONS_KEY]
+    assert isinstance(recorded, dict)
+    line_starts = [0]
+    for line in split_lines(text, keepends=True):
+        line_starts.append(line_starts[-1] + len(line))
+    found: list[BlankMarker] = []
     open_blocks: list[str] = []
-    for block_token in md.parse(text):
+    for block_token in tokens:
         if block_token.nesting == 1:
             open_blocks.append(block_token.type)
         elif block_token.nesting == -1:
             open_blocks.pop()
         elif block_token.type == "inline" and block_token.children:
             in_paragraph = open_blocks == ["paragraph_open"]
-            found.extend(_markers_in_inline(block_token.children, not in_paragraph))
+            markers = _markers_in_inline(block_token.children, not in_paragraph)
+            offsets = sorted(recorded.get(block_token.content, ()))
+            found.extend(
+                BlankMarker(name, misplaced, span)
+                for name, misplaced, span in _place_markers(
+                    markers, offsets, block_token, text, line_starts
+                )
+            )
     return found
+
+
+def _place_markers(
+    markers: list[tuple[str, bool]],
+    offsets: list[int],
+    block_token: Token,
+    text: str,
+    line_starts: list[int],
+) -> list[tuple[str, bool, tuple[int, int] | None]]:
+    """Pair the markers of one inline token with their offsets in `text`."""
+    placed: list[tuple[str, bool, tuple[int, int] | None]] = []
+    content = block_token.content
+    cursor = 0
+    for name, misplaced in markers:
+        literal = f"[^{name}]"
+        span = None
+        for index in range(cursor, len(offsets)):
+            if content.startswith(literal, offsets[index]):
+                cursor = index + 1
+                start = _source_offset(block_token, text, line_starts, offsets[index])
+                if start is not None and text.startswith(literal, start):
+                    span = (start, start + len(literal))
+                break
+        placed.append((name, misplaced, span))
+    return placed
+
+
+def _source_offset(
+    block_token: Token, text: str, line_starts: list[int], offset: int
+) -> int | None:
+    """
+    Map an offset in the content of an inline token to an offset in `text`.
+
+    The content is the source lines of the block with their prefix (indent,
+    list marker, `#`) removed, so each content line is found in the source
+    line of the same index. Returns `None` when it is not found there.
+    """
+    if block_token.map is None:
+        return None
+    content = block_token.content
+    line_index = content.count("\n", 0, offset)
+    column = offset - (content.rfind("\n", 0, offset) + 1)
+    source_line_index = block_token.map[0] + line_index
+    if source_line_index >= len(line_starts) - 1:
+        return None
+    content_line = content.split("\n")[line_index]
+    source_line = text[line_starts[source_line_index] : line_starts[source_line_index + 1]]
+    source_line = source_line.rstrip("\r\n")
+    for candidate in (source_line, source_line.rstrip()):
+        if candidate.endswith(content_line):
+            shift = len(candidate) - len(content_line)
+            break
+    else:
+        shift = source_line.find(content_line)
+        if shift < 0:
+            return None
+    return line_starts[source_line_index] + shift + column
+
+
+def find_blank_markers(text: str) -> list[tuple[str, bool]]:
+    """
+    fill-in.md, "Where blanks may appear": find the `[^id]` markers of a
+    stem and tell which ones are misplaced. See `locate_blank_markers`.
+
+    Args:
+        text: A fill-in question's stem.
+
+    Returns:
+        A `(id, misplaced)` pair for every marker, in source order (an id
+        may appear more than once).
+    """
+    return [(marker.id, marker.misplaced) for marker in locate_blank_markers(text)]
 
 
 def find_misplaced_blank_markers(text: str) -> list[str]:

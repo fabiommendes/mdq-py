@@ -50,6 +50,8 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `mdq show` draws a blank chip only for a real `[^id]` marker: `[^x]` in a code span, indented or fenced code and `[^x](url)` stay text. Errors on a non-terminal stderr have no escape codes and are not wrapped. `--theme plain` draws code blocks with no color. New helper `mdq._markdown.locate_blank_markers` (private) returns the position of each marker.
+
 - A fill-in frontmatter map that is not a mapping (`domain`, `decimalPlaces`, `preAccept`, `preReject`, `incorrectFeedback`) or has a badly typed entry is a `parse-error` whose `path` points at the field (`["domain"]`, `["incorrectFeedback", "river"]`), not `[]`. `ParseError` takes an optional `path`.
 - The message of `foreign-choice-marker` shows an empty marker as `[ ]`, not `[]`.
 - `Exam.with_ids()` and `Exam.model_copy()` keep `question.exam` pointing at the new exam. `model_copy()` copies the questions, so the original keeps its own.

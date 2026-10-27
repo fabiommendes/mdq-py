@@ -458,3 +458,63 @@ def test_cli_show_has_no_escape_codes_off_a_terminal_unless_a_theme_is_given(
     doc.write_text("Explique.\n\n[essay]\n", encoding="utf-8")
     assert "\x1b[" not in runner.invoke(app, ["show", str(doc)]).output
     assert "\x1b[" in runner.invoke(app, ["show", "--theme", "dark", str(doc)]).output
+
+
+FILL_IN_WITH_LITERAL_MARKERS = """\
+Complete: a capital do Brasil é [^capital].
+
+Em código: `[^capital]` e link [^capital](https://x.org).
+
+    [^capital] indented code
+
+```
+[^capital] fenced
+```
+
+[^capital/short-answer]: Brasília
+"""
+
+
+def test_cli_show_fill_in_chips_only_the_real_blank(tmp_path: Path) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text(FILL_IN_WITH_LITERAL_MARKERS, encoding="utf-8")
+    result = runner.invoke(app, ["show", "--theme", "plain", str(doc)])
+    assert result.exit_code == 0
+    assert result.output.count("_ capital") == 1
+    # Code spans and links keep the text of the marker; the link keeps its URL.
+    assert result.output.count("[^capital]") == 4
+    assert "(https://x.org)" not in result.output
+
+
+def test_show_fill_in_chips_a_blank_in_a_list_item_and_after_a_hard_wrap() -> None:
+    src = "Linha um\n   [^a] dois e [^b].\n\n[^a/short-answer]: um\n\n[^b/short-answer]: dois\n"
+    stem = render_source(src).split("Blank [^a]")[0]
+    assert "▭ a" in stem
+    assert "▭ b" in stem
+    assert "[^a]" not in stem
+    assert "[^b]" not in stem
+
+
+def test_cli_show_error_is_plain_and_unwrapped_off_a_terminal(tmp_path: Path) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text("Pergunta?\n\n[nope]\n", encoding="utf-8")
+    long_path = tmp_path / ("x" * 120 + ".mdq.md")
+    result = CliRunner().invoke(app, ["show", str(long_path)])
+    assert result.exit_code == 2
+    assert "\x1b[" not in result.stderr
+    error_lines = [line for line in result.stderr.splitlines() if line.strip()]
+    assert len(error_lines) == 1
+    assert str(long_path) in error_lines[0]
+
+
+def test_cli_show_plain_theme_has_no_colors_in_code_blocks(tmp_path: Path) -> None:
+    doc = tmp_path / "q.mdq.md"
+    doc.write_text(
+        "Veja:\n\n```python\nprint('Brasília')\n```\n\n    indentado\n\n[essay]\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["show", "--theme", "plain", str(doc)])
+    assert result.exit_code == 0
+    assert "print" in result.output
+    assert "\x1b[38;" not in result.output
+    assert "\x1b[48;" not in result.output

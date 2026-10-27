@@ -30,10 +30,9 @@ Rich would parse them as markup (a stray `[/]` would even raise).
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
-from typing import Callable, Iterable, Protocol, assert_never
+from typing import Callable, cast, Iterable, Protocol, assert_never
 
 import typer
 from rich.box import Box
@@ -47,7 +46,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme as ConsoleTheme
 
-from .. import _schedule, models
+from .. import _markdown, _schedule, models
 from ..models import _render
 from .._banks import FileLoader, QuestionBank
 from .._loading import InvalidDocument, parse
@@ -68,8 +67,6 @@ _GRADED_QUESTIONS = (
 )
 #: Width of the mock input field of a typed answer.
 _INPUT_WIDTH = 32
-#: `[^id]` in a fill-in stem, with an optional `/kind` and `/option`.
-_BLANK_REF = re.compile(r"\[\^([^\]/\s]+)(?:/[^\]]*)?\]")
 
 
 def show_source(
@@ -396,7 +393,8 @@ class _View:
     # Small building blocks
     #
     def _md(self, text: str) -> Markdown:
-        return Markdown(text, code_theme=self.t.code_theme)
+        # Rich types `code_theme` as `str`, but passes a `SyntaxTheme` on to `Syntax`.
+        return Markdown(text, code_theme=cast(str, self.t.code_theme))
 
     def _muted(self, text: str, *, italic: bool = True) -> Text:
         style = f"italic {self.t.muted}" if italic else self.t.muted
@@ -466,19 +464,15 @@ class _View:
         """Show each `[^id]` of a fill-in stem as an empty field."""
         if not isinstance(question, models.FillInQuestion):
             return text
-        lines: list[str] = []
-        in_fence = False
-        for line in text.splitlines():
-            if line.lstrip().startswith(("```", "~~~")):
-                in_fence = not in_fence
-            elif not in_fence:
-                # No-break spaces: CommonMark strips plain spaces at the ends
-                # of a code span, and the padding is what makes it a chip.
-                line = _BLANK_REF.sub(
-                    lambda m: f"` {self.g.blank} {m.group(1)} `", line
-                )
-            lines.append(line)
-        return "\n".join(lines)
+        # No-break spaces: CommonMark strips plain spaces at the ends
+        # of a code span, and the padding is what makes it a chip.
+        # Markers the Markdown parse cannot place (e.g. an escaped one) stay text.
+        for marker in reversed(_markdown.locate_blank_markers(text)):
+            if marker.span is not None:
+                start, end = marker.span
+                chip = f"` {self.g.blank} {marker.id} `"
+                text = text[:start] + chip + text[end:]
+        return text
 
     #
     # Body dispatch
@@ -881,7 +875,7 @@ def show(
     error_console = Console(
         file=sys.stderr,
         highlight=False,
-        force_terminal=True,
+        soft_wrap=True,
     )
 
     # Everything below that can embed a path or an exception message is

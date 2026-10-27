@@ -18,6 +18,8 @@ from enum import StrEnum
 from rich import box
 from rich.box import Box
 from rich.console import Console
+from rich.style import Style
+from rich.syntax import SyntaxTheme
 
 __all__ = ["ThemeName", "Theme", "resolve_theme"]
 
@@ -142,7 +144,8 @@ class Theme:
     exam_accent: str = ""
     #: Accent color of the type badge, by question type.
     accents: Mapping[str, str] = field(default_factory=dict)
-    code_theme: str = "default"
+    #: Pygments style name, or a `SyntaxTheme` object.
+    code_theme: str | SyntaxTheme = "default"
     #: Console style of `inline code`; overrides Rich's black background.
     inline_code: str = ""
 
@@ -235,12 +238,23 @@ _LIGHT = Theme(
     inline_code="bold #c2409b on #ccd0da",
 )
 
+class _NoColorSyntaxTheme(SyntaxTheme):
+    """A code theme that adds no color or background to any token."""
+
+    def get_style_for_token(self, token_type: tuple[str, ...]) -> Style:
+        return Style()
+
+    def get_background_style(self) -> Style:
+        return Style()
+
+
 _PLAIN = Theme(
     glyphs=ASCII,
     card_box=box.ASCII,
     banner_box=box.ASCII2,
     inner_box=box.ASCII,
     rule_char="-",
+    code_theme=_NoColorSyntaxTheme(),
     inline_code="bold",
 )
 
