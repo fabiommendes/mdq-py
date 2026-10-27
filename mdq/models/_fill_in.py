@@ -41,8 +41,6 @@ from ._base import (
 from ._choice import (
     ScoredChoice,
     _with_choice_ids,
-    effective_grading,
-    effective_shuffle,
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
@@ -375,11 +373,11 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
 
     def effective_grading(self) -> GradingStrategy:
         """The question's `grading`, with `inherit` read as `symmetric`."""
-        return effective_grading(self.grading)
+        return "symmetric" if self.grading == "inherit" else self.grading
 
     def effective_shuffle(self) -> bool:
         """The question's `shuffle`, with `inherit` read as `False`."""
-        return effective_shuffle(self.shuffle)
+        return False if self.shuffle == "inherit" else self.shuffle
 
     #: How inexact literals treat diacritics, in every short answer blank.
     diacritics: Diacritics = "fold"

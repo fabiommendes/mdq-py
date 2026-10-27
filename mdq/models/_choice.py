@@ -10,6 +10,7 @@ into another question family.
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from typing import (
     Annotated,
     Any,
@@ -28,7 +29,6 @@ from .._diagnostics import Diagnostic
 from .._letters import is_letter, normalize_value
 from ..errors import ResponseError
 from ..types import (
-    GradingStrategy,
     MultipleChoiceGrading,
     MultipleChoiceQuestionGrading,
     MultipleSelectionGrading,
@@ -57,16 +57,6 @@ __all__ = [
     "TrueFalseQuestion",
 ]
 
-
-
-def effective_grading(value: QuestionGrading) -> GradingStrategy:
-    """Read `inherit` as the default strategy, `symmetric`."""
-    return "symmetric" if value == "inherit" else value
-
-
-def effective_shuffle(value: QuestionShuffle) -> bool:
-    """Read `inherit` as the default, `False`."""
-    return False if value == "inherit" else value
 
 
 def write_shuffle_and_grading(
@@ -196,26 +186,31 @@ def unspecified_choice_score(choices: Sequence[ScoredChoice], *, symmetric: bool
     return max(-1.0, min(0.0, -sum(declared) / missing))
 
 
-class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
-    choices: Annotated[list[ScoredChoice], Field(min_length=2)]
-    type: Literal["multiple-choice"] = "multiple-choice"
-    shuffle: QuestionShuffle = "inherit"
-    grading: MultipleChoiceQuestionGrading = "inherit"
+class ChoiceQuestion[R, C: (ScoredChoice, BooleanChoice, Statement)](BaseQuestion[R]):
+    """
+    What multiple-choice, multiple-selection and true-false share: a list
+    of choices that must be unique, and the `shuffle` and `grading`
+    settings. Each subclass narrows `grading` to the strategies it supports.
+    """
 
-    def effective_grading(self) -> MultipleChoiceGrading:
-        """The question's `grading`, with `inherit` read as `symmetric`."""
-        return "symmetric" if self.grading == "inherit" else self.grading
+    choices: Annotated[list[C], Field(min_length=2)]
+    #: Redeclared by each subclass with its `Literal`; declared here so the
+    #: field keeps its place in the serialization order.
+    type: str
+    shuffle: QuestionShuffle = "inherit"
+    grading: QuestionGrading = "inherit"
 
     def effective_shuffle(self) -> bool:
         """The question's `shuffle`, with `inherit` read as `False`."""
-        return effective_shuffle(self.shuffle)
+        return False if self.shuffle == "inherit" else self.shuffle
 
     @model_validator(mode="after")
     def check_choices_are_unique(self) -> Self:
         """
-        multiple-choice.md, "Choices": no choice's `text` may be empty
-        (`blank-text`), and ids and texts must each be unique
-        (`duplicate-choice-id`, `duplicate-choice-text`).
+        multiple-choice.md, "Choices" (shared by multiple-selection and
+        true-false): no choice's `text` may be empty (`blank-text`), and
+        ids and texts must each be unique (`duplicate-choice-id`,
+        `duplicate-choice-text`).
         """
         _check_unique_choices(type(self).__name__, self.choices)
         return self
@@ -229,7 +224,6 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         diagnostics = super().lint()
         diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
-        diagnostics.extend(_lint.check_multiple_choice_answers(self.choices, ("choices",)))
         return diagnostics
 
     def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
@@ -237,10 +231,32 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         write_shuffle_and_grading(data, self.shuffle, self.grading)
         return data
 
+    @abstractmethod
+    def _mark(self, choice: C) -> str:
+        """The mark written before `choice` in the Markdown source."""
+
     def _render_body(self) -> Iterable[str]:
         yield ""
         for choice in self.choices:
-            yield from _render.yield_choice(choice, mark=_render.score_mark(choice.score))
+            yield from _render.yield_choice(choice, mark=self._mark(choice))
+
+
+class MultipleChoiceQuestion(ChoiceQuestion[t.MultipleChoiceResponse, ScoredChoice]):
+    type: Literal["multiple-choice"] = "multiple-choice"
+    grading: MultipleChoiceQuestionGrading = "inherit"
+
+    def effective_grading(self) -> MultipleChoiceGrading:
+        """The question's `grading`, with `inherit` read as `symmetric`."""
+        return "symmetric" if self.grading == "inherit" else self.grading
+
+    def lint(self) -> list[Diagnostic]:
+        """See `BaseQuestion.lint`."""
+        diagnostics = super().lint()
+        diagnostics.extend(_lint.check_multiple_choice_answers(self.choices, ("choices",)))
+        return diagnostics
+
+    def _mark(self, choice: ScoredChoice) -> str:
+        return _render.score_mark(choice.score)
 
     def score_response(self, response: t.MultipleChoiceResponse) -> QuestionScore:
         """
@@ -271,53 +287,22 @@ class MultipleChoiceQuestion(BaseQuestion[t.MultipleChoiceResponse]):
         )
 
 
-class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
-    choices: Annotated[list[BooleanChoice], Field(min_length=2)]
+class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, BooleanChoice]):
     type: Literal["multiple-selection"] = "multiple-selection"
-    shuffle: QuestionShuffle = "inherit"
     grading: MultipleSelectionQuestionGrading = "inherit"
 
     def effective_grading(self) -> MultipleSelectionGrading:
         """The question's `grading`, with `inherit` read as `symmetric`."""
         return "symmetric" if self.grading == "inherit" else self.grading
 
-    def effective_shuffle(self) -> bool:
-        """The question's `shuffle`, with `inherit` read as `False`."""
-        return effective_shuffle(self.shuffle)
-
-    @model_validator(mode="after")
-    def check_choices_are_unique(self) -> Self:
-        """
-        multiple-choice.md, "Choices" (shared by multiple-selection): no
-        choice's `text` may be empty (`blank-text`), and ids and
-        texts must each be unique (`duplicate-choice-id`,
-        `duplicate-choice-text`).
-        """
-        _check_unique_choices(type(self).__name__, self.choices)
-        return self
-
-    def with_ids(self) -> Self:
-        """See `BaseQuestion.with_ids`."""
-        return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
-
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
-        diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_multiple_selection_answers(self.choices, ("choices",)))
         return diagnostics
 
-    def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
-        data = super().frontmatter(skip_defaults=skip_defaults)
-        write_shuffle_and_grading(data, self.shuffle, self.grading)
-        return data
-
-    def _render_body(self) -> Iterable[str]:
-        yield ""
-        for choice in self.choices:
-            mark = "x" if choice.correct else " "
-            yield from _render.yield_choice(choice, mark=mark)
+    def _mark(self, choice: BooleanChoice) -> str:
+        return "x" if choice.correct else " "
 
     def score_response(self, response: t.MultipleSelectionResponse) -> QuestionScore:
         """
@@ -364,29 +349,12 @@ class MultipleSelectionQuestion(BaseQuestion[t.MultipleSelectionResponse]):
         return QuestionScore(score=score, feedback=feedback)
 
 
-class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
-    choices: Annotated[list[Statement], Field(min_length=2)]
+class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
     type: Literal["true-false"] = "true-false"
-    shuffle: QuestionShuffle = "inherit"
-    grading: QuestionGrading = "inherit"
 
     def effective_grading(self) -> TrueFalseGrading:
         """The question's `grading`, with `inherit` read as `symmetric`."""
-        return effective_grading(self.grading)
-
-    def effective_shuffle(self) -> bool:
-        """The question's `shuffle`, with `inherit` read as `False`."""
-        return effective_shuffle(self.shuffle)
-
-    @model_validator(mode="after")
-    def check_choices_are_unique(self) -> Self:
-        """
-        multiple-choice.md, "Choices" (shared by true-false): no choice's
-        `text` may be empty (`blank-text`), and ids and texts must
-        each be unique (`duplicate-choice-id`, `duplicate-choice-text`).
-        """
-        _check_unique_choices(type(self).__name__, self.choices)
-        return self
+        return "symmetric" if self.grading == "inherit" else self.grading
 
     @model_validator(mode="after")
     def check_markers_agree_with_correct(self) -> Self:
@@ -423,33 +391,17 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
                 )
         return self
 
-    def with_ids(self) -> Self:
-        """See `BaseQuestion.with_ids`."""
-        return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
-
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
         diagnostics = super().lint()
-        diagnostics.extend(_lint.check_choice_ids_defined(self.choices, ("choices",)))
-        diagnostics.extend(_lint.check_choices_visually_identical(self.choices, ("choices",)))
         diagnostics.extend(_lint.check_true_false_markers(self.choices, self.locale))
         diagnostics.extend(_lint.check_true_false_uniform_answers(self.choices))
         diagnostics.extend(_lint.check_true_false_marker_nfkc(self.choices))
         return diagnostics
 
-    def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
-        data = super().frontmatter(skip_defaults=skip_defaults)
-        write_shuffle_and_grading(data, self.shuffle, self.grading)
-        return data
-
-    def _render_body(self) -> Iterable[str]:
-        yield ""
-        for choice in self.choices:
-            # A statement without `marker` is written as `T` or `F`.
-            mark = "T" if choice.correct else "F"
-            if choice.marker:
-                mark = choice.marker
-            yield from _render.yield_choice(choice, mark=mark)
+    def _mark(self, choice: Statement) -> str:
+        # A statement without `marker` is written as `T` or `F`.
+        return choice.marker or ("T" if choice.correct else "F")
 
     def score_response(self, response: t.TrueFalseResponse) -> QuestionScore:
         """
@@ -479,7 +431,7 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
                 )
         n = len(self.choices)
         marks = [
-            (statement, lookup(response, statement.id, None))
+            (statement, response.get(statement.id) if statement.id is not None else None)
             for statement in self.choices
         ]
         correct = sum(1 for statement, mark in marks if mark == statement.correct)
@@ -508,18 +460,3 @@ class TrueFalseQuestion(BaseQuestion[t.TrueFalseResponse]):
             if mark != statement.correct and statement.feedback
         ]
         return QuestionScore(score=score, feedback=feedback)
-
-
-
-
-#
-# Utilities
-#
-
-def lookup[V](response: dict[str, V], key: str | None, default: V) -> V:
-    """Look up `key` in `response`, returning `default` if `key` is `None`."""
-    if key is None:
-        return default
-    return response.get(key, default)
-
-
