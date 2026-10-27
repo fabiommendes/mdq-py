@@ -558,7 +558,7 @@ class Exam(MdqModel):
         )
         return question
 
-    def score_responses(self, responses: Mapping[str, Any]) -> ExamScore:
+    def score_responses(self, responses: Mapping[str, object]) -> ExamScore:
         """
         Score one attempt: a mapping from question id to response
         (responses.md, "Responses to an exam"; exam.md, "Exam score").

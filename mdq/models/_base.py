@@ -525,15 +525,38 @@ class BaseQuestion[R](MdqModel):
         """
         return "automatic"
 
-    def score_response(self, response: R) -> QuestionScore:
+    def score_response(self, response: object) -> QuestionScore:
         """
         Return the score for one response to this question.
 
+        `response` comes from outside the library, so it is untrusted:
+        `_parse_response` checks it and `_score` grades the checked value.
+
         Raises:
+            ResponseError: `response` is not a valid response to this
+                question (responses.md).
             NotAutoGradable: the question does not settle this response
                 (responses.md, "Pending").
         """
-        raise NotImplementedError("Subclasses must implement score_response()")
+        return self._score(self._parse_response(response))
+
+    def _parse_response(self, response: object) -> R:
+        """
+        Check that `response` is a well-formed response to this question.
+
+        Raises:
+            ResponseError: it is not.
+        """
+        raise NotImplementedError("Subclasses must implement _parse_response()")
+
+    def _score(self, response: R) -> QuestionScore:
+        """
+        Grade a response that `_parse_response` accepted.
+
+        Raises:
+            NotAutoGradable: the question does not settle this response.
+        """
+        raise NotImplementedError("Subclasses must implement _score()")
 
     def lint(self) -> list[Diagnostic]:
         """

@@ -17,7 +17,6 @@ from pydantic import (
     model_validator,
 )
 
-from .. import types as t
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
@@ -75,7 +74,7 @@ class OrderingAlternative(MdqModel):
     comment: FreeText | None = None
 
 
-class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
+class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
     """
     A question asking the student to sort a list of lines.
 
@@ -430,7 +429,23 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         """`incorrect_feedback` as a feedback list, empty when unset."""
         return [self.incorrect_feedback] if self.incorrect_feedback else []
 
-    def score_response(self, response: t.OrderingResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> list[OrderingLine]:
+        """
+        Raises:
+            ResponseError: `response` is not a sequence of
+                `[indentation level, text]` pairs, or holds a line the
+                question did not present (`check_response_lines`).
+        """
+        if not isinstance(response, Iterable):
+            raise ResponseError(
+                f"An ordering response must be a sequence of [level, text] pairs, "
+                f"found {type(response).__name__}"
+            )
+        lines = coerce_ordering_lines(response)
+        self.check_response_lines(lines)
+        return lines
+
+    def _score(self, response: list[OrderingLine]) -> QuestionScore:
         """
         Score 1 for the answer key or an accepted ordering, 0 for a
         rejected one, and otherwise whatever `unmatched` dictates. When
@@ -440,15 +455,10 @@ class OrderingQuestion(BaseQuestion[t.OrderingResponse]):
         the same response, since they never hold the same lines).
 
         Raises:
-            ResponseError: `response` is not a sequence of
-                `[indentation level, text]` pairs, or holds a line the
-                question did not present (`check_response_lines`).
             NotAutoGradable: nothing matched and `unmatched` is
                 "manual", so the response is for a human to score.
         """
-        lines = coerce_ordering_lines(response)
-        self.check_response_lines(lines)
-        key = self.comparison_key(lines)
+        key = self.comparison_key(response)
 
         if key == self.comparison_key(self.lines):
             return QuestionScore(score=1.0)
@@ -493,7 +503,7 @@ def outline_problem(lines: Iterable[OrderingLine]) -> str | None:
     return None
 
 
-def coerce_ordering_lines(lines: t.OrderingResponse) -> list[OrderingLine]:
+def coerce_ordering_lines(lines: Iterable[object]) -> list[OrderingLine]:
     """
     Read a JSON-shaped ordering response as `[level, text]` pairs.
 

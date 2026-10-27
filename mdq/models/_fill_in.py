@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from fractions import Fraction
 from typing import (
     Annotated,
     Any,
@@ -21,13 +20,12 @@ from typing import (
     Literal,
     Self,
     Sequence,
-    cast,
     assert_never,
 )
 
 from pydantic import Field, model_validator
 
-from .. import _markdown, types as t
+from .. import _markdown
 from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import (
@@ -56,7 +54,7 @@ from ._choice import (
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
-from ._numeric import NumericKey, render_numeric_tag
+from ._numeric import NumericKey, is_numeric_response, render_numeric_tag
 from ._lint_codes import diag
 from ._score import QuestionScore
 from ._text import (
@@ -269,11 +267,11 @@ class NumericBlank(NumericKey, BlankBase):
         diacritics: Diacritics,
         unmatched: Unmatched | None,
     ) -> QuestionScore:
-        if not isinstance(response, int | float | Fraction | str | Mapping):
+        if not is_numeric_response(response):
             raise ResponseError(
                 f"Response {response!r} to blank {self.id!r} is not numeric"
             )
-        return self.score_numeric(cast(t.NumericResponse, response))
+        return self.score_numeric(response)
 
 
 Blank = Annotated[
@@ -284,7 +282,7 @@ Blank = Annotated[
 
 
 
-class FillInQuestion(BaseQuestion[t.FillInResponse]):
+class FillInQuestion(BaseQuestion[Mapping[str, object]]):
     blanks: Annotated[list[Blank], Field(min_length=1)]
     type: Literal["fill-in"] = "fill-in"
     shuffle: QuestionShuffle = "inherit"
@@ -496,7 +494,27 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
             yield ""
             yield from blank.render_lines()
 
-    def score_response(self, response: t.FillInResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> Mapping[str, object]:
+        """
+        Raises:
+            ResponseError: `response` is not a mapping, or a key of it
+                names no blank.
+        """
+        not_a_mapping = ResponseError(
+            f"A fill-in response must be a mapping of blank ids, found "
+            f"{type(response).__name__}"
+        )
+        if not isinstance(response, Iterable):
+            raise not_a_mapping
+        known = {blank.id for blank in self.blanks}
+        unknown = sorted(key for key in response if key not in known)
+        if unknown:
+            raise ResponseError(f"Blank ids {unknown!r} not found in the question")
+        if not isinstance(response, Mapping):
+            raise not_a_mapping
+        return response
+
+    def _score(self, response: Mapping[str, object]) -> QuestionScore:
         """
         Score each blank independently and combine by `grading`.
 
@@ -504,14 +522,9 @@ class FillInQuestion(BaseQuestion[t.FillInResponse]):
         (fill-in.md, "Grading"); `{}` is a response with every blank empty.
 
         Raises:
-            ResponseError: a key of `response` names no blank, or a blank's
-                response doesn't match its type.
+            ResponseError: a blank's response doesn't match its type.
             NotAutoGradable: a short answer blank response is pending.
         """
-        known = {blank.id for blank in self.blanks}
-        unknown = sorted(key for key in response if key not in known)
-        if unknown:
-            raise ResponseError(f"Blank ids {unknown!r} not found in the question")
         symmetric = self.effective_grading() == "symmetric"
         scores: list[float] = []
         feedback: list[str] = []

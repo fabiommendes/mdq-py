@@ -17,6 +17,7 @@ from typing import (
     Iterable,
     Iterator,
     Literal,
+    Mapping,
     Self,
     Sequence,
     assert_never,
@@ -267,7 +268,16 @@ class MultipleChoiceQuestion(ChoiceQuestion[t.MultipleChoiceResponse, ScoredChoi
     def _mark(self, choice: ScoredChoice) -> str:
         return _render.score_mark(choice.score)
 
-    def score_response(self, response: t.MultipleChoiceResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.MultipleChoiceResponse:
+        """
+        Raises:
+            ResponseError: `response` is not the id of a choice.
+        """
+        if not isinstance(response, str):
+            raise ResponseError(f"Response id {response!r} not found in choices")
+        return response
+
+    def _score(self, response: t.MultipleChoiceResponse) -> QuestionScore:
         """
         Score the response by its picked choice's `score`, falling back to
         `unspecified_score` for a choice that declares none.
@@ -313,7 +323,28 @@ class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, Bool
     def _mark(self, choice: BooleanChoice) -> str:
         return "x" if choice.correct else " "
 
-    def score_response(self, response: t.MultipleSelectionResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.MultipleSelectionResponse:
+        """
+        Raises:
+            ResponseError: `response` is not a collection of ids, an element
+                of it is not a string, or names no choice of the question.
+        """
+        if not isinstance(response, Iterable):
+            raise ResponseError(
+                f"A multiple-selection response must be a set of ids, found "
+                f"{type(response).__name__}"
+            )
+        known = {choice.id for choice in self.choices}
+        ticks = list(response)
+        for tick in ticks:
+            if not isinstance(tick, str):
+                raise ResponseError(f"Ticked id {tick!r} is not a string")
+        unknown = sorted(tick for tick in ticks if tick not in known)
+        if unknown:
+            raise ResponseError(f"Ticked ids {unknown!r} not found in choices")
+        return set(ticks)
+
+    def _score(self, response: t.MultipleSelectionResponse) -> QuestionScore:
         """
         Score marked choices against their `correct` flags.
 
@@ -323,18 +354,7 @@ class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, Bool
         but only over correctly-judged choices, so it never goes negative
         without needing a floor; `"all-or-nothing"` requires every choice
         judged correctly.
-
-        Raises:
-            ResponseError: an element of `response` is not a string, or
-                names no choice of the question.
         """
-        known = {choice.id for choice in self.choices}
-        for tick in response:
-            if not isinstance(tick, str):
-                raise ResponseError(f"Ticked id {tick!r} is not a string")
-        unknown = sorted(tick for tick in response if tick not in known)
-        if unknown:
-            raise ResponseError(f"Ticked ids {unknown!r} not found in choices")
         n = len(self.choices)
         marks = [(choice, choice.id in response) for choice in self.choices]
         judged_correctly = sum(1 for choice, mark in marks if mark == choice.correct)
@@ -412,7 +432,34 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
         # A statement without `marker` is written as `T` or `F`.
         return choice.marker or ("T" if choice.correct else "F")
 
-    def score_response(self, response: t.TrueFalseResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.TrueFalseResponse:
+        """
+        Raises:
+            ResponseError: `response` is not a mapping, a key of it names
+                no statement, or a value is neither a boolean nor `None`
+                (responses.md, "True/false").
+        """
+        not_a_mapping = ResponseError(
+            f"A true/false response must be a mapping of statement ids, found "
+            f"{type(response).__name__}"
+        )
+        if not isinstance(response, Iterable):
+            raise not_a_mapping
+        known = {statement.id for statement in self.choices}
+        unknown = sorted(key for key in response if key not in known)
+        if unknown:
+            raise ResponseError(f"Statement ids {unknown!r} not found in choices")
+        if not isinstance(response, Mapping):
+            raise not_a_mapping
+        for key, value in response.items():
+            if value is not None and not isinstance(value, bool):
+                raise ResponseError(
+                    f"Response for statement {key!r} must be a boolean or null,"
+                    f" got {value!r}"
+                )
+        return dict(response)
+
+    def _score(self, response: t.TrueFalseResponse) -> QuestionScore:
         """
         Score judged statements against their `correct` flags.
 
@@ -422,22 +469,7 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
         a response that is merely incomplete; `"all-or-nothing"` is 1 only
         when every statement is judged correctly. A statement missing from
         `response` counts as an abstention, like an explicit `None`.
-
-        Raises:
-            ResponseError: a key of `response` names no statement, or a
-                value is neither a boolean nor `None` (responses.md,
-                "True/false").
         """
-        known = {statement.id for statement in self.choices}
-        unknown = sorted(key for key in response if key not in known)
-        if unknown:
-            raise ResponseError(f"Statement ids {unknown!r} not found in choices")
-        for key, value in response.items():
-            if value is not None and not isinstance(value, bool):
-                raise ResponseError(
-                    f"Response for statement {key!r} must be a boolean or null,"
-                    f" got {value!r}"
-                )
         n = len(self.choices)
         marks = [
             (statement, response.get(statement.id) if statement.id is not None else None)

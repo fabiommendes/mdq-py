@@ -204,16 +204,20 @@ class AnswerPattern(MdqModel):
 
 
 
-def check_text_response(response: object) -> None:
+def parse_text_response(response: object) -> str:
     """
-    Raise `ResponseError` unless `response` is a string (responses.md,
-    "Short answer and essay"). A number is not converted: `1.0` and `1`
-    would become different texts.
+    Return `response` if it is a string (responses.md, "Short answer and
+    essay"). A number is not converted: `1.0` and `1` would become
+    different texts.
+
+    Raises:
+        ResponseError: `response` is not a string.
     """
     if not isinstance(response, str):
         raise ResponseError(
             f"A text response must be a string, found {type(response).__name__}"
         )
+    return response
 
 
 #: A pattern list holds at least one entry (schema `patternList`, `minItems: 1`).
@@ -380,7 +384,15 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
         """Return the accept list grading uses: `accept`, or empty when unset."""
         return self.accept or []
 
-    def score_response(self, response: t.TextResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.TextResponse:
+        """
+        Raises:
+            ResponseError: `response` is not a string (responses.md, "Short
+                answer and essay"). An empty string is graded like any other.
+        """
+        return parse_text_response(response)
+
+    def _score(self, response: t.TextResponse) -> QuestionScore:
         """
         Score the response by the three rules of short-answer.md,
         "Grading": an `accept` match scores 1, a `reject` match scores 0,
@@ -390,12 +402,9 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
         `incorrect_feedback`, if set.
 
         Raises:
-            ResponseError: `response` is not a string (responses.md, "Short
-                answer and essay"). An empty string is graded like any other.
             NotAutoGradable: the response matches no pattern and
                 `effective_unmatched` is `"manual"`: it is pending.
         """
-        check_text_response(response)
         score = self.score_text(
             response,
             unmatched=self.effective_unmatched,
@@ -477,15 +486,20 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
         yield ""
         yield "[essay]"
 
-    def score_response(self, response: t.TextResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.TextResponse:
+        """
+        Raises:
+            ResponseError: `response` is not a string.
+        """
+        return parse_text_response(response)
+
+    def _score(self, response: t.TextResponse) -> QuestionScore:
         """
         Never gradable automatically.
 
         Raises:
-            ResponseError: `response` is not a string.
-            NotAutoGradable: always, for a string.
+            NotAutoGradable: always.
         """
-        check_text_response(response)
         raise NotAutoGradable("essay questions require manual grading")
 
     def _render_lines(self) -> Iterable[str]:

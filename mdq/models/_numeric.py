@@ -11,7 +11,7 @@ import unicodedata
 from collections.abc import Mapping
 from decimal import Decimal
 from fractions import Fraction
-from typing import Annotated, Any, Iterable, Iterator, Literal, Self
+from typing import Annotated, Any, Iterable, Iterator, Literal, Self, TypeGuard
 
 from pydantic import AfterValidator, Field, StrictFloat, StrictInt, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -266,7 +266,17 @@ class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
             tolerance=self.tolerance,
         )
 
-    def score_response(self, response: t.NumericResponse) -> QuestionScore:
+    def _parse_response(self, response: object) -> t.NumericResponse:
+        """
+        Raises:
+            ResponseError: `response` is not a number, a numeric string or
+                a `{value, unit}` mapping.
+        """
+        if not is_numeric_response(response):
+            raise ResponseError(f"{response!r} is not a valid numeric response")
+        return response
+
+    def _score(self, response: t.NumericResponse) -> QuestionScore:
         """See `NumericKey.score_numeric`."""
         return self.score_numeric(response)
 
@@ -274,6 +284,14 @@ class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
 #
 # Utilities
 #
+
+def is_numeric_response(response: object) -> TypeGuard[t.NumericResponse]:
+    """
+    Whether `response` has the shape of a numeric response (responses.md,
+    "Numeric"). Its value, domain and unit are checked while scoring.
+    """
+    return isinstance(response, int | float | Fraction | str | Mapping)
+
 
 def numeric_value(value: NumericAnswer | Fraction) -> Fraction:
     """
