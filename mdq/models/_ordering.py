@@ -167,16 +167,26 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
         line keeps its authored level; under `"lenient"` and `"strict"`
         the student sets the levels, so every level is 0. The texts are
         verbatim: blank lines and repeated lines stay.
+
+        `maxLevel`, only under `"lenient"` and `"strict"`: the highest
+        authored level of any line in `lines`, `extra`, `accept` and
+        `reject`, plus 1 (public-form.md, "Ordering"). It is a
+        presentation limit only and does not change grading.
         """
         fixed = self.indentation == "fixed"
         pool = sorted(
             ((level if fixed else 0, text) for level, text in [*self.lines, *self.extra]),
             key=lambda line: (line[1], line[0]),
         )
-        return {
+        body: dict[str, Any] = {
             "unmatched": self.unmatched,
             "pool": [[level, text] for level, text in pool],
         }
+        if not fixed:
+            sections = [self.lines, self.extra]
+            sections.extend(alt.lines for alt in [*self.accept, *self.reject])
+            body["maxLevel"] = 1 + max(level for lines in sections for level, _ in lines)
+        return body
 
     def correct_responses(self) -> list[list[list[int | str]]]:
         """
