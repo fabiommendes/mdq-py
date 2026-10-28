@@ -51,6 +51,7 @@ from ._choice import (
     check_choices_visually_identical,
     check_multiple_choice_answers,
     _with_choice_ids,
+    strip_choice_texts,
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
@@ -107,6 +108,13 @@ class BlankBase(MdqModel, ABC):
         """This blank with the ids it derives; only choice blanks derive any."""
         return self
 
+    def normalized(self) -> Self:
+        """
+        A copy of this blank in the form a render/parse round trip gives
+        (see `BaseQuestion.normalize`).
+        """
+        return self
+
     @abstractmethod
     def score(
         self,
@@ -140,6 +148,9 @@ class ChoiceBlank(BlankBase):
         """
         _check_unique_choices(type(self).__name__, self.choices)
         return self
+
+    def normalized(self) -> Self:
+        return self.model_copy(update={"choices": strip_choice_texts(self.choices)})
 
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
         choices_path = path + ("choices",)
@@ -180,6 +191,11 @@ class ChoiceBlank(BlankBase):
 
 class ShortAnswerBlank(PatternKey, BlankBase):
     type: Literal["short-answer"] = "short-answer"
+
+    def normalized(self) -> Self:
+        copy = self.model_copy()
+        copy._normalize_key()
+        return copy
 
     #: Feedback for an incorrect response that no pattern gave feedback to
     #: (short-answer.md, "Feedback"; fill-in.md, "Frontmatter").
@@ -248,6 +264,11 @@ class ShortAnswerBlank(PatternKey, BlankBase):
 class NumericBlank(NumericKey, BlankBase):
     type: Literal["numeric"] = "numeric"
 
+    def normalized(self) -> Self:
+        copy = self.model_copy()
+        copy._normalize_key()
+        return copy
+
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
         return self.lint_key(path)
 
@@ -303,6 +324,10 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
     #: pattern, for every short answer blank (fill-in.md, "Frontmatter").
     #: `None` leaves each blank to its own default.
     unmatched: Unmatched | None = None
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        self.blanks = [blank.normalized() for blank in self.blanks]
 
     @property
     def automation(self) -> Automation:

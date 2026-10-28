@@ -27,7 +27,14 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Diacritics, EssayContent, Unmatched
 from . import _lint
-from ._base import BaseQuestion, FreeText, MdqModel, raise_model_error
+from ._base import (
+    _ASCII_WS,
+    BaseQuestion,
+    FreeText,
+    MdqModel,
+    raise_model_error,
+    strip_optional_text,
+)
 from ._lint_codes import diag
 from ._regex import (
     IGNORED_FLAGS,
@@ -244,6 +251,16 @@ class PatternKey(MdqModel):
     pre_accept: PatternList | None = None
     pre_reject: PatternList | None = None
 
+    def _normalize_key(self) -> None:
+        """
+        Trim the `accept` and `reject` entries the way the parser does,
+        *inplace*. The `preAccept` and `preReject` entries stay as written.
+        """
+        if self.accept is not None:
+            self.accept = [_trimmed_pattern(rule) for rule in self.accept]
+        if self.reject is not None:
+            self.reject = [_trimmed_pattern(rule) for rule in self.reject]
+
     def lint_key(
         self,
         path: tuple[str | int, ...],
@@ -321,6 +338,10 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
     #: Feedback for an incorrect response that no pattern gave feedback to
     #: (short-answer.md, "Feedback").
     incorrect_feedback: FreeText | None = None
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        self._normalize_key()
 
     @property
     def effective_unmatched(self) -> Unmatched:
@@ -615,6 +636,17 @@ def prevalidate_response(
         hints = [r.feedback for r in pre_accept if r.feedback is not None]
         return False, hints[0] if hints else None
     return True, None
+
+
+def _trimmed_pattern(rule: AnswerPattern) -> AnswerPattern:
+    """`rule` without the ASCII whitespace the parser trims around its texts."""
+    return rule.model_copy(
+        update={
+            "pattern": rule.pattern.strip(_ASCII_WS),
+            "feedback": strip_optional_text(rule.feedback),
+            "comment": strip_optional_text(rule.comment),
+        }
+    )
 
 
 def _pattern_entry(rule: AnswerPattern) -> str | dict[str, str]:

@@ -179,7 +179,7 @@ def moodle_essay_block() -> st.SearchStrategy[MoodleXmlBlock]:
 #: cannot represent them. Generating one and weakening the round-trip
 #: assertion instead would paper over that gap, so the strategy excludes
 #: them outright (see `test_render_cloze_then_parse_recovers_kind_and_texts`).
-CLOZE_UNSAFE_CHARS = "={}~#:%"
+CLOZE_UNSAFE_CHARS = "={}~#:%\\"
 
 
 def cloze_answer_text(max_size: int = 10) -> st.SearchStrategy[str]:

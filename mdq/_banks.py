@@ -110,8 +110,8 @@ class FileLoader(_IndexedBank):
     which is how a bank organised into per-topic subdirectories keeps
     working without qualifying every id.
     `tagged` and `ids` only list the files that validate as a question: a
-    file that holds an exam, or a question with an error, is skipped
-    silently. `load` still returns the text of any file, so an explicit
+    file that holds an exam, a question with an error, or text that is not
+    UTF-8 is skipped silently. `load` still returns the text of any file, so an explicit
     `include` of an invalid question fails when the exam is resolved.
     """
 
@@ -144,7 +144,10 @@ class FileLoader(_IndexedBank):
         for path in sorted(paths):
             question_id = _question_id(path)
             if question_id is not None and path.is_file():
-                yield question_id, path.read_text(encoding="utf-8")
+                try:
+                    yield question_id, path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    continue
 
 
 class DictLoader(_IndexedBank):

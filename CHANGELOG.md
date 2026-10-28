@@ -18,6 +18,9 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- `normalize()` gives what a render and parse give: it strips the spaces around a choice text, a pattern, and the `feedback` and `comment` of choices, patterns and ordering alternatives; fills `domain` and `decimalPlaces` of numeric questions and numeric blanks, and the `marker` of true/false statements; and puts a numeric `answer` in the form a render and parse keep (`"100"` becomes `100`, `"1.50e3"` stays a string). `mdq.hypothesis` no longer sets these fields itself.
+- A `type` in the frontmatter that disagrees with the body (for example `type: numeric` with a `[short-answer]` body) is one `parse-error` that names both types, instead of `schema-error` entries.
+- GIFT and Moodle XML export escape every literal `*` of a short-answer pattern as `\*`, which Moodle reads as a literal asterisk. Before, an inner `*` raised, and a lone `` `*` `` was exported as a bare `*`, a Moodle wildcard that accepts any answer. The importers read `\*` back as a literal `*`.
 - A string numeric `answer` with a space or tab around it (`" 1"`, `"1 "`) is a `malformed-numeric-answer`, in a numeric question and in a numeric blank (breaking). Before, it was trimmed and accepted, against the schema pattern. The Markdown body `[numeric]: 1` is still trimmed.
 - In the fill-in frontmatter, a `null` entry in the `preAccept`, `preReject` or `incorrectFeedback` map means the field is absent for that blank (it was a `parse-error`). A `null` entry in `domain` or `decimalPlaces` no longer blocks the value inferred from the body.
 - JSON loading rejects `NaN`, `Infinity` and `-Infinity` with `json-syntax-error` (breaking). Python's `json` accepted them.
@@ -65,6 +68,13 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- The rendered frontmatter keeps non-ASCII characters (`title: Ciclo da água`, not `"Ciclo da \xE1gua"`). A string with a non-ASCII space or line break (NBSP, U+2028) is double-quoted.
+- An integer absolute tolerance renders as `6 +- 1`, not `6 +- 1.0`, so the round trip of an integer numeric blank keeps its domain.
+- `str()` of a model that is not a question no longer raises `NotImplementedError`.
+- `load` reports the `invalid-frontmatter-field` errors together with the `parse-error` of a body that does not parse. Before, they appeared only after the body was fixed.
+- GIFT export keeps the `incorrectFeedback` of a numeric question as a `*` answer worth 0%. The GIFT importer reads it back, and also reads Moodle's own form `~#feedback`.
+- Moodle XML cloze short-answer blanks escape only `}` and `#`, as the Moodle cloze importer expects: `10:30` and `x=y` are written as they are (they were `10\:30` and `x\=y`, which Moodle stored with the backslash), and `\*` is not doubled. A pattern with a `~`, or with a `\` before `~`, `}`, `#` or at the end, has no cloze form and raises on export. Every cloze kind separates the alternatives with `~` (two correct options were written `=a=b`, one answer for Moodle), and a 0% answer that starts with `=` or `%` gets an explicit `%0%` (a reject `=SOMA(A1)` was read back as an accept). The importer ends an answer only at an unescaped `~`.
+- `FileLoader` skips a bank file that is not UTF-8, like a file with an invalid question, instead of raising `UnicodeDecodeError`.
 - `score_response` of a multiple-selection question raises `ResponseError` for a string (`"a"`) or a mapping (`{"a": True}`) instead of reading its characters or keys as ticked ids. `score_response` of an ordering question raises it for `""` and `{}` instead of grading them as the empty list.
 - A trailing newline no longer passes where the grammar ends the text: `parse_numeric_answer("5\n")` and a numeric body raise `ParseError`, a `uuid` or `locale` that ends in a newline is `malformed-uuid` or `malformed-locale`, and an `id` that ends in a newline gets `unsafe-id`. The checks used `$`, which matches before a final newline; they use `fullmatch` now.
 - The Markdown parser no longer drops a setext underline in the `stem` and `epilogue`. `Exam.lint()` reports `setext-heading` for the `stem` and `epilogue` of its questions.

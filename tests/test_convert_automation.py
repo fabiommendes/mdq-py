@@ -76,16 +76,16 @@ def test_regex_accept_still_cannot_be_exported(format: str) -> None:
 
 
 @pytest.mark.parametrize("format", FORMATS)
-def test_asterisk_exports_as_a_plain_literal(format: str) -> None:
+def test_asterisk_exports_escaped(format: str) -> None:
     output = export_question(_sa(accept=["Brasília", "`*`"]), format=format)
     if format == "gift":
-        assert "=*" in output
+        assert "=\\\\*" in output
     else:
         assert [
             a.findtext("text") for a in _moodle_answers(_sa(accept=["Brasília", "`*`"]))
         ] == [
             "Brasília",
-            "*",
+            "\\*",
         ]
 
 

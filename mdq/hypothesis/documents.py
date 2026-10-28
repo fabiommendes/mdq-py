@@ -27,7 +27,7 @@ from typing import Any, Callable, Literal, get_args
 
 from hypothesis import strategies as st
 
-from .. import models, parse
+from .. import models
 from ..types import EssayContent, OrderingContent, QuestionType
 
 QUESTION_TYPES: tuple[QuestionType, ...] = get_args(QuestionType)
@@ -105,8 +105,7 @@ def true_false_questions() -> st.SearchStrategy[models.Question]:
     """
     Return a strategy for generating true-false questions.
 
-    Two to four statements, each true or false, with the `T` or `F`
-    `marker` the parser reads back.
+    Two to four statements, each true or false.
     """
     return st.builds(
         models.TrueFalseQuestion,
@@ -119,9 +118,7 @@ def numeric_questions() -> st.SearchStrategy[models.Question]:
     """
     Return a strategy for generating numeric questions.
 
-    The `answer` comes from `numeric_answers`. The `domain` and
-    `decimalPlaces` are the ones the parser infers from the answer, so a
-    render then parse keeps them. No `unit` or `tolerance`.
+    The `answer` comes from `numeric_answers`. No `unit` or `tolerance`.
     """
     return st.builds(
         lambda fields, base: models.NumericQuestion(**fields, **base),
@@ -132,22 +129,10 @@ def numeric_questions() -> st.SearchStrategy[models.Question]:
 
 def _numeric_key_fields() -> st.SearchStrategy[dict[str, Any]]:
     """
-    The `answer`, `domain` and `decimal_places` of a numeric question or
-    blank. The parser infers the last two from how the answer is written,
-    so they are read back from the parser instead of repeating its rules.
+    The fields of a numeric question or blank: the `answer` only. `normalize()`
+    fills `domain` and `decimalPlaces` as the parser does.
     """
-
-    def fields(answer: int | float | str) -> dict[str, Any]:
-        probe = models.NumericQuestion(stem="Probe", answer=answer)
-        parsed = parse(probe.render(), kind="question")
-        assert isinstance(parsed, models.NumericQuestion)
-        return {
-            "answer": answer,
-            "domain": parsed.domain,
-            "decimal_places": parsed.decimal_places,
-        }
-
-    return numeric_answers().map(fields)
+    return numeric_answers().map(lambda answer: {"answer": answer})
 
 
 _INT32_MIN = -(2**31)
@@ -761,9 +746,7 @@ def _statements() -> st.SearchStrategy[list[models.Statement]]:
     return _unique_lines(2, 4).flatmap(
         lambda texts: st.builds(
             lambda ids, flags: [
-                models.Statement(
-                    id=id_, text=text, correct=flag, marker="T" if flag else "F"
-                )
+                models.Statement(id=id_, text=text, correct=flag)
                 for text, id_, flag in zip(texts, ids, flags)
             ],
             _optional_ids(len(texts)),

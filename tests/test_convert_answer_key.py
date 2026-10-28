@@ -186,7 +186,7 @@ def test_moodle_numeric_star_zero_becomes_incorrect_feedback() -> None:
 
 
 def test_cloze_numeric_blank_key_is_the_full_credit_answer() -> None:
-    q = import_question(_cloze_xml("{1:NUMERICAL:~1823#Quase=1822}"), format="moodle-xml")
+    q = import_question(_cloze_xml("{1:NUMERICAL:~1823#Quase~=1822}"), format="moodle-xml")
     [blank] = q.blanks
     assert blank.answer == 1822
 

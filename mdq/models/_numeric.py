@@ -190,6 +190,29 @@ class NumericKey(MdqModel):
         )
         return self
 
+    def _normalize_key(self) -> None:
+        """
+        Put `answer`, `domain` and `decimal_places` in the form a render/parse
+        round trip keeps, *inplace*. The `answer` is read again from the
+        spelling `render_numeric_tag` writes for it, until it is the same
+        value as its own spelling reads (`"1e3"` reads as `1000.0`, which is
+        written `1000.0` and read as the string `"1000.0"`). A `domain` or
+        `decimal_places` already declared stays.
+        """
+        answer = self.answer
+        while True:
+            spelling = answer if isinstance(answer, str) else _format_number(answer)
+            reread = _parser.parse_numeric_answer(spelling)
+            if type(reread) is type(answer) and reread == answer:
+                break
+            answer = reread
+        self.answer = answer
+        domain, places = _written_domain_and_places(answer, self.tolerance)
+        if self.domain is None:
+            self.domain = domain
+        if self.decimal_places is None and self.domain == "decimal" and places is not None:
+            self.decimal_places = places
+
     @property
     def effective_domain(self) -> NumericDomain:
         """
@@ -264,6 +287,10 @@ class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
         if self.incorrect_feedback is not None:
             data["incorrectFeedback"] = self.incorrect_feedback
         return data
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        self._normalize_key()
 
     def _render_body(self) -> Iterable[str]:
         yield ""
@@ -511,11 +538,57 @@ def render_numeric_tag(
     terms = [answer if isinstance(answer, str) else _format_number(answer)]
     if tolerance is not None:
         if tolerance.absolute is not None:
-            terms.append(f"+- {_format_number(tolerance.absolute)}")
+            terms.append(f"+- {_format_tolerance(tolerance.absolute)}")
         if tolerance.relative is not None:
             percent = Decimal(repr(tolerance.relative)) * 100
             terms.append(f"+- {_format_number(float(percent))}%")
     return f"{tag}: {' '.join(terms)}"
+
+
+def _spelling_places(spelling: str) -> int:
+    """numeric.md, "Decimal places": `max(0, d - e)` for the spelling of a number."""
+    mantissa, _, exponent = spelling.lower().partition("e")
+    digits = len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
+    return max(0, digits - int(exponent or 0))
+
+
+def _written_domain_and_places(
+    answer: NumericAnswer, tolerance: Tolerance | None
+) -> tuple[NumericDomain, int | None]:
+    """
+    The `domain` and the decimal places the parser reads from the tag
+    `render_numeric_tag` writes for `answer` and `tolerance` (numeric.md,
+    "Number type/domain" and "Decimal places"). The places are `None` for
+    a fraction that the tolerance gives none.
+    """
+    value = answer if isinstance(answer, str) else _format_number(answer)
+    value = value.lstrip("+-")
+    is_fraction = "/" in value
+    absolute = (
+        None
+        if tolerance is None or tolerance.absolute is None
+        else _format_tolerance(tolerance.absolute)
+    )
+    tolerance_is_decimal = absolute is not None and any(c in absolute for c in ".eE")
+    value_is_decimal = not is_fraction and any(c in value for c in ".eE")
+    domain: NumericDomain = "integer"
+    if is_fraction:
+        domain = "fraction"
+    if value_is_decimal or tolerance_is_decimal:
+        domain = "decimal"
+    absolute_places = 0 if absolute is None else _spelling_places(absolute)
+    if is_fraction:
+        return domain, absolute_places or None
+    return domain, max(_spelling_places(value), absolute_places)
+
+
+def _format_tolerance(value: float) -> str:
+    """
+    Write an absolute tolerance. A `Tolerance` stores a float, which cannot
+    tell `1` from `1.0`, so a whole value is written as an integer; the
+    domain then reads back as `integer` unless the question declares it.
+    """
+    return str(int(value)) if value == int(value) else _format_number(value)
 
 
 def _format_number(value: int | float) -> str:

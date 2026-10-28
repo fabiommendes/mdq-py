@@ -52,7 +52,9 @@ from ._base import (
     BaseQuestion,
     FreeText,
     SlugId,
+    _ASCII_WS,
     _check_unique_choices,
+    strip_optional_text,
     raise_model_error,
 )
 from ._lint_codes import diag
@@ -196,6 +198,25 @@ def unspecified_choice_score(choices: Sequence[ScoredChoice], *, symmetric: bool
     return max(-1.0, min(0.0, -sum(declared) / missing))
 
 
+def strip_choice_texts[C: (ScoredChoice, BooleanChoice, Statement)](
+    choices: Sequence[C],
+) -> list[C]:
+    """
+    Return copies of `choices` whose texts, feedbacks and comments have no ASCII
+    whitespace around them: the parser trims both.
+    """
+    return [
+        choice.model_copy(
+            update={
+                "text": choice.text.strip(_ASCII_WS),
+                "feedback": strip_optional_text(choice.feedback),
+                "comment": strip_optional_text(choice.comment),
+            }
+        )
+        for choice in choices
+    ]
+
+
 class ChoiceQuestion[R, C: (ScoredChoice, BooleanChoice, Statement)](BaseQuestion[R]):
     """
     What multiple-choice, multiple-selection and true-false share: a list
@@ -228,6 +249,10 @@ class ChoiceQuestion[R, C: (ScoredChoice, BooleanChoice, Statement)](BaseQuestio
     def with_ids(self) -> Self:
         """See `BaseQuestion.with_ids`."""
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        self.choices = strip_choice_texts(self.choices)
 
     def lint(self) -> list[Diagnostic]:
         """See `BaseQuestion.lint`."""
@@ -428,6 +453,13 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
         diagnostics.extend(check_true_false_uniform_answers(self.choices))
         diagnostics.extend(check_true_false_marker_nfkc(self.choices))
         return diagnostics
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        # The parser reads a statement without `marker` as `T` or `F`.
+        self.choices = [
+            choice.model_copy(update={"marker": self._mark(choice)}) for choice in self.choices
+        ]
 
     def _mark(self, choice: Statement) -> str:
         # A statement without `marker` is written as `T` or `F`.

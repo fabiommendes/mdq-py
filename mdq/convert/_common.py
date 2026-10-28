@@ -80,8 +80,15 @@ def parse_entries(
     optional `#feedback`. `credit_from_percent` converts the tag's percentage
     to a credit, which GIFT and Cloze do differently.
     """
+    return entries_from_segments(split_unescaped(body, markers), credit_from_percent)
+
+
+def entries_from_segments(
+    segments: list[str], credit_from_percent: Callable[[float], float]
+) -> list[Entry]:
+    """Parse the segments of `parse_entries`: each starts with its `=` or `~` marker."""
     entries = []
-    for entry in split_unescaped(body, markers):
+    for entry in segments:
         credit = 1.0 if entry[0] == "=" else 0.0
         rest = entry[1:]
         credit_match = CREDIT_TAG_REGEX.match(rest)

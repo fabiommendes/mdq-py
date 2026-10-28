@@ -46,12 +46,14 @@ from ._base import (
     score_from_moodle_percent,
 )
 from ._common import (
+    Entry,
     escape_text,
     find_unescaped,
     format_num,
     join_blocks,
     numeric_tolerance,
-    parse_entries,
+    entries_from_segments,
+    split_unescaped,
     unescape_text,
 )
 from ._string_parser import ParserError
@@ -1044,20 +1046,64 @@ def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:
 def render_cloze(cloze: MoodleCloze) -> str:
     """Render one inline cloze blank, always using its canonical kind name."""
     parts = []
-    for answer in cloze.answers:
+    for i, answer in enumerate(cloze.answers):
+        text = (
+            escape_cloze_pattern(answer.text)
+            if cloze.kind == "SHORTANSWER"
+            else escape_text(answer.text)
+        )
+        # An answer ends only at an unescaped `~`, `}` or `#`: `~` separates all
+        # alternatives. A 0% answer whose text starts with `=` or `%` needs an
+        # explicit `%0%`, or Moodle reads the text as a marker.
+        lead = "~" if i or answer.fraction != 100.0 else ""
         if answer.fraction == 100.0:
-            prefix = "="
+            prefix = lead + "="
         elif answer.fraction == 0.0:
-            prefix = "~"
+            prefix = lead + ("%0%" if text.startswith(("=", "%")) else "")
         else:
-            prefix = f"~%{format_num(answer.fraction)}%"
-        entry = prefix + escape_text(answer.text)
+            prefix = f"{lead}%{format_num(answer.fraction)}%"
+        entry = prefix + text
         if cloze.kind == "NUMERICAL" and answer.tolerance:
             entry += f":{escape_text(format_num(answer.tolerance))}"
         if answer.feedback:
             entry += f"#{escape_text(answer.feedback)}"
         parts.append(entry)
     return f"{{{cloze.weight}:{cloze.kind}:{''.join(parts)}}}"
+
+
+def escape_cloze_pattern(text: str) -> str:
+    r"""
+    Escape the text of a SHORTANSWER cloze option. Moodle's cloze import
+    unescapes only `\}` and `\#` (`:` and `=` need no escape) and never `\\`,
+    so a backslash is written as it is: `\*` (a literal asterisk) reaches the
+    shortanswer matcher intact.
+
+    Raises:
+        ValueError: `text` has a `~` or a backslash before a `~`, `}` or `#`
+            (or at its end), which have no form in a cloze blank.
+    """
+    if "~" in text or re.search(r"\\(?:[~}#]|$)", text):
+        raise ValueError(
+            f"cannot convert to {_FORMAT}: the answer {text!r} has a `~` or a "
+            "backslash before `~`, `}`, `#` or at its end, which a cloze blank "
+            "cannot express"
+        )
+    return re.sub(r"[}#]", lambda m: "\\" + m.group(), text)
+
+
+def unescape_cloze_pattern(text: str) -> str:
+    r"""Undo `escape_cloze_pattern`; other backslashes, such as `\*`, stay."""
+    return re.sub(r"\\([}#])", r"\1", text)
+
+
+def cloze_entries(body: str) -> list[Entry]:
+    """
+    Split the body of a cloze blank into entries. Only `~` ends an answer, which
+    may start with `=`: an `=` inside the text is part of it.
+    """
+    pieces = split_unescaped(body if body.startswith("~") else "~" + body, "~")
+    segments = [p[1:] if p[1:].startswith("=") else p for p in pieces]
+    return entries_from_segments(segments, lambda percent: percent / 100)
 
 
 def normalize_cloze_kind(raw: str) -> ClozeKind:
@@ -1071,7 +1117,8 @@ def normalize_cloze_kind(raw: str) -> ClozeKind:
 def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
     """Parse a cloze blank's `=`/`~`-delimited option list."""
     answers = []
-    for entry in parse_entries(body, "=~", lambda percent: percent / 100):
+    entries = cloze_entries(body)
+    for entry in entries:
         text_raw = entry.text
         tolerance = None
         if kind == "NUMERICAL":
@@ -1082,7 +1129,11 @@ def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
         feedback = unescape_text(entry.feedback) if entry.feedback else None
         answers.append(
             MoodleAnswer(
-                text=unescape_text(text_raw),
+                text=(
+                    unescape_cloze_pattern(text_raw)
+                    if kind == "SHORTANSWER"
+                    else unescape_text(text_raw)
+                ),
                 fraction=entry.credit * 100,
                 feedback=feedback or None,
                 tolerance=tolerance,

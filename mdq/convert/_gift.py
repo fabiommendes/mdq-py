@@ -130,12 +130,16 @@ class GiftOption:
 
 @dataclass
 class GiftNumericOption:
-    """One numeric answer entry: a value, tolerance, credit and feedback."""
+    """
+    One numeric answer entry: a value, tolerance, credit and feedback.
+    `any_value` is Moodle's `*` ("any other answer"), which has no value.
+    """
 
     value: float
     tolerance: float = 0.0
     credit: float = 1.0
     feedback: str | None = None
+    any_value: bool = False
 
 
 @dataclass
@@ -311,7 +315,14 @@ def block_from_short(question: ShortAnswerQuestion) -> GiftBlock:
 def block_from_numeric(question: NumericQuestion) -> GiftBlock:
     value = float_answer(question.answer, question.tolerance, format="GIFT")
     tolerance = numeric_tolerance(value, question.tolerance)
-    answer = GiftNumeric(options=[GiftNumericOption(value=value, tolerance=tolerance)])
+    options = [GiftNumericOption(value=value, tolerance=tolerance)]
+    if question.incorrect_feedback is not None:
+        options.append(
+            GiftNumericOption(
+                value=0.0, credit=0.0, feedback=question.incorrect_feedback, any_value=True
+            )
+        )
+    answer = GiftNumeric(options=options)
     return gift_block(question, with_epilogue(question), answer)
 
 def block_from_essay(question: EssayQuestion) -> GiftBlock:
@@ -541,7 +552,7 @@ def imported_options(options: list[GiftOption]) -> list[ImportedAnswer]:
 def imported_numeric_options(options: list[GiftNumericOption]) -> list[ImportedAnswer]:
     """The numeric options of a GIFT body, as the answers of `numeric_answer_key`."""
     return [
-        ImportedAnswer(format_num(o.value), o.credit, o.feedback, o.tolerance)
+        ImportedAnswer("*" if o.any_value else format_num(o.value), o.credit, o.feedback, o.tolerance)
         for o in options
     ]
 
@@ -744,14 +755,18 @@ class GiftParser:
             return [GiftNumericOption(value=value, tolerance=tolerance)]
 
         options = []
-        for entry in parse_entries(body, "=", score_from_moodle_percent):
-            value, tolerance = self.parse_numeric_spec(entry.text.strip(), offset)
+        for entry in parse_entries(body, "=~", score_from_moodle_percent):
+            spec = entry.text.strip()
+            # `=%0%*#fb` is MDQ's form of "any other answer"; `~#fb` is Moodle's own.
+            any_value = spec == "*" or (spec == "" and entry.credit == 0.0)
+            value, tolerance = (0.0, 0.0) if any_value else self.parse_numeric_spec(spec, offset)
             options.append(
                 GiftNumericOption(
                     value=value,
                     tolerance=tolerance,
                     credit=entry.credit,
                     feedback=unescape_feedback(entry.feedback),
+                    any_value=any_value,
                 )
             )
         return options
@@ -809,7 +824,7 @@ def render_gift_numeric(options: list[GiftNumericOption]) -> str:
         entry = "="
         if opt.credit != 1.0:
             entry += f"%{format_credit(opt.credit)}%"
-        entry += format_num(opt.value)
+        entry += "*" if opt.any_value else format_num(opt.value)
         if opt.tolerance:
             entry += f":{format_num(opt.tolerance)}"
         if opt.feedback:

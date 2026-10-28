@@ -47,10 +47,12 @@ from .._diagnostics import Diagnostic
 from .._markdown import SLUG_BODY_RE
 from ..errors import (
     IncompleteQuestion,
+    MdqError,
     MissingField,
     ParseError,
 )
 from ..types import (
+    QUESTION_TYPES,
     QuestionDict,
 )
 from ._blocks import (
@@ -69,10 +71,12 @@ from ._choices import (
     match_choice_marker,
 )
 from ._frontmatter import (
+    article,
     copy_passthrough_fields,
     _extract_comment,
     common_frontmatter,
     _load_frontmatter_yaml,
+    _frontmatter_fields,
     _invalid_frontmatter_fields,
     _split_frontmatter,
 )
@@ -109,6 +113,19 @@ __all__ = [
 #: and a choice marker (choices.md, "Choice marker").
 BRACKET_ITEM_RE = re.compile(r"^[*+-][ \t]+\[[^\]\r\n]*\](?![(\[])")
 ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
+
+#: The types a body tag allows, and how the message calls the body.
+_TAG_BODY: dict[type[object], tuple[frozenset[str], str]] = {
+    EssayTag: (frozenset({"essay"}), "an essay (`[essay]`)"),
+    OrderingTag: (frozenset({"ordering"}), "an ordering (`[ordering]`)"),
+    ShortAnswerTag: (frozenset({"short-answer"}), "a short-answer (`[short-answer]`)"),
+    NumericTag: (frozenset({"numeric"}), "a numeric (`[numeric]`)"),
+    ChoiceBlankTag: (frozenset({"fill-in"}), "a fill-in (`[^id]:`)"),
+    NumericBlankTag: (frozenset({"fill-in"}), "a fill-in (`[^id/numeric]:`)"),
+    ShortAnswerBlankTag: (frozenset({"fill-in"}), "a fill-in (`[^id/short-answer]:`)"),
+    UnrecognizedBlankTag: (frozenset({"fill-in"}), "a fill-in blank tag"),
+    type(None): (frozenset(QUESTION_TYPES), ""),
+}
 
 #
 # Public API
@@ -151,11 +168,71 @@ def parse_question(
     """
 
     parser = MDQParser(text)
-    doc = parser.parse_question()
+    try:
+        doc = parser.parse_question()
+    except MdqError:
+        # The frontmatter errors do not depend on the body: report them
+        # along with the error that stops the parse.
+        if warnings is not None:
+            warnings.extend(_frontmatter_errors_without_body(parser.frontmatter, parser.body_type))
+        raise
     if warnings is not None:
         warnings.extend(_invalid_frontmatter_fields(parser.frontmatter, doc["type"]))
         warnings.extend(parser.diagnostics)
     return doc
+
+
+def _frontmatter_errors_without_body(
+    front: Mapping[str, object], body_type: str | None
+) -> list[Diagnostic]:
+    """
+    The `invalid-frontmatter-field` errors of a question whose body did not
+    parse. The declared `type` decides the allowed keys, else the type the
+    body implies. If neither is a question type, a key is an error only when
+    no question type allows it.
+
+    Args:
+        front: The frontmatter of the question.
+        body_type: The type the body implies, if the parser got that far.
+    """
+    declared = front.get("type")
+    for question_type in (declared, body_type):
+        if isinstance(question_type, str) and question_type in QUESTION_TYPES:
+            return _invalid_frontmatter_fields(front, question_type)
+    allowed = frozenset().union(*(_frontmatter_fields(t) for t in QUESTION_TYPES))
+    return [
+        Diagnostic(
+            severity="error",
+            code="invalid-frontmatter-field",
+            path=(key,),
+            message=f"{key!r} is not a frontmatter field of any question type",
+        )
+        for key in front
+        if key not in allowed
+    ]
+
+
+def _check_declared_type(
+    declared: object, body_types: frozenset[str], body: str
+) -> None:
+    """
+    Raise a `ParseError` if the `type` of the frontmatter is a question type
+    and the body belongs to another one (question-base.md, "Type inference").
+
+    Args:
+        declared: The `type` of the frontmatter, if any.
+        body_types: The types the body can have.
+        body: What the body is, for the message.
+    """
+    if (
+        isinstance(declared, str)
+        and declared in QUESTION_TYPES
+        and declared not in body_types
+    ):
+        raise ParseError(
+            f"the frontmatter declares type {declared!r}, but the body is "
+            f"{body}; write the body of {article(declared)} {declared} question or change `type`"
+        )
 
 
 def _redundant_id(front_id: object, slug: str) -> Diagnostic:
@@ -214,6 +291,10 @@ class MDQParser:
 
     #: Warnings the parser found in the source layout.
     diagnostics: list[Diagnostic] = field(default_factory=list, init=False)
+
+    #: The type the body implies, once the parser knows it. Set before the
+    #: body is parsed, so it is available when the body fails.
+    body_type: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         frontmatter_text, body_text = _split_frontmatter(self.src)
@@ -471,15 +552,26 @@ class MDQParser:
         elif node.type == "bullet_list":
             # Ambiguous between multiple-choice / multiple-selection /
             # true-false: infer from the bracket values unless declared.
+            _check_declared_type(
+                question_type,
+                frozenset({"multiple-choice", "multiple-selection", "true-false"}),
+                "a choice list",
+            )
             body_node = self.cursor.expect("bullet_list", "malformed choice list")
             raw_choices = parse_item_list(self.reader, body_node)
             values = [c.value for c in raw_choices]
             question_type = question_type or _infer_choice_type(values)
-            self.parse_choice_body(as_choice_type(question_type), raw_choices)
+            choice_type = as_choice_type(question_type)
+            self.body_type = choice_type
+            self.parse_choice_body(choice_type, raw_choices)
         else:
             body_node = self.cursor.expect("paragraph", "unrecognized question body")
             text = self.reader.raw_text(body_node)
             tag = read_body_tag(text)
+            body_types, body_name = _TAG_BODY[type(tag)]
+            if len(body_types) == 1:
+                self.body_type = next(iter(body_types))
+            _check_declared_type(question_type, body_types, body_name)
             match tag:
                 case EssayTag():
                     question_type = question_type or "essay"

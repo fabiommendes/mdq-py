@@ -246,9 +246,9 @@ def test_b4_export_regex_raises(texts: str) -> None:
 
 
 @pytest.mark.parametrize("texts", ["_gift_texts", "_moodle_texts"])
-def test_b4_export_asterisk_is_a_plain_literal(texts: str) -> None:
+def test_b4_export_asterisk_is_escaped(texts: str) -> None:
     question = ShortAnswerQuestion(stem="Rio?", accept=["Amazonas", "`*`"])
-    assert globals()[texts](question) == ["Amazonas", "*"]
+    assert globals()[texts](question) == ["Amazonas", "\\*"]
 
 
 @pytest.mark.parametrize("texts", ["_gift_texts", "_moodle_texts"])

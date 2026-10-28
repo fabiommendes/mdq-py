@@ -22,7 +22,13 @@ from .._diagnostics import Diagnostic
 from ..errors import NotAutoGradable, ResponseError
 from ..types import Automation, Indentation, Normalization, OrderingContent, Unmatched
 from . import _lint, _render
-from ._base import BaseQuestion, FreeText, MdqModel, raise_model_error
+from ._base import (
+    BaseQuestion,
+    FreeText,
+    MdqModel,
+    raise_model_error,
+    strip_optional_text,
+)
 from ._lint_codes import diag
 from ._score import QuestionScore
 
@@ -75,6 +81,16 @@ class OrderingAlternative(MdqModel):
     comment: FreeText | None = None
 
 
+def _trimmed_alternative(rule: OrderingAlternative) -> OrderingAlternative:
+    """`rule` without the whitespace the parser trims around its feedback and comment."""
+    return rule.model_copy(
+        update={
+            "feedback": strip_optional_text(rule.feedback),
+            "comment": strip_optional_text(rule.comment),
+        }
+    )
+
+
 class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
     """
     A question asking the student to sort a list of lines.
@@ -96,6 +112,11 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
     #: feedback to (ordering.md, "Feedback").
     incorrect_feedback: FreeText | None = None
     normalizations: list[Normalization] = Field(default_factory=list)
+
+    def _normalize(self) -> None:
+        super()._normalize()
+        self.accept = [_trimmed_alternative(rule) for rule in self.accept]
+        self.reject = [_trimmed_alternative(rule) for rule in self.reject]
 
     @property
     def automation(self) -> Automation:

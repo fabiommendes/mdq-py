@@ -231,6 +231,21 @@ class _FrontmatterDumper(yaml.SafeDumper):
 _FrontmatterDumper.yaml_implicit_resolvers = _core_resolver_table()
 
 
+def _represent_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
+    """
+    Double-quote a string with a non-ASCII space or line break (NBSP,
+    U+2028, ...): `allow_unicode` would write it raw, and the line-based
+    readers (`str.splitlines`, `str.strip`) would cut or trim it. Double
+    quotes keep it inside the scalar, and escape the line breaks.
+    """
+    if any(ch.isspace() and not ch.isascii() for ch in data):
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style='"')
+    return dumper.represent_str(data)
+
+
+_FrontmatterDumper.add_representer(str, _represent_str)
+
+
 def _construct_core_int(loader: yaml.SafeLoader, node: yaml.ScalarNode) -> int:
     """
     YAML 1.2 Core integers: decimal, `0o` octal, `0x` hex. PyYAML's own
@@ -308,12 +323,17 @@ def _hide_unicode_breaks(text: str) -> tuple[str, dict[str, str]]:
     return text, table
 
 
+def article(word: str) -> str:
+    """The indefinite article of a document type: "an" before a vowel."""
+    return "an" if word[0] in "aeiou" else "a"
+
+
 def dump_yaml(data: Any) -> str:
     """
     Dump `data` as YAML that `load_yaml` reads back unchanged: block style,
     sorted keys, strings quoted exactly when the Core schema needs it.
     """
-    return yaml.dump(data, Dumper=_FrontmatterDumper)
+    return yaml.dump(data, Dumper=_FrontmatterDumper, allow_unicode=True)
 
 
 def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
@@ -456,7 +476,7 @@ def _invalid_frontmatter_fields(
             message = f"{key!r} is a field the body sets, not a frontmatter field"
             message += f": {hint}" if hint else ""
         else:
-            message = f"{key!r} is not a frontmatter field of a {document_type}"
+            message = f"{key!r} is not a frontmatter field of {article(document_type)} {document_type}"
         diagnostics.append(
             Diagnostic(
                 severity="error",

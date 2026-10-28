@@ -232,13 +232,16 @@ class ExportedAnswer:
 
 
 def literal_text(rule: AnswerPattern, *, format: str) -> str:
-    """
+    r"""
     Return the text an external format stores for a literal pattern: a plain
     literal as it is, a backtick-enclosed literal without its backticks.
 
+    Every `*` is escaped with a backslash, which Moodle reads as a literal
+    asterisk, so a lone `*` is not Moodle's "any other answer". A backslash
+    before a `*` is kept: Moodle stores `2\\*3` and matches the literal `2\*3`.
+
     Raises:
-        ValueError: `rule` is a regex, or a literal with a `*` inside its text,
-            which Moodle reads as a wildcard: an external format cannot express them.
+        ValueError: `rule` is a regex, which an external format cannot express.
     """
     pattern = rule.pattern.strip(" \t\r\n")
     if pattern.startswith("/"):
@@ -248,12 +251,7 @@ def literal_text(rule: AnswerPattern, *, format: str) -> str:
         )
     content = exact_literal(pattern)
     text = pattern if content is None else content
-    if "*" in text and text.strip(" \t\r\n") != "*":
-        raise ValueError(
-            f"cannot convert to {format}: the literal {text!r} has a `*`, "
-            f"which {format} reads as a wildcard"
-        )
-    return text
+    return text.replace("*", "\\*")
 
 
 def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[str]:
@@ -448,6 +446,10 @@ def _credit_kind(answer: ImportedAnswer, *, format: str, what: str) -> Literal["
     )
 
 
+#: An asterisk without a backslash before it: a wildcard in Moodle.
+_WILDCARD_RE = re.compile(r"(?<!\\)\*")
+
+
 def _is_wildcard(text: str) -> bool:
     """Whether `text` is Moodle's lone `*` ("any other answer")."""
     return text.strip(" \t\r\n") == "*"
@@ -478,12 +480,12 @@ def short_answer_key(
             elif answer.feedback:
                 incorrect_feedback = answer.feedback
             continue
-        if "*" in answer.text and not _is_wildcard(answer.text):
+        if not _is_wildcard(answer.text) and _WILDCARD_RE.search(answer.text):
             raise ValueError(
                 f"cannot convert from {format}: the answer {answer.text!r} has a "
                 "`*` wildcard, which MDQ literal patterns do not support"
             )
-        literal = literal_pattern(answer.text, format=format)
+        literal = literal_pattern(answer.text.replace("\\*", "*"), format=format)
         entry = AnswerPattern(pattern=literal.pattern, feedback=answer.feedback)
         (accept if kind == "full" else reject).append(entry)
     return ShortAnswerKey(accept, reject or None, incorrect_feedback)

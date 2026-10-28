@@ -85,8 +85,11 @@ class MdqModel(BaseModel):
         """
         Return a Markdown representation of the model.
 
-        Same as `render()`.
+        Same as `render()`. A model that is not a question or an exam has no
+        Markdown form and gets the default pydantic string.
         """
+        if type(self)._render_lines is MdqModel._render_lines:
+            return super().__str__()
         return self.render()
 
     def to_dict(self, by_alias: bool = True) -> dict[str, Any]:
@@ -656,6 +659,14 @@ def can_inline_id(stem: str) -> bool:
 
 #: The whitespace that CommonMark trims around a block.
 _ASCII_WS = " \t\r\n"
+
+
+def strip_optional_text(text: str | None) -> str | None:
+    """
+    `text` without the ASCII whitespace the parser trims around the
+    feedback and the comment of a line; `None` if nothing is left.
+    """
+    return None if text is None else text.strip(_ASCII_WS) or None
 
 
 def normalize_paragraphs(src: str) -> str:

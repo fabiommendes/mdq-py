@@ -279,7 +279,7 @@ def test_moodle_xml_cloze_choice_blank_needs_a_full_credit_choice(
 
 def test_moodle_xml_cloze_choice_blank_with_a_full_credit_choice_exports() -> None:
     source = export_question(_choice_blank_question(0.5, 1.0, None), format="moodle-xml")
-    assert "{1:MULTICHOICE:~%50%Amazônia=Cerrado~Caatinga}" in source
+    assert "{1:MULTICHOICE:~%50%Amazônia~=Cerrado~Caatinga}" in source
 
 
 def test_moodle_xml_cloze_choice_blank_needs_two_choices() -> None:
