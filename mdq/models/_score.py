@@ -32,6 +32,14 @@ class QuestionScore(MdqModel):
     #: statements in true-false. A skipped question triggers none.
     feedback: list[str] = Field(default_factory=list)
 
+    #: The score of each blank of a fill-in question, keyed by blank id,
+    #: with that blank's own feedback (fill-in.md, "Blank scores"). The
+    #: blank score is the one the question's strategy gives it, before the
+    #: strategy combines the blanks: an empty blank scores 0 with no
+    #: feedback. `None` marks a pending blank. Only fill-in sets this
+    #: field; it is `None` for every other question type.
+    blanks: dict[str, QuestionScore | None] | None = None
+
 
 @dataclass(frozen=True)
 class ExamScore:

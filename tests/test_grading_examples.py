@@ -209,6 +209,9 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
         with pytest.raises(ResponseError):
             question.score_response(example["response"])
         return
+    blanks = _expected_blanks(example, strategy)
+    if blanks is not None:
+        assert _blank_scores(question.score_blanks(example["response"])) == blanks
     if expected == "pending":
         with pytest.raises(NotAutoGradable):
             question.score_response(example["response"])
@@ -219,6 +222,30 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
     assert result.score == pytest.approx(_number(expected))
     if "feedback" in example:
         assert result.feedback == example["feedback"]
+    assert result.blanks is not None
+    assert list(result.blanks) == [blank.id for blank in question.blanks]
+    if blanks is not None:
+        assert _blank_scores(result.blanks) == blanks
+
+
+def _expected_blanks(example: dict[str, Any], strategy: str) -> dict[str, Any] | None:
+    # The `blanks` field of a fill-in example, resolved for one strategy:
+    # blank id -> approx score, or "pending".
+    if "blanks" not in example:
+        return None
+    expected: dict[str, Any] = {}
+    for blank_id, value in example["blanks"].items():
+        if isinstance(value, dict):
+            value = value[strategy]
+        expected[blank_id] = value if value == "pending" else pytest.approx(_number(value))
+    return expected
+
+
+def _blank_scores(blanks: Any) -> dict[str, Any]:
+    return {
+        blank_id: "pending" if result is None else result.score
+        for blank_id, result in blanks.items()
+    }
 
 
 def test_every_grading_file_is_covered() -> None:

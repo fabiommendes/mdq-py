@@ -622,6 +622,44 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             raise not_a_mapping
         return response
 
+    def score_blanks(self, response: object) -> dict[str, QuestionScore | None]:
+        """
+        Return the score of each blank, keyed by blank id, in the order of
+        the blank definitions (fill-in.md, "Blank scores").
+
+        Each blank is scored as the question's strategy scores it, before
+        the strategy combines the blanks. An empty blank (no key, or a
+        `None` value) scores 0 with no feedback. A pending blank maps to
+        `None`. Unlike `score_response()`, a pending blank does not raise:
+        a review screen can show the settled blanks of a pending question.
+
+        Raises:
+            ResponseError: `response` is not a valid response to this
+                question (responses.md, "Fill in the blanks").
+        """
+        return self._score_blanks(self._parse_response(response))
+
+    def _score_blanks(
+        self, response: Mapping[str, object]
+    ) -> dict[str, QuestionScore | None]:
+        symmetric = self.effective_grading() == "symmetric"
+        scores: dict[str, QuestionScore | None] = {}
+        for blank in self.blanks:
+            sub_response = response.get(blank.id)
+            if sub_response is None:
+                scores[blank.id] = QuestionScore(score=0.0)
+                continue
+            result = blank.score(
+                sub_response,
+                symmetric=symmetric,
+                diacritics=self.diacritics,
+                unmatched=self.unmatched,
+            )
+            # The instructor scores a pending blank; the other blanks are
+            # still checked, so a malformed one raises.
+            scores[blank.id] = result if isinstance(result, QuestionScore) else None
+        return scores
+
     def _score(self, response: Mapping[str, object]) -> QuestionScore:
         """
         Score each blank independently and combine by `grading`.
@@ -633,35 +671,16 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             ResponseError: a blank's response doesn't match its type.
             NotAutoGradable: a short answer blank response is pending.
         """
-        symmetric = self.effective_grading() == "symmetric"
-        scores: list[float] = []
-        feedback: list[str] = []
-        pending: list[str] = []
-
-        for blank in self.blanks:
-            sub_response = response.get(blank.id)
-            if sub_response is None:
-                scores.append(0.0)
-                continue
-            result = blank.score(
-                sub_response,
-                symmetric=symmetric,
-                diacritics=self.diacritics,
-                unmatched=self.unmatched,
-            )
-            if not isinstance(result, QuestionScore):
-                # The instructor scores a pending blank; the question
-                # stays pending, but the other blanks are still checked.
-                pending.append(blank.id)
-                continue
-            scores.append(result.score)
-            feedback.extend(result.feedback)
+        blanks = self._score_blanks(response)
+        pending = [blank_id for blank_id, result in blanks.items() if result is None]
         if pending:
             raise NotAutoGradable(
                 f"the response to blank {pending[0]!r} is pending: it matches "
                 "no pattern and 'unmatched' is 'manual'"
             )
-
+        settled = [result for result in blanks.values() if result is not None]
+        scores = [result.score for result in settled]
+        feedback = [text for result in settled for text in result.feedback]
         mean = sum(scores) / len(scores)
 
         grading = self.effective_grading()
@@ -683,7 +702,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             case _:
                 assert_never(grading)
 
-        return QuestionScore(score=score, feedback=feedback)
+        return QuestionScore(score=score, feedback=feedback, blanks=blanks)
 
 
 def check_case_variant_blank_ids(blank_ids: Sequence[str]) -> Iterator[Diagnostic]:
