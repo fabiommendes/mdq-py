@@ -671,16 +671,74 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             ResponseError: a blank's response doesn't match its type.
             NotAutoGradable: a short answer blank response is pending.
         """
-        blanks = self._score_blanks(response)
-        pending = [blank_id for blank_id, result in blanks.items() if result is None]
+        return self._combine(response, self._score_blanks(response), {})
+
+    def combine(self, response: object, manual: Mapping[str, float]) -> QuestionScore:
+        """
+        Score `response` with the instructor's score of each pending blank
+        (fill-in.md, "Blank scores"; responses.md, "Pending").
+
+        `manual` maps the id of each pending blank to the score the
+        instructor gives it, in [0, 1]. The question's strategy combines
+        those scores with the other blank scores as `score_response()`
+        does. A pending blank is filled, so under `no-mistakes` an
+        instructor score below 1 is a mistake. In the result, a pending
+        blank has the instructor's score and no feedback; the feedback of
+        the settled blanks is shown, since the response is now settled.
+
+        Raises:
+            ResponseError: `response` is not a valid response to this
+                question (responses.md, "Fill in the blanks").
+            ValueError: a key of `manual` is not the id of a pending blank,
+                or a value is outside [0, 1]. This is an error of the host,
+                so it is not a `GradingError`.
+            NotAutoGradable: a pending blank has no entry in `manual`.
+        """
+        parsed = self._parse_response(response)
+        return self._combine(parsed, self._score_blanks(parsed), manual)
+
+    def _combine(
+        self,
+        response: Mapping[str, object],
+        blanks: dict[str, QuestionScore | None],
+        manual: Mapping[str, float],
+    ) -> QuestionScore:
+        """
+        Combine the blank scores by `grading`, with the score of each
+        pending blank taken from `manual`.
+
+        Raises:
+            ValueError: `manual` has a key that is not a pending blank, or
+                a value outside [0, 1].
+            NotAutoGradable: a pending blank has no entry in `manual`.
+        """
+        for blank_id, value in manual.items():
+            if blank_id not in blanks:
+                raise ValueError(f"manual score for {blank_id!r}, which is not a blank")
+            if blanks[blank_id] is not None:
+                raise ValueError(
+                    f"manual score for blank {blank_id!r}, which is not pending"
+                )
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(
+                    f"manual score {value!r} for blank {blank_id!r} is outside [0, 1]"
+                )
+        pending = [
+            blank_id
+            for blank_id, result in blanks.items()
+            if result is None and blank_id not in manual
+        ]
         if pending:
             raise NotAutoGradable(
                 f"the response to blank {pending[0]!r} is pending: it matches "
                 "no pattern and 'unmatched' is 'manual'"
             )
-        settled = [result for result in blanks.values() if result is not None]
-        scores = [result.score for result in settled]
-        feedback = [text for result in settled for text in result.feedback]
+        settled = {
+            blank_id: QuestionScore(score=manual[blank_id]) if result is None else result
+            for blank_id, result in blanks.items()
+        }
+        scores = [result.score for result in settled.values()]
+        feedback = [text for result in settled.values() for text in result.feedback]
         mean = sum(scores) / len(scores)
 
         grading = self.effective_grading()
@@ -702,7 +760,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             case _:
                 assert_never(grading)
 
-        return QuestionScore(score=score, feedback=feedback, blanks=blanks)
+        return QuestionScore(score=score, feedback=feedback, blanks=dict(settled))
 
 
 def check_case_variant_blank_ids(blank_ids: Sequence[str]) -> Iterator[Diagnostic]:

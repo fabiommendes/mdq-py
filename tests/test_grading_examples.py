@@ -18,7 +18,7 @@ import yaml
 from _corpus import EXAMPLES_ROOT
 
 import mdq
-from mdq.errors import NotAutoGradable, ResponseError
+from mdq.errors import GradingError, NotAutoGradable, ResponseError
 
 GRADING_ROOT = EXAMPLES_ROOT / "grading"
 
@@ -193,10 +193,15 @@ def _fill_in_params() -> list[Any]:
                         example,
                         strategy,
                         score,
-                        id=f"{strategy}/{case['name']}/{example['response']!r}",
+                        id=_fill_in_id(strategy, case, example),
                     )
                 )
     return params
+
+
+def _fill_in_id(strategy: str, case: dict[str, Any], example: dict[str, Any]) -> str:
+    manual = f"/manual={example['manual']!r}" if "manual" in example else ""
+    return f"{strategy}/{case['name']}/{example['response']!r}{manual}"
 
 
 @pytest.mark.parametrize(("case", "example", "strategy", "expected"), _fill_in_params())
@@ -205,6 +210,9 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
     loaded = mdq.load(doc, kind="question")
     assert [d for d in loaded.diagnostics if d.severity == "error"] == []
     question = loaded.document
+    if "manual" in example:
+        _check_combine(question, example, strategy, expected)
+        return
     if expected == "malformed":
         with pytest.raises(ResponseError):
             question.score_response(example["response"])
@@ -226,6 +234,34 @@ def test_fill_in(case: dict[str, Any], example: dict[str, Any], strategy: str, e
     assert list(result.blanks) == [blank.id for blank in question.blanks]
     if blanks is not None:
         assert _blank_scores(result.blanks) == blanks
+
+
+def _check_combine(question: Any, example: dict[str, Any], strategy: str, expected: Any) -> None:
+    # An example with `manual`: the instructor scores the pending blanks
+    # (fill-in.md, "Blank scores").
+    response, manual = example["response"], example["manual"]
+    errors = {"malformed": ResponseError, "pending": NotAutoGradable}
+    if expected in errors:
+        with pytest.raises(errors[expected]):
+            question.combine(response, manual)
+        return
+    if expected == "invalid":
+        with pytest.raises(ValueError) as info:
+            question.combine(response, manual)
+        # An error of the host, not of the response or the document.
+        assert not isinstance(info.value, GradingError)
+        return
+    result = question.combine(response, manual)
+    assert result.score == pytest.approx(_number(expected))
+    if "feedback" in example:
+        assert result.feedback == example["feedback"]
+    assert result.blanks is not None
+    assert list(result.blanks) == [blank.id for blank in question.blanks]
+    blanks = _expected_blanks(example, strategy)
+    if blanks is not None:
+        assert _blank_scores(result.blanks) == blanks
+    for blank_id in manual:
+        assert result.blanks[blank_id].feedback == []
 
 
 def _expected_blanks(example: dict[str, Any], strategy: str) -> dict[str, Any] | None:
