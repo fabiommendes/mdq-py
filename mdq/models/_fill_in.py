@@ -119,10 +119,11 @@ class BlankBase(MdqModel, ABC):
         return self
 
     @abstractmethod
-    def public(self) -> dict[str, Any]:
+    def public(self, *, unmatched: Unmatched | None) -> dict[str, Any]:
         """
-        The public form of this blank, inside `FillInQuestion.public`. The
-        values are plain JSON values, so `Any`.
+        The public form of this blank, inside `FillInQuestion.public`.
+        `unmatched` is the one of the fill-in question. The values are
+        plain JSON values, so `Any`.
 
         Raises:
             MissingIdError: a choice of a choice blank has no id.
@@ -192,7 +193,7 @@ class ChoiceBlank(BlankBase):
     def with_ids(self) -> Self:
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
 
-    def public(self) -> dict[str, Any]:
+    def public(self, *, unmatched: Unmatched | None) -> dict[str, Any]:
         return {"id": self.id, "type": self.type, "choices": public_choices(self.choices)}
 
     def correct_responses(self, *, diacritics: Diacritics) -> list[str]:
@@ -271,8 +272,17 @@ class ShortAnswerBlank(PatternKey, BlankBase):
             path, unmatched=self.effective_unmatched(unmatched), unmatched_path=path
         )
 
-    def public(self) -> dict[str, Any]:
-        return {"id": self.id, "type": self.type, **self.public_key()}
+    def public(self, *, unmatched: Unmatched | None) -> dict[str, Any]:
+        """
+        Also the effective `unmatched` of the blank, always present: its
+        default depends on `accept`, which is private.
+        """
+        return {
+            "id": self.id,
+            "type": self.type,
+            **self.public_key(),
+            "unmatched": self.effective_unmatched(unmatched),
+        }
 
     def correct_responses(self, *, diacritics: Diacritics) -> list[str]:
         """The `accept` literals, as in a short answer question."""
@@ -314,7 +324,7 @@ class NumericBlank(NumericKey, BlankBase):
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
         return self.lint_key(path)
 
-    def public(self) -> dict[str, Any]:
+    def public(self, *, unmatched: Unmatched | None) -> dict[str, Any]:
         return {"id": self.id, "type": self.type, **self.public_key()}
 
     def correct_responses(self, *, diacritics: Diacritics) -> list[NumericAnswer]:
@@ -513,11 +523,15 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
         return self.model_copy(update={"blanks": blanks})
 
     _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
-        *BaseQuestion._PUBLIC_KEYS, "shuffle", "grading", "diacritics", "unmatched",
+        *BaseQuestion._PUBLIC_KEYS, "shuffle", "grading", "diacritics",
     )  # fmt: skip
 
     def _public_body(self) -> dict[str, Any]:
-        return {"blanks": [blank.public() for blank in self.blanks]}
+        """
+        The public blanks. The question `unmatched` is not copied: each
+        short answer blank holds its effective value instead.
+        """
+        return {"blanks": [blank.public(unmatched=self.unmatched) for blank in self.blanks]}
 
     def correct_responses(self) -> dict[str, list[Any]]:
         """

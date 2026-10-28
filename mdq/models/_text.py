@@ -417,11 +417,15 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
         yield from render_short_answer_patterns(self.accept, self.reject)
 
     _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
-        *BaseQuestion._PUBLIC_KEYS, "diacritics", "unmatched",
+        *BaseQuestion._PUBLIC_KEYS, "diacritics",
     )  # fmt: skip
 
     def _public_body(self) -> dict[str, Any]:
-        return dict(self.public_key())
+        """
+        The pre-validation patterns and the effective `unmatched`, always
+        present: its default depends on `accept`, which is private.
+        """
+        return {**self.public_key(), "unmatched": self.effective_unmatched}
 
     def correct_responses(self) -> list[t.TextResponse]:
         """

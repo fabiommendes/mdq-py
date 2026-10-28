@@ -13,7 +13,14 @@ import pytest
 import yaml
 
 from mdq import errors, load
-from mdq.models import BaseQuestion, EssayQuestion, FillInQuestion
+from mdq.models import (
+    BaseQuestion,
+    EssayQuestion,
+    FillInQuestion,
+    OrderingQuestion,
+    ShortAnswerBlank,
+    ShortAnswerQuestion,
+)
 from _corpus import EXAMPLES_ROOT, VALID_EXAMS_DIR, VALID_PARSED
 
 CASES: list[dict[str, Any]] = yaml.safe_load(
@@ -141,6 +148,33 @@ def test_valid_corpus_public_form_has_no_private_key(question: BaseQuestion[Any]
     public = question.public()
     assert _json(public) == public
     assert not _keys(public) & PRIVATE_KEYS
+
+
+@pytest.mark.parametrize(
+    "question", [q for _, q in VALID_QUESTIONS], ids=[n for n, _ in VALID_QUESTIONS]
+)
+def test_valid_corpus_public_form_has_effective_unmatched(
+    question: BaseQuestion[Any],
+) -> None:
+    """
+    `unmatched` is the effective value, always present, in a short answer
+    and an ordering question and in each short answer blank. A fill-in
+    question resolves its own `unmatched` into the blanks.
+    """
+    public = question.public()
+    if isinstance(question, ShortAnswerQuestion):
+        assert public["unmatched"] == question.effective_unmatched
+    elif isinstance(question, OrderingQuestion):
+        assert public["unmatched"] == question.unmatched
+    elif isinstance(question, FillInQuestion):
+        assert "unmatched" not in public
+        for blank, data in zip(question.blanks, public["blanks"], strict=True):
+            if isinstance(blank, ShortAnswerBlank):
+                assert data["unmatched"] == blank.effective_unmatched(question.unmatched)
+            else:
+                assert "unmatched" not in data
+    else:
+        assert "unmatched" not in public
 
 
 SCORED_QUESTIONS = [

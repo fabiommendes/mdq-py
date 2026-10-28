@@ -154,11 +154,12 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
 
     _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
         *BaseQuestion._PUBLIC_KEYS,
-        "content", "highlight", "indentation", "unmatched", "normalizations",
+        "content", "highlight", "indentation", "normalizations",
     )  # fmt: skip
 
     def _public_body(self) -> dict[str, Any]:
         """
+        `unmatched`, always present, like in a short answer question.
         `pool`: the `lines` and the `extra` lines together, as
         `[level, text]` pairs, sorted by text (code point order), then by
         level, so the order tells nothing about the answer (ordering.md,
@@ -172,7 +173,10 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
             ((level if fixed else 0, text) for level, text in [*self.lines, *self.extra]),
             key=lambda line: (line[1], line[0]),
         )
-        return {"pool": [[level, text] for level, text in pool]}
+        return {
+            "unmatched": self.unmatched,
+            "pool": [[level, text] for level, text in pool],
+        }
 
     def correct_responses(self) -> list[list[list[int | str]]]:
         """
