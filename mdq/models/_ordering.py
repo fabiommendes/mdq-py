@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping
-from typing import Annotated, Any, Iterable, Iterator, Literal, Self
+from typing import Annotated, Any, ClassVar, Iterable, Iterator, Literal, Self
 
 from pydantic import (
     AfterValidator,
@@ -151,6 +151,37 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
         if self.normalizations:
             data["normalizations"] = self.normalizations
         return data
+
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        *BaseQuestion._PUBLIC_KEYS,
+        "content", "highlight", "indentation", "unmatched", "normalizations",
+    )  # fmt: skip
+
+    def _public_body(self) -> dict[str, Any]:
+        """
+        `pool`: the `lines` and the `extra` lines together, as
+        `[level, text]` pairs, sorted by text (code point order), then by
+        level, so the order tells nothing about the answer (ordering.md,
+        "Presentation"). The host still shuffles them. Under `"fixed"` a
+        line keeps its authored level; under `"lenient"` and `"strict"`
+        the student sets the levels, so every level is 0. The texts are
+        verbatim: blank lines and repeated lines stay.
+        """
+        fixed = self.indentation == "fixed"
+        pool = sorted(
+            ((level if fixed else 0, text) for level, text in [*self.lines, *self.extra]),
+            key=lambda line: (line[1], line[0]),
+        )
+        return {"pool": [[level, text] for level, text in pool]}
+
+    def correct_responses(self) -> list[list[list[int | str]]]:
+        """
+        See `BaseQuestion.correct_responses`: the `lines` block, then the
+        lines of each `accept` entry, in document order, as `[level, text]`
+        pairs with the authored levels.
+        """
+        blocks = [self.lines, *(alt.lines for alt in self.accept)]
+        return [[[level, text] for level, text in block] for block in blocks]
 
     def _render_body(self) -> Iterable[str]:
         yield ""

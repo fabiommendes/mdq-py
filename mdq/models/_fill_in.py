@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from typing import (
     Annotated,
     Any,
+    ClassVar,
     Final,
     Iterable,
     Iterator,
@@ -50,12 +51,14 @@ from ._choice import (
     check_choice_ids_defined,
     check_choices_visually_identical,
     check_multiple_choice_answers,
+    correct_choice_ids,
+    public_choices,
     _with_choice_ids,
     strip_choice_texts,
     unspecified_choice_score,
     write_shuffle_and_grading,
 )
-from ._numeric import NumericKey, is_numeric_response, render_numeric_tag
+from ._numeric import NumericAnswer, NumericKey, is_numeric_response, render_numeric_tag
 from ._lint_codes import diag
 from ._score import QuestionScore
 from ._text import (
@@ -116,6 +119,27 @@ class BlankBase(MdqModel, ABC):
         return self
 
     @abstractmethod
+    def public(self) -> dict[str, Any]:
+        """
+        The public form of this blank, inside `FillInQuestion.public`. The
+        values are plain JSON values, so `Any`.
+
+        Raises:
+            MissingIdError: a choice of a choice blank has no id.
+        """
+
+    @abstractmethod
+    def correct_responses(self, *, diacritics: Diacritics) -> list[Any]:
+        """
+        The responses to this blank that score 1, inside
+        `FillInQuestion.correct_responses`. `diacritics` is the one of the
+        fill-in question. The values are plain JSON values, so `Any`.
+
+        Raises:
+            MissingIdError: a correct choice of a choice blank has no id.
+        """
+
+    @abstractmethod
     def score(
         self,
         response: object,
@@ -167,6 +191,17 @@ class ChoiceBlank(BlankBase):
 
     def with_ids(self) -> Self:
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "type": self.type, "choices": public_choices(self.choices)}
+
+    def correct_responses(self, *, diacritics: Diacritics) -> list[str]:
+        """
+        The ids of the choices whose effective score is 1, as in a
+        multiple-choice question. A choice that declares no score gets
+        at most 0 under any grading, so the grading does not matter here.
+        """
+        return correct_choice_ids(self.choices, symmetric=False)
 
     def score(
         self,
@@ -236,6 +271,13 @@ class ShortAnswerBlank(PatternKey, BlankBase):
             path, unmatched=self.effective_unmatched(unmatched), unmatched_path=path
         )
 
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "type": self.type, **self.public_key()}
+
+    def correct_responses(self, *, diacritics: Diacritics) -> list[str]:
+        """The `accept` literals, as in a short answer question."""
+        return self.literal_responses(diacritics=diacritics)
+
     def render_lines(self) -> Iterable[str]:
         tag = f"^{self.id}/short-answer"
         yield from render_short_answer_patterns(self.accept, self.reject, tag)
@@ -271,6 +313,13 @@ class NumericBlank(NumericKey, BlankBase):
 
     def lint(self, path: ModelPath, *, unmatched: Unmatched | None) -> list[Diagnostic]:
         return self.lint_key(path)
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "type": self.type, **self.public_key()}
+
+    def correct_responses(self, *, diacritics: Diacritics) -> list[NumericAnswer]:
+        """The `answer`, as in a numeric question (`NumericKey.correct_answer`)."""
+        return [self.correct_answer()]
 
     def render_lines(self) -> Iterable[str]:
         yield render_numeric_tag(
@@ -462,6 +511,26 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
         """
         blanks = [blank.with_ids() for blank in self.blanks]
         return self.model_copy(update={"blanks": blanks})
+
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        *BaseQuestion._PUBLIC_KEYS, "shuffle", "grading", "diacritics", "unmatched",
+    )  # fmt: skip
+
+    def _public_body(self) -> dict[str, Any]:
+        return {"blanks": [blank.public() for blank in self.blanks]}
+
+    def correct_responses(self) -> dict[str, list[Any]]:
+        """
+        See `BaseQuestion.correct_responses`. The one exception to the
+        list: a map from blank id to the responses of that blank that
+        score 1, since a list of full responses would hold every
+        combination. A full response that scores 1 takes one response per
+        blank. The values are plain JSON values, so `Any`.
+        """
+        return {
+            blank.id: blank.correct_responses(diacritics=self.diacritics)
+            for blank in self.blanks
+        }
 
     def lint(self) -> list[Diagnostic]:
         """

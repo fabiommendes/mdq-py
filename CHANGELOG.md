@@ -12,6 +12,11 @@ that it implements.
 
 Implements the unreleased MDQ specification.
 
+### Added
+
+- `public()` on every question class: the question as a student may see it, in the shape of `to_dict()`, without the answer key, feedback, comments, `author` and `meta`. A numeric question and a numeric blank get their effective `domain` and `decimalPlaces`; an ordering question gets a `pool` of its lines and extra lines, sorted, in place of `lines` and `extra`. A choice without an id raises `MissingIdError`: call `with_ids()` first.
+- `correct_responses()` on every question class: the responses that score 1, derived from the answer key. A list of full responses; a fill-in question gives a map from blank id to the responses of that blank.
+
 ### Removed
 
 - The lint code `stem-not-a-paragraph`: the stem may hold any block elements.

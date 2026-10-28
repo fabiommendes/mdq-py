@@ -234,6 +234,42 @@ class NumericKey(MdqModel):
             return infer_decimal_places(self.answer, self.tolerance)
         return None
 
+    def public_key(self) -> dict[str, Any]:
+        """
+        The public values of the key: `unit` when declared, the effective
+        `domain` (always present) and the effective `decimalPlaces` (when
+        defined). The answer and the tolerance are private. The values
+        are plain JSON values, so `Any`.
+        """
+        data: dict[str, Any] = {}
+        if self.unit is not None:
+            data["unit"] = self.unit
+        data["domain"] = self.effective_domain
+        places = self.effective_decimal_places
+        if places is not None:
+            data["decimalPlaces"] = places
+        return data
+
+    def correct_answer(self) -> NumericAnswer:
+        """
+        The `answer` as a response that scores 1: the answer as the
+        document stores it (a number or a string), with no unit.
+
+        One exception: a decimal question does not take a fraction as a
+        response (responses.md, "Numeric"), so a fraction answer in a
+        `decimal` domain is written as a decimal string, rounded to
+        `effective_decimal_places` (`"1/3"` with 2 places is `"0.33"`).
+        """
+        places = self.effective_decimal_places
+        if not (is_fraction_answer(self.answer) and self.effective_domain == "decimal"):
+            return self.answer
+        assert places is not None  # A decimal domain always has its places.
+        rounded = _round_half_up(numeric_value(self.answer), places)
+        units = abs(rounded.numerator) * 10**places // rounded.denominator
+        whole, decimals = divmod(units, 10**places)
+        sign = "-" if rounded < 0 else ""
+        return f"{sign}{whole}.{decimals:0{places}d}" if places else f"{sign}{whole}"
+
     def lint_key(self, path: tuple[str | int, ...]) -> list[Diagnostic]:
         """Lint the key, which sits at `path` of the document."""
         return list(
@@ -291,6 +327,16 @@ class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
     def _normalize(self) -> None:
         super()._normalize()
         self._normalize_key()
+
+    def _public_body(self) -> dict[str, Any]:
+        return self.public_key()
+
+    def correct_responses(self) -> list[NumericAnswer]:
+        """
+        See `BaseQuestion.correct_responses`: the `answer` as the document
+        stores it, with no unit and no tolerance (`NumericKey.correct_answer`).
+        """
+        return [self.correct_answer()]
 
     def _render_body(self) -> Iterable[str]:
         yield ""

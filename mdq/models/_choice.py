@@ -14,6 +14,7 @@ from abc import abstractmethod
 from typing import (
     Annotated,
     Any,
+    ClassVar,
     Iterable,
     Iterator,
     Literal,
@@ -36,7 +37,7 @@ from .._letters import (
     nfkc,
     normalize_value,
 )
-from ..errors import ResponseError
+from ..errors import MissingIdError, ResponseError
 from ..types import (
     MultipleChoiceGrading,
     MultipleChoiceQuestionGrading,
@@ -198,6 +199,53 @@ def unspecified_choice_score(choices: Sequence[ScoredChoice], *, symmetric: bool
     return max(-1.0, min(0.0, -sum(declared) / missing))
 
 
+def require_choice_id(choice: ScoredChoice | BooleanChoice | Statement) -> str:
+    """
+    Return the id of `choice`.
+
+    Raises:
+        MissingIdError: the choice has no id. `public()` and
+            `correct_responses()` do not derive one: grading does not
+            either, so the host calls `with_ids()` and stores the result.
+    """
+    if choice.id is None:
+        raise MissingIdError(
+            f"choice {choice.text!r} has no id; call with_ids() and store the result"
+        )
+    return choice.id
+
+
+def public_choices(
+    choices: Sequence[ScoredChoice | BooleanChoice | Statement],
+) -> list[dict[str, str]]:
+    """
+    The public form of `choices`: the `id` and the `text` of each one,
+    without its score, its feedback or its comment.
+
+    Raises:
+        MissingIdError: a choice has no id.
+    """
+    return [{"id": require_choice_id(choice), "text": choice.text} for choice in choices]
+
+
+def correct_choice_ids(choices: Sequence[ScoredChoice], *, symmetric: bool) -> list[str]:
+    """
+    The ids of the choices whose effective score is exactly 1
+    (multiple-choice.md: "A choice is correct when its score is 1"). A
+    choice that declares no score gets `unspecified_choice_score`, which
+    is never above 0. A fill-in choice blank uses it too.
+
+    Raises:
+        MissingIdError: a correct choice has no id.
+    """
+    unspecified = unspecified_choice_score(choices, symmetric=symmetric)
+    return [
+        require_choice_id(choice)
+        for choice in choices
+        if (choice.score if choice.score is not None else unspecified) == 1
+    ]
+
+
 def strip_choice_texts[C: (ScoredChoice, BooleanChoice, Statement)](
     choices: Sequence[C],
 ) -> list[C]:
@@ -250,6 +298,13 @@ class ChoiceQuestion[R, C: (ScoredChoice, BooleanChoice, Statement)](BaseQuestio
         """See `BaseQuestion.with_ids`."""
         return self.model_copy(update={"choices": _with_choice_ids(self.choices)})
 
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        *BaseQuestion._PUBLIC_KEYS, "shuffle", "grading",
+    )  # fmt: skip
+
+    def _public_body(self) -> dict[str, Any]:
+        return {"choices": public_choices(self.choices)}
+
     def _normalize(self) -> None:
         super()._normalize()
         self.choices = strip_choice_texts(self.choices)
@@ -292,6 +347,15 @@ class MultipleChoiceQuestion(ChoiceQuestion[t.MultipleChoiceResponse, ScoredChoi
 
     def _mark(self, choice: ScoredChoice) -> str:
         return _render.score_mark(choice.score)
+
+    def correct_responses(self) -> list[t.MultipleChoiceResponse]:
+        """
+        See `BaseQuestion.correct_responses`: the id of each choice whose
+        effective score is exactly 1. Empty when no choice scores 1.
+        """
+        return correct_choice_ids(
+            self.choices, symmetric=self.effective_grading() == "symmetric"
+        )
 
     def _parse_response(self, response: object) -> t.MultipleChoiceResponse:
         """
@@ -347,6 +411,13 @@ class MultipleSelectionQuestion(ChoiceQuestion[t.MultipleSelectionResponse, Bool
 
     def _mark(self, choice: BooleanChoice) -> str:
         return "x" if choice.correct else " "
+
+    def correct_responses(self) -> list[list[str]]:
+        """
+        See `BaseQuestion.correct_responses`: one response, the list of the
+        ids of the choices with `correct: true`.
+        """
+        return [[require_choice_id(c) for c in self.choices if c.correct]]
 
     def _parse_response(self, response: object) -> t.MultipleSelectionResponse:
         """
@@ -464,6 +535,13 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
     def _mark(self, choice: Statement) -> str:
         # A statement without `marker` is written as `T` or `F`.
         return choice.marker or ("T" if choice.correct else "F")
+
+    def correct_responses(self) -> list[dict[str, bool]]:
+        """
+        See `BaseQuestion.correct_responses`: one response, which judges
+        every statement by its `correct` flag.
+        """
+        return [{require_choice_id(c): c.correct for c in self.choices}]
 
     def _parse_response(self, response: object) -> t.TrueFalseResponse:
         """

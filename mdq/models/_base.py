@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import unicodedata
 import weakref
-from typing import TYPE_CHECKING, Annotated, Any, Iterable, Literal, Mapping, Self, Sequence
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Iterable, Literal, Mapping, Self, Sequence
 
 import opt
 import pydantic_core
@@ -629,6 +629,52 @@ class BaseQuestion[R](MdqModel):
         running it twice gives the same result as running it once.
         """
         return self.model_copy()
+
+    #: The keys of `to_dict()` that `public()` copies as they are. Each
+    #: question type adds its own public configuration fields.
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        "type", "id", "uuid", "title", "stem", "epilogue", "tags", "locale", "weight",
+    )  # fmt: skip
+
+    def public(self) -> dict[str, Any]:
+        """
+        Return the public form of this question: what a student may see.
+
+        A dict in the shape of `to_dict()` (camelCase keys, absent optional
+        fields omitted), without the private fields: the answer key,
+        `feedback`, `comment`, `author`, `meta` and the like. Some values
+        are derived (for example, the effective `domain` of a numeric
+        question). The values are plain JSON values, so `Any`.
+
+        Raises:
+            MissingIdError: a choice has no id. Call `with_ids()` first, and
+                store the result: grading needs the same ids.
+        """
+        data = self.to_dict()
+        public = {key: data[key] for key in self._PUBLIC_KEYS if key in data}
+        public.update(self._public_body())
+        return public
+
+    def _public_body(self) -> dict[str, Any]:
+        """
+        The public values `public()` does not copy from `to_dict()` as
+        they are: the choices, blanks or pool, and the derived values.
+        """
+        return {}
+
+    def correct_responses(self) -> list[Any] | dict[str, list[Any]]:
+        """
+        Return the responses that score 1, derived from the answer key.
+
+        Each element has the shape of a response (responses.md) and scores
+        1 with `score_response()`. A fill-in question returns a map from
+        blank id to the responses of that blank instead. The values are
+        plain JSON values, so `Any`.
+
+        Raises:
+            MissingIdError: a choice has no id.
+        """
+        raise NotImplementedError("Subclasses must implement correct_responses()")
 
 
 

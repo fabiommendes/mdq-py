@@ -14,7 +14,7 @@ import re
 import unicodedata
 from functools import cached_property
 from importlib import resources
-from typing import Annotated, Any, Iterable, Iterator, Literal, Self
+from typing import Annotated, Any, ClassVar, Iterable, Iterator, Literal, Self
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -261,6 +261,34 @@ class PatternKey(MdqModel):
         if self.reject is not None:
             self.reject = [_trimmed_pattern(rule) for rule in self.reject]
 
+    def public_key(self) -> dict[str, list[str | dict[str, str]]]:
+        """
+        The public values of the key: `preAccept` and `preReject`, each
+        entry without its `comment` (`_public_pattern`). `accept` and
+        `reject` are private. An absent list is omitted.
+        """
+        data: dict[str, list[str | dict[str, str]]] = {}
+        for key, patterns in (("preAccept", self.pre_accept), ("preReject", self.pre_reject)):
+            if patterns is not None:
+                data[key] = [_public_pattern(rule) for rule in patterns]
+        return data
+
+    def literal_responses(self, *, diacritics: Diacritics) -> list[str]:
+        """
+        The texts of the `accept` literals, inexact and exact, without the
+        delimiters, in document order. A regex is left out, and so is a
+        literal whose text does not match itself: each text returned scores
+        1, since an `accept` match wins over `reject`.
+        """
+        responses = []
+        for rule in self.accept or []:
+            if rule.kind == "regex":
+                continue
+            text = rule.exact_content if rule.kind == "exact" else rule.pattern.strip(" \t")
+            if text is not None and rule.matches(text, diacritics=diacritics):
+                responses.append(text)
+        return responses
+
     def lint_key(
         self,
         path: tuple[str | int, ...],
@@ -388,6 +416,21 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
         yield ""
         yield from render_short_answer_patterns(self.accept, self.reject)
 
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        *BaseQuestion._PUBLIC_KEYS, "diacritics", "unmatched",
+    )  # fmt: skip
+
+    def _public_body(self) -> dict[str, Any]:
+        return dict(self.public_key())
+
+    def correct_responses(self) -> list[t.TextResponse]:
+        """
+        See `BaseQuestion.correct_responses`: the texts of the `accept`
+        literals (`PatternKey.literal_responses`). Empty when every
+        `accept` pattern is a regex.
+        """
+        return self.literal_responses(diacritics=self.diacritics)
+
     def prevalidate(self, response: str) -> tuple[bool, str | None]:
         """
         Pre-validate a submission (short-answer.md, "Pre-validation").
@@ -506,6 +549,18 @@ class EssayQuestion(BaseQuestion[t.TextResponse]):
     def _render_body(self) -> Iterable[str]:
         yield ""
         yield "[essay]"
+
+    _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
+        *BaseQuestion._PUBLIC_KEYS, "content", "highlight",
+    )  # fmt: skip
+
+    def correct_responses(self) -> list[t.TextResponse]:
+        """
+        See `BaseQuestion.correct_responses`: the `answerKey`, or nothing
+        when the question has none. An essay is graded by hand, so the
+        answer key is a model answer, not a response that scores 1.
+        """
+        return [] if self.answer_key is None else [self.answer_key]
 
     def _parse_response(self, response: object) -> t.TextResponse:
         """
@@ -662,6 +717,18 @@ def _pattern_entry(rule: AnswerPattern) -> str | dict[str, str]:
     if rule.comment is not None:
         entry["comment"] = rule.comment
     return entry
+
+
+def _public_pattern(rule: AnswerPattern) -> str | dict[str, str]:
+    """
+    The public form of a pattern list entry, without its `comment`: the
+    object form when it has `feedback`, else the bare pattern string. The
+    model does not keep how the entry was written, so `{pattern: x}` also
+    becomes the string `x`, like `_pattern_entry` does.
+    """
+    if rule.feedback is None:
+        return rule.pattern
+    return {"pattern": rule.pattern, "feedback": rule.feedback}
 
 
 def _exact_form(value: str) -> str:
