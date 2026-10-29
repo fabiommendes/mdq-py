@@ -1,6 +1,7 @@
 """
 `QuestionScore`, what one response to one question was worth -- the
-return type of every `score_response()`.
+return type of every `score_response()` -- and `BlankScore`, what one
+blank of a fill-in response was worth.
 """
 
 from __future__ import annotations
@@ -13,7 +14,21 @@ from pydantic import Field
 from ..types import PenaltyPolicy
 from ._base import MdqModel
 
-__all__ = ["ExamScore", "QuestionScore"]
+__all__ = ["BlankScore", "ExamScore", "QuestionScore"]
+
+
+class BlankScore(MdqModel):
+    """
+    What the response to one blank of a fill-in question was worth
+    (fill-in.md, "Blank scores").
+
+    `score` is the one the question's strategy gives the blank, before
+    the strategy combines the blanks. `feedback` is the feedback of this
+    blank only.
+    """
+
+    score: float = Field(ge=-1, le=1)
+    feedback: list[str] = Field(default_factory=list)
 
 
 class QuestionScore(MdqModel):
@@ -38,7 +53,7 @@ class QuestionScore(MdqModel):
     #: strategy combines the blanks: an empty blank scores 0 with no
     #: feedback. `None` marks a pending blank. Only fill-in sets this
     #: field; it is `None` for every other question type.
-    blanks: dict[str, QuestionScore | None] | None = None
+    blanks: dict[str, BlankScore | None] | None = None
 
 
 @dataclass(frozen=True)

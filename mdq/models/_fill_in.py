@@ -60,7 +60,7 @@ from ._choice import (
 )
 from ._numeric import NumericAnswer, NumericKey, is_numeric_response, render_numeric_tag
 from ._lint_codes import diag
-from ._score import QuestionScore
+from ._score import BlankScore, QuestionScore
 from ._text import (
     PatternKey,
     _pattern_entry,
@@ -148,7 +148,7 @@ class BlankBase(MdqModel, ABC):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> QuestionScore | Literal["pending"]:
+    ) -> BlankScore | Literal["pending"]:
         """
         Score a response that is not `None`. `"pending"` means the
         instructor has to score it.
@@ -211,7 +211,7 @@ class ChoiceBlank(BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> QuestionScore:
+    ) -> BlankScore:
         choice = next((c for c in self.choices if c.id == response), None)
         if choice is None:
             raise ResponseError(
@@ -222,7 +222,7 @@ class ChoiceBlank(BlankBase):
             if choice.score is not None
             else unspecified_choice_score(self.choices, symmetric=symmetric)
         )
-        return QuestionScore(score=score, feedback=[choice.feedback] if choice.feedback else [])
+        return BlankScore(score=score, feedback=[choice.feedback] if choice.feedback else [])
 
 
 class ShortAnswerBlank(PatternKey, BlankBase):
@@ -299,7 +299,7 @@ class ShortAnswerBlank(PatternKey, BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> QuestionScore | Literal["pending"]:
+    ) -> BlankScore | Literal["pending"]:
         if not isinstance(response, str):
             raise ResponseError(
                 f"Response {response!r} to blank {self.id!r} is not text"
@@ -310,7 +310,9 @@ class ShortAnswerBlank(PatternKey, BlankBase):
             diacritics=diacritics,
             incorrect_feedback=self.incorrect_feedback,
         )
-        return PENDING if score is None else score
+        if score is None:
+            return PENDING
+        return BlankScore(score=score.score, feedback=score.feedback)
 
 
 class NumericBlank(NumericKey, BlankBase):
@@ -346,12 +348,13 @@ class NumericBlank(NumericKey, BlankBase):
         symmetric: bool,
         diacritics: Diacritics,
         unmatched: Unmatched | None,
-    ) -> QuestionScore:
+    ) -> BlankScore:
         if not is_numeric_response(response):
             raise ResponseError(
                 f"Response {response!r} to blank {self.id!r} is not numeric"
             )
-        return self.score_numeric(response)
+        score = self.score_numeric(response)
+        return BlankScore(score=score.score, feedback=score.feedback)
 
 
 Blank = Annotated[
@@ -622,7 +625,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             raise not_a_mapping
         return response
 
-    def score_blanks(self, response: object) -> dict[str, QuestionScore | None]:
+    def score_blanks(self, response: object) -> dict[str, BlankScore | None]:
         """
         Return the score of each blank, keyed by blank id, in the order of
         the blank definitions (fill-in.md, "Blank scores").
@@ -641,13 +644,13 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
 
     def _score_blanks(
         self, response: Mapping[str, object]
-    ) -> dict[str, QuestionScore | None]:
+    ) -> dict[str, BlankScore | None]:
         symmetric = self.effective_grading() == "symmetric"
-        scores: dict[str, QuestionScore | None] = {}
+        scores: dict[str, BlankScore | None] = {}
         for blank in self.blanks:
             sub_response = response.get(blank.id)
             if sub_response is None:
-                scores[blank.id] = QuestionScore(score=0.0)
+                scores[blank.id] = BlankScore(score=0.0)
                 continue
             result = blank.score(
                 sub_response,
@@ -657,7 +660,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
             )
             # The instructor scores a pending blank; the other blanks are
             # still checked, so a malformed one raises.
-            scores[blank.id] = result if isinstance(result, QuestionScore) else None
+            scores[blank.id] = result if isinstance(result, BlankScore) else None
         return scores
 
     def _score(self, response: Mapping[str, object]) -> QuestionScore:
@@ -700,7 +703,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
     def _combine(
         self,
         response: Mapping[str, object],
-        blanks: dict[str, QuestionScore | None],
+        blanks: dict[str, BlankScore | None],
         manual: Mapping[str, float],
     ) -> QuestionScore:
         """
@@ -734,7 +737,7 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
                 "no pattern and 'unmatched' is 'manual'"
             )
         settled = {
-            blank_id: QuestionScore(score=manual[blank_id]) if result is None else result
+            blank_id: BlankScore(score=manual[blank_id]) if result is None else result
             for blank_id, result in blanks.items()
         }
         scores = [result.score for result in settled.values()]

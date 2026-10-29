@@ -110,3 +110,7 @@ mdq.models
 .. autoclass:: mdq.models.QuestionScore
    :members:
    :member-order: bysource
+
+.. autoclass:: mdq.models.BlankScore
+   :members:
+   :member-order: bysource

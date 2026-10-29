@@ -23,7 +23,7 @@ question family, all building on `_base.MdqModel`/`BaseQuestion`:
 `_text` (short-answer, essay), `_fill_in`, `_ordering`, and `_exam`
 (the `Question`/`ExamEntry` unions, `Include`/`IncludeAll`, `Exam`
 itself). `_score` holds `QuestionScore`, every `score_response()`'s
-return type. Five more private modules hold the non-model helpers each
+return type, and `BlankScore`. Five more private modules hold the non-model helpers each
 `render()`/`lint()` method calls into: `_render`, `_lint`, `_regex`,
 `_query`, `_slugify`.
 
@@ -39,7 +39,7 @@ Neither module has a reciprocal dependency on this one (they hand back
 plain dicts), so this stays one-directional.
 
 Only the document tree is re-exported here: question classes, choice
-and blank shapes, the exam types, and `QuestionScore`. The Literal type
+and blank shapes, the exam types, `QuestionScore` and `BlankScore`. The Literal type
 aliases a field's type mentions (`GradingStrategy`, `Diacritics`, ...)
 live in `mdq.types`, the single source for all of them.
 """
@@ -68,7 +68,7 @@ from ._exam import (
 from ._fill_in import Blank, ChoiceBlank, FillInQuestion, NumericBlank, ShortAnswerBlank
 from ._numeric import NumericQuestion, Tolerance
 from ._ordering import OrderingAlternative, OrderingLine, OrderingQuestion
-from ._score import ExamScore, QuestionScore
+from ._score import BlankScore, ExamScore, QuestionScore
 from ._text import AnswerPattern, EssayQuestion, ShortAnswerQuestion
 
 __all__ = [
@@ -102,5 +102,6 @@ __all__ = [
     "select_random",
     "Exam",
     "QuestionScore",
+    "BlankScore",
     "ExamScore",
 ]
