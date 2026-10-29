@@ -75,6 +75,7 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- Moodle XML cloze export escapes only `}` and `#` in choice options and in every feedback, as Moodle's cloze import unescapes only those two, so `Razão 1:2` shows as written. Import reads them the same way and keeps other backslashes. A 100% option that starts with `=` or `%` gets an explicit `%100%`.
 - Render writes a whole float answer or tolerance as `d[.ddd]eN` (`1000.0` as `1e3`, `0.0` as `0e0`) and a float below 1e-4 with an exponent, and writes `domain` when the rendered tag would read with another domain. `load(render(q))` now keeps the float type and the domain.
 - A regex body written in NFD matches an NFC response: the literal text of the body is normalized to NFC, one run between escapes at a time. The `n` flag uses the same runs, so a combining mark after an escape such as `\d` no longer composes with it.
 - `render()` of a question whose stem starts with a `---` thematic break writes an empty frontmatter first, so `load(render())` no longer reads the break as a frontmatter fence.

@@ -166,3 +166,81 @@ def test_cloze_alternatives_are_separated_by_tilde_in_every_kind() -> None:
         ],
     )
     assert render_cloze(numeric) == "{1:NUMERICAL:=9.8:0.1~=10}"
+
+
+# ---------------------------------------------------------------------
+# Cloze MULTICHOICE options and feedback use the cloze escape rule
+# ---------------------------------------------------------------------
+def _choice_cloze(*answers: tuple[str, float, str | None]) -> str:
+    from mdq.convert._moodle_xml import MoodleAnswer, MoodleCloze, render_cloze
+
+    return render_cloze(
+        MoodleCloze(
+            kind="MULTICHOICE",
+            answers=[
+                MoodleAnswer(text=t, fraction=f, feedback=fb) for t, f, fb in answers
+            ],
+        )
+    )
+
+
+def test_cloze_multichoice_export_keeps_colon_and_equals_unescaped() -> None:
+    source = _choice_cloze(
+        ("Razão 1:2", 100.0, "Proporção: 1=2"), ("Razão 1:3", 0.0, None)
+    )
+    assert source == "{1:MULTICHOICE:=Razão 1:2#Proporção: 1=2~Razão 1:3}"
+
+
+def test_cloze_multichoice_export_escapes_only_brace_and_hash() -> None:
+    source = _choice_cloze(("Rio {Negro} #1", 100.0, "Amazonas {AM} #2"))
+    assert source == "{1:MULTICHOICE:=Rio {Negro\\} \\#1#Amazonas {AM\\} \\#2}"
+
+
+@pytest.mark.parametrize("fraction", [100.0, 0.0])
+def test_cloze_multichoice_option_starting_with_marker_is_explicit(
+    fraction: float,
+) -> None:
+    from mdq.convert._moodle_xml import parse_cloze
+
+    source = _choice_cloze(("=Tupi", fraction, None), ("%Guarani", fraction, None))
+    lead = "" if fraction == 100.0 else "~"
+    mark = f"%{int(fraction)}%"
+    assert source == f"{{1:MULTICHOICE:{lead}{mark}=Tupi~{mark}%Guarani}}"
+    _, [parsed] = parse_cloze(source)
+    assert [(a.text, a.fraction) for a in parsed.answers] == [
+        ("=Tupi", fraction),
+        ("%Guarani", fraction),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Razão 1:2", "a=b", "x\\*y", "Foz {Iguaçu} #1", "C:\\dados", "Pico da Neblina"],
+)
+def test_cloze_multichoice_and_feedback_round_trip(text: str) -> None:
+    from mdq.convert._moodle_xml import parse_cloze
+
+    source = _choice_cloze((text, 100.0, text), ("outra", 0.0, text))
+    _, [parsed] = parse_cloze(source)
+    assert [(a.text, a.feedback) for a in parsed.answers] == [
+        (text, text),
+        ("outra", text),
+    ]
+
+
+def test_cloze_import_keeps_backslashes_that_moodle_shows() -> None:
+    from mdq.convert._moodle_xml import parse_cloze
+
+    _, [parsed] = parse_cloze(r"{1:MULTICHOICE:=C:\dados#Veja \\ e \: aqui~x}")
+    assert parsed.answers[0].text == r"C:\dados"
+    assert parsed.answers[0].feedback == r"Veja \\ e \: aqui"
+
+
+@pytest.mark.parametrize("text", ["a~b", "a\\", "a\\}b", "a\\#b", "a\\~b"])
+def test_cloze_multichoice_and_feedback_reject_what_they_cannot_express(
+    text: str,
+) -> None:
+    with pytest.raises(ValueError, match="cannot convert"):
+        _choice_cloze((text, 100.0, None))
+    with pytest.raises(ValueError, match="cannot convert"):
+        _choice_cloze(("ok", 100.0, text))

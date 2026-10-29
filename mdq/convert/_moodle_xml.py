@@ -1048,32 +1048,34 @@ def render_cloze(cloze: MoodleCloze) -> str:
     parts = []
     for i, answer in enumerate(cloze.answers):
         text = (
-            escape_cloze_pattern(answer.text)
-            if cloze.kind == "SHORTANSWER"
-            else escape_text(answer.text)
+            escape_text(answer.text)
+            if cloze.kind == "NUMERICAL"
+            else escape_cloze_text(answer.text)
         )
         # An answer ends only at an unescaped `~`, `}` or `#`: `~` separates all
-        # alternatives. A 0% answer whose text starts with `=` or `%` needs an
-        # explicit `%0%`, or Moodle reads the text as a marker.
+        # alternatives. A 0% or 100% answer whose text starts with `=` or `%`
+        # needs an explicit `%0%` or `%100%`, or the text reads as a marker.
         lead = "~" if i or answer.fraction != 100.0 else ""
+        marker_like = text.startswith(("=", "%"))
         if answer.fraction == 100.0:
-            prefix = lead + "="
+            prefix = lead + ("%100%" if marker_like else "=")
         elif answer.fraction == 0.0:
-            prefix = lead + ("%0%" if text.startswith(("=", "%")) else "")
+            prefix = lead + ("%0%" if marker_like else "")
         else:
             prefix = f"{lead}%{format_num(answer.fraction)}%"
         entry = prefix + text
         if cloze.kind == "NUMERICAL" and answer.tolerance:
             entry += f":{escape_text(format_num(answer.tolerance))}"
         if answer.feedback:
-            entry += f"#{escape_text(answer.feedback)}"
+            entry += f"#{escape_cloze_text(answer.feedback)}"
         parts.append(entry)
     return f"{{{cloze.weight}:{cloze.kind}:{''.join(parts)}}}"
 
 
-def escape_cloze_pattern(text: str) -> str:
+def escape_cloze_text(text: str) -> str:
     r"""
-    Escape the text of a SHORTANSWER cloze option. Moodle's cloze import
+    Escape the text of a cloze option (not a NUMERICAL one) or its feedback.
+    Moodle's cloze import
     unescapes only `\}` and `\#` (`:` and `=` need no escape) and never `\\`,
     so a backslash is written as it is: `\*` (a literal asterisk) reaches the
     shortanswer matcher intact.
@@ -1091,8 +1093,8 @@ def escape_cloze_pattern(text: str) -> str:
     return re.sub(r"[}#]", lambda m: "\\" + m.group(), text)
 
 
-def unescape_cloze_pattern(text: str) -> str:
-    r"""Undo `escape_cloze_pattern`; other backslashes, such as `\*`, stay."""
+def unescape_cloze_text(text: str) -> str:
+    r"""Undo `escape_cloze_text`; other backslashes, such as `\*`, stay."""
     return re.sub(r"\\([}#])", r"\1", text)
 
 
@@ -1126,13 +1128,13 @@ def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:
             if colon_pos != -1:
                 tolerance = float(unescape_text(text_raw[colon_pos + 1 :]))
                 text_raw = text_raw[:colon_pos]
-        feedback = unescape_text(entry.feedback) if entry.feedback else None
+        feedback = unescape_cloze_text(entry.feedback) if entry.feedback else None
         answers.append(
             MoodleAnswer(
                 text=(
-                    unescape_cloze_pattern(text_raw)
-                    if kind == "SHORTANSWER"
-                    else unescape_text(text_raw)
+                    unescape_text(text_raw)
+                    if kind == "NUMERICAL"
+                    else unescape_cloze_text(text_raw)
                 ),
                 fraction=entry.credit * 100,
                 feedback=feedback or None,
