@@ -86,3 +86,15 @@ def test_fill_in_numeric_blank_round_trips() -> None:
 def test_str_of_a_model_that_is_not_a_question() -> None:
     tolerance = models.Tolerance(absolute=1)
     assert str(tolerance) == "absolute=1.0 relative=None"
+
+
+def test_render_keeps_a_stem_that_starts_with_a_thematic_break() -> None:
+    question = load(
+        {"type": "essay", "stem": "---\n\nfonte: IBGE\n\n---\n\nQual é a população do Pará?"}
+    ).document
+    assert question is not None
+    rendered = question.render()
+    assert rendered.startswith("---\n---\n\n---\n\nfonte: IBGE")
+    reparsed = load(rendered).document
+    assert reparsed is not None
+    assert reparsed.to_dict() == question.to_dict()

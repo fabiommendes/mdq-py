@@ -40,15 +40,7 @@ def test_load_normalizes_the_input(case: dict[str, Any]) -> None:
     assert json.loads(json.dumps(document.to_dict())) == case["output"]
 
 
-#: Cases whose normalized form does not load back from its render: a stem or
-#: epilogue that starts with a thematic break (the render reads as frontmatter).
-_NO_ROUND_TRIP = {
-    "a stem that starts with a thematic break is kept by normalize",
-    "an epilogue that starts with a thematic break is kept by normalize",
-}
-ROUND_TRIP_CASES = [
-    case for case in CASES if case.get("normalize") and case["name"] not in _NO_ROUND_TRIP
-]
+ROUND_TRIP_CASES = [case for case in CASES if case.get("normalize")]
 
 
 @pytest.mark.parametrize(

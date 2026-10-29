@@ -32,6 +32,7 @@ from mdq.cli import app
 from strategies import frontmatter as st_frontmatter
 from mdq._diagnostics import Diagnostic
 from mdq._parser import parse_exam, parse_question
+from mdq.errors import ParseError
 
 runner = CliRunner()
 
@@ -166,3 +167,19 @@ def test_redundant_id_message_says_which_id_wins(slug: str) -> None:
     loaded = load(source, format="mdq")
     [d] = [d for d in loaded.diagnostics if d.code == "redundant-id"]
     assert ("wins" in d.message) == (slug != "saca")
+
+
+def test_exam_reports_frontmatter_errors_together_with_a_block_parse_error() -> None:
+    """Like a question: the errors do not wait for the body to parse."""
+    warnings: list[Diagnostic] = []
+    with pytest.raises(ParseError):
+        parse_exam(
+            "---\ndificuldade: alta\n---\n\n# Prova de Geografia\n\n===\n\n"
+            "---\nbioma: Cerrado\n---\n\n"
+            "Quantos estados tem o Brasil?\n\n[numeric]: vinte e seis\n",
+            warnings=warnings,
+        )
+    assert [(w.code, w.path) for w in warnings] == [
+        ("invalid-frontmatter-field", ("dificuldade",)),
+        ("invalid-frontmatter-field", ("questions", 0, "bioma")),
+    ]

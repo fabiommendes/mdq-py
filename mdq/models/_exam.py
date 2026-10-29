@@ -771,7 +771,7 @@ class Exam(MdqModel):
         }
         yield _parser.SEPARATOR
         yield ""
-        yield entry.model_copy(update=inherited).render()
+        yield "\n".join(entry.model_copy(update=inherited)._render_lines())
 
     def model_post_init(self, __ctx: Any) -> None:
         for i, question in enumerate(self._owned_questions()):

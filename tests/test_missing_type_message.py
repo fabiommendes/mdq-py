@@ -56,7 +56,7 @@ def _exam_md(block: str) -> str:
 
 def test_md_block_with_misspelled_include_key_and_no_body() -> None:
     loaded = load(_exam_md("---\ninclude-all: biome\n---\n"), format="mdq")
-    [d] = loaded.diagnostics
+    [d] = [d for d in loaded.diagnostics if d.code == "invalid-frontmatter-field"]
     assert d.message.endswith("(did you mean `includeAll` instead of `include-all`?)")
 
 

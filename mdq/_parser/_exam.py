@@ -20,7 +20,7 @@ from .. import _schedule
 from .._markdown import md, split_lines
 from .._diagnostics import Diagnostic
 from .._include_keys import include_key_hint, misspelled_include_key
-from ..errors import IncompleteQuestion, MissingField, ParseError
+from ..errors import IncompleteQuestion, MdqError, MissingField, ParseError
 from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
 from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import (
@@ -529,21 +529,11 @@ def _parse_exam_block(
     # YAML/JSON path.
     hint = include_key_hint(front)
     block_warnings: list[Diagnostic] = []
-    try:
-        parsed_question: dict[str, Any] = dict(
-            parse_question(
-                source, warnings=block_warnings if warnings is not None else None
-            )
-        )
-    except MissingField as exc:
-        if not hint:
-            raise
-        raise MissingField(exc.field, exc.node, exc.message + hint) from exc
-    except IncompleteQuestion as exc:
-        if not hint:
-            raise
-        raise IncompleteQuestion(exc.message + hint) from exc
-    if warnings is not None:
+
+    def report_block_warnings() -> None:
+        """Add the block's diagnostics to `warnings`, path-prefixed."""
+        if warnings is None:
+            return
         misspelled = misspelled_include_key(front)
         for w in block_warnings:
             if (
@@ -553,6 +543,29 @@ def _parse_exam_block(
             ):
                 w = replace(w, message=w.message + hint)
             warnings.append(replace(w, path=("questions", index) + w.path))
+
+    try:
+        parsed_question: dict[str, Any] = dict(
+            parse_question(
+                source, warnings=block_warnings if warnings is not None else None
+            )
+        )
+    except MissingField as exc:
+        # The frontmatter errors of the block do not depend on its body:
+        # report them along with the error that stops the parse.
+        report_block_warnings()
+        if not hint:
+            raise
+        raise MissingField(exc.field, exc.node, exc.message + hint) from exc
+    except IncompleteQuestion as exc:
+        report_block_warnings()
+        if not hint:
+            raise
+        raise IncompleteQuestion(exc.message + hint) from exc
+    except MdqError:
+        report_block_warnings()
+        raise
+    report_block_warnings()
     inherit(parsed_question, exam)
     return cast(QuestionDict, parsed_question)
 

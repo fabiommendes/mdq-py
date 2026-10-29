@@ -16,17 +16,32 @@ handoff).
 
 from __future__ import annotations
 
+from math import gcd
 from pathlib import Path
 import re
 from typing import NamedTuple
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given
 
 from mdq.models import OrderingAlternative, OrderingQuestion
 from _corpus import relative_id
-from test_ordering_models import MINIMAL, ORDERING_FIXTURES, ordering_questions
+from test_ordering_models import (
+    MINIMAL,
+    ORDERING_FIXTURES,
+    ordering_questions,
+)
 from test_ordering_scoring import load_fixture
+
+
+def has_markdown_form(question: OrderingQuestion) -> bool:
+    """False when the levels of all indented lines share a factor above 1."""
+    sections = [question.lines, question.extra]
+    sections.extend(alt.lines for alt in [*question.accept, *question.reject])
+    return gcd(*(level for lines in sections for level, _ in lines)) <= 1
+
+
+renderable_questions = ordering_questions().filter(has_markdown_form)
 
 
 #
@@ -172,13 +187,13 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
 #
 # Properties
 #
-@given(ordering_questions())
+@given(renderable_questions)
 def test_render_contains_exactly_one_ordering_tag(question: OrderingQuestion) -> None:
     src = question.render()
     assert src.splitlines().count("[ordering]:") == 1
 
 
-@given(ordering_questions())
+@given(renderable_questions)
 def test_main_content_line_count_matches_the_answer_key(
     question: OrderingQuestion,
 ) -> None:
@@ -186,7 +201,7 @@ def test_main_content_line_count_matches_the_answer_key(
     assert len(main_block.lines) == len(question.lines)
 
 
-@given(ordering_questions())
+@given(renderable_questions)
 def test_extra_and_alternative_line_counts_match_their_declarations(
     question: OrderingQuestion,
 ) -> None:
@@ -221,6 +236,7 @@ def test_no_heading_when_extra_accept_and_reject_are_all_empty(
         stem=question.stem,
         lines=question.lines,
     )
+    assume(has_markdown_form(question))
     src = question.render()
     assert "##" not in src
 
@@ -460,3 +476,51 @@ def test_frontmatter_skip_defaults_omits_default_indentation_unmatched_normaliza
     assert "indentation" not in frontmatter
     assert "unmatched" not in frontmatter
     assert "normalizations" not in frontmatter
+
+
+#
+# Questions without a Markdown form
+#
+def test_render_refuses_when_all_indented_lines_share_a_factor() -> None:
+    question = OrderingQuestion(
+        stem="s",
+        content="code",
+        lines=[(0, "a"), (2, "b")],
+        accept=[OrderingAlternative(lines=[(2, "b")])],
+    )
+    with pytest.raises(ValueError, match="no Markdown form"):
+        question.render()
+
+
+def test_render_refuses_a_common_factor_spread_over_sections() -> None:
+    question = OrderingQuestion(
+        stem="s",
+        content="code",
+        lines=[(0, "a"), (4, "b")],
+        extra=[(2, "c")],
+    )
+    with pytest.raises(ValueError, match="no Markdown form"):
+        question.render()
+
+
+def test_render_accepts_a_level_one_line_anywhere_in_the_question() -> None:
+    question = OrderingQuestion(
+        stem="s",
+        content="code",
+        lines=[(0, "a"), (2, "b")],
+        extra=[(1, "c")],
+    )
+    assert "[ordering]:" in question.render()
+
+
+def test_render_does_not_apply_the_factor_rule_to_lists() -> None:
+    question = OrderingQuestion(
+        stem="s", content="text", lines=[(0, "a"), (1, "b"), (2, "c")]
+    )
+    assert "[ordering]:" in question.render()
+
+
+def test_render_refuses_a_corpus_question_that_has_no_form() -> None:
+    question = load_fixture("accept-other-level-lenient.yaml")
+    with pytest.raises(ValueError, match="no Markdown form"):
+        question.render()

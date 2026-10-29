@@ -75,6 +75,9 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `render()` of a question whose stem starts with a `---` thematic break writes an empty frontmatter first, so `load(render())` no longer reads the break as a frontmatter fence.
+- An exam reports the `invalid-frontmatter-field` errors of its question blocks together with the `parse-error` of the block body, as a single question does.
+- `OrderingQuestion.render()` raises `ValueError` for a code question whose indented lines all share a level factor above 1, since it has no Markdown form. Before, it wrote a document that re-read with other levels.
 - The rendered frontmatter keeps non-ASCII characters (`title: Ciclo da água`, not `"Ciclo da \xE1gua"`). A string with a non-ASCII space or line break (NBSP, U+2028) is double-quoted.
 - An integer absolute tolerance renders as `6 +- 1`, not `6 +- 1.0`, so the round trip of an integer numeric blank keeps its domain.
 - `str()` of a model that is not a question no longer raises `NotImplementedError`.

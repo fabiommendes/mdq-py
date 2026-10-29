@@ -5,6 +5,7 @@ and `OrderingQuestion` itself.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Iterable, Iterator, Literal, Self
@@ -204,7 +205,32 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
             self.lines, self.content, self.highlight
         )
 
+    def _check_has_markdown_form(self) -> None:
+        """
+        Raises:
+            ValueError: `content` is "code" and the levels of all indented
+                lines share a factor above 1 (ordering.md, "Code blocks").
+                The reader infers the indentation unit from the GCD of the
+                whitespace, so the question reads back at other levels.
+        """
+        if self.content != "code":
+            return
+        sections = [self.lines, self.extra]
+        sections.extend(alt.lines for alt in [*self.accept, *self.reject])
+        divisor = math.gcd(
+            *(level for lines in sections for level, text in lines if text)
+        )
+        if divisor > 1:
+            raise ValueError(
+                "This ordering question has no Markdown form: every indented "
+                f"line is at a level that is a multiple of {divisor}, so a "
+                "reader would take the indentation unit to be "
+                f"{divisor} times larger and read the levels divided by "
+                f"{divisor}. Add a line at level 1 or divide the levels."
+            )
+
     def _render_lines(self) -> Iterable[str]:
+        self._check_has_markdown_form()
         # The sections come after the epilogue (ordering.md, "Body").
         yield from super()._render_lines()
         if self.extra:

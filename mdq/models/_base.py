@@ -504,6 +504,24 @@ class BaseQuestion[R](MdqModel):
         yield from self._render_body()
         yield from _render.yield_conclusion(self, skip_line=True)
 
+    def render(self) -> str:
+        """
+        Return a Markdown representation of the question.
+        """
+        text = super().render()
+        if (
+            not self.frontmatter(skip_defaults=True)
+            and not self.comment
+            and _THEMATIC_DASHES_RE.match(self.stem.lstrip(_ASCII_WS))
+        ):
+            # Without a frontmatter, a stem that starts with a `---` thematic
+            # break reads back as a frontmatter fence. An empty frontmatter in
+            # front of it keeps the stem as text. A question inside an exam is
+            # written with `_render_lines()`: there, an empty frontmatter is an
+            # include block with no field.
+            return f"---\n---\n\n{text}"
+        return text
+
     def _render_body(self) -> Iterable[str]:
         """
         model's body as an iterable of lines.
@@ -705,6 +723,9 @@ def can_inline_id(stem: str) -> bool:
 
 #: The whitespace that CommonMark trims around a block.
 _ASCII_WS = " \t\r\n"
+
+#: A first line that is a thematic break written with `-`.
+_THEMATIC_DASHES_RE = re.compile(r" {0,3}-[ \t]*-[ \t]*-[ \t-]*(?:\n|$)")
 
 
 def strip_optional_text(text: str | None) -> str | None:
