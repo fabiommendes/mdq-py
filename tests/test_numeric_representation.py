@@ -127,9 +127,16 @@ def test_scoring_a_fraction_response_is_exact() -> None:
         ("2.50", "2.50"),
         (0.25, "0.25"),
         (-273.15, "-273.15"),
-        (1e-05, "0.00001"),
-        (1e16, "10000000000000000.0"),
-        (2.0, "2.0"),
+        (1e-05, "1e-5"),
+        (0.0001, "0.0001"),
+        (1e16, "1e16"),
+        (1e20, "1e20"),
+        (2.0, "2e0"),
+        (1000.0, "1e3"),
+        (-1000.0, "-1e3"),
+        (150.0, "1.5e2"),
+        (6.022e23, "6.022e23"),
+        (0.0, "0e0"),
     ],
 )
 def test_render_numeric_answer(answer: float | str, text: str) -> None:
@@ -145,11 +152,30 @@ def test_render_relative_tolerance_without_float_noise() -> None:
     assert question.render().endswith("[numeric]: 42 +- 7.0%")
 
 
-def test_render_small_absolute_tolerance_in_plain_notation() -> None:
+def test_render_small_absolute_tolerance_with_exponent() -> None:
     question = models.NumericQuestion(
         stem="x", answer="1/3", tolerance=models.Tolerance(absolute=1e-05)
     )
-    assert question.render().endswith("[numeric]: 1/3 +- 0.00001")
+    assert question.render().endswith("[numeric]: 1/3 +- 1e-5")
+
+
+def test_render_whole_absolute_tolerance_as_integer() -> None:
+    question = models.NumericQuestion(
+        stem="x", answer=6, tolerance=models.Tolerance(absolute=1.0)
+    )
+    assert question.render().endswith("[numeric]: 6 +- 1")
+
+
+@pytest.mark.parametrize("answer", [1000.0, 150.0, 6.022e23, 1e20, 0.0, -2.5e-7, 0.25, 1e-7])
+def test_render_float_answer_keeps_type_and_domain(answer: float | str) -> None:
+    first = load({"type": "numeric", "id": "y", "stem": "Q?", "answer": answer}).document
+    assert first is not None
+    second = load(first.render()).document
+    assert isinstance(second, models.NumericQuestion)
+    assert isinstance(first, models.NumericQuestion)
+    assert type(second.answer) is type(first.answer)
+    assert second.answer == first.answer
+    assert second.effective_domain == first.effective_domain
 
 
 @pytest.mark.parametrize("body", [body for body, _, _ in CASES])

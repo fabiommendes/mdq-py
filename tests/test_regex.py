@@ -255,3 +255,40 @@ def test_escaped_literal_include_matches_when_padded(
     assert rx.include_match(pad_left + literal + pad_right) is True
 
 
+
+
+class TestBodyNfc:
+    """The literal text of the body is NFC (patterns.md, "Regex")."""
+
+    NFD_CAFE = "café"
+
+    def test_nfd_body_matches_nfc_response(self) -> None:
+        assert RegexPattern(f"/{self.NFD_CAFE}/").match("café")
+
+    def test_nfc_body_matches_nfd_response(self) -> None:
+        assert RegexPattern("/café/").match(self.NFD_CAFE)
+
+    def test_escape_is_a_boundary(self) -> None:
+        # NFC of "d" + U+0307 is U+1E0B, which would turn `\d` into `\ḋ`.
+        pattern = RegexPattern("/\\ḋ/")
+        assert pattern.match("7̇")
+        assert not pattern.match("7")
+
+    def test_escape_is_a_boundary_with_n_flag(self) -> None:
+        pattern = RegexPattern("/\\ḋ/n")
+        assert pattern.match("7")
+
+    def test_code_point_escape_stays_decomposed(self) -> None:
+        assert not RegexPattern("/cafe\\u0301/").match("café")
+
+    def test_class_follows_what_the_reader_sees(self) -> None:
+        pattern = RegexPattern("/[é]/")
+        assert pattern.match("é")
+        assert not pattern.match("e")
+
+    def test_quantifier_follows_what_the_reader_sees(self) -> None:
+        pattern = RegexPattern("/é+/")
+        assert pattern.match("éé")
+
+    def test_normalize_regex_accepts_nfd_body(self) -> None:
+        assert normalize_regex(f"/{self.NFD_CAFE}/i") == f"/{self.NFD_CAFE}/i"

@@ -195,11 +195,12 @@ class NumericKey(MdqModel):
         Put `answer`, `domain` and `decimal_places` in the form a render/parse
         round trip keeps, *inplace*. The `answer` is read again from the
         spelling `render_numeric_tag` writes for it, until it is the same
-        value as its own spelling reads (`"1e3"` reads as `1000.0`, which is
-        written `1000.0` and read as the string `"1000.0"`). A `domain` or
+        value as its own spelling reads (`"1000.0"` is a string, so it reads
+        as itself; the float `1000.0` is written `1e3`). A `domain` or
         `decimal_places` already declared stays.
         """
         answer = self.answer
+        inferred = effective_numeric_domain(answer, None, self.tolerance)
         while True:
             spelling = answer if isinstance(answer, str) else _format_number(answer)
             reread = _parser.parse_numeric_answer(spelling)
@@ -207,9 +208,11 @@ class NumericKey(MdqModel):
                 break
             answer = reread
         self.answer = answer
-        domain, places = _written_domain_and_places(answer, self.tolerance)
+        _, places = _written_domain_and_places(answer, self.tolerance)
         if self.domain is None:
-            self.domain = domain
+            # The inferred domain, which `frontmatter` writes when the tag
+            # reads back as another one.
+            self.domain = inferred
         if self.decimal_places is None and self.domain == "decimal" and places is not None:
             self.decimal_places = places
 
@@ -318,6 +321,10 @@ class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
         data = super().frontmatter(skip_defaults=skip_defaults)
         if self.domain is not None:
             data["domain"] = self.domain
+        elif self.effective_domain != _written_domain_and_places(self.answer, self.tolerance)[0]:
+            # The tag does not read back as the inferred domain (a whole float
+            # such as `1000.0` is an integer, but its tag `1e3` is a decimal).
+            data["domain"] = self.effective_domain
         if self.decimal_places is not None:
             data["decimalPlaces"] = self.decimal_places
         if self.incorrect_feedback is not None:
@@ -587,7 +594,7 @@ def render_numeric_tag(
             terms.append(f"+- {_format_tolerance(tolerance.absolute)}")
         if tolerance.relative is not None:
             percent = Decimal(repr(tolerance.relative)) * 100
-            terms.append(f"+- {_format_number(float(percent))}%")
+            terms.append(f"+- {_format_percent(float(percent))}%")
     return f"{tag}: {' '.join(terms)}"
 
 
@@ -639,12 +646,30 @@ def _format_tolerance(value: float) -> str:
 
 def _format_number(value: int | float) -> str:
     """
-    Write a number in the `number` grammar of numeric.md:
-    plain notation, never an exponent (`1e-05` is `0.00001`). A float
-    keeps its `.0` when whole, so it reads back as a decimal.
+    Write a number in the `number` grammar of numeric.md. An `int` is plain.
+    A whole `float` is written as `d[.ddd]eN` (`1000.0` is `1e3`), because
+    `1000.0` reads back as a decimal string and `1e3` as the float. A
+    fractional `float` is positional (`0.25`), unless it is below `1e-4`,
+    which gets the same exponent form (`1e-7`). The mantissa is the
+    shortest digit string that reads back as the same float.
     """
     if isinstance(value, int):
         return str(value)
+    sign, digits, exponent = Decimal(repr(value)).as_tuple()
+    assert isinstance(exponent, int)  # finite floats only
+    digit_text = "".join(map(str, digits)).rstrip("0") or "0"
+    exponent += len(digits) - len(digit_text)
+    scientific = 0 if digit_text == "0" else exponent + len(digit_text) - 1
+    if exponent < 0 and digit_text != "0" and scientific >= -4:
+        text = format(Decimal(repr(abs(value))), "f")
+    else:
+        mantissa = digit_text[0] + ("." + digit_text[1:] if len(digit_text) > 1 else "")
+        text = f"{mantissa}e{scientific}"
+    return f"-{text}" if sign else text
+
+
+def _format_percent(value: float) -> str:
+    """Write a percentage of a relative tolerance: plain notation, `.0` when whole."""
     text = repr(value)
     if "e" not in text:
         return text

@@ -75,6 +75,8 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- Render writes a whole float answer or tolerance as `d[.ddd]eN` (`1000.0` as `1e3`, `0.0` as `0e0`) and a float below 1e-4 with an exponent, and writes `domain` when the rendered tag would read with another domain. `load(render(q))` now keeps the float type and the domain.
+- A regex body written in NFD matches an NFC response: the literal text of the body is normalized to NFC, one run between escapes at a time. The `n` flag uses the same runs, so a combining mark after an escape such as `\d` no longer composes with it.
 - `render()` of a question whose stem starts with a `---` thematic break writes an empty frontmatter first, so `load(render())` no longer reads the break as a frontmatter fence.
 - An exam reports the `invalid-frontmatter-field` errors of its question blocks together with the `parse-error` of the block body, as a single question does.
 - `OrderingQuestion.render()` raises `ValueError` for a code question whose indented lines all share a level factor above 1, since it has no Markdown form. Before, it wrote a document that re-read with other levels.

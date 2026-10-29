@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections.abc import Callable
 from importlib import resources
 
 from .._markdown import UNICODE_SPACE
@@ -52,12 +53,14 @@ class RegexPattern:
         body, raw_flags = parse_regex(pattern)
         validate_flag_chars(flags)
         effective = effective_flags(raw_flags) | effective_flags(flags)
-        validate_regex_body(body)
-
-        # The 'n' flag normalizes the body's literal text, not its escape
-        # sequences: normalize_text only sees the characters written in the
-        # source, so a literal "á" is normalized but "á" is not.
-        compile_body = normalize_text(body) if "n" in effective else body
+        # The literal text of the body is NFC (patterns.md, "Regex"), then
+        # the 'n' flag strips its diacritics. Both act on the literal text,
+        # never on an escape sequence: a literal "e" + U+0301 changes, but
+        # the escape "\\u0301" does not.
+        compile_body = _map_literal_text(body, _nfc)
+        validate_regex_body(compile_body)
+        if "n" in effective:
+            compile_body = _map_literal_text(body, normalize_text)
         py_flags = re.IGNORECASE if "i" in effective else 0
         compiled = compile_regex(compile_body, py_flags, body)
 
@@ -129,8 +132,9 @@ def normalize_regex(pattern: str) -> str:
         InvalidRegexError: the pattern is malformed or uses unsupported syntax.
     """
     body, raw_flags = parse_regex(pattern)
-    validate_regex_body(body)
-    compile_regex(body, 0, body)
+    nfc_body = _map_literal_text(body, _nfc)
+    validate_regex_body(nfc_body)
+    compile_regex(nfc_body, 0, body)
 
     effective = effective_flags(raw_flags)
     flag_str = "".join(f for f in FLAG_ORDER if f in effective)
@@ -157,6 +161,31 @@ def normalize_text(string: str) -> str:
     """
     decomposed = unicodedata.normalize("NFD", string)
     return unicodedata.normalize("NFC", decomposed.translate(_NONSPACING_TABLE))
+
+
+def _nfc(string: str) -> str:
+    return unicodedata.normalize("NFC", string)
+
+
+def _map_literal_text(body: str, transform: Callable[[str], str]) -> str:
+    """
+    Apply `transform` to each run of literal text of `body`. A backslash and
+    the character after it are an escape: it is a boundary and is kept as
+    written, so a mark after `\\d` never composes with the `d`.
+    """
+    parts: list[str] = []
+    run_start = 0
+    index = 0
+    while index < len(body):
+        if body[index] != "\\":
+            index += 1
+            continue
+        parts.append(transform(body[run_start:index]))
+        parts.append(body[index : index + 2])
+        index += 2
+        run_start = index
+    parts.append(transform(body[run_start:]))
+    return "".join(parts)
 
 
 _CODE_POINT_ESCAPE_RE = re.compile(

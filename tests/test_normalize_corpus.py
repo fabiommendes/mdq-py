@@ -83,10 +83,6 @@ def test_normalized_numeric_question_is_what_render_parse_keeps(
     reparsed = load(normalized.render()).document
     assert reparsed is not None
     assert reparsed.to_dict() == normalized.to_dict()
-    # A float that has an exponent in the source is written without it, and
-    # the written form (`1000.0`) reads as a string: the original render
-    # differs from the normalized form only there.
-    if "e" not in str(answer).lower():
-        original = load(document.render()).document
-        assert original is not None
-        assert original.to_dict() == normalized.to_dict()
+    original = load(document.render()).document
+    assert original is not None
+    assert original.to_dict() == normalized.to_dict()
