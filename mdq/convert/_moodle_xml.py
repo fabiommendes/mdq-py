@@ -36,6 +36,7 @@ from ._base import (
     ImportedAnswer,
     exported_general_feedback,
     general_feedback_meta,
+    html_with_blanks_to_mdq,
     mdq_text,
     exported_short_answers,
     float_answer,
@@ -837,8 +838,11 @@ def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
         blanks.append(blank_from_cloze(blank_id, cloze, block.text_format))
         parts.append(f"[^{blank_id}]")
         parts.append(segments[i + 1])
+    stem = "".join(parts)
+    if block.text_format == "html":
+        stem = html_with_blanks_to_mdq(stem)
     return FillInQuestion(
-        stem="".join(parts),
+        stem=stem,
         blanks=blanks,
         shuffle=_mdq_shuffle(block.shuffle_answers),
         **_question_meta(block),

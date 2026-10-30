@@ -386,6 +386,74 @@ def html_to_mdq(text: str) -> str:
             out.append(_BLANK_LINE_IN_VERBATIM_RE.sub("&#10;", parts[i + 1]))
     return f"<div>{''.join(out)}</div>"
 
+_HTML_PARAGRAPH_RE = re.compile(r"<p(?:\s[^>]*)?>(.*?)</p\s*>", re.DOTALL | re.IGNORECASE)
+_LINE_BREAK_RUN_RE = re.compile(r"\s*\n\s*")
+_MARKER_RE = re.compile(r"\[\^[^\]\s]+\]")
+_HTML_BLOCK_TAGS = (
+    "address|article|aside|blockquote|body|caption|center|col|colgroup|dd|details|"
+    "dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|"
+    "h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|"
+    "noframes|ol|optgroup|option|p|param|section|summary|table|tbody|td|tfoot|th|"
+    "thead|title|tr|track|ul"
+)
+_HTML_BLOCK_START_RE = re.compile(
+    rf"^ {{0,3}}<(?:/?(?:{_HTML_BLOCK_TAGS})(?=[\s/>]|$)|(pre|script|style|textarea)(?=[\s/>]|$))",
+    re.IGNORECASE,
+)
+
+
+def html_with_blanks_to_mdq(text: str) -> str:
+    """
+    Return the Markdown for the HTML `text` of a cloze or missing-word stem,
+    where `[^id]` markers stand for the blanks.
+
+    A marker inside a CommonMark HTML block is literal text, so each top-level
+    `<p>...</p>` becomes a Markdown paragraph holding its inner content
+    (attributes such as `class`, `dir` and `style` are dropped), separated from
+    the next block by one blank line. Inside a paragraph, a whitespace run with
+    a line break becomes one space (HTML collapses it anyway), so no blank line
+    is left. Inline tags (`<b>`, `<span>`, `<br>`) stay as inline HTML.
+
+    Raises:
+        ValueError: a block-level tag, other than `<p>`, opens an HTML block
+            that holds a marker.
+    """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    def paragraph(match: re.Match[str]) -> str:
+        inner = _LINE_BREAK_RUN_RE.sub(" ", match.group(1)).strip()
+        return f"\n\n{inner}\n\n" if inner else "\n\n"
+
+    text = _HTML_PARAGRAPH_RE.sub(paragraph, text)
+    text = re.sub(r"\n[ \t]*\n(?:[ \t]*\n)+", "\n\n", text).strip()
+
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        start = _HTML_BLOCK_START_RE.match(lines[i])
+        if not start:
+            i += 1
+            continue
+        verbatim = start.group(1)
+        end = i
+        while end < len(lines):
+            if verbatim:
+                if re.search(rf"</{verbatim}\s*>", lines[end], re.IGNORECASE):
+                    break
+            elif not lines[end].strip():
+                break
+            end += 1
+        if _MARKER_RE.search("\n".join(lines[i : end + 1])):
+            tag = lines[i].lstrip()[1:].split(maxsplit=1)[0].split(">")[0].rstrip("/")
+            raise ValueError(
+                f"a blank inside the HTML block starting at `<{tag.lstrip('/')}>` "
+                "cannot be a `[^id]` marker: CommonMark reads an HTML block as "
+                "literal text. Only `<p>` paragraphs are converted; the "
+                "`--html markdown` option (planned) will cover other block tags"
+            )
+        i = end + 1
+    return text
+
 
 def mdq_text(text: str, text_format: str, *, block: bool = False) -> str:
     """

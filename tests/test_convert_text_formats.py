@@ -255,7 +255,7 @@ def test_moodle_html_import_renders_as_html() -> None:
 def test_moodle_html_cloze_is_copied_as_is() -> None:
     text = "<p>A capital é</p>\n\n{1:MULTICHOICE:=<b>Brasília</b>~Rio} <b>hoje</b>."
     q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
-    assert q.stem == "<p>A capital é</p>\n\n[^blank1] <b>hoje</b>."
+    assert q.stem == "A capital é\n\n[^blank1] <b>hoje</b>."
     assert [c.text for c in q.blanks[0].choices] == ["<b>Brasília</b>", "Rio"]
 
 
@@ -310,8 +310,54 @@ def test_gift_html_missing_word_is_copied_as_is() -> None:
     assert [c.text for c in q.blanks[0].choices] == ["Cerrado", "Pantanal"]
 
 
-def test_gift_html_missing_word_in_a_block_tag_is_rejected_as_before() -> None:
-    # The copy is verbatim: `[^blank]` inside an HTML block is not a marker.
-    src = "::Bioma::[html]<p>O bioma {=Cerrado ~Pantanal} cobre o <b>MS</b>.</p>"
-    with pytest.raises(ValueError, match="never referenced"):
+def _stem_html(stem: str) -> str:
+    return MarkdownIt("commonmark").render(stem)
+
+
+_BIOMA_GIFT = "::Bioma::[html]<p>O bioma {=Cerrado ~Pantanal} cobre o <b>MS</b>.</p>"
+
+
+def test_gift_html_missing_word_in_a_paragraph_is_inline() -> None:
+    q = import_question(_BIOMA_GIFT, format="gift")
+    assert q.stem == "O bioma [^blank] cobre o <b>MS</b>."
+    assert [c.text for c in q.blanks[0].choices] == ["Cerrado", "Pantanal"]
+    assert _stem_html(q.stem) == "<p>O bioma [^blank] cobre o <b>MS</b>.</p>\n"
+
+
+def test_moodle_html_cloze_in_a_paragraph_is_inline() -> None:
+    text = "<p>O bioma {1:MULTICHOICE:=Cerrado~Pantanal} cobre o <b>MS</b>.</p>"
+    q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+    assert q.stem == "O bioma [^blank1] cobre o <b>MS</b>."
+    assert _stem_html(q.stem) == "<p>O bioma [^blank1] cobre o <b>MS</b>.</p>\n"
+
+
+def test_html_cloze_paragraphs_are_separated_by_one_blank_line() -> None:
+    text = (
+        "<p>O Pantanal fica no\n\n  Centro-Oeste.</p>\n\n"
+        "<p>O bioma {1:SHORTANSWER:=Cerrado} cobre o MS.</p>\n"
+    )
+    q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+    assert q.stem == "O Pantanal fica no Centro-Oeste.\n\nO bioma [^blank1] cobre o MS."
+    assert _stem_html(q.stem).count("<p>") == 2
+    assert "<p>O bioma [^blank1] cobre o MS.</p>" in _stem_html(q.stem)
+
+
+def test_html_cloze_paragraph_attributes_are_dropped() -> None:
+    text = '<p dir="ltr" class="x">O bioma {1:SHORTANSWER:=Cerrado} cobre o MS.</p>'
+    q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+    assert q.stem == "O bioma [^blank1] cobre o MS."
+
+
+def test_html_cloze_in_a_div_is_rejected_with_the_tag() -> None:
+    src = "::Bioma::[html]<div>O bioma {=Cerrado ~Pantanal} cobre o MS.</div>"
+    with pytest.raises(ValueError, match=r"<div>.*--html markdown"):
         import_question(src, format="gift")
+    text = "<table><tr><td>{1:SHORTANSWER:=Cerrado}</td></tr></table>"
+    with pytest.raises(ValueError, match=r"<table>"):
+        import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+
+
+def test_html_cloze_block_tag_without_a_marker_is_kept() -> None:
+    text = "<div>Leia.</div>\n\n<p>O bioma {1:SHORTANSWER:=Cerrado} cobre o MS.</p>"
+    q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+    assert q.stem == "<div>Leia.</div>\n\nO bioma [^blank1] cobre o MS."

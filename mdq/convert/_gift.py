@@ -31,6 +31,7 @@ from ._base import (
     exported_general_feedback,
     exported_short_answers,
     general_feedback_meta,
+    html_with_blanks_to_mdq,
     mdq_text,
     float_answer,
     numeric_answer_key,
@@ -503,6 +504,8 @@ def block_to_mdq(block: GiftBlock) -> Question:
     if block.tail:
         blank = blank_from_answer(answer)
         stem = f"{block.stem}{block.stem_space or ''}[^blank]{block.tail_space}{block.tail}"
+        if block.text_format == "html":
+            stem = html_with_blanks_to_mdq(stem)
         return FillInQuestion(
             stem=stem, blanks=[blank], meta=meta,
                 title=block.title, comment=block.comment

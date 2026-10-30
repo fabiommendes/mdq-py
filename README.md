@@ -163,13 +163,16 @@ becomes one line break (HTML collapses whitespace anyway); inside them, a blank
 line is joined to the next line as `&#10;`. Entities such as `&nbsp;` render, as
 in HTML.
 
-Cloze and missing-word text, choice text and inline feedback (of a choice, a
-pattern or `incorrectFeedback`) are copied as is: they are inline text, or hold
-a `[^blank]` marker that an HTML block would turn into literal text. They keep
-the old caveats: an HTML block (`<p>`, `<div>`) runs until a blank line, and a
-cloze or missing-word text that starts with a block-level tag is rejected,
-because the marker is inside an HTML block. A future markdownify option should
-cover them.
+Choice text and inline feedback (of a choice, a pattern or
+`incorrectFeedback`) are copied as is: they are inline text. Cloze and
+missing-word `html` text holds `[^blank]` markers, which an HTML block would
+turn into literal text, so each top-level `<p>...</p>` becomes a Markdown
+paragraph (attributes such as `class`, `dir` and `style` are dropped; a line
+break inside it becomes a space). Inline tags stay as inline HTML. Any other
+block-level tag (`<div>`, `<table>`, `<ul>`, `<pre>`, ...) that opens an HTML
+block with a marker is rejected with an error. Known caveat: Markdown-active
+characters in the text of such a paragraph are not escaped. A future
+`--html markdown` option should cover both.
 
 Known caveat: auto-format line breaks (`<br>` in Moodle) are lost: MDQ joins the
 lines. Export always writes `markdown`.
