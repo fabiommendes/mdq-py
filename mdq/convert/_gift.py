@@ -426,20 +426,23 @@ def decode_question(gift: GiftQuestion) -> Question:
 def markdown_block(block: GiftBlock) -> GiftBlock:
     """
     The block with its Markdown texts in MDQ's Markdown: the stem, tail,
-    general feedback, choice texts and every feedback of a `[plain]` block
-    are escaped (`mdq_text`). The text of a short answer or numeric option
-    is not Markdown, so it is kept.
+    general feedback, choice texts and every feedback of a `[plain]` or `[html]`
+    block are converted (`mdq_text`). `[html]` becomes an HTML block only in a
+    whole block of the document: the stem of a question without a tail and the
+    general feedback. The text of a short answer or numeric option is not
+    Markdown, so it is kept.
     """
-    if block.text_format != "plain":
+    block_format = block.text_format
+    if block_format not in ("plain", "html"):
         return block
 
-    def convert(text: str | None) -> str | None:
-        return None if text is None else mdq_text(text, block.text_format)
+    def convert(text: str | None, *, whole: bool = False) -> str | None:
+        return None if text is None else mdq_text(text, block_format, block=whole)
 
     def convert_option(option: GiftOption, *, text: bool) -> GiftOption:
         return replace(
             option,
-            text=mdq_text(option.text, "plain") if text else option.text,
+            text=mdq_text(option.text, block.text_format) if text else option.text,
             feedback=convert(option.feedback),
         )
 
@@ -459,9 +462,9 @@ def markdown_block(block: GiftBlock) -> GiftBlock:
             assert_never(answer)
     return replace(
         block,
-        stem=mdq_text(block.stem, "plain"),
-        tail=mdq_text(block.tail, "plain"),
-        general_feedback=convert(block.general_feedback),
+        stem=mdq_text(block.stem, block.text_format, block=not block.tail),
+        tail=mdq_text(block.tail, block.text_format),
+        general_feedback=convert(block.general_feedback, whole=True),
         answer=answer,
     )
 

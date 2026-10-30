@@ -145,7 +145,7 @@ are listed below as "dropped".
 
 | Source text format | MDQ text |
 | ------------------ | -------- |
-| GIFT `[html]`; Moodle `html` | Copied as is. CommonMark carries raw HTML. |
+| GIFT `[html]`; Moodle `html` | A stem without blanks, a general feedback and a grader info are wrapped in one `<div>...</div>` HTML block (see below). Choices, inline feedback and text with blanks are copied as is. |
 | GIFT `[plain]`; Moodle `plain_text` | Markdown punctuation is escaped (`*`, `_`, `[`, `<`, `&`, a leading `#` or `1.`, ...). Line breaks inside a paragraph become hard breaks. |
 | GIFT `[markdown]`, GIFT without prefix (auto-format); Moodle `markdown`, `moodle_auto_format` | Copied as is. |
 | Moodle `wiki_like`, an unknown value, or no `format` | Read as `html`, as Moodle does. |
@@ -155,9 +155,23 @@ Moodle XML reads the `format` of `<questiontext>`, `<answer>`, `<feedback>`,
 question. The text of a short-answer pattern or of a numeric answer is not
 Markdown and is never converted.
 
-Known caveats of copying HTML: an HTML block (`<p>`, `<div>`) runs until a blank
-line, so text on the next lines is raw HTML too, and entities such as `&nbsp;`
-render. Auto-format line breaks (`<br>` in Moodle) are lost: MDQ joins the
+An HTML stem without blanks, a general feedback and a grader info become one
+CommonMark HTML block, so Markdown never reads any part of them (`*`, indented
+code, ...). An HTML block ends at a blank line, so the importer removes them:
+outside `<pre>` and `<textarea>`, each run of whitespace with a blank line
+becomes one line break (HTML collapses whitespace anyway); inside them, a blank
+line is joined to the next line as `&#10;`. Entities such as `&nbsp;` render, as
+in HTML.
+
+Cloze and missing-word text, choice text and inline feedback (of a choice, a
+pattern or `incorrectFeedback`) are copied as is: they are inline text, or hold
+a `[^blank]` marker that an HTML block would turn into literal text. They keep
+the old caveats: an HTML block (`<p>`, `<div>`) runs until a blank line, and a
+cloze or missing-word text that starts with a block-level tag is rejected,
+because the marker is inside an HTML block. A future markdownify option should
+cover them.
+
+Known caveat: auto-format line breaks (`<br>` in Moodle) are lost: MDQ joins the
 lines. Export always writes `markdown`.
 
 ### Answer key of short-answer and numeric questions

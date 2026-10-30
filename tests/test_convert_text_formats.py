@@ -1,7 +1,9 @@
 """
 Text formats of GIFT and Moodle XML on import.
 
-`html` text is copied as is (CommonMark carries raw HTML). `plain` text has its
+`html` text is wrapped in one `<div>` HTML block, without blank lines, only if it is a
+whole block of the document (stem without blanks, general feedback, grader info).
+Other `html` text is copied as is. `plain` text has its
 Markdown punctuation escaped and its line breaks kept as hard breaks. GIFT
 auto-format (no prefix), Moodle `moodle_auto_format` and `markdown` are copied
 as is. A Moodle XML element without `format`, or with an unknown one, is `html`.
@@ -9,11 +11,14 @@ as is. A Moodle XML element without `format`, or with an unknown one, is `html`.
 
 from __future__ import annotations
 
+import html as html_lib
+
 import pytest
+from markdown_it import MarkdownIt
 
 from mdq import models
 from mdq.convert import import_question
-from mdq.convert._base import plain_text_to_markdown
+from mdq.convert._base import html_to_mdq, plain_text_to_markdown
 from mdq.convert._moodle_xml import MoodleXmlParser
 
 
@@ -89,7 +94,7 @@ def test_html_is_copied_as_is() -> None:
         _xml("<p>Qual é a <b>capital</b> do Brasil?</p>", answers=answers),
         format="moodle-xml",
     )
-    assert q.stem == "<p>Qual é a <b>capital</b> do Brasil?</p>"
+    assert q.stem == "<div><p>Qual é a <b>capital</b> do Brasil?</p></div>"
     assert [c.text for c in q.choices] == ["<b>Brasília</b>", "Rio"]
     assert q.choices[0].feedback == "<p>Isso!</p>"
 
@@ -117,7 +122,7 @@ def test_plain_text_is_escaped() -> None:
 def test_each_element_has_its_own_format() -> None:
     answers = _choice("a * b", 100, "plain_text") + _choice("<i>c</i>", 0)
     q = import_question(_xml("<p>x * y</p>", answers=answers), format="moodle-xml")
-    assert q.stem == "<p>x * y</p>"
+    assert q.stem == "<div><p>x * y</p></div>"
     assert [c.text for c in q.choices] == ["a \\* b", "<i>c</i>"]
 
 
@@ -147,12 +152,12 @@ def test_plain_text_general_feedback_and_essay_answer_key() -> None:
 # ---------------------------------------------------------------------
 # GIFT
 # ---------------------------------------------------------------------
-def test_gift_html_is_copied_as_is() -> None:
+def test_gift_html_stem_is_wrapped_only() -> None:
     q = import_question(
         "[html]<p>Qual é a <b>capital</b>?</p> {=<b>Brasília</b>#<p>Isso!</p> ~Rio}",
         format="gift",
     )
-    assert q.stem == "<p>Qual é a <b>capital</b>?</p>"
+    assert q.stem == "<div><p>Qual é a <b>capital</b>?</p></div>"
     assert q.choices[0].text == "<b>Brasília</b>"
     assert q.choices[0].feedback == "<p>Isso!</p>"
 
@@ -176,3 +181,137 @@ def test_gift_plain_missing_word_and_short_answer_feedback() -> None:
     assert isinstance(q, models.FillInQuestion)
     assert q.stem == "A taxa de \\* é [^blank]."
     assert q.blanks[0].accept[0].feedback == "sim \\*"
+
+
+# ---------------------------------------------------------------------
+# HTML text is one HTML block
+# ---------------------------------------------------------------------
+_MD = MarkdownIt("commonmark")
+
+
+def _render(markdown: str) -> str:
+    return _MD.render(markdown)
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        (
+            "<p>Um barco desce o rio São Francisco.</p>\n\n    Use v = d / t.\n\nA velocidade é dada em *km/h*?",
+            "<div><p>Um barco desce o rio São Francisco.</p>\nUse v = d / t.\nA velocidade é dada em *km/h*?</div>",
+        ),
+        ("<b>Cerrado</b> é *bioma*", "<div><b>Cerrado</b> é *bioma*</div>"),
+        ("Ar&nbsp;puro, *sem* &amp; nada", "<div>Ar&nbsp;puro, *sem* &amp; nada</div>"),
+        ("  \r\n<p>a</p>\r\n \r\n<p>b</p>\n  ", "<div><p>a</p>\n<p>b</p></div>"),
+        (
+            "<pre>linha 1\n\nlinha 3\n \n\nlinha 6</pre>\n\n*fim*",
+            "<div><pre>linha 1\n&#10;linha 3\n&#10;&#10;linha 6</pre>\n*fim*</div>",
+        ),
+        ("   \n ", "   \n "),
+        ("", ""),
+    ],
+)
+def test_html_to_mdq(html: str, expected: str) -> None:
+    assert html_to_mdq(html) == expected
+
+
+@pytest.mark.parametrize(
+    ("html", "rendered"),
+    [
+        (
+            "<p>Um barco desce o rio São Francisco.</p>\n\n    Use v = d / t.\n\nA velocidade é dada em *km/h*?",
+            "<div><p>Um barco desce o rio São Francisco.</p>\nUse v = d / t.\nA velocidade é dada em *km/h*?</div>",
+        ),
+        ("<b>Cerrado</b> é *bioma*", "<div><b>Cerrado</b> é *bioma*</div>"),
+        ("Ar&nbsp;puro", "<div>Ar&nbsp;puro</div>"),
+        (
+            "<pre>a\n\nb</pre>",
+            "<div><pre>a\n&#10;b</pre></div>",
+        ),
+    ],
+)
+def test_imported_html_renders_as_one_html_block(html: str, rendered: str) -> None:
+    out = _render(html_to_mdq(html))
+    assert out.strip() == rendered
+
+
+def test_blank_line_in_pre_keeps_its_text() -> None:
+    out = _render(html_to_mdq("<pre>a\n\nb</pre>"))
+    # The browser decodes `&#10;` to a line break: three lines, the middle one empty.
+    assert html_lib.unescape(out).strip() == "<div><pre>a\n\nb</pre></div>"
+
+
+def test_moodle_html_import_renders_as_html() -> None:
+    xml = _xml(
+        "<p>Um barco desce o rio São Francisco.</p>\n\n    Use v = d / t.\n\nA velocidade é dada em *km/h*?",
+        answers=_choice("Sim", 100) + _choice("Não", 0),
+    )
+    q = import_question(xml, format="moodle-xml")
+    assert _render(q.stem).count("<pre>") == 0
+    assert "<em>" not in _render(q.stem)
+    assert "*km/h*" in _render(q.stem)
+
+
+def test_moodle_html_cloze_is_copied_as_is() -> None:
+    text = "<p>A capital é</p>\n\n{1:MULTICHOICE:=<b>Brasília</b>~Rio} <b>hoje</b>."
+    q = import_question(_xml(text, qtype="multianswer"), format="moodle-xml")
+    assert q.stem == "<p>A capital é</p>\n\n[^blank1] <b>hoje</b>."
+    assert [c.text for c in q.blanks[0].choices] == ["<b>Brasília</b>", "Rio"]
+
+
+def test_moodle_html_general_feedback_and_grader_info_are_wrapped() -> None:
+    extra = (
+        "    <generalfeedback><text><![CDATA[<b>a</b>\n\n*b*]]></text></generalfeedback>\n"
+        "    <graderinfo><text><![CDATA[<i>c</i>\n\n*d*]]></text></graderinfo>\n"
+    )
+    q = import_question(_xml("Redija.", qtype="essay", extra=extra), format="moodle-xml")
+    assert q.answer_key == "<div><i>c</i>\n*d*</div>"
+    assert q.meta["generalFeedback"] == "<div><b>a</b>\n*b*</div>"
+
+
+def test_moodle_html_short_and_numeric_stem_is_wrapped_patterns_are_not() -> None:
+    short = import_question(
+        _xml("<p>Capital?</p>", qtype="shortanswer", answers=_choice("Brasília", 100, feedback="<p>ok</p>")),
+        format="moodle-xml",
+    )
+    assert short.stem == "<div><p>Capital?</p></div>"
+    assert [(p.pattern, p.feedback) for p in short.accept] == [("Brasília", "<p>ok</p>")]
+    numeric = import_question(
+        _xml(
+            "<p>Quanto?</p>",
+            qtype="numerical",
+            answers='    <answer fraction="100"><text>3.14</text><tolerance>0</tolerance></answer>',
+        ),
+        format="moodle-xml",
+    )
+    assert numeric.stem == "<div><p>Quanto?</p></div>"
+    assert numeric.answer == 3.14
+
+
+def test_gift_html_stem_is_wrapped_choices_are_not() -> None:
+    q = import_question(
+        "::q:: [html]<p>Capital?</p>\n\n    texto *x* {=<b>Brasília</b> ~Rio #<i>não</i>}", format="gift"
+    )
+    assert q.stem == "<div><p>Capital?</p>\ntexto *x*</div>"
+    assert q.choices[0].text == "<b>Brasília</b>"
+    assert q.choices[1].feedback == "<i>não</i>"
+
+
+def test_gift_html_short_answer_stem_is_wrapped() -> None:
+    q = import_question("[html]<p>Capital?</p> {=Brasília #<i>ok</i>}", format="gift")
+    assert q.stem == "<div><p>Capital?</p></div>"
+    assert [p.pattern for p in q.accept] == ["Brasília"]
+
+
+def test_gift_html_missing_word_is_copied_as_is() -> None:
+    src = "::Bioma::[html]O bioma {=Cerrado ~Pantanal} cobre o <b>MS</b>."
+    q = import_question(src, format="gift")
+    assert q.stem == "O bioma [^blank] cobre o <b>MS</b>."
+    assert [c.text for c in q.blanks[0].choices] == ["Cerrado", "Pantanal"]
+
+
+def test_gift_html_missing_word_in_a_block_tag_is_rejected_as_before() -> None:
+    # The copy is verbatim: `[^blank]` inside an HTML block is not a marker.
+    src = "::Bioma::[html]<p>O bioma {=Cerrado ~Pantanal} cobre o <b>MS</b>.</p>"
+    with pytest.raises(ValueError, match="never referenced"):
+        import_question(src, format="gift")

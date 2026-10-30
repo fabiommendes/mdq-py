@@ -354,15 +354,55 @@ def plain_text_to_markdown(text: str) -> str:
     return "\n".join(escaped)
 
 
-def mdq_text(text: str, text_format: str) -> str:
+#: Elements whose text keeps its line breaks, so a blank line in them matters.
+_VERBATIM_HTML_RE = re.compile(
+    r"(<(pre|textarea)\b[^>]*>.*?</\2\s*>)", re.DOTALL | re.IGNORECASE
+)
+_BLANK_LINE_RUN_RE = re.compile(r"\s*\n[ \t]*\n\s*")
+_BLANK_LINE_IN_VERBATIM_RE = re.compile(r"(?<=\n)[ \t]*\n")
+
+
+def html_to_mdq(text: str) -> str:
+    """
+    Return the Markdown that renders as the HTML `text`: one CommonMark HTML
+    block (`<div>...</div>`) that is never read as Markdown. Return `text`
+    unchanged if it has no visible character.
+
+    An HTML block ends at a blank line, so no blank line may remain. Outside
+    `<pre>` and `<textarea>`, HTML collapses whitespace: each run of
+    whitespace that has a blank line becomes one line break. Inside them, each
+    blank line is joined to the next line as the character reference `&#10;`
+    (the whitespace of a blank line is lost).
+    """
+    if not has_visible_character(text):
+        return text
+    text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    parts = _VERBATIM_HTML_RE.split(text)
+    # `split` with two groups yields: other, verbatim element, tag name, other, ...
+    out: list[str] = []
+    for i in range(0, len(parts), 3):
+        out.append(_BLANK_LINE_RUN_RE.sub("\n", parts[i]))
+        if i + 1 < len(parts):
+            out.append(_BLANK_LINE_IN_VERBATIM_RE.sub("&#10;", parts[i + 1]))
+    return f"<div>{''.join(out)}</div>"
+
+
+def mdq_text(text: str, text_format: str, *, block: bool = False) -> str:
     """
     Return the MDQ text for a `text` an external format wrote in
     `text_format`: `plain` and `plain_text` are escaped
-    (`plain_text_to_markdown`); `html` (CommonMark carries raw HTML),
-    auto-format (`moodle`, `moodle_auto_format`) and `markdown` are copied
-    as they are.
+    (`plain_text_to_markdown`); auto-format (`moodle`, `moodle_auto_format`)
+    and `markdown` are copied as they are.
+
+    `html` is copied as it is, except when `block` is true: `text` is then a
+    whole block of the MDQ document (a stem without blanks, a general
+    feedback, a grader info) and becomes one HTML block (`html_to_mdq`). The
+    text of a choice, an inline feedback or a text around a blank is not a
+    whole block.
     """
-    return plain_text_to_markdown(text) if text_format in _PLAIN_FORMATS else text
+    if text_format in _PLAIN_FORMATS:
+        return plain_text_to_markdown(text)
+    return html_to_mdq(text) if block and text_format == "html" else text
 
 
 def general_feedback_meta(*feedbacks: str | None) -> dict[str, object] | None:

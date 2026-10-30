@@ -674,15 +674,19 @@ def markdown_block(block: MoodleXmlBlock) -> MoodleXmlBlock:
     """
     The block with each text in MDQ's Markdown, by the `format` of its own
     element (`mdq_text`): the question text, the general feedback, the grader
-    info, the feedback of every answer and the text of a choice. The text of a
+    info, the feedback of every answer and the text of a choice. An `html` text
+    becomes an HTML block only if it is a whole block of the document: the
+    question text, the general feedback and the grader info. The text of a
     short answer or numeric answer is not Markdown, so it is kept. The
     question text of a cloze question is converted by `fill_in_from_block`,
     around its blanks.
     """
     default = block.text_format
 
-    def convert(text: str | None, text_format: MoodleTextFormat | None) -> str | None:
-        return None if text is None else mdq_text(text, text_format or default)
+    def convert(
+        text: str | None, text_format: MoodleTextFormat | None, *, block: bool = False
+    ) -> str | None:
+        return None if text is None else mdq_text(text, text_format or default, block=block)
 
     def convert_answer(answer: MoodleAnswer, *, text: bool) -> MoodleAnswer:
         return replace(
@@ -691,33 +695,35 @@ def markdown_block(block: MoodleXmlBlock) -> MoodleXmlBlock:
             feedback=convert(answer.feedback, answer.feedback_format),
         )
 
-    general_feedback = convert(block.general_feedback, block.general_feedback_format)
+    general_feedback = convert(
+        block.general_feedback, block.general_feedback_format, block=True
+    )
     match block:
         case MultichoiceBlock():
             return replace(
                 block,
-                questiontext=mdq_text(block.questiontext, default),
+                questiontext=mdq_text(block.questiontext, default, block=True),
                 general_feedback=general_feedback,
                 answers=[convert_answer(a, text=True) for a in block.answers],
             )
         case ShortAnswerBlock() | NumericalBlock():
             return replace(
                 block,
-                questiontext=mdq_text(block.questiontext, default),
+                questiontext=mdq_text(block.questiontext, default, block=True),
                 general_feedback=general_feedback,
                 answers=[convert_answer(a, text=False) for a in block.answers],
             )
         case EssayBlock():
             return replace(
                 block,
-                questiontext=mdq_text(block.questiontext, default),
+                questiontext=mdq_text(block.questiontext, default, block=True),
                 general_feedback=general_feedback,
-                grader_info=convert(block.grader_info, block.grader_info_format),
+                grader_info=convert(block.grader_info, block.grader_info_format, block=True),
             )
         case TrueFalseBlock():
             return replace(
                 block,
-                questiontext=mdq_text(block.questiontext, default),
+                questiontext=mdq_text(block.questiontext, default, block=True),
                 general_feedback=general_feedback,
             )
         case MultianswerBlock():
