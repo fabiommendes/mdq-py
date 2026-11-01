@@ -1,0 +1,2398 @@
+{
+  "valid/essay/answer-key-html-comment.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/answer-key-inner-headings.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/answer-key-multi-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/answer-key-no-blank-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/answer-key-setext.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/bom-no-frontmatter.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/bom.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/bracket-text-first-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/code-python.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/code-without-highlight.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-after-blank-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-after-first-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-bare-hash.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-broken-by-blank-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-indented-is-ignored.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/comment-no-space.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/content-text-frontmatter.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/cr-only.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/crlf.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/empty-answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/epilogue-and-answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/epilogue-rubric-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/epilogue-starts-with-footnote.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/feff-in-middle.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/fenced-code-no-lang.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/footnote-stem-defined-in-answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/form-feed-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/frontmatter-nel-ls-in-scalar.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/frontmatter-only-comment.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/full-metadata.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/heading-in-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/id-precedence.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/image-and-link.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/indented-tag.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/inline-id-in-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/inline-id.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/inline-non-slug-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/link-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/list-partly-bracketed.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-case-insensitive.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-grandfathered.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-lookalike.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-private-use.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-script-region.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-three-letter.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-uppercase.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/locale-yaml-11-boolean.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/meta-null-value.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/meta-same-key-in-nested-mappings.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/meta-scalar-keys.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/meta.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/metadata-comment.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-after-slug.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-end-of-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-in-code-is-skipped.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-in-frontmatter-is-skipped.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-in-prose.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nbsp-start-of-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nel-before-hash-is-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/nel-in-prose.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/no-title.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/null-content-and-optionals.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/null-id-and-tags.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/plain-content.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/spaced-slug-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/stem-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/stem-hard-breaks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/stem-indented-code-block-of-nbsp.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/stem-with-code.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tag-slug-essay.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tags-as-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tags-null.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tags-single-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tags-string-final-comma.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/tags.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-epilogue-first.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-four-dashes.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-indented-dashes.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-spaced-asterisks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-spaced-dashes.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-stem-first.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/thematic-break-underscores.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/unknown-highlight-language.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/unsafe-id-trailing-newline.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/unsafe-id.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/unsplit-tag-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/uuid-max.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/uuid-nil.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/uuid-unknown-variant.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/uuid-unknown-version.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/uuid-uppercase.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/weight-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/weight-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/yaml-nel-ls-in-scalar.yaml": {
+    "export": "unsupported"
+  },
+  "valid/essay/yaml-scalar-keys.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-autolink-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-code-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-code-span-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-indented-code-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-inline-html.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-in-tilde-fence-is-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-link-is-not-a-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-reference-link-is-not-a-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blank-tag-space-around-colon.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blanks-in-two-paragraphs.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/blockquote-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/capital.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/case-variant-blank-id.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/choice-blank-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/choice-blank-missing-id-second-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/choice-blank-omitted-score-vs-zero-percent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/choice-blank-rich.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/continuation-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/definitions-separated-by-blank-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/diacritics-keep.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/empty-blank-definition-text-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/epilogue-nested-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/first-paragraph-starts-with-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/frontmatter-numeric-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/grading-no-mistakes.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/grading-shuffle-inherit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/grading-symmetric.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/grading.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/ids-choice-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/incorrect-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/line-and-detached-list-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/mixed-blanks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/nbsp-after-blank-definition.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/nbsp-in-blank-pattern-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/non-blank-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/null-entry-numeric-maps.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/null-entry-pattern-maps.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-declared.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-domain-mismatch.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-exponent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-forms.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-incorrect-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-maps-places.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-relative-tolerance-around-zero-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-representations.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-blank-unit-non-ascii.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-unit-slash.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/numeric-unit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/observation-order.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/open-blank-between-definitions.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/open-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/pre-validation-entry-forms.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/pre-validation-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/regex-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/reject-block-before-accept.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/reject-only-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/short-answer-blank-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/short-answer-blank-then-list-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/short-answer-blank-unmatchable-regex-escape.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/short-answer-patterns.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/shuffle-all-or-nothing.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/stem-starts-with-blank.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/tag-in-epilogue-fence.yaml": {
+    "export": "unsupported"
+  },
+  "valid/fill-in/unmatched-manual.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-choice/all-correct.yaml": {
+    "export": "Qual destes é um bioma brasileiro?\n\na. Caatinga\nb. Pampa\nc. Pantanal\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Caatinga"
+        },
+        {
+          "score": 0.0,
+          "text": "Pampa"
+        },
+        {
+          "score": 0.0,
+          "text": "Pantanal"
+        }
+      ],
+      "stem": "Qual destes é um bioma brasileiro?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/choice-ids.yaml": {
+    "export": "Qual destas árvores é considerada a árvore símbolo do Brasil?\n\na. Ipê-amarelo\nb. Pau-brasil\nc. Araucária\nd. Castanheira-do-pará\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Ipê-amarelo"
+        },
+        {
+          "score": 0.0,
+          "text": "Pau-brasil"
+        },
+        {
+          "score": 0.0,
+          "text": "Araucária"
+        },
+        {
+          "score": 0.0,
+          "text": "Castanheira-do-pará"
+        }
+      ],
+      "stem": "Qual destas árvores é considerada a árvore símbolo do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/choice-text-differs-in-code-span.yaml": {
+    "export": "Qual comando lista os arquivos de um diretório com detalhes?\n\na. `ls  -la`\nb. `ls -la`\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "`ls  -la`"
+        },
+        {
+          "score": 0.0,
+          "text": "`ls -la`"
+        }
+      ],
+      "stem": "Qual comando lista os arquivos de um diretório com detalhes?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/comment-empty-lines.yaml": {
+    "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Pantanal"
+        },
+        {
+          "score": 0.0,
+          "text": "Caatinga"
+        }
+      ],
+      "stem": "Qual bioma brasileiro é a maior planície alagável do mundo?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/comment-only-spaces.yaml": {
+    "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Pantanal"
+        },
+        {
+          "score": 0.0,
+          "text": "Caatinga"
+        }
+      ],
+      "stem": "Qual bioma brasileiro é a maior planície alagável do mundo?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/comment-stripped.yaml": {
+    "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Pantanal"
+        },
+        {
+          "score": 0.0,
+          "text": "Caatinga"
+        }
+      ],
+      "stem": "Qual bioma brasileiro é a maior planície alagável do mundo?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/comments.yaml": {
+    "export": "Qual físico brasileiro participou da descoberta experimental do méson pi em 1947?\n\na. César Lattes\nb. Mário Schenberg\nc. José Leite Lopes\nd. Jayme Tiomno\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "César Lattes"
+        },
+        {
+          "score": 0.0,
+          "text": "Mário Schenberg"
+        },
+        {
+          "score": 0.0,
+          "text": "José Leite Lopes"
+        },
+        {
+          "score": 0.0,
+          "text": "Jayme Tiomno"
+        }
+      ],
+      "stem": "Qual físico brasileiro participou da descoberta experimental do méson pi em 1947?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/composite-ids.yaml": {
+    "export": "What does RGB stand for?\n\na. Red, green and blue.\nb. Rapid growth boundary\nc. Raw grammar baseline\nd. None of the above\ne. All of the above\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Red, green and blue."
+        },
+        {
+          "score": 0.0,
+          "text": "Rapid growth boundary"
+        },
+        {
+          "score": 0.0,
+          "text": "Raw grammar baseline"
+        },
+        {
+          "score": 0.0,
+          "text": "None of the above"
+        },
+        {
+          "score": 0.0,
+          "text": "All of the above"
+        }
+      ],
+      "stem": "What does RGB stand for?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/context-paragraphs.yaml": {
+    "export": "The pororoca is a tidal bore: the sea tide pushes against the current of the Amazon River and a wave travels upstream.\n\nIt happens mostly around the new moon and the full moon, when the tides are strongest.\n\nWhat causes the strongest tides on Earth?\n\na. The alignment of the Sun, the Moon and the Earth\nb. The rotation of the Earth around its axis\nc. The wind over the Atlantic Ocean\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "The alignment of the Sun, the Moon and the Earth"
+        },
+        {
+          "score": 0.0,
+          "text": "The rotation of the Earth around its axis"
+        },
+        {
+          "score": 0.0,
+          "text": "The wind over the Atlantic Ocean"
+        }
+      ],
+      "stem": "The pororoca is a tidal bore: the sea tide pushes against the current of the Amazon River and a wave travels upstream.\n\nIt happens mostly around the new moon and the full moon, when the tides are strongest.\n\nWhat causes the strongest tides on Earth?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/continued-choice-text.yaml": {
+    "export": "Qual é a ideia central da seleção natural, como proposta por Darwin e Wallace?\n\na. Indivíduos com características que favorecem a sobrevivência e a reprodução deixam mais descendentes, e essas características se tornam mais comuns na população.\nb. Os organismos se esforçam para mudar durante a vida e transmitem as mudanças adquiridas aos descendentes.\nc. As espécies são fixas e não mudam ao longo do tempo.\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Indivíduos com características que favorecem a sobrevivência e a reprodução deixam mais descendentes, e essas características se tornam mais comuns na população."
+        },
+        {
+          "score": 0.0,
+          "text": "Os organismos se esforçam para mudar durante a vida e transmitem as mudanças adquiridas aos descendentes."
+        },
+        {
+          "score": 0.0,
+          "text": "As espécies são fixas e não mudam ao longo do tempo."
+        }
+      ],
+      "stem": "Qual é a ideia central da seleção natural, como proposta por Darwin e Wallace?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/feedback-after-empty-marker.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Salvador\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "Salvador"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/feedback-indented-bullet.yaml": {
+    "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Caatinga"
+        },
+        {
+          "score": 0.0,
+          "text": "Amazon rainforest"
+        }
+      ],
+      "stem": "Which biome exists only in Brazil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/feedback-indented-fence.yaml": {
+    "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Caatinga"
+        },
+        {
+          "score": 0.0,
+          "text": "Amazon rainforest"
+        }
+      ],
+      "stem": "Which biome exists only in Brazil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/feedback-indented-heading.yaml": {
+    "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Caatinga"
+        },
+        {
+          "score": 0.0,
+          "text": "Amazon rainforest"
+        }
+      ],
+      "stem": "Which biome exists only in Brazil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/feedback.yaml": {
+    "export": "Which one is the largest river in the world?\n\na. Amazon\nb. Nile\nc. Mississippi\nd. Yellow River\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Amazon"
+        },
+        {
+          "score": 0.0,
+          "text": "Nile"
+        },
+        {
+          "score": 0.0,
+          "text": "Mississippi"
+        },
+        {
+          "score": 0.0,
+          "text": "Yellow River"
+        }
+      ],
+      "stem": "Which one is the largest river in the world?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/fullwidth-asterisk-marker.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Lisboa\nc. Buenos Aires\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "Lisboa"
+        },
+        {
+          "score": 0.0,
+          "text": "Buenos Aires"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/grading-shuffle-inherit.yaml": {
+    "export": "Which biome is known as the Brazilian savanna?\n\na. Cerrado\nb. Caatinga\nc. Pampa\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Cerrado"
+        },
+        {
+          "score": 0.0,
+          "text": "Caatinga"
+        },
+        {
+          "score": 0.0,
+          "text": "Pampa"
+        }
+      ],
+      "stem": "Which biome is known as the Brazilian savanna?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/grading.yaml": {
+    "export": "Which river carries the largest volume of water in the world?\n\na. Amazon\nb. Congo\nc. São Francisco\nd. Paraná\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Amazon"
+        },
+        {
+          "score": 0.0,
+          "text": "Congo"
+        },
+        {
+          "score": 0.0,
+          "text": "São Francisco"
+        },
+        {
+          "score": 0.0,
+          "text": "Paraná"
+        }
+      ],
+      "stem": "Which river carries the largest volume of water in the world?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/ids-ascii-spelling.yaml": {
+    "export": "Qual grafia consta no censo demográfico?\n\na. Brasília\nb. Brasilia\nc. Nenhuma das anteriores\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 1.0,
+          "text": "Brasilia"
+        },
+        {
+          "score": 0.0,
+          "text": "Nenhuma das anteriores"
+        }
+      ],
+      "stem": "Qual grafia consta no censo demográfico?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/ids-explicit-id-wins.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Distrito Federal, sede do governo\nc. São Paulo\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 1.0,
+          "text": "Distrito Federal, sede do governo"
+        },
+        {
+          "score": 0.0,
+          "text": "São Paulo"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/ids-order-backward.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. São Paulo\nb. Brasília\nc. Rio de Janeiro\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "São Paulo"
+        },
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/ids-order-forward.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. Rio de Janeiro\nb. Brasília\nc. São Paulo\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        },
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "São Paulo"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/ids-punctuation-variants.yaml": {
+    "export": "Qual pontuação está correta?\n\na. São Paulo!\nb. São Paulo?\nc. Rio de Janeiro\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "São Paulo!"
+        },
+        {
+          "score": 1.0,
+          "text": "São Paulo?"
+        },
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        }
+      ],
+      "stem": "Qual pontuação está correta?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/line-separators-in-choice-text.yaml": {
+    "export": "Qual árvore é símbolo do Brasil?\n\na. Ipêamarelo do\u000bcerrado\fbrasileiro\nb. Jatobá\n\nANSWER: a",
+    "import": {
+      "error": "[line 4, col 1]: expect: 'ANSWER:'"
+    }
+  },
+  "valid/multiple-choice/link-choice.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. [Brasilia](https://pt.wikipedia.org/wiki/Brasília)\nb. [Rio de Janeiro](https://pt.wikipedia.org/wiki/Rio_de_Janeiro)\nc. Salvador\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "[Brasilia](https://pt.wikipedia.org/wiki/Brasília)"
+        },
+        {
+          "score": 0.0,
+          "text": "[Rio de Janeiro](https://pt.wikipedia.org/wiki/Rio_de_Janeiro)"
+        },
+        {
+          "score": 0.0,
+          "text": "Salvador"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/many-correct-choices.yaml": {
+    "export": "Qual destas afirmações é verdadeira?\n\na. O Brasil fica na América do Sul.\nb. O Amazonas é um rio.\nc. O Brasil fica na Europa.\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "O Brasil fica na América do Sul."
+        },
+        {
+          "score": 0.0,
+          "text": "O Amazonas é um rio."
+        },
+        {
+          "score": 0.0,
+          "text": "O Brasil fica na Europa."
+        }
+      ],
+      "stem": "Qual destas afirmações é verdadeira?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/nbsp-after-choice-marker.yaml": {
+    "export": "Qual árvore é símbolo do Brasil?\n\na. Ipê\nb. Jatobá\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Ipê"
+        },
+        {
+          "score": 0.0,
+          "text": "Jatobá"
+        }
+      ],
+      "stem": "Qual árvore é símbolo do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/nbsp-in-text-and-feedback.yaml": {
+    "export": "Qual árvore é símbolo do Brasil?\n\na. Ipê amarelo\nb. Jatobá\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Ipê amarelo"
+        },
+        {
+          "score": 0.0,
+          "text": "Jatobá"
+        }
+      ],
+      "stem": "Qual árvore é símbolo do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/no-correct-answer-a.yaml": {
+    "export": "What is the capital of France?\n\na. Berlin\nb. Paris\nc. Madrid\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Berlin"
+        },
+        {
+          "score": 0.0,
+          "text": "Paris"
+        },
+        {
+          "score": 0.0,
+          "text": "Madrid"
+        }
+      ],
+      "stem": "What is the capital of France?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/no-correct-answer-b.yaml": {
+    "export": "What is the capital of France?\n\na. Berlin\nb. Paris\nc. Madrid\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Berlin"
+        },
+        {
+          "score": 0.0,
+          "text": "Paris"
+        },
+        {
+          "score": 0.0,
+          "text": "Madrid"
+        }
+      ],
+      "stem": "What is the capital of France?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/no-correct-answer.yaml": {
+    "export": "Qual destas características melhor descreve o clima do Cerrado?\n\na. Chuvas o ano inteiro\nb. Duas estações bem marcadas, uma seca e uma chuvosa\nc. Neve frequente no inverno\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Chuvas o ano inteiro"
+        },
+        {
+          "score": 0.0,
+          "text": "Duas estações bem marcadas, uma seca e uma chuvosa"
+        },
+        {
+          "score": 0.0,
+          "text": "Neve frequente no inverno"
+        }
+      ],
+      "stem": "Qual destas características melhor descreve o clima do Cerrado?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/null-fields.yaml": {
+    "export": "Which Brazilian state has the longest coastline?\n\na. Bahia\nb. Maranhão\nc. Rio de Janeiro\nd. Santa Catarina\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Bahia"
+        },
+        {
+          "score": 0.0,
+          "text": "Maranhão"
+        },
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        },
+        {
+          "score": 0.0,
+          "text": "Santa Catarina"
+        }
+      ],
+      "stem": "Which Brazilian state has the longest coastline?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/omitted-score-vs-zero-percent.yaml": {
+    "export": "What is the largest tropical rainforest in the world?\n\na. Amazon\nb. Atlantic Forest\nc. Cerrado\nd. Sahara\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Amazon"
+        },
+        {
+          "score": 0.0,
+          "text": "Atlantic Forest"
+        },
+        {
+          "score": 0.0,
+          "text": "Cerrado"
+        },
+        {
+          "score": 0.0,
+          "text": "Sahara"
+        }
+      ],
+      "stem": "What is the largest tropical rainforest in the world?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/partial-credit-no-full-answer.yaml": {
+    "export": "Which biome covers most of the Brazilian territory?\n\na. Amazon\nb. Cerrado\nc. Pampa\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Amazon"
+        },
+        {
+          "score": 0.0,
+          "text": "Cerrado"
+        },
+        {
+          "score": 0.0,
+          "text": "Pampa"
+        }
+      ],
+      "stem": "Which biome covers most of the Brazilian territory?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/partial-credit.yaml": {
+    "export": "Which is the largest ocean on Earth?\n\na. Pacific\nb. Atlantic\nc. Indian\nd. The Moon has no ocean.\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Pacific"
+        },
+        {
+          "score": 0.0,
+          "text": "Atlantic"
+        },
+        {
+          "score": 0.0,
+          "text": "Indian"
+        },
+        {
+          "score": 0.0,
+          "text": "The Moon has no ocean."
+        }
+      ],
+      "stem": "Which is the largest ocean on Earth?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/percent-forms.yaml": {
+    "export": "Onde fica a nascente do rio Amazonas?\n\na. Nos Andes peruanos\nb. No Peru\nc. Na América do Sul\nd. No Brasil\ne. Na Europa\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Nos Andes peruanos"
+        },
+        {
+          "score": 0.0,
+          "text": "No Peru"
+        },
+        {
+          "score": 0.0,
+          "text": "Na América do Sul"
+        },
+        {
+          "score": 0.0,
+          "text": "No Brasil"
+        },
+        {
+          "score": 0.0,
+          "text": "Na Europa"
+        }
+      ],
+      "stem": "Onde fica a nascente do rio Amazonas?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/reference-link-and-id-separators.yaml": {
+    "export": "Qual é a capital do Brasil?\n\n[ref]: https://pt.wikipedia.org/wiki/Salvador\n\na. Brasília\nb. Rio de Janeiro\nc. [Salvador][ref]\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        },
+        {
+          "score": 0.0,
+          "text": "[Salvador][ref]"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?\n\n[ref]: https://pt.wikipedia.org/wiki/Salvador",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/setext-heading-in-epilogue-not-linted.yaml": {
+    "export": "Which river is the longest inside Brazil?\n\nSource\n---\n\na. Amazon\nb. Tocantins\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Amazon"
+        },
+        {
+          "score": 0.0,
+          "text": "Tocantins"
+        }
+      ],
+      "stem": "Which river is the longest inside Brazil?\n\nSource\n---",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/shuffle-false.yaml": {
+    "export": "Qual bioma brasileiro acompanha a maior parte do litoral?\n\na. Mata Atlântica\nb. Cerrado\nc. Pampa\nd. Nenhuma das anteriores\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Mata Atlântica"
+        },
+        {
+          "score": 0.0,
+          "text": "Cerrado"
+        },
+        {
+          "score": 0.0,
+          "text": "Pampa"
+        },
+        {
+          "score": 0.0,
+          "text": "Nenhuma das anteriores"
+        }
+      ],
+      "stem": "Qual bioma brasileiro acompanha a maior parte do litoral?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/shuffle.yaml": {
+    "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Rio de Janeiro\nc. Salvador\nd. Todas as anteriores\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        },
+        {
+          "score": 0.0,
+          "text": "Rio de Janeiro"
+        },
+        {
+          "score": 0.0,
+          "text": "Salvador"
+        },
+        {
+          "score": 0.0,
+          "text": "Todas as anteriores"
+        }
+      ],
+      "stem": "Qual é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/simple.yaml": {
+    "export": "What is the capital of France?\n\na. Berlin\nb. Paris\nc. Madrid\n\nANSWER: b",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "Berlin"
+        },
+        {
+          "score": 1.0,
+          "text": "Paris"
+        },
+        {
+          "score": 0.0,
+          "text": "Madrid"
+        }
+      ],
+      "stem": "What is the capital of France?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/spaced-values.yaml": {
+    "export": "Qual é o ponto mais alto do Brasil?\n\na. Pico da Neblina\nb. Pico 31 de Março\nc. Pico da Bandeira\nd. Monte Roraima\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Pico da Neblina"
+        },
+        {
+          "score": 0.0,
+          "text": "Pico 31 de Março"
+        },
+        {
+          "score": 0.0,
+          "text": "Pico da Bandeira"
+        },
+        {
+          "score": 0.0,
+          "text": "Monte Roraima"
+        }
+      ],
+      "stem": "Qual é o ponto mais alto do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/visually-identical-choices.yaml": {
+    "export": "Qual cidade é a capital do Brasil?\n\na. *Rio de Janeiro*\nb. _Rio de Janeiro_\nc. Brasília\n\nANSWER: c",
+    "import": {
+      "choices": [
+        {
+          "score": 0.0,
+          "text": "*Rio de Janeiro*"
+        },
+        {
+          "score": 0.0,
+          "text": "_Rio de Janeiro_"
+        },
+        {
+          "score": 1.0,
+          "text": "Brasília"
+        }
+      ],
+      "stem": "Qual cidade é a capital do Brasil?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/yaml-core-scalars.yaml": {
+    "export": "Qual rio nasce na Serra da Canastra?\n\na. São Francisco\nb. Amazonas\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "São Francisco"
+        },
+        {
+          "score": 0.0,
+          "text": "Amazonas"
+        }
+      ],
+      "stem": "Qual rio nasce na Serra da Canastra?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-choice/yaml-core-schema.yaml": {
+    "export": "Qual destes valores YAML é um booleano?\n\na. `true`\nb. `yes`\nc. `on`\n\nANSWER: a",
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "`true`"
+        },
+        {
+          "score": 0.0,
+          "text": "`yes`"
+        },
+        {
+          "score": 0.0,
+          "text": "`on`"
+        }
+      ],
+      "stem": "Qual destes valores YAML é um booleano?",
+      "type": "multiple-choice"
+    }
+  },
+  "valid/multiple-selection/all-correct.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/bullet-list-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-comment-empty-marker-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-deep-indent-continues-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-deep-indent-continues-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-feedback-image-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-feedback-three-columns.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-ids.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-tab-after-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/choice-wide-item-content.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/epilogue-starts-with-link.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/fullwidth-x.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/grading-all-or-nothing.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/grading-inherit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/grading-symmetric.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/grading.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/ids-single-digit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/ids-single-glyph.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/link-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/multi-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/nbsp-blank-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/none-correct.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/shuffle-inherit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/simple.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/stray-choice-marker-stem-yaml.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/stray-choice-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/uppercase-x.yaml": {
+    "export": "unsupported"
+  },
+  "valid/multiple-selection/visually-identical-choices.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/answer-outside-domain-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/answer-outside-domain.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/bom-in-unit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/decimal-beyond-float.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/decimal-integer-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/decimal-trailing-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/decimal-whole-trailing-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/domain-decimal-integer-answer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/domain-integer-relative-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/domain-integer-whole-float-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/domain-mismatch-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/domain-mismatch-integer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/epilogue-trailing-feff.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-avogadro.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-both-tolerances.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-earth-mass.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-forms.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-largest-double.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-leading-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-number-answer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-relative-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-smallest-double.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-string-answer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-trailing-zero-places.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-trailing-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-water-ions.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent-wavelength.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/exponent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-answer-decimal-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-answer-float-decimal-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-answer-float-whole-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-answer-float.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-answer-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-decimal-places.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-decimal-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-domain-integer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction-integer-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/frontmatter-decimal-places.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/frontmatter-domain.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/h1-line-in-epilogue-code-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/h1-line-in-stem-code-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/ignored-decimal-places-inferred.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/ignored-decimal-places.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/incorrect-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/inferred-decimal-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/int32-max-plus-one.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/int32-max.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/int32-min-minus-one.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/int32-min.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/integer-beyond-int32.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/integer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/negative-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/negative-integer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/negative.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/plus-sign.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/redundant-id-different.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/redundant-id-equal.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-around-zero-decimal-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-around-zero-negative-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-around-zero-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-around-zero.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-decimal-shift.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/relative-tolerance-over-one.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/stem-leading-nbsp-feff.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/stem-trailing-feff.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/table-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tabs-around-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tag-indented-three-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tag-tab-before-colon.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tolerance-no-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tolerance-order.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tolerance-spaces-after-sign.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/tolerances.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-code-span.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-currency-symbol.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-escaped-asterisk.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-non-ascii.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-slash.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit-superscript.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/unreduced-fraction.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/whole-decimal-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/whole-fraction-domain-integer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/zero-answer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/numeric/zero-tolerance.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-alternative.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-blank-line-skip-blanks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-omits-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-other-level-lenient.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-other-level-strict.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-repeats-after-dedent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-repeats-after-skip-blanks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-repeats-answer-key.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/accept-uses-key-copies.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/blank-extra-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/blank-line-before-section.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/blank-ordering-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/brazil-timeline.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/duplicate-accepts-after-dedent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/duplicate-alternative-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/duplicate-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/empty-parent-item-nested-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/empty-reject-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/epilogue-no-sections.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/extra-distractors.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/extra-inherits-highlight.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/extra-nested-distractors.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/extra-text.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/fence-info-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/fence-without-language.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/fibonacci.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/full-metadata.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/incorrect-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/indentation-gcd.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/indentation-unit-across-sections.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/indented-fence-tab.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/inline-markup-kept.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/lenient-indentation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/list-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/nbsp-end-of-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/nested-list-sections.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/nested-list-three-levels.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/nested-list-two-levels.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/normalizations-comma-string.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/observations-adjacent.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/redundant-strict-indentation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-differs-only-by-level-strict.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-other-level-lenient.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-unreachable-level-and-copies.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-uses-distractor.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/reject-without-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/section-empty-feedback-marker-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/section-heading-closing-sequence.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/section-heading-indented.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/section-heading-setext.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/section-heading-trailing-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/skip-blanks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/strict-indentation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/strict-reject-other-level.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/tab-indentation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/tab-stops-mixed.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/tag-indented-trailing-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/tag-space-before-colon.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/tilde-fence.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/trailing-whitespace.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/two-accepts-and-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/unknown-highlight-language.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/unmatched-manual.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/unreachable-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/visually-identical-across-blocks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/ordering/visually-identical-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/accept-and-reject-blocks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/accept-regex-flags.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/accept-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/accept-tag-without-pattern.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/bare-accept-with-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/bare-tag-detached-list-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/collapsed-link-at-stem-start.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/continuation-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/diacritics-fold-explicit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/diacritics-keep-mixed.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/diacritics-keep.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/em-space-starts-pattern-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/empty-reject-text-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/empty-tag-text-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-backtick-run.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-backtick.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-leading-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-literal-spans-lines-block.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-literal-spans-lines.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-literal-wraps-double-backtick.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-literal-wraps-inner-backticks.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact-with-spaces.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/exact.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/fence-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/heading-after-content.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/html-block-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/ignored-regex-flag-in-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/ignored-regex-flag.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/image-line-continues.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/incorrect-feedback-unmatched-incorrect.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/incorrect-feedback-with-reject.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/indented-code-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/indented-marker-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/indented-quote-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/indented-underline-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/inline-id-and-indented-tag.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/link-definition-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/list-then-ordered-list-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/list-with-feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/literal-asterisk.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/manual.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/multi-line-patterns.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/nbsp-in-pattern-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/nbsp-on-tag-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/nbsp-starts-pattern-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/no-correct-answer.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/null-diacritics.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/observation-order.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/ordered-list-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pattern-empty-feedback-marker-line.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pattern-one-visible-character.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pre-validation-lint-matrix.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pre-validation-no-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pre-validation-regex-lints.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/pre-validation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/redundant-regex-anchor-cases.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/redundant-regex-anchor-flags-and-literals.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/redundant-regex-anchor-object-entries.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/redundant-regex-anchor.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/regex-flags-f-b.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/regex-subset.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/regex-unescaped-slash.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/regex.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/reject-block-before-accept.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/reject-block-only.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/reject-line-and-detached-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/reject-only.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/semi-automatic.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/simple.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/slug-wins-over-shortcut-link.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/stem-setext-h2.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/stem-with-prose-list.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/tab-indented-bang-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/tab-indented-quote-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/tab-indented-underline-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/tag-space-around-colon.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/thematic-break-epilogue.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/underline-after-feedback-continuation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatchable-regex-escape-fields.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatchable-regex-escape-forms.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatchable-regex-escape-unchanged-ascii.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatchable-regex-escape-unchanged.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatchable-regex-escape.yaml": {
+    "export": "unsupported"
+  },
+  "valid/short-answer/unmatched-manual-accept-only.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/angstrom-sign-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/choice-comment.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/choice-ids.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/cjk-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/false-friend-lowercase.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/false-friend-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/false-friend-true-letter.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/false-friend-vi.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/feedback.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/fullwidth-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/global-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/grading-no-mistakes.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/grading-shuffle-inherit.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/grading.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/inline-id.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-bn-m.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-de-wahr.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-en-cyrillic-false-mismatch.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-es.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-fil-mismatch.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-hi-indic.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-ja-o-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-mismatch.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-mr-b.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-pt-canonical.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-pt-cebraspe.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-pt-han-false-mismatch.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-pt-s-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-pt.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-ru-cyrillic.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-ru-v.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-sw-h.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-sw-k.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-tr-yanlis.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-without-expectation.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-yue-han-false.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/locale-zh-fou.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/long-s-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/lowercase-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/nested-list-stem.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/no-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/non-bmp-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/non-nfkc-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/shuffle.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/simple.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/spaced-markers.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/uniform-false.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/unlisted-marker-markdown.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/unlisted-marker.yaml": {
+    "export": "unsupported"
+  },
+  "valid/true-false/visually-identical-statements.yaml": {
+    "export": "unsupported"
+  }
+}
