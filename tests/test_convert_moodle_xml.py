@@ -34,7 +34,7 @@ from mdq.convert._moodle_xml import (
     parse_cloze,
     render_cloze,
 )
-from mdq.convert._base import ParserError
+from mdq.convert._base import ParserError, Report
 from strategies.moodle_xml import (
     mdq_text,
     moodle_cloze,
@@ -191,7 +191,7 @@ MULTIANSWER_XML = (
 
 def test_parse_cloze_shortanswer():
     fragments, [cloze] = parse_cloze(
-        "The ship used by Darwin was the {1:SHORTANSWER:=Beagle}."
+        "The ship used by Darwin was the {1:SHORTANSWER:=Beagle}.", Report("Moodle XML")
     )
     assert cloze.kind == "SHORTANSWER"
     assert [a.text for a in cloze.answers] == ["Beagle"]
@@ -200,7 +200,7 @@ def test_parse_cloze_shortanswer():
 
 
 def test_parse_cloze_numerical_with_tolerance():
-    fragments, [cloze] = parse_cloze("Brazil has {1:NUMERICAL:=26:1} states.")
+    fragments, [cloze] = parse_cloze("Brazil has {1:NUMERICAL:=26:1} states.", Report("Moodle XML"))
     assert cloze.kind == "NUMERICAL"
     assert cloze.answers[0].text == "26"
     assert cloze.answers[0].tolerance == 1.0
@@ -208,7 +208,7 @@ def test_parse_cloze_numerical_with_tolerance():
 
 def test_parse_cloze_multichoice_options_split_on_tilde():
     _, [cloze] = parse_cloze(
-        "The crater was formed by a {1:MULTICHOICE:=storm~mountain~crater}."
+        "The crater was formed by a {1:MULTICHOICE:=storm~mountain~crater}.", Report("Moodle XML")
     )
     assert cloze.kind == "MULTICHOICE"
     assert [a.text for a in cloze.answers] == ["storm", "mountain", "crater"]
@@ -218,20 +218,20 @@ def test_parse_cloze_multichoice_options_split_on_tilde():
 
 
 def test_parse_cloze_multichoice_credit_tag():
-    _, [cloze] = parse_cloze("Pick one: {1:MULTICHOICE:=storm~%50%mountain~crater}.")
+    _, [cloze] = parse_cloze("Pick one: {1:MULTICHOICE:=storm~%50%mountain~crater}.", Report("Moodle XML"))
     fractions = [a.fraction for a in cloze.answers]
     assert fractions == [100.0, 50.0, 0.0]
 
 
 @pytest.mark.parametrize("abbrev", ["SA", "SHORTANSWER"])
 def test_parse_cloze_shortanswer_abbreviation(abbrev: str) -> None:
-    _, [cloze] = parse_cloze(f"The ship was the {{1:{abbrev}:=Beagle}}.")
+    _, [cloze] = parse_cloze(f"The ship was the {{1:{abbrev}:=Beagle}}.", Report("Moodle XML"))
     assert cloze.kind == "SHORTANSWER"
 
 
 @pytest.mark.parametrize("abbrev", ["NM", "NUMERICAL"])
 def test_parse_cloze_numerical_abbreviation(abbrev: str) -> None:
-    _, [cloze] = parse_cloze(f"Brazil has {{1:{abbrev}:=26:1}} states.")
+    _, [cloze] = parse_cloze(f"Brazil has {{1:{abbrev}:=26:1}} states.", Report("Moodle XML"))
     assert cloze.kind == "NUMERICAL"
 
 
@@ -239,13 +239,13 @@ def test_parse_cloze_numerical_abbreviation(abbrev: str) -> None:
     "abbrev", ["MC", "MULTICHOICE", "MULTICHOICE_V", "MULTICHOICE_H", "MCV", "MCH"]
 )
 def test_parse_cloze_multichoice_variants_normalize(abbrev: str) -> None:
-    _, [cloze] = parse_cloze(f"Pick one: {{1:{abbrev}:=storm~mountain}}.")
+    _, [cloze] = parse_cloze(f"Pick one: {{1:{abbrev}:=storm~mountain}}.", Report("Moodle XML"))
     assert cloze.kind == "MULTICHOICE"
 
 
 def test_parse_cloze_multiple_blanks_in_order():
     text = "The ship was the {1:SHORTANSWER:=Beagle} and Brazil has {1:NUMERICAL:=26:1} states."
-    fragments, clozes = parse_cloze(text)
+    fragments, clozes = parse_cloze(text, Report("Moodle XML"))
     assert [c.kind for c in clozes] == ["SHORTANSWER", "NUMERICAL"]
     assert len(fragments) == len(clozes) + 1
 
@@ -254,7 +254,7 @@ def test_render_cloze_shortanswer():
     cloze = MoodleCloze(
         kind="SHORTANSWER", answers=[MoodleAnswer(text="Beagle", fraction=100.0)]
     )
-    assert render_cloze(cloze) == "{1:SHORTANSWER:=Beagle}"
+    assert render_cloze(cloze, Report("Moodle XML")) == "{1:SHORTANSWER:=Beagle}"
 
 
 def test_render_cloze_numerical_includes_tolerance():
@@ -262,7 +262,7 @@ def test_render_cloze_numerical_includes_tolerance():
         kind="NUMERICAL",
         answers=[MoodleAnswer(text="95", fraction=100.0, tolerance=5.0)],
     )
-    assert render_cloze(cloze) == "{1:NUMERICAL:=95:5}"
+    assert render_cloze(cloze, Report("Moodle XML")) == "{1:NUMERICAL:=95:5}"
 
 
 def test_render_cloze_multichoice_joins_with_tilde():
@@ -274,12 +274,12 @@ def test_render_cloze_multichoice_joins_with_tilde():
             MoodleAnswer(text="crater", fraction=0.0),
         ],
     )
-    assert render_cloze(cloze) == "{1:MULTICHOICE:=storm~mountain~crater}"
+    assert render_cloze(cloze, Report("Moodle XML")) == "{1:MULTICHOICE:=storm~mountain~crater}"
 
 
 def test_render_cloze_uses_canonical_names_even_for_abbreviated_input():
-    _, [cloze] = parse_cloze("{1:SA:=Beagle}")
-    assert render_cloze(cloze) == "{1:SHORTANSWER:=Beagle}"
+    _, [cloze] = parse_cloze("{1:SA:=Beagle}", Report("Moodle XML"))
+    assert render_cloze(cloze, Report("Moodle XML")) == "{1:SHORTANSWER:=Beagle}"
 
 
 def test_render_cloze_includes_custom_weight():
@@ -288,13 +288,13 @@ def test_render_cloze_includes_custom_weight():
         answers=[MoodleAnswer(text="Beagle", fraction=100.0)],
         weight=2,
     )
-    assert render_cloze(cloze).startswith("{2:SHORTANSWER")
+    assert render_cloze(cloze, Report("Moodle XML")).startswith("{2:SHORTANSWER")
 
 
 @given(moodle_cloze())
 def test_render_cloze_then_parse_recovers_kind_and_texts(cloze: MoodleCloze) -> None:
-    text = f"Stem: {render_cloze(cloze)} end."
-    _, [parsed] = parse_cloze(text)
+    text = f"Stem: {render_cloze(cloze, Report("Moodle XML"))} end."
+    _, [parsed] = parse_cloze(text, Report("Moodle XML"))
     assert parsed.kind == cloze.kind
     assert [a.text for a in parsed.answers] == [a.text for a in cloze.answers]
     assert parsed.weight == cloze.weight
@@ -481,7 +481,7 @@ def test_to_mdq_multichoice_single_true_becomes_multiple_choice():
         ],
         single=True,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, MultipleChoiceQuestion)
     assert question.choices[0] == ScoredChoice(
         text="Brasilia", score=1.0, feedback="Correct."
@@ -498,7 +498,7 @@ def test_to_mdq_multichoice_single_absent_defaults_to_multiple_choice():
         ],
         single=None,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, MultipleChoiceQuestion)
 
 
@@ -511,7 +511,7 @@ def test_to_mdq_multichoice_single_false_becomes_multiple_selection():
         ],
         single=False,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, MultipleSelectionQuestion)
     assert question.choices[0] == BooleanChoice(
         text="Amazonia", correct=True, feedback="Correct biome."
@@ -527,7 +527,7 @@ def test_to_mdq_truefalse_alone_becomes_multiple_choice():
             MoodleAnswer(text="false", fraction=0.0),
         ],
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, MultipleChoiceQuestion)
     texts = {c.text: c.score for c in question.choices}
     assert texts == {"True": 1.0, "False": 0.0}
@@ -541,7 +541,7 @@ def test_to_mdq_shortanswer_becomes_short_answer():
             MoodleAnswer(text="Amazon River", fraction=100.0),
         ],
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, ShortAnswerQuestion)
     assert [p.pattern for p in question.effective_accept()] == ["Amazon", "Amazon River"]
 
@@ -552,7 +552,7 @@ def test_to_mdq_numerical_with_tolerance():
         answers=[MoodleAnswer(text="3", fraction=100.0, tolerance=0.1)],
         unit="x10^8 m/s",
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, NumericQuestion)
     assert question.answer == pytest.approx(3.0)
     assert question.unit == "x10^8m/s"
@@ -564,7 +564,7 @@ def test_to_mdq_numerical_zero_tolerance_omits_tolerance_field():
         questiontext="Number of Brazilian states?",
         answers=[MoodleAnswer(text="26", fraction=100.0, tolerance=0.0)],
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, NumericQuestion)
     assert question.tolerance is None
 
@@ -587,7 +587,7 @@ def test_to_mdq_essay_response_format_mapping(
         grader_info="Look for variation, heredity, selection.",
         response_format=response_format,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, EssayQuestion)
     assert question.answer_key == "Look for variation, heredity, selection."
     assert question.content == expected_content
@@ -600,7 +600,7 @@ def test_to_mdq_multianswer_becomes_fill_in():
             "and Brazil has {1:NUMERICAL:=26:1} states."
         ),
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, FillInQuestion)
     assert len(question.blanks) == 2
     assert question.blanks[0].id == "blank1"
@@ -619,7 +619,7 @@ def test_to_mdq_common_fields_carry_over():
         tags=["biology", "brazil"],
         default_grade=2.0,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert question.title == "Bio1"
     assert question.id == "bio-1"
     assert question.tags == ["biology", "brazil"]
@@ -648,7 +648,7 @@ def test_to_mdq_truefalse_group_becomes_true_false():
             ],
         ),
     ]
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks), Report("Moodle XML"))
     assert isinstance(question, TrueFalseQuestion)
     assert question.stem == "About Brazilian geography."
     texts = {c.text: c.correct for c in question.choices}
@@ -675,7 +675,7 @@ def test_to_mdq_truefalse_group_without_common_prefix_uses_fallback_stem():
             ],
         ),
     ]
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks), Report("Moodle XML"))
     assert isinstance(question, TrueFalseQuestion)
     assert question.stem == TRUE_FALSE_FALLBACK_STEM
     assert {c.text for c in question.choices} == {
@@ -696,12 +696,12 @@ def test_to_mdq_mixed_multi_block_group_raises():
         EssayBlock(questiontext="Explain photosynthesis."),
     ]
     with pytest.raises(ValueError):
-        MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks))
+        MoodleXml().to_mdq(MoodleXmlQuestion(blocks=blocks), Report("Moodle XML"))
 
 
 def test_to_mdq_no_blocks_raises():
     with pytest.raises(ValueError):
-        MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[]))
+        MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[]), Report("Moodle XML"))
 
 
 # ---------------------------------------------------------------------
@@ -717,7 +717,7 @@ def test_from_mdq_multiple_choice():
             ScoredChoice(text="Rio de Janeiro", score=0.0),
         ],
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "multichoice"
     assert block.single is True
@@ -734,7 +734,7 @@ def test_from_mdq_multiple_selection_uses_split_fractions():
             BooleanChoice(text="Sahara", correct=False),
         ],
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "multichoice"
     assert block.single is False
@@ -751,7 +751,7 @@ def test_from_mdq_true_false_produces_one_block_per_statement():
             Statement(text="Rio de Janeiro is the capital.", correct=False),
         ],
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     assert len(moodle.blocks) == 2
     assert all(b.type == "truefalse" for b in moodle.blocks)
     assert all(
@@ -767,7 +767,7 @@ def test_from_mdq_true_false_fallback_stem_uses_bare_statement_text():
             Statement(text="The Amazon is the longest river.", correct=True),
         ],
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     assert moodle.blocks[0].questiontext == "Brasilia is the capital of Brazil."
     assert moodle.blocks[1].questiontext == "The Amazon is the longest river."
 
@@ -779,7 +779,7 @@ def test_from_mdq_numeric():
         tolerance=Tolerance(absolute=0.1),
         unit="x10^8m/s",
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "numerical"
     assert block.unit == "x10^8m/s"
@@ -793,7 +793,7 @@ def test_from_mdq_numeric_relative_tolerance_is_scaled_by_answer():
         answer=26.0,
         tolerance=Tolerance(relative=0.1),
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     [answer] = block.answers
     assert answer.tolerance == pytest.approx(2.6)
@@ -804,7 +804,7 @@ def test_from_mdq_numeric_rational_string_answer():
     question = NumericQuestion(
         stem="What fraction is one third?", answer="1/3", tolerance=Tolerance(absolute=0.01)
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert float(block.answers[0].text) == pytest.approx(1 / 3)
 
@@ -813,7 +813,7 @@ def test_from_mdq_short_answer():
     question = ShortAnswerQuestion(
         stem="Name Brazil's longest river.", accept=["Amazon", "Amazon River"]
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "shortanswer"
     assert [a.text for a in block.answers] == ["Amazon", "Amazon River"]
@@ -823,13 +823,13 @@ def test_from_mdq_short_answer_without_accept_raises():
     """A question with no `accept` is manual: the format cannot express a pending response."""
     question = ShortAnswerQuestion(stem="Q")
     with pytest.raises(ValueError, match="(?i)unmatched|manual"):
-        MoodleXml().from_mdq(question)
+        MoodleXml().from_mdq(question, Report("Moodle XML"))
 
 
 def test_from_mdq_short_answer_with_regex_accept_raises():
     question = ShortAnswerQuestion(stem="Q", accept=["/Amaz[oô]nia/"])
     with pytest.raises(ValueError):
-        MoodleXml().from_mdq(question)
+        MoodleXml().from_mdq(question, Report("Moodle XML"))
 
 
 def test_from_mdq_essay():
@@ -838,7 +838,7 @@ def test_from_mdq_essay():
         answer_key="Look for variation, heredity, selection.",
         content="code",
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "essay"
     assert block.grader_info == "Look for variation, heredity, selection."
@@ -859,7 +859,7 @@ def test_from_mdq_fill_in_multiple_blanks():
             NumericBlank(id="states", answer=26, tolerance=Tolerance(absolute=1)),
         ],
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "multianswer"
     assert "{1:MULTICHOICE:=Beagle~Bounty}" in block.questiontext
@@ -874,7 +874,7 @@ def test_from_mdq_common_fields_carry_over():
         tags=["biology", "brazil"],
         weight=2.0,
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.name == "Bio1"
     assert block.idnumber == "bio-1"
@@ -891,10 +891,10 @@ def test_shuffle_field_carries_over_both_directions():
         ],
         shuffle=True,
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.shuffle_answers is True
-    roundtripped = MoodleXml().to_mdq(moodle)
+    roundtripped = MoodleXml().to_mdq(moodle, Report("Moodle XML"))
     assert isinstance(roundtripped, MultipleChoiceQuestion)
     assert roundtripped.shuffle is True
 
@@ -903,7 +903,7 @@ def test_from_mdq_keeps_a_multi_block_stem():
     question = EssayQuestion(
         stem="Consider Brazilian ecosystems.\n\nExplain the Cerrado."
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert (
         block.questiontext == "Consider Brazilian ecosystems.\n\nExplain the Cerrado."
@@ -914,14 +914,14 @@ def test_from_mdq_appends_epilogue_with_blank_line():
     question = EssayQuestion(
         stem="Explain the Cerrado.", epilogue="Score based on accuracy."
     )
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.questiontext == "Explain the Cerrado.\n\nScore based on accuracy."
 
 
 def test_from_mdq_always_renders_markdown_format():
     question = EssayQuestion(stem="Explain the Cerrado biome.")
-    moodle = MoodleXml().from_mdq(question)
+    moodle = MoodleXml().from_mdq(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.text_format == "markdown"
     assert 'format="markdown"' in str(moodle)
@@ -942,8 +942,8 @@ def test_full_round_trip_multiple_choice():
         ],
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, MultipleChoiceQuestion)
     assert [c.text for c in roundtripped.choices] == [c.text for c in question.choices]
     assert [c.score for c in roundtripped.choices] == pytest.approx(
@@ -961,8 +961,8 @@ def test_full_round_trip_multiple_selection():
         ],
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, MultipleSelectionQuestion)
     assert [c.text for c in roundtripped.choices] == [c.text for c in question.choices]
     assert [c.correct for c in roundtripped.choices] == [
@@ -979,8 +979,8 @@ def test_full_round_trip_true_false():
         ],
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, TrueFalseQuestion)
     assert roundtripped.stem == question.stem
     texts = {c.text: c.correct for c in roundtripped.choices}
@@ -995,8 +995,8 @@ def test_full_round_trip_numeric():
         unit="x10^8m/s",
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, NumericQuestion)
     assert roundtripped.answer == pytest.approx(question.answer)
     assert roundtripped.tolerance == question.tolerance
@@ -1008,8 +1008,8 @@ def test_full_round_trip_short_answer():
         stem="Name Brazil's longest river.", accept=["Amazon", "Amazon River"]
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, ShortAnswerQuestion)
     assert roundtripped.effective_accept() == question.effective_accept()
 
@@ -1020,8 +1020,8 @@ def test_full_round_trip_essay():
         answer_key="Look for variation, heredity, selection.",
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, EssayQuestion)
     assert roundtripped.stem == question.stem
     assert roundtripped.answer_key == question.answer_key
@@ -1042,8 +1042,8 @@ def test_full_round_trip_fill_in_multiple_blanks():
         ],
     )
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, FillInQuestion)
     assert len(roundtripped.blanks) == 2
     assert roundtripped.blanks[0].id == "blank1"
@@ -1079,8 +1079,8 @@ def test_multiple_choice_round_trips_through_moodle_xml(
 ) -> None:
     question = MultipleChoiceQuestion(stem=stem, choices=choices)
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, MultipleChoiceQuestion)
     assert [c.text for c in roundtripped.choices] == [c.text for c in question.choices]
     assert [c.score for c in roundtripped.choices] == pytest.approx(
@@ -1097,8 +1097,8 @@ def test_short_answer_round_trips_through_moodle_xml(
 ) -> None:
     question = ShortAnswerQuestion(stem=stem, accept=accept)
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, ShortAnswerQuestion)
     assert roundtripped.effective_accept() == question.effective_accept()
 
@@ -1112,8 +1112,8 @@ def test_short_answer_round_trips_through_moodle_xml(
 def test_numeric_round_trips_through_moodle_xml(stem: str, answer: float) -> None:
     question = NumericQuestion(stem=stem, answer=answer)
     converter = MoodleXml()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("Moodle XML")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("Moodle XML"))
     assert isinstance(roundtripped, NumericQuestion)
     assert roundtripped.answer == pytest.approx(question.answer)
 
@@ -1138,10 +1138,10 @@ def test_moodle_xml_supports_all_seven_types():
 def test_encoder_and_decoder_are_reachable_directly():
     """`encode_question`/`decode_question` are exported for direct use, not only via `MoodleXml`."""
     question = EssayQuestion(stem="Explain the Cerrado biome.")
-    moodle = encode_question(question)
+    moodle = encode_question(question, Report("Moodle XML"))
     [block] = moodle.blocks
     assert block.type == "essay"
-    back = decode_question(moodle)
+    back = decode_question(moodle, Report("Moodle XML"))
     assert isinstance(back, EssayQuestion)
 
 
@@ -1161,7 +1161,7 @@ def test_fill_in_choice_blank_allows_unscored_choices():
             )
         ],
     )
-    cloze = cloze_from_blank(question.blanks[0])
+    cloze = cloze_from_blank(question.blanks[0], Report("Moodle XML"))
     assert [answer.fraction for answer in cloze.answers] == [0.0, 100.0, 0.0]
 
 
@@ -1177,7 +1177,7 @@ def test_to_mdq_numerical_unit_is_made_valid(moodle_unit, unit):
         answers=[MoodleAnswer(text="300", fraction=100.0, tolerance=0)],
         unit=moodle_unit,
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, NumericQuestion)
     assert question.unit == unit
 
@@ -1198,7 +1198,7 @@ def test_from_mdq_fill_in_leaves_markers_in_code_and_links_alone():
             ),
         ],
     )
-    [block] = MoodleXml().from_mdq(question).blocks
+    [block] = MoodleXml().from_mdq(question, Report("Moodle XML")).blocks
     assert block.questiontext.count("{1:MULTICHOICE:") == 1
     assert "`[^ship]`" in block.questiontext
     assert "[^ship](https://x.org)" in block.questiontext

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Literal, NoReturn
 
 from pydantic import ValidationError
@@ -40,22 +41,43 @@ def fail_at(source: str, offset: int, message: str) -> NoReturn:
     raise ParserError(message, prefix.count("\n"), offset - prefix.rfind("\n") - 1)
 
 
+@dataclass
+class Report:
+    """Collects the problems of one conversion."""
+
+    #: The display name of the format, used in messages: "GIFT", "Moodle XML", "Aiken".
+    format: str
+    diagnostics: list[Diagnostic] = field(default_factory=list)
+
+    def error(self, code: str, message: str) -> NoReturn:
+        """
+        Stop the conversion with the problem `code`.
+
+        Raises:
+            ConversionError: always.
+        """
+        raise conversion_error(code, message)
+
+
 class ConversionBase[Q](ABC):
     """
     Base class for conversion types.
     """
 
+    #: The display name of the format, used in messages.
+    name: ClassVar[str]
+
     #: The question types the format imports and exports.
     supports: ClassVar[frozenset[QuestionType]]
 
     @abstractmethod
-    def to_mdq(self, external: Q, /) -> Question:
+    def to_mdq(self, external: Q, report: Report, /) -> Question:
         """
         Import question to a MDQ representation.
         """
 
     @abstractmethod
-    def from_mdq(self, mdq: Question, /) -> Q:
+    def from_mdq(self, mdq: Question, report: Report, /) -> Q:
         """
         Convert MDQ question to the external question format
         """
@@ -119,6 +141,7 @@ def import_question(source: str, /, *, format: str) -> Question:
     """
 
     converter = load_converter(format)
+    report = Report(converter.name)
     try:
         external = converter.parse(source)
     except ParserError as exc:
@@ -127,7 +150,7 @@ def import_question(source: str, /, *, format: str) -> Question:
         )
         raise ConversionError([diagnostic]) from exc
     try:
-        return converter.to_mdq(external)
+        return converter.to_mdq(external, report)
     except ValidationError as exc:
         # The converter built a question the models reject: a converter
         # bug, or a source MDQ cannot hold.
@@ -150,8 +173,8 @@ def export_question(question: Question, /, *, format: str) -> str:
         ValueError: `format` is not one of `FORMATS`.
     """
     converter = load_converter(format)
+    report = Report(converter.name)
     if question.type not in converter.supports:
-        msg = f"{format!r} does not support {question.type!r} questions"
-        raise conversion_error("unsupported-type", msg)
-    external = converter.from_mdq(question)
+        report.error("unsupported-type", f"{format!r} does not support {question.type!r} questions")
+    external = converter.from_mdq(question, report)
     return converter.render(external)

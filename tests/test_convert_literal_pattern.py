@@ -23,13 +23,13 @@ from mdq.convert._moodle import literal_pattern
     ],
 )
 def test_a_line_ending_becomes_one_space(text: str, pattern: str) -> None:
-    assert literal_pattern(text, format="GIFT").pattern == pattern
+    assert literal_pattern(text).pattern == pattern
 
 
 def test_the_lines_of_an_exact_literal_are_joined_inside_the_backticks() -> None:
-    entry = literal_pattern("/usr/\nbin", format="Moodle XML")
+    entry = literal_pattern("/usr/\nbin")
     assert entry.pattern == "`/usr/ bin`"
 
 
 def test_a_single_line_answer_is_kept_as_it_is() -> None:
-    assert literal_pattern(" Brasília ", format="GIFT").pattern == " Brasília "
+    assert literal_pattern(" Brasília ").pattern == " Brasília "

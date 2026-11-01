@@ -20,6 +20,7 @@ from typer.testing import CliRunner
 
 from mdq import Diagnostic, load
 from mdq.cli import app
+from mdq.convert._base import Report
 from mdq.convert._gift import Gift, GiftBlock, GiftQuestion, GiftShort, GiftOption
 from mdq.convert._moodle_xml import (
     MoodleAnswer,
@@ -196,13 +197,13 @@ def test_b4_render_other_blank_shapes_use_blocks(blank: ShortAnswerBlank) -> Non
 # AC11: converters
 #
 def _gift_texts(question: ShortAnswerQuestion) -> list[str]:
-    [block] = Gift().from_mdq(question).blocks
+    [block] = Gift().from_mdq(question, Report("GIFT")).blocks
     assert isinstance(block.answer, GiftShort)
     return [o.text for o in block.answer.options]
 
 
 def _moodle_texts(question: ShortAnswerQuestion) -> list[str]:
-    [block] = MoodleXml().from_mdq(question).blocks
+    [block] = MoodleXml().from_mdq(question, Report("Moodle XML")).blocks
     return [a.text for a in block.answers]
 
 
@@ -211,7 +212,7 @@ def _gift_import(*texts: str) -> ShortAnswerQuestion:
         stem="Qual o maior rio do Brasil?",
         answer=GiftShort(options=[GiftOption(text=t) for t in texts]),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, ShortAnswerQuestion)
     return question
 
@@ -221,7 +222,7 @@ def _moodle_import(*texts: str) -> ShortAnswerQuestion:
         questiontext="Qual o maior rio do Brasil?",
         answers=[MoodleAnswer(text=t, fraction=100.0) for t in texts],
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]))
+    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
     assert isinstance(question, ShortAnswerQuestion)
     return question
 

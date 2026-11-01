@@ -27,7 +27,7 @@ from mdq.convert._gift import (
     escape_gift,
     unescape_gift,
 )
-from mdq.convert._base import ParserError
+from mdq.convert._base import ParserError, Report
 from strategies.gift import (
     GIFT_SPECIAL_CHARS,
     gift_blocks,
@@ -279,7 +279,7 @@ def test_render_essay_round_trips():
 
 def test_render_always_includes_markdown_tag_when_from_mdq():
     question = EssayQuestion(stem="Explain the Cerrado biome.")
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     assert "[markdown]" in str(gift)
 
 
@@ -364,7 +364,7 @@ def test_to_mdq_essay():
         answer=GiftEssay(),
         general_feedback="Mention chlorophyll and sunlight.",
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, EssayQuestion)
     assert question.stem == "Explain photosynthesis."
     assert question.answer_key == "Mention chlorophyll and sunlight."
@@ -374,7 +374,7 @@ def test_to_mdq_boolean_alone_becomes_multiple_choice():
     block = GiftBlock(
         stem="Brasilia is the capital of Brazil.", answer=GiftBoolean(True)
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, MultipleChoiceQuestion)
     texts = {c.text: c.score for c in question.choices}
     assert texts == {"True": 1.0, "False": 0.0}
@@ -382,7 +382,7 @@ def test_to_mdq_boolean_alone_becomes_multiple_choice():
 
 def test_to_mdq_boolean_false_marks_false_choice():
     block = GiftBlock(stem="Rio is the capital of Brazil.", answer=GiftBoolean(False))
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, MultipleChoiceQuestion)
     texts = {c.text: c.score for c in question.choices}
     assert texts == {"True": 0.0, "False": 1.0}
@@ -398,7 +398,7 @@ def test_to_mdq_choice_becomes_multiple_choice():
             ]
         ),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, MultipleChoiceQuestion)
     assert question.choices[0] == ScoredChoice(
         text="Amazonia", score=1.0, feedback=None
@@ -414,7 +414,7 @@ def test_to_mdq_short_becomes_short_answer():
             options=[GiftOption(text="Amazon"), GiftOption(text="amazon")]
         ),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, ShortAnswerQuestion)
     assert [p.pattern for p in question.effective_accept()] == ["Amazon", "amazon"]
 
@@ -424,7 +424,7 @@ def test_to_mdq_numeric_becomes_numeric_with_tolerance():
         stem="Boiling point of water at sea level (Celsius)?",
         answer=GiftNumeric(options=[GiftNumericOption(value=100, tolerance=0.5)]),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, NumericQuestion)
     assert question.answer == 100
     assert question.tolerance == Tolerance(absolute=0.5)
@@ -435,7 +435,7 @@ def test_to_mdq_numeric_zero_tolerance_omits_tolerance_field():
         stem="Number of Brazilian states?",
         answer=GiftNumeric(options=[GiftNumericOption(value=26, tolerance=0.0)]),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, NumericQuestion)
     assert question.tolerance is None
 
@@ -451,7 +451,7 @@ def test_to_mdq_choice_with_tail_becomes_fill_in():
         ),
         tail="in the Midwest region.",
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, FillInQuestion)
     assert question.stem == "The capital of Brazil is[^blank]in the Midwest region."
     [blank] = question.blanks
@@ -465,7 +465,7 @@ def test_to_mdq_short_with_tail_becomes_fill_in():
         answer=GiftShort(options=[GiftOption(text="river")]),
         tail="in the world.",
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, FillInQuestion)
     [blank] = question.blanks
     assert blank.type == "short-answer"
@@ -477,7 +477,7 @@ def test_to_mdq_numeric_with_tail_becomes_fill_in():
         answer=GiftNumeric(options=[GiftNumericOption(value=26, tolerance=0.0)]),
         tail="states.",
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert isinstance(question, FillInQuestion)
     [blank] = question.blanks
     assert blank.type == "numeric"
@@ -490,7 +490,7 @@ def test_to_mdq_title_and_comment_carry_over():
         title="Bio1",
         comment="from the botany unit",
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
     assert question.title == "Bio1"
     assert question.comment == "from the botany unit"
 
@@ -511,7 +511,7 @@ def test_to_mdq_boolean_group_becomes_true_false():
             answer=GiftBoolean(False),
         ),
     ]
-    question = Gift().to_mdq(GiftQuestion(blocks=blocks))
+    question = Gift().to_mdq(GiftQuestion(blocks=blocks), Report("GIFT"))
     assert isinstance(question, TrueFalseQuestion)
     assert question.stem == "About Brazilian geography."
     texts = {c.text: c.correct for c in question.choices}
@@ -526,7 +526,7 @@ def test_to_mdq_boolean_group_without_common_prefix_uses_fallback_stem():
         GiftBlock(stem="Brasilia is the capital of Brazil.", answer=GiftBoolean(True)),
         GiftBlock(stem="The Amazon is the longest river.", answer=GiftBoolean(False)),
     ]
-    question = Gift().to_mdq(GiftQuestion(blocks=blocks))
+    question = Gift().to_mdq(GiftQuestion(blocks=blocks), Report("GIFT"))
     assert isinstance(question, TrueFalseQuestion)
     assert question.stem == TRUE_FALSE_FALLBACK_STEM
     assert {c.text for c in question.choices} == {
@@ -541,7 +541,7 @@ def test_to_mdq_mixed_multi_block_group_raises():
         GiftBlock(stem="Explain photosynthesis.", answer=GiftEssay()),
     ]
     with pytest.raises(ValueError):
-        Gift().to_mdq(GiftQuestion(blocks=blocks))
+        Gift().to_mdq(GiftQuestion(blocks=blocks), Report("GIFT"))
 
 
 # ---------------------------------------------------------------------
@@ -557,7 +557,7 @@ def test_from_mdq_multiple_choice():
             ScoredChoice(text="Caatinga", score=0.0),
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert isinstance(block.answer, GiftChoice)
     assert block.answer.options[0].credit == 1.0
@@ -572,7 +572,7 @@ def test_from_mdq_multiple_choice_partial_credit_uses_percentage():
             ScoredChoice(text="Rio de Janeiro", score=0.5),
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert block.answer.options[1].credit == 0.5
     assert "%50%" in str(gift)
@@ -582,7 +582,7 @@ def test_from_mdq_short_answer():
     question = ShortAnswerQuestion(
         stem="Name the largest river in Brazil.", accept=["Amazon", "amazon"]
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert isinstance(block.answer, GiftShort)
     assert [o.text for o in block.answer.options] == ["Amazon", "amazon"]
@@ -592,13 +592,13 @@ def test_from_mdq_short_answer_without_accept_raises():
     """A question with no `accept` is manual: the format cannot express a pending response."""
     question = ShortAnswerQuestion(stem="Q")
     with pytest.raises(ValueError, match="(?i)unmatched|manual"):
-        Gift().from_mdq(question)
+        Gift().from_mdq(question, Report("GIFT"))
 
 
 def test_from_mdq_short_answer_with_regex_accept_raises():
     question = ShortAnswerQuestion(stem="Q", accept=["/Amaz[oô]nia/"])
     with pytest.raises(ValueError):
-        Gift().from_mdq(question)
+        Gift().from_mdq(question, Report("GIFT"))
 
 
 def test_from_mdq_numeric():
@@ -607,7 +607,7 @@ def test_from_mdq_numeric():
         answer=100.0,
         tolerance=Tolerance(absolute=0.5),
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert isinstance(block.answer, GiftNumeric)
     [opt] = block.answer.options
@@ -621,7 +621,7 @@ def test_from_mdq_numeric_relative_tolerance_is_scaled_by_answer():
         answer=26.0,
         tolerance=Tolerance(relative=0.1),
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     [opt] = block.answer.options
     assert opt.tolerance == pytest.approx(2.6)
@@ -629,7 +629,7 @@ def test_from_mdq_numeric_relative_tolerance_is_scaled_by_answer():
 
 def test_from_mdq_numeric_no_tolerance_defaults_to_zero():
     question = NumericQuestion(stem="Number of Brazilian states?", answer=26.0)
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     [opt] = block.answer.options
     assert opt.tolerance == 0.0
@@ -640,7 +640,7 @@ def test_from_mdq_numeric_rational_string_answer():
     question = NumericQuestion(
         stem="What fraction is one third?", answer="1/3", tolerance=Tolerance(absolute=0.01)
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     [opt] = block.answer.options
     assert opt.value == pytest.approx(1 / 3)
@@ -650,7 +650,7 @@ def test_from_mdq_essay():
     question = EssayQuestion(
         stem="Explain photosynthesis.", answer_key="Mention chlorophyll and sunlight."
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert block.answer == GiftEssay()
     assert block.general_feedback == "Mention chlorophyll and sunlight."
@@ -666,7 +666,7 @@ def test_from_mdq_true_false_produces_one_block_per_statement():
             Statement(text="Rio de Janeiro is the capital.", correct=False),
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     assert len(gift.blocks) == 2
     assert all(b.stem.startswith("About Brazilian geography.") for b in gift.blocks)
     assert gift.blocks[0].answer == GiftBoolean(True)
@@ -683,7 +683,7 @@ def test_from_mdq_true_false_fallback_stem_uses_bare_statement_text():
             Statement(text="The Amazon is the longest river.", correct=True),
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     assert gift.blocks[0].stem == "Brasilia is the capital of Brazil."
     assert gift.blocks[1].stem == "The Amazon is the longest river."
 
@@ -703,7 +703,7 @@ def test_from_mdq_fill_in_single_blank():
             )
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert block.stem == "The capital of Brazil is"
     assert block.tail == "in the Midwest region."
@@ -721,14 +721,14 @@ def test_from_mdq_fill_in_multiple_blanks_raises():
         ],
     )
     with pytest.raises(ValueError):
-        Gift().from_mdq(question)
+        Gift().from_mdq(question, Report("GIFT"))
 
 
 def test_from_mdq_keeps_a_multi_block_stem():
     question = EssayQuestion(
         stem="Consider Brazilian ecosystems.\n\nExplain the Cerrado."
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert block.stem == "Consider Brazilian ecosystems.\n\nExplain the Cerrado."
 
@@ -749,14 +749,14 @@ def test_from_mdq_appends_epilogue_to_tail_with_blank_line():
             )
         ],
     )
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     [block] = gift.blocks
     assert "Score based on accuracy." in block.tail
 
 
 def test_from_mdq_always_renders_markdown_tag():
     question = EssayQuestion(stem="Explain the Cerrado biome.")
-    gift = Gift().from_mdq(question)
+    gift = Gift().from_mdq(question, Report("GIFT"))
     assert str(gift).count("[markdown]") == 1
 
 
@@ -775,8 +775,8 @@ def test_full_round_trip_multiple_choice():
         ],
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, MultipleChoiceQuestion)
     assert [c.text for c in roundtripped.choices] == [c.text for c in question.choices]
     assert [c.score for c in roundtripped.choices] == [
@@ -789,8 +789,8 @@ def test_full_round_trip_short_answer():
         stem="Name the largest river in Brazil.", accept=["Amazon", "amazon"]
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, ShortAnswerQuestion)
     assert roundtripped.effective_accept() == question.effective_accept()
 
@@ -802,8 +802,8 @@ def test_full_round_trip_numeric():
         tolerance=Tolerance(absolute=0.5),
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, NumericQuestion)
     assert roundtripped.answer == pytest.approx(question.answer)
     assert roundtripped.tolerance == question.tolerance
@@ -814,8 +814,8 @@ def test_full_round_trip_essay():
         stem="Explain photosynthesis.", answer_key="Mention chlorophyll and sunlight."
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, EssayQuestion)
     assert roundtripped.stem == question.stem
     assert roundtripped.answer_key == question.answer_key
@@ -832,8 +832,8 @@ def test_full_round_trip_true_false():
         ],
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, TrueFalseQuestion)
     assert roundtripped.stem == question.stem
     texts = {c.text: c.correct for c in roundtripped.choices}
@@ -856,8 +856,8 @@ def test_full_round_trip_fill_in():
         ],
     )
     converter = Gift()
-    source = converter.render(converter.from_mdq(question))
-    roundtripped = converter.to_mdq(converter.parse(source))
+    source = converter.render(converter.from_mdq(question, Report("GIFT")))
+    roundtripped = converter.to_mdq(converter.parse(source), Report("GIFT"))
     assert isinstance(roundtripped, FillInQuestion)
     [blank] = roundtripped.blanks
     assert blank.id == "blank"
@@ -900,6 +900,6 @@ def test_fill_in_choice_blank_allows_unscored_choices():
             )
         ],
     )
-    block = Gift().from_mdq(question).blocks[0]
+    block = Gift().from_mdq(question, Report("GIFT")).blocks[0]
     assert isinstance(block.answer, GiftChoice)
     assert [option.credit for option in block.answer.options] == [0.0, 1.0, 0.0]

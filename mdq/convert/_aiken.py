@@ -8,8 +8,7 @@ from string import ascii_lowercase
 from typing import NoReturn
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
-from ._codes import conversion_error
-from ._base import ConversionBase, ParserError
+from ._base import ConversionBase, ParserError, Report
 from ._moodle import effective_scores
 
 CHOICE_REGEX = re.compile(r"(?P<letter>[a-zA-Z])[.)]\s+(?P<choice>[^\n]*)")
@@ -40,11 +39,19 @@ class Aiken(ConversionBase["AikenQuestion"]):
     For more details: https://docs.moodle.org/en/Aiken_format
     """
 
+    name = "Aiken"
     supports = frozenset({"multiple-choice"})
 
-    def from_mdq(self, question: Question) -> AikenQuestion:
-        if not isinstance(question, MultipleChoiceQuestion):
-            raise conversion_error("unsupported-type", f"Aiken does not support {question.type!r} questions")
+    def from_mdq(self, question: Question, report: Report, /) -> AikenQuestion:
+        assert isinstance(question, MultipleChoiceQuestion), (
+            f"{question.type!r} is excluded by `Aiken.supports`"
+        )
+        if len(question.choices) > len(ascii_lowercase):
+            report.error(
+                "too-many-choices",
+                f"Aiken supports at most {len(ascii_lowercase)} choices, "
+                f"got {len(question.choices)}"
+            )
 
         scores = effective_scores(question)
 
@@ -56,7 +63,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
             answer=max(range(len(scores)), key=lambda i: (scores[i], -i)),
         )
 
-    def to_mdq(self, aiken: AikenQuestion) -> MultipleChoiceQuestion:
+    def to_mdq(self, aiken: AikenQuestion, report: Report, /) -> MultipleChoiceQuestion:
         return MultipleChoiceQuestion(
             stem=aiken.stem,
             choices=[
@@ -82,8 +89,7 @@ class AikenQuestion:
         self.choices = [NEWLINE_REGEX.sub(" ", text).strip() for text in self.choices]
 
         if len(self.choices) > len(ascii_lowercase):
-            raise conversion_error(
-                "too-many-choices",
+            raise ValueError(
                 f"Aiken supports at most {len(ascii_lowercase)} choices, "
                 f"got {len(self.choices)}"
             )

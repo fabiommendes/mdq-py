@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 
 from .._markdown import has_visible_character
-from ._codes import conversion_error
+from ._base import Report
 
 _PLAIN_FORMATS = frozenset({"plain", "plain_text"})
 _MARKDOWN_SPECIALS_RE = re.compile(r"[\\`*_\[\]<>&~]")
@@ -89,7 +89,7 @@ _HTML_BLOCK_START_RE = re.compile(
 )
 
 
-def html_with_blanks_to_mdq(text: str) -> str:
+def html_with_blanks_to_mdq(text: str, report: Report) -> str:
     """
     Return the Markdown for the HTML `text` of a cloze or missing-word stem,
     where `[^id]` markers stand for the blanks.
@@ -132,7 +132,7 @@ def html_with_blanks_to_mdq(text: str) -> str:
             end += 1
         if _MARKER_RE.search("\n".join(lines[i : end + 1])):
             tag = lines[i].lstrip()[1:].split(maxsplit=1)[0].split(">")[0].rstrip("/")
-            raise conversion_error(
+            report.error(
                 "blank-in-html-block",
                 f"a blank inside the HTML block starting at `<{tag.lstrip('/')}>` "
                 "cannot be a `[^id]` marker: CommonMark reads an HTML block as "

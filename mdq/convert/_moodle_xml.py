@@ -27,8 +27,7 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import EssayContent
-from ._codes import conversion_error
-from ._base import ConversionBase, ParserError
+from ._base import ConversionBase, ParserError, Report
 from ._moodle import (
     ImportedAnswer,
     blank_choice_scores,
@@ -46,6 +45,7 @@ from ._moodle import (
     true_false_group_stem,
 )
 from ._text import html_with_blanks_to_mdq, mdq_text
+from ._codes import conversion_error
 from ._common import (
     Entry,
     escape_text,
@@ -108,9 +108,6 @@ CLOZE_KIND_ALIASES: dict[str, ClozeKind] = {
 }
 CLOZE_HEADER_REGEX = re.compile(r"\{(\d+):([A-Za-z_]+):")
 
-#: The format name in error messages.
-_FORMAT = "Moodle XML"
-
 
 
 class _BlockFields(TypedDict):
@@ -146,14 +143,14 @@ class _QuestionMeta(TypedDict):
     meta: dict[str, object] | None
 
 
-def _block_meta(question: Question) -> _BlockMeta:
+def _block_meta(question: Question, report: Report) -> _BlockMeta:
     """The metadata of `question`, as the arguments of a block."""
     return {
         "name": question.title,
         "idnumber": question.id,
         "tags": list(question.tags),
         "default_grade": question.weight,
-        "general_feedback": exported_general_feedback(question, format=_FORMAT),
+        "general_feedback": exported_general_feedback(question, report),
     }
 
 
@@ -196,6 +193,7 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
     For more details: https://docs.moodle.org/502/en/Moodle_XML_format
     """
 
+    name = "Moodle XML"
     supports = frozenset(
         {
             "multiple-choice",
@@ -208,11 +206,11 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
         }
     )
 
-    def from_mdq(self, question: Question) -> MoodleXmlQuestion:
-        return encode_question(question)
+    def from_mdq(self, question: Question, report: Report, /) -> MoodleXmlQuestion:
+        return encode_question(question, report)
 
-    def to_mdq(self, moodle: MoodleXmlQuestion) -> Question:
-        return decode_question(moodle)
+    def to_mdq(self, moodle: MoodleXmlQuestion, report: Report, /) -> Question:
+        return decode_question(moodle, report)
 
     def parse(self, source: str) -> MoodleXmlQuestion:
         return MoodleXmlParser(source).parse()
@@ -435,36 +433,33 @@ class MoodleXmlQuestion:
 
 
 
-def encode_question(question: Question) -> MoodleXmlQuestion:
+def encode_question(question: Question, report: Report) -> MoodleXmlQuestion:
     """Convert an MDQ question into a `MoodleXmlQuestion`, by its type."""
     match question:
         case MultipleChoiceQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_choice(question)])
+            return MoodleXmlQuestion(blocks=[block_from_choice(question, report)])
         case MultipleSelectionQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_selection(question)])
+            return MoodleXmlQuestion(blocks=[block_from_selection(question, report)])
         case TrueFalseQuestion():
-            return MoodleXmlQuestion(blocks=blocks_from_true_false(question))
+            return MoodleXmlQuestion(blocks=blocks_from_true_false(question, report))
         case NumericQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_numeric(question)])
+            return MoodleXmlQuestion(blocks=[block_from_numeric(question, report)])
         case ShortAnswerQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_short(question)])
+            return MoodleXmlQuestion(blocks=[block_from_short(question, report)])
         case EssayQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_essay(question)])
+            return MoodleXmlQuestion(blocks=[block_from_essay(question, report)])
         case FillInQuestion():
-            return MoodleXmlQuestion(blocks=[block_from_fill_in(question)])
+            return MoodleXmlQuestion(blocks=[block_from_fill_in(question, report)])
         case OrderingQuestion():
-            raise conversion_error(
-                "unsupported-type",
-                f"Moodle XML does not support {question.type!r} questions"
-            )
+            raise AssertionError(f"{question.type!r} is excluded by `MoodleXml.supports`")
         case _:
             assert_never(question)
 
-def block_from_choice(question: MultipleChoiceQuestion) -> MultichoiceBlock:
+def block_from_choice(question: MultipleChoiceQuestion, report: Report) -> MultichoiceBlock:
     answers = [
         MoodleAnswer(
             text=choice.text,
-            fraction=moodle_percent(score, format=_FORMAT),
+            fraction=moodle_percent(score, report),
             feedback=choice.feedback,
         )
         for choice, score in zip(question.choices, effective_scores(question))
@@ -474,10 +469,10 @@ def block_from_choice(question: MultipleChoiceQuestion) -> MultichoiceBlock:
         answers=answers,
         single=True,
         shuffle_answers=_moodle_shuffle(question.shuffle),
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
-def block_from_selection(question: MultipleSelectionQuestion
+def block_from_selection(question: MultipleSelectionQuestion, report: Report
 ) -> MultichoiceBlock:
     n_correct = sum(1 for c in question.choices if c.correct)
     n_incorrect = len(question.choices) - n_correct
@@ -487,7 +482,7 @@ def block_from_selection(question: MultipleSelectionQuestion
             share = 1 / n_correct if n_correct else 0.0
         else:
             share = -1 / n_incorrect if n_incorrect else 0.0
-        fraction = moodle_percent(share, format=_FORMAT)
+        fraction = moodle_percent(share, report)
         answers.append(
             MoodleAnswer(
                 text=choice.text, fraction=fraction, feedback=choice.feedback
@@ -498,13 +493,13 @@ def block_from_selection(question: MultipleSelectionQuestion
         answers=answers,
         single=False,
         shuffle_answers=_moodle_shuffle(question.shuffle),
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
-def blocks_from_true_false(question: TrueFalseQuestion
+def blocks_from_true_false(question: TrueFalseQuestion, report: Report
 ) -> list[TrueFalseBlock]:
     group_stem = true_false_group_stem(question)
-    group_feedback = exported_general_feedback(question, format=_FORMAT)
+    group_feedback = exported_general_feedback(question, report)
     blocks = []
     for i, statement in enumerate(question.choices):
         text = f"{group_stem}\n\n{statement.text}" if group_stem else statement.text
@@ -528,8 +523,8 @@ def blocks_from_true_false(question: TrueFalseQuestion
         )
     return blocks
 
-def block_from_numeric(question: NumericQuestion) -> NumericalBlock:
-    value = float_answer(question.answer, question.tolerance, format=_FORMAT)
+def block_from_numeric(question: NumericQuestion, report: Report) -> NumericalBlock:
+    value = float_answer(question.answer, question.tolerance, report)
     tolerance = numeric_tolerance(value, question.tolerance)
     answers = [
         MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
@@ -540,18 +535,18 @@ def block_from_numeric(question: NumericQuestion) -> NumericalBlock:
         questiontext=join_blocks(question.stem, question.epilogue),
         answers=answers,
         unit=question.unit,
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
-def block_from_short(question: ShortAnswerQuestion) -> ShortAnswerBlock:
-    require_automatic(question, format=_FORMAT)
+def block_from_short(question: ShortAnswerQuestion, report: Report) -> ShortAnswerBlock:
+    require_automatic(question, report)
     answers = short_moodle_answers(
-        question.accept, question.reject, question.incorrect_feedback
+        question.accept, question.reject, question.incorrect_feedback, report
     )
     return ShortAnswerBlock(
         questiontext=join_blocks(question.stem, question.epilogue),
         answers=answers,
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
 def any_other_answer(feedback: str) -> MoodleAnswer:
@@ -563,40 +558,41 @@ def short_moodle_answers(
     accept: list[AnswerPattern] | None,
     reject: list[AnswerPattern] | None,
     incorrect_feedback: str | None,
+    report: Report,
 ) -> list[MoodleAnswer]:
     """The answers of a short answer, or of a short answer blank, in Moodle's order."""
     answers = [
         MoodleAnswer(text=a.text, fraction=a.credit * 100, feedback=a.feedback)
-        for a in exported_short_answers(accept, reject, format=_FORMAT)
+        for a in exported_short_answers(accept, reject, report)
     ]
     if incorrect_feedback is not None:
         answers.append(any_other_answer(incorrect_feedback))
     return answers
 
-def block_from_essay(question: EssayQuestion) -> EssayBlock:
+def block_from_essay(question: EssayQuestion, report: Report) -> EssayBlock:
     return EssayBlock(
         questiontext=join_blocks(question.stem, question.epilogue),
         grader_info=question.answer_key,
         response_format=essay_response_format_from_content(question.content),
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
-def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
+def block_from_fill_in(question: FillInQuestion, report: Report) -> MultianswerBlock:
     blanks_by_id = {blank.id: blank for blank in question.blanks}
     referenced: set[str] = set()
 
     def replace(blank_id: str) -> str:
         blank = blanks_by_id.get(blank_id)
         if blank is None:
-            raise conversion_error(
+            report.error(
                 "blank-marker-mismatch",
                 f"cannot convert to Moodle XML: stem references unknown blank {blank_id!r}"
             )
         referenced.add(blank_id)
-        cloze = cloze_from_blank(blank)
+        cloze = cloze_from_blank(blank, report)
         if cloze.kind == "MULTICHOICE" and len(cloze.answers) < 2:
             # qtype_multianswer_validate_question: `notenoughanswers`.
-            raise conversion_error(
+            report.error(
                 "blank-marker-mismatch",
                 f"cannot convert to Moodle XML: choice blank {blank_id!r} needs "
                 f"at least 2 choices, which Moodle requires in an embedded answer"
@@ -604,12 +600,12 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
         if not any(answer.fraction == 100 for answer in cloze.answers):
             # qtype_multianswer_validate_question rejects a subquestion
             # with no answer worth exactly 100% (`fractionsnomax`).
-            raise conversion_error(
+            report.error(
                 "no-full-credit",
                 f"cannot convert to Moodle XML: blank {blank_id!r} has no "
                 f"answer worth 100%, which Moodle requires in an embedded answer"
             )
-        return render_cloze(cloze)
+        return render_cloze(cloze, report)
 
     # Code, `[^x](url)` links and autolinks are literal text, not blanks.
     questiontext = question.stem
@@ -619,17 +615,17 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
             questiontext = questiontext[:start] + replace(marker.id) + questiontext[end:]
     missing = [blank.id for blank in question.blanks if blank.id not in referenced]
     if missing:
-        raise conversion_error(
+        report.error(
             "blank-marker-mismatch",
             f"cannot convert to Moodle XML: blank(s) not referenced by the stem: {missing!r}"
         )
     return MultianswerBlock(
         questiontext=join_blocks(questiontext, question.epilogue),
         shuffle_answers=_moodle_shuffle(question.shuffle),
-        **_block_meta(question),
+        **_block_meta(question, report),
     )
 
-def cloze_from_blank(blank: Blank) -> MoodleCloze:
+def cloze_from_blank(blank: Blank, report: Report) -> MoodleCloze:
     match blank:
         case ChoiceBlank():
             answers = [
@@ -643,11 +639,11 @@ def cloze_from_blank(blank: Blank) -> MoodleCloze:
             return MoodleCloze(
                 kind="SHORTANSWER",
                 answers=short_moodle_answers(
-                    blank.accept, blank.reject, blank.incorrect_feedback
+                    blank.accept, blank.reject, blank.incorrect_feedback, report
                 ),
             )
         case NumericBlank():
-            value = float_answer(blank.answer, blank.tolerance, format=_FORMAT)
+            value = float_answer(blank.answer, blank.tolerance, report)
             tolerance = numeric_tolerance(value, blank.tolerance)
             answers = [
                 MoodleAnswer(text=format_num(value), fraction=100.0, tolerance=tolerance)
@@ -660,17 +656,17 @@ def cloze_from_blank(blank: Blank) -> MoodleCloze:
 
 
 
-def decode_question(moodle: MoodleXmlQuestion) -> Question:
+def decode_question(moodle: MoodleXmlQuestion, report: Report) -> Question:
     """A single block converts directly; several blocks must form a true/false group."""
     if not moodle.blocks:
-        raise conversion_error("no-question", "Moodle XML question has no blocks")
+        report.error("no-question", "Moodle XML question has no blocks")
     blocks = [markdown_block(block) for block in moodle.blocks]
     if len(blocks) == 1:
-        return block_to_mdq(blocks[0])
+        return block_to_mdq(blocks[0], report)
     statements = [b for b in blocks if isinstance(b, TrueFalseBlock)]
     if len(statements) == len(blocks):
         return true_false_from_blocks(statements)
-    raise conversion_error(
+    report.error(
         "multiple-questions",
         "a Moodle XML question group with more than one block is only "
         "supported when every block is a true/false statement"
@@ -738,7 +734,7 @@ def markdown_block(block: MoodleXmlBlock) -> MoodleXmlBlock:
             assert_never(block)
 
 
-def block_to_mdq(block: MoodleXmlBlock) -> Question:
+def block_to_mdq(block: MoodleXmlBlock, report: Report) -> Question:
     match block:
         case MultichoiceBlock(single=False):
             return selection_from_block(block)
@@ -747,13 +743,13 @@ def block_to_mdq(block: MoodleXmlBlock) -> Question:
         case TrueFalseBlock():
             return choice_from_true_false_block(block)
         case ShortAnswerBlock():
-            return short_answer_from_block(block)
+            return short_answer_from_block(block, report)
         case NumericalBlock():
-            return numeric_from_block(block)
+            return numeric_from_block(block, report)
         case EssayBlock():
             return essay_from_block(block)
         case MultianswerBlock():
-            return fill_in_from_block(block)
+            return fill_in_from_block(block, report)
         case _:
             assert_never(block)
 
@@ -764,9 +760,9 @@ def imported_answers(answers: Sequence[MoodleAnswer]) -> list[ImportedAnswer]:
         for a in answers
     ]
 
-def short_answer_from_block(block: ShortAnswerBlock) -> ShortAnswerQuestion:
+def short_answer_from_block(block: ShortAnswerBlock, report: Report) -> ShortAnswerQuestion:
     key = short_answer_key(
-        imported_answers(block.answers), format=_FORMAT, any_answer=True
+        imported_answers(block.answers), report, any_answer=True
     )
     return ShortAnswerQuestion(
         stem=block.questiontext,
@@ -814,8 +810,8 @@ def choice_from_true_false_block(block: TrueFalseBlock
         **_question_meta(block),
     )
 
-def numeric_from_block(block: NumericalBlock) -> NumericQuestion:
-    key = numeric_answer_key(imported_answers(block.answers), format=_FORMAT)
+def numeric_from_block(block: NumericalBlock, report: Report) -> NumericQuestion:
+    key = numeric_answer_key(imported_answers(block.answers), report)
     return NumericQuestion(
         stem=block.questiontext,
         answer=key.answer,
@@ -833,19 +829,19 @@ def essay_from_block(block: EssayBlock) -> EssayQuestion:
         **_question_meta(block),
     )
 
-def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
-    segments, clozes = parse_cloze(block.questiontext)
+def fill_in_from_block(block: MultianswerBlock, report: Report) -> FillInQuestion:
+    segments, clozes = parse_cloze(block.questiontext, report)
     segments = [mdq_text(segment, block.text_format) for segment in segments]
     parts = [segments[0]]
     blanks: list[Blank] = []
     for i, cloze in enumerate(clozes):
         blank_id = f"blank{i + 1}"
-        blanks.append(blank_from_cloze(blank_id, cloze, block.text_format))
+        blanks.append(blank_from_cloze(blank_id, cloze, block.text_format, report))
         parts.append(f"[^{blank_id}]")
         parts.append(segments[i + 1])
     stem = "".join(parts)
     if block.text_format == "html":
-        stem = html_with_blanks_to_mdq(stem)
+        stem = html_with_blanks_to_mdq(stem, report)
     return FillInQuestion(
         stem=stem,
         blanks=blanks,
@@ -854,7 +850,7 @@ def fill_in_from_block(block: MultianswerBlock) -> FillInQuestion:
     )
 
 def blank_from_cloze(
-    blank_id: str, cloze: MoodleCloze, text_format: MoodleTextFormat
+    blank_id: str, cloze: MoodleCloze, text_format: MoodleTextFormat, report: Report
 ) -> Blank:
     """The blank of a cloze: its texts are written in the `text_format` of the question."""
     is_choice = cloze.kind == "MULTICHOICE"
@@ -879,14 +875,14 @@ def blank_from_cloze(
             ],
         )
     if cloze.kind == "SHORTANSWER":
-        short = short_answer_key(imported_answers(answers), format=_FORMAT)
+        short = short_answer_key(imported_answers(answers), report)
         return ShortAnswerBlank(
             id=blank_id,
             accept=short.accept,
             reject=short.reject,
             incorrect_feedback=short.incorrect_feedback,
         )
-    numeric = numeric_answer_key(imported_answers(answers), format=_FORMAT)
+    numeric = numeric_answer_key(imported_answers(answers), report)
     return NumericBlank(
         id=blank_id,
         answer=numeric.answer,
@@ -1015,7 +1011,10 @@ class MoodleXmlParser:
             case "multianswer":
                 return MultianswerBlock(**common, shuffle_answers=shuffle_answers)
             case _:
-                raise conversion_error("unsupported-type", f"unsupported Moodle XML question type: {qtype!r}")
+                # Parsing has no `Report`: `ConversionBase.parse` takes only the source.
+                raise conversion_error(
+                    "unsupported-type", f"unsupported Moodle XML question type: {qtype!r}"
+                )
 
 
 def _mdq_unit(unit: str | None) -> str | None:
@@ -1023,7 +1022,7 @@ def _mdq_unit(unit: str | None) -> str | None:
     return re.sub(rf"[()\[\]{UNICODE_SPACE}]", "", unit or "") or None
 
 
-def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:
+def parse_cloze(text: str, report: Report) -> tuple[list[str], list[MoodleCloze]]:
     """
     Split `text` into the plain segments around each `{weight:KIND:...}` blank.
 
@@ -1044,10 +1043,10 @@ def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:
         if ch == "{" and (header := CLOZE_HEADER_REGEX.match(text, pos)):
             close = find_unescaped(text, "}", header.end())
             if close == -1:
-                raise conversion_error("syntax-error", f"unterminated cloze blank at position {pos}")
+                report.error("syntax-error", f"unterminated cloze blank at position {pos}")
             segments.append(text[last:pos])
             weight = int(header.group(1))
-            kind = normalize_cloze_kind(header.group(2))
+            kind = normalize_cloze_kind(header.group(2), report)
             answers = parse_cloze_options(text[header.end() : close], kind)
             clozes.append(MoodleCloze(kind=kind, answers=answers, weight=weight))
             pos = close + 1
@@ -1058,14 +1057,14 @@ def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:
     return segments, clozes
 
 
-def render_cloze(cloze: MoodleCloze) -> str:
+def render_cloze(cloze: MoodleCloze, report: Report) -> str:
     """Render one inline cloze blank, always using its canonical kind name."""
     parts = []
     for i, answer in enumerate(cloze.answers):
         text = (
             escape_text(answer.text)
             if cloze.kind == "NUMERICAL"
-            else escape_cloze_text(answer.text)
+            else escape_cloze_text(answer.text, report)
         )
         # An answer ends only at an unescaped `~`, `}` or `#`: `~` separates all
         # alternatives. A 0% or 100% answer whose text starts with `=` or `%`
@@ -1082,12 +1081,12 @@ def render_cloze(cloze: MoodleCloze) -> str:
         if cloze.kind == "NUMERICAL" and answer.tolerance:
             entry += f":{escape_text(format_num(answer.tolerance))}"
         if answer.feedback:
-            entry += f"#{escape_cloze_text(answer.feedback)}"
+            entry += f"#{escape_cloze_text(answer.feedback, report)}"
         parts.append(entry)
     return f"{{{cloze.weight}:{cloze.kind}:{''.join(parts)}}}"
 
 
-def escape_cloze_text(text: str) -> str:
+def escape_cloze_text(text: str, report: Report) -> str:
     r"""
     Escape the text of a cloze option (not a NUMERICAL one) or its feedback.
     Moodle's cloze import
@@ -1100,9 +1099,9 @@ def escape_cloze_text(text: str) -> str:
             (or at its end), which have no form in a cloze blank.
     """
     if "~" in text or re.search(r"\\(?:[~}#]|$)", text):
-        raise conversion_error(
+        report.error(
             "cloze-text-changed",
-            f"cannot convert to {_FORMAT}: the answer {text!r} has a `~` or a "
+            f"cannot convert to {report.format}: the answer {text!r} has a `~` or a "
             "backslash before `~`, `}`, `#` or at its end, which a cloze blank "
             "cannot express"
         )
@@ -1124,12 +1123,12 @@ def cloze_entries(body: str) -> list[Entry]:
     return entries_from_segments(segments, lambda percent: percent / 100)
 
 
-def normalize_cloze_kind(raw: str) -> ClozeKind:
+def normalize_cloze_kind(raw: str, report: Report) -> ClozeKind:
     """Resolve a cloze kind name or abbreviation to its canonical `ClozeKind`."""
-    try:
-        return CLOZE_KIND_ALIASES[raw.upper()]
-    except KeyError:
-        raise conversion_error("unsupported-cloze-kind", f"unsupported cloze kind: {raw!r}") from None
+    kind = CLOZE_KIND_ALIASES.get(raw.upper())
+    if kind is None:
+        report.error("unsupported-cloze-kind", f"unsupported cloze kind: {raw!r}")
+    return kind
 
 
 def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:

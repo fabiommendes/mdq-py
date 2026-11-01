@@ -8,8 +8,9 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 
+from mdq.convert import export_question
 from mdq.convert._aiken import Aiken, AikenParser, AikenQuestion
-from mdq.convert._base import ParserError
+from mdq.convert._base import ParserError, Report
 from strategies.aiken import aiken_questions
 from mdq.models import EssayQuestion, MultipleChoiceQuestion, ScoredChoice
 
@@ -104,7 +105,7 @@ def test_render_lowercases_choice_letters():
 
 def test_to_mdq_marks_answer_choice_with_full_score():
     aiken = AikenQuestion(stem="Q", choices=["wrong", "right"], answer=1)
-    question = Aiken().to_mdq(aiken)
+    question = Aiken().to_mdq(aiken, Report("Aiken"))
     assert isinstance(question, MultipleChoiceQuestion)
     assert [c.score for c in question.choices] == [0.0, 1.0]
     assert [c.text for c in question.choices] == ["wrong", "right"]
@@ -118,7 +119,7 @@ def test_from_mdq_picks_highest_scoring_choice():
             ScoredChoice(text="right", score=1.0),
         ],
     )
-    aiken = Aiken().from_mdq(question)
+    aiken = Aiken().from_mdq(question, Report("Aiken"))
     assert aiken.answer == 1
     assert aiken.choices == ["wrong", "right"]
 
@@ -128,7 +129,7 @@ def test_from_mdq_keeps_a_multi_block_stem():
         stem="Consider the following.\n\nWhat is 2 + 2?",
         choices=[ScoredChoice(text="4", score=1.0), ScoredChoice(text="5", score=0.0)],
     )
-    aiken = Aiken().from_mdq(question)
+    aiken = Aiken().from_mdq(question, Report("Aiken"))
     assert aiken.stem == "Consider the following.\n\nWhat is 2 + 2?"
 
 
@@ -137,7 +138,7 @@ def test_from_mdq_uses_stem_only():
         stem="What is 2 + 2?",
         choices=[ScoredChoice(text="4", score=1.0), ScoredChoice(text="5", score=0.0)],
     )
-    aiken = Aiken().from_mdq(question)
+    aiken = Aiken().from_mdq(question, Report("Aiken"))
     assert aiken.stem == "What is 2 + 2?"
 
 
@@ -150,10 +151,10 @@ def test_full_round_trip_mdq_to_aiken_source_and_back():
         ],
     )
     converter = Aiken()
-    aiken = converter.from_mdq(question)
+    aiken = converter.from_mdq(question, Report("Aiken"))
     source = converter.render(aiken)
     reparsed = converter.parse(source)
-    roundtripped = converter.to_mdq(reparsed)
+    roundtripped = converter.to_mdq(reparsed, Report("Aiken"))
     assert [c.text for c in roundtripped.choices] == [c.text for c in question.choices]
     assert [c.score for c in roundtripped.choices] == [
         c.score for c in question.choices
@@ -199,7 +200,7 @@ def test_more_than_26_choices_raises_clear_error():
     ]
     question = MultipleChoiceQuestion(stem="Q", choices=choices)
     with pytest.raises(ValueError):
-        Aiken().from_mdq(question)
+        Aiken().from_mdq(question, Report("Aiken"))
 
 
 def test_aiken_question_rejects_out_of_range_answer_directly():
@@ -221,7 +222,7 @@ def test_from_mdq_appends_epilogue_to_stem():
             ScoredChoice(text="Pantanal", score=0.0),
         ],
     )
-    aiken = Aiken().from_mdq(question)
+    aiken = Aiken().from_mdq(question, Report("Aiken"))
     assert aiken.stem == (
         "Consider the Brazilian biomes.\n\n"
         "Which one is the largest?\n\n"
@@ -237,7 +238,7 @@ def test_from_mdq_breaks_score_ties_towards_the_first_choice():
             ScoredChoice(text="Sao Francisco", score=1.0),
         ],
     )
-    assert Aiken().from_mdq(question).answer == 0
+    assert Aiken().from_mdq(question, Report("Aiken")).answer == 0
 
 
 def test_newlines_in_choice_text_are_collapsed_to_spaces():
@@ -251,14 +252,14 @@ def test_newlines_in_choice_text_are_collapsed_to_spaces():
         ],
     )
     converter = Aiken()
-    aiken = converter.from_mdq(question)
+    aiken = converter.from_mdq(question, Report("Aiken"))
     assert aiken.choices[0] == "Charles Darwin"
     assert converter.parse(converter.render(aiken)) == aiken
 
 
 def test_from_mdq_rejects_unsupported_question_type():
     with pytest.raises(ValueError, match="essay"):
-        Aiken().from_mdq(EssayQuestion(stem="Explain the Cerrado biome."))
+        export_question(EssayQuestion(stem="Explain the Cerrado biome."), format="aiken")
 
 
 def test_parse_accepts_parenthesis_choice_markers():
@@ -278,7 +279,7 @@ def test_parse_accepts_parenthesis_choice_markers():
     assert ")" not in rendered
     assert converter.parse(rendered) == q
 
-    question = converter.to_mdq(q)
+    question = converter.to_mdq(q, Report("Aiken"))
     assert [(c.text, c.score) for c in question.choices] == [
         ("Rio de Janeiro", 0.0),
         ("Brasilia", 1.0),
