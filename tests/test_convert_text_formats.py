@@ -18,7 +18,7 @@ from markdown_it import MarkdownIt
 
 from mdq import models
 from mdq.convert import import_question
-from mdq.convert._base import html_to_mdq, plain_text_to_markdown
+from mdq.convert._text import html_to_mdq, plain_text_to_markdown
 from mdq.convert._moodle_xml import MoodleXmlParser
 
 

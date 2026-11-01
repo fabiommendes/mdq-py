@@ -11,7 +11,7 @@ import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
-from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
+from mdq.convert._moodle import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert._gift import (
     Gift,
     GiftBlock,

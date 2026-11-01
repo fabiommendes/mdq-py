@@ -1,5 +1,5 @@
 """
-`mdq.convert._base.literal_pattern` joins the lines of an imported answer
+`mdq.convert._moodle.literal_pattern` joins the lines of an imported answer
 with one space, as the continuation lines of a body block do
 (docs/references/patterns.md, "Continuation lines").
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from mdq.convert._base import literal_pattern
+from mdq.convert._moodle import literal_pattern
 
 
 @pytest.mark.parametrize(

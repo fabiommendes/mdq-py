@@ -22,27 +22,26 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ._codes import conversion_error
-from ._base import (
-    blank_choice_scores,
-    split_true_false_group,
-    true_false_group_stem,
-    effective_scores,
-    ConversionBase,
+from ._base import ConversionBase
+from ._moodle import (
     ImportedAnswer,
+    blank_choice_scores,
+    effective_scores,
     exported_general_feedback,
     exported_short_answers,
-    general_feedback_meta,
-    html_with_blanks_to_mdq,
-    mdq_text,
     float_answer,
-    numeric_answer_key,
-    short_answer_key,
-    require_automatic,
     format_moodle_percent,
+    general_feedback_meta,
     moodle_grade,
     moodle_score,
+    numeric_answer_key,
+    require_automatic,
     score_from_moodle_percent,
+    short_answer_key,
+    split_true_false_group,
+    true_false_group_stem,
 )
+from ._text import html_with_blanks_to_mdq, mdq_text
 from ._common import (
     find_unescaped,
     format_num,

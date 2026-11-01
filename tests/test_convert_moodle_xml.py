@@ -14,7 +14,7 @@ from hypothesis import strategies as st
 
 from mdq._markdown import starts_block
 from mdq._markdown import has_visible_character
-from mdq.convert._base import TRUE_FALSE_FALLBACK_STEM
+from mdq.convert._moodle import TRUE_FALSE_FALLBACK_STEM
 from mdq.convert._moodle_xml import (
     EssayBlock,
     MoodleAnswer,

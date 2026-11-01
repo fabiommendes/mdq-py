@@ -6,7 +6,8 @@ from string import ascii_lowercase
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
 from ._codes import conversion_error
-from ._base import ConversionBase, effective_scores
+from ._base import ConversionBase
+from ._moodle import effective_scores
 from ._string_parser import StringParser
 
 CHOICE_REGEX = re.compile(r"(?P<letter>[a-zA-Z])[.)]\s+(?P<choice>[^\n]*)")
