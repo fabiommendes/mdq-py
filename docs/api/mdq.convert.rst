@@ -8,3 +8,5 @@ mdq.convert
 .. autofunction:: mdq.convert.export_question
 
 .. autodata:: mdq.convert.FORMATS
+
+.. autodata:: mdq.convert.CONVERTER_CODES
