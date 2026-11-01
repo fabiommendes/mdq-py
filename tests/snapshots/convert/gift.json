@@ -786,17 +786,20 @@
   },
   "valid/fill-in/blank-in-code-is-text.yaml": {
     "export": {
+      "code": "blank-line-after-blank",
       "error": "cannot convert to GIFT: the text after the blank has a blank line, which would end the GIFT block"
     }
   },
   "valid/fill-in/blank-in-code-span-is-text.yaml": {
     "export": "[markdown] Em MDQ, o código `{=Brasília}` é só texto. A capital do Brasil é [^capital].",
     "import": {
+      "code": "invalid-question",
       "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, o código `[^bla...o Brasil é [^capital].', input_type=str]"
     }
   },
   "valid/fill-in/blank-in-indented-code-is-text.yaml": {
     "export": {
+      "code": "blank-line-after-blank",
       "error": "cannot convert to GIFT: the text after the blank has a blank line, which would end the GIFT block"
     }
   },
@@ -820,6 +823,7 @@
   },
   "valid/fill-in/blank-in-tilde-fence-is-text.yaml": {
     "export": {
+      "code": "blank-line-after-blank",
       "error": "cannot convert to GIFT: the text after the blank has a blank line, which would end the GIFT block"
     }
   },
@@ -884,11 +888,13 @@
   },
   "valid/fill-in/blank-tag-space-around-colon.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/blanks-in-two-paragraphs.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -912,21 +918,25 @@
   },
   "valid/fill-in/capital.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/case-variant-blank-id.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/choice-blank-lints.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/choice-blank-missing-id-second-blank.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -995,11 +1005,13 @@
   },
   "valid/fill-in/continuation-lines.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/definitions-separated-by-blank-lines.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1096,6 +1108,7 @@
   },
   "valid/fill-in/grading-no-mistakes.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1129,11 +1142,13 @@
   },
   "valid/fill-in/grading-symmetric.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/grading.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1166,6 +1181,7 @@
   },
   "valid/fill-in/incorrect-feedback.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1195,6 +1211,7 @@
   },
   "valid/fill-in/mixed-blanks.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1295,6 +1312,7 @@
   },
   "valid/fill-in/numeric-blank-declared.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1318,26 +1336,31 @@
   },
   "valid/fill-in/numeric-blank-exponent.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-blank-forms.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-blank-incorrect-feedback.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-blank-lints.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-blank-maps-places.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1358,16 +1381,19 @@
   },
   "valid/fill-in/numeric-blank-representations.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-blank-unit-non-ascii.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/numeric-fraction.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '1/3' has no exact floating-point value, and without a tolerance GIFT would only accept 0.3333333333333333"
     }
   },
@@ -1391,6 +1417,7 @@
   },
   "valid/fill-in/numeric-unit.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1426,26 +1453,31 @@
   },
   "valid/fill-in/open-blank-between-definitions.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/open-blank.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/pre-validation-entry-forms.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/pre-validation-lints.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/regex-blank.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1476,11 +1508,13 @@
   },
   "valid/fill-in/reject-only-blank.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     }
   },
   "valid/fill-in/short-answer-blank-lints.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1505,16 +1539,19 @@
   },
   "valid/fill-in/short-answer-blank-unmatchable-regex-escape.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\xe1/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/fill-in/short-answer-patterns.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
   "valid/fill-in/shuffle-all-or-nothing.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -1538,11 +1575,13 @@
   },
   "valid/fill-in/tag-in-epilogue-fence.yaml": {
     "export": {
+      "code": "blank-line-after-blank",
       "error": "cannot convert to GIFT: the text after the blank has a blank line, which would end the GIFT block"
     }
   },
   "valid/fill-in/unmatched-manual.yaml": {
     "export": {
+      "code": "multiple-blanks",
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     }
   },
@@ -2311,6 +2350,7 @@
   },
   "valid/multiple-choice/percent-forms.yaml": {
     "export": {
+      "code": "score-rounded",
       "error": "cannot convert to GIFT: the score 0.335 is not a grade Moodle accepts (100, 90, 83.33333, 80, 75, 70, 66.66667, 60, 50, 40, 33.33333, 30, 25, 20, 16.66667, 14.28571, 12.5, 11.11111, 10, 5, 0, or a negative of these, in percent)"
     }
   },
@@ -2517,94 +2557,184 @@
     }
   },
   "valid/multiple-selection/all-correct.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/bullet-list-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-comment-empty-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-deep-indent-continues-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-deep-indent-continues-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-feedback-image-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-feedback-three-columns.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-ids.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-tab-after-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-wide-item-content.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/epilogue-starts-with-link.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/fullwidth-x.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-all-or-nothing.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-symmetric.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/ids-single-digit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/ids-single-glyph.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/link-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/multi-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/nbsp-blank-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/none-correct.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/shuffle-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/simple.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/stray-choice-marker-stem-yaml.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/stray-choice-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/uppercase-x.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/visually-identical-choices.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'multiple-selection' questions"
+    }
   },
   "valid/numeric/answer-outside-domain-fraction.yaml": {
     "export": "[markdown] Quantos litros há em 3,5 litros? {#3.5:1}",
@@ -2639,6 +2769,7 @@
   },
   "valid/numeric/decimal-beyond-float.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '3.14159265358979323846' has no exact floating-point value, and without a tolerance GIFT would only accept 3.141592653589793"
     }
   },
@@ -2852,6 +2983,7 @@
       "type": "numeric"
     },
     "reexport": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '602200000000000027262976' has no exact floating-point value, and without a tolerance GIFT would only accept 6.022e+23"
     }
   },
@@ -2950,11 +3082,13 @@
   },
   "valid/numeric/fraction-answer-string.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '1/3' has no exact floating-point value, and without a tolerance GIFT would only accept 0.3333333333333333"
     }
   },
   "valid/numeric/fraction-decimal-places.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '1/3' has no exact floating-point value, and without a tolerance GIFT would only accept 0.3333333333333333"
     }
   },
@@ -3131,6 +3265,7 @@
   },
   "valid/numeric/negative-fraction.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to GIFT: the answer '-1/3' has no exact floating-point value, and without a tolerance GIFT would only accept -0.3333333333333333"
     }
   },
@@ -3451,208 +3586,412 @@
     }
   },
   "valid/ordering/accept-alternative.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-blank-line-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-omits-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-extra-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-line-before-section.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-ordering-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/brazil-timeline.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-accepts-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-alternative-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-parent-item-nested-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue-no-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-inherits-highlight.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-nested-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-info-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-without-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fibonacci.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/full-metadata.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-gcd.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-unit-across-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indented-fence-tab.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/inline-markup-kept.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/lenient-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/list-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nbsp-end-of-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-three-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-two-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/normalizations-comma-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/observations-adjacent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/redundant-strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-differs-only-by-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-unreachable-level-and-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-uses-distractor.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-without-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-empty-feedback-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-closing-sequence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-indented.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-setext.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-reject-other-level.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-stops-mixed.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-indented-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-space-before-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tilde-fence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/trailing-whitespace.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/two-accepts-and-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unknown-highlight-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unmatched-manual.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unreachable-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-across-blocks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    }
   },
   "valid/short-answer/accept-and-reject-blocks.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília =%0%Rio de Janeiro#Foi a capital até 1960. =%0%Salvador#Foi a primeira capital, até 1763.}",
@@ -3679,26 +4018,31 @@
   },
   "valid/short-answer/accept-regex-flags.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/cerrado/in' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/accept-reject.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/[Bb]ras[íi]lia/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/accept-tag-without-pattern.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/bare-accept-with-reject.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/bare-tag-detached-list-epilogue.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -3753,6 +4097,7 @@
   },
   "valid/short-answer/diacritics-keep-mixed.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/maceio/in' is a regex, and only literal answers are supported"
     }
   },
@@ -3997,11 +4342,13 @@
   },
   "valid/short-answer/ignored-regex-flag-in-reject.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/Brasília/g' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/ignored-regex-flag.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/Bras[íi]lia/m' is a regex, and only literal answers are supported"
     }
   },
@@ -4145,6 +4492,7 @@
   },
   "valid/short-answer/list-with-feedback.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/Bras[íi]lia DF/i' is a regex, and only literal answers are supported"
     }
   },
@@ -4169,16 +4517,19 @@
   },
   "valid/short-answer/literal-asterisk.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\*/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/manual.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/multi-line-patterns.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/recife pe/' is a regex, and only literal answers are supported"
     }
   },
@@ -4226,6 +4577,7 @@
   },
   "valid/short-answer/no-correct-answer.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     }
   },
@@ -4293,6 +4645,7 @@
   },
   "valid/short-answer/pattern-one-visible-character.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/ /' is a regex, and only literal answers are supported"
     }
   },
@@ -4350,41 +4703,49 @@
   },
   "valid/short-answer/redundant-regex-anchor-cases.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/^AM/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor-flags-and-literals.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/Negro$/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor-object-entries.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/Negro$/b' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/^18(2[0-9])/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-flags-f-b.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/cerrado/f' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-subset.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/(?=A)(?:AM|AC|AP) \\\\w+/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-unescaped-slash.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/https?://www\\\\.gov\\\\.br/?/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/1822-0?9-0?7/' is a regex, and only literal answers are supported"
     }
   },
@@ -4409,6 +4770,7 @@
   },
   "valid/short-answer/reject-block-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -4432,11 +4794,13 @@
   },
   "valid/short-answer/reject-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/semi-automatic.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -4569,31 +4933,37 @@
   },
   "valid/short-answer/unmatchable-regex-escape-fields.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\u00e1\\\\u00e9/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-forms.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\xe1gua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged-ascii.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/agua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\u00e1gua/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to GIFT: the pattern '/\\\\u00e1gua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatched-manual-accept-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to GIFT: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },

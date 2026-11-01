@@ -27,6 +27,7 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import EssayContent
+from ._codes import conversion_error
 from ._base import (
     blank_choice_scores,
     split_true_false_group,
@@ -454,7 +455,8 @@ def encode_question(question: Question) -> MoodleXmlQuestion:
         case FillInQuestion():
             return MoodleXmlQuestion(blocks=[block_from_fill_in(question)])
         case OrderingQuestion():
-            raise ValueError(
+            raise conversion_error(
+                "unsupported-type",
                 f"Moodle XML does not support {question.type!r} questions"
             )
         case _:
@@ -588,21 +590,24 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
     def replace(blank_id: str) -> str:
         blank = blanks_by_id.get(blank_id)
         if blank is None:
-            raise ValueError(
+            raise conversion_error(
+                "blank-marker-mismatch",
                 f"cannot convert to Moodle XML: stem references unknown blank {blank_id!r}"
             )
         referenced.add(blank_id)
         cloze = cloze_from_blank(blank)
         if cloze.kind == "MULTICHOICE" and len(cloze.answers) < 2:
             # qtype_multianswer_validate_question: `notenoughanswers`.
-            raise ValueError(
+            raise conversion_error(
+                "blank-marker-mismatch",
                 f"cannot convert to Moodle XML: choice blank {blank_id!r} needs "
                 f"at least 2 choices, which Moodle requires in an embedded answer"
             )
         if not any(answer.fraction == 100 for answer in cloze.answers):
             # qtype_multianswer_validate_question rejects a subquestion
             # with no answer worth exactly 100% (`fractionsnomax`).
-            raise ValueError(
+            raise conversion_error(
+                "no-full-credit",
                 f"cannot convert to Moodle XML: blank {blank_id!r} has no "
                 f"answer worth 100%, which Moodle requires in an embedded answer"
             )
@@ -616,7 +621,8 @@ def block_from_fill_in(question: FillInQuestion) -> MultianswerBlock:
             questiontext = questiontext[:start] + replace(marker.id) + questiontext[end:]
     missing = [blank.id for blank in question.blanks if blank.id not in referenced]
     if missing:
-        raise ValueError(
+        raise conversion_error(
+            "blank-marker-mismatch",
             f"cannot convert to Moodle XML: blank(s) not referenced by the stem: {missing!r}"
         )
     return MultianswerBlock(
@@ -659,14 +665,15 @@ def cloze_from_blank(blank: Blank) -> MoodleCloze:
 def decode_question(moodle: MoodleXmlQuestion) -> Question:
     """A single block converts directly; several blocks must form a true/false group."""
     if not moodle.blocks:
-        raise ValueError("Moodle XML question has no blocks")
+        raise conversion_error("no-question", "Moodle XML question has no blocks")
     blocks = [markdown_block(block) for block in moodle.blocks]
     if len(blocks) == 1:
         return block_to_mdq(blocks[0])
     statements = [b for b in blocks if isinstance(b, TrueFalseBlock)]
     if len(statements) == len(blocks):
         return true_false_from_blocks(statements)
-    raise ValueError(
+    raise conversion_error(
+        "multiple-questions",
         "a Moodle XML question group with more than one block is only "
         "supported when every block is a true/false statement"
     )
@@ -1010,7 +1017,7 @@ class MoodleXmlParser:
             case "multianswer":
                 return MultianswerBlock(**common, shuffle_answers=shuffle_answers)
             case _:
-                raise ValueError(f"unsupported Moodle XML question type: {qtype!r}")
+                raise conversion_error("unsupported-type", f"unsupported Moodle XML question type: {qtype!r}")
 
 
 def _mdq_unit(unit: str | None) -> str | None:
@@ -1039,7 +1046,7 @@ def parse_cloze(text: str) -> tuple[list[str], list[MoodleCloze]]:
         if ch == "{" and (header := CLOZE_HEADER_REGEX.match(text, pos)):
             close = find_unescaped(text, "}", header.end())
             if close == -1:
-                raise ValueError(f"unterminated cloze blank at position {pos}")
+                raise conversion_error("syntax-error", f"unterminated cloze blank at position {pos}")
             segments.append(text[last:pos])
             weight = int(header.group(1))
             kind = normalize_cloze_kind(header.group(2))
@@ -1091,11 +1098,12 @@ def escape_cloze_text(text: str) -> str:
     shortanswer matcher intact.
 
     Raises:
-        ValueError: `text` has a `~` or a backslash before a `~`, `}` or `#`
+        ConversionError: `text` has a `~` or a backslash before a `~`, `}` or `#`
             (or at its end), which have no form in a cloze blank.
     """
     if "~" in text or re.search(r"\\(?:[~}#]|$)", text):
-        raise ValueError(
+        raise conversion_error(
+            "cloze-text-changed",
             f"cannot convert to {_FORMAT}: the answer {text!r} has a `~` or a "
             "backslash before `~`, `}`, `#` or at its end, which a cloze blank "
             "cannot express"
@@ -1123,7 +1131,7 @@ def normalize_cloze_kind(raw: str) -> ClozeKind:
     try:
         return CLOZE_KIND_ALIASES[raw.upper()]
     except KeyError:
-        raise ValueError(f"unsupported cloze kind: {raw!r}") from None
+        raise conversion_error("unsupported-cloze-kind", f"unsupported cloze kind: {raw!r}") from None
 
 
 def parse_cloze_options(body: str, kind: ClozeKind) -> list[MoodleAnswer]:

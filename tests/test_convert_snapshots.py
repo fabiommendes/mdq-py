@@ -6,12 +6,12 @@ Every valid question of the corpus is exported to every format, and the
 exported text is imported back. The snapshot of a format,
 `tests/snapshots/convert/<format>.json`, holds per question:
 
-* `export`: the exported text, or `{"error": <message>}` if the export
-  fails, or `"unsupported"` if the format does not hold the type.
-* `import`: `to_dict()` of the question imported from `export`, or
-  `{"error": <message>}`. Absent when the export did not give a text.
-* `reexport`: the export of the imported question, or `{"error":
-  <message>}`, only when it is not `export` again. Each one is a known
+* `export`: the exported text, or `{"error": <message>, "code": <code>}`
+  if the export fails.
+* `import`: `to_dict()` of the question imported from `export`, or the
+  error. Absent when the export did not give a text.
+* `reexport`: the export of the imported question, or the error, only when
+  it is not `export` again. Each one is a known
   bug (dev/issues/converter-round-trip.md).
 
 Any change in what a converter writes, reads or rejects changes a
@@ -30,6 +30,7 @@ import pytest
 
 from mdq import load
 from mdq.convert import FORMATS, export_question, import_question
+from mdq.errors import ConversionError
 from mdq.models import Exam, Question
 from _corpus import EXAMPLES_ROOT, VALID_EXAMS_DIR, VALID_PARSED
 
@@ -52,23 +53,25 @@ def _valid_questions() -> list[tuple[str, Question]]:
 QUESTIONS = _valid_questions()
 
 
+def _error(exc: ConversionError) -> dict[str, str]:
+    return {"error": str(exc), "code": exc.code}
+
+
 def _convert(question: Question, format: str) -> dict[str, Any]:
     """What the converters do with `question`: see the module docstring."""
     try:
         text = export_question(question, format=format)
-    except TypeError:
-        return {"export": "unsupported"}
-    except ValueError as exc:
-        return {"export": {"error": str(exc)}}
+    except ConversionError as exc:
+        return {"export": _error(exc)}
     try:
         again = import_question(text, format=format)
-    except ValueError as exc:
-        return {"export": text, "import": {"error": str(exc)}}
+    except ConversionError as exc:
+        return {"export": text, "import": _error(exc)}
     result: dict[str, Any] = {"export": text, "import": again.to_dict()}
     try:
         reexport: Any = export_question(again, format=format)
-    except ValueError as exc:
-        reexport = {"error": str(exc)}
+    except ConversionError as exc:
+        reexport = _error(exc)
     if reexport != text:
         result["reexport"] = reexport
     return result

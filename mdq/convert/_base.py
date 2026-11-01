@@ -8,10 +8,13 @@ from decimal import Decimal
 from fractions import Fraction
 from typing import Any, ClassVar, Literal
 
+from pydantic import ValidationError
+
 from .. import _parser
 from .._exact import exact_literal, exact_span
 from .._markdown import has_visible_character, starts_block
-from ..errors import ParseError
+from .._diagnostics import Diagnostic
+from ..errors import ConversionError, ParseError
 from ..models import (
     AnswerPattern,
     ChoiceBlank,
@@ -22,7 +25,9 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ..types import QuestionType
+from ._codes import conversion_error
 from ._common import common_prefix, format_num, join_blocks
+from ._string_parser import ParserError
 
 type Format = Literal["aiken", "gift", "moodle-xml"]
 
@@ -82,12 +87,18 @@ def mdq_numeric_answer(text: str) -> int | float | str:
     `"2.50"`. Text outside MDQ's grammar (`"1e-5"`) becomes a `float`.
 
     Raises:
-        ValueError: `text` is not a number at all.
+        ConversionError: `text` is not a number at all.
     """
     try:
         return _parser.parse_numeric_answer(text)
     except ParseError:
+        pass
+    try:
         return float(text)
+    except ValueError:
+        raise conversion_error(
+            "not-a-number", f"cannot convert: the numeric answer {text!r} is not a number"
+        ) from None
 
 
 _MOODLE_POSITIVE_GRADES = tuple(
@@ -138,13 +149,14 @@ def moodle_score(score: float, *, format: str) -> float:
     of full credit) matches.
 
     Raises:
-        ValueError: `score` is not one of `MOODLE_GRADES`, so Moodle
+        ConversionError: `score` is not one of `MOODLE_GRADES`, so Moodle
             would reject the question or change the score.
     """
     grade = moodle_grade(score)
     if grade is None:
         percents = ", ".join(format_moodle_percent(g) for g in _MOODLE_POSITIVE_GRADES)
-        raise ValueError(
+        raise conversion_error(
+            "score-rounded",
             f"cannot convert to {format}: the score {score!r} is not a grade "
             f"Moodle accepts ({percents}, 0, or a negative of these, in percent)"
         )
@@ -157,7 +169,7 @@ def moodle_percent(score: float, *, format: str) -> float:
     `83.33333`, 1/7 is `14.28571`.
 
     Raises:
-        ValueError: see `moodle_score`.
+        ConversionError: see `moodle_score`.
     """
     grade = moodle_grade(moodle_score(score, format=format))
     assert grade is not None
@@ -188,7 +200,7 @@ def float_answer(
     Return a numeric answer as the float an external format stores.
 
     Raises:
-        ValueError: the float is not the exact answer ("1/3") and there is
+        ConversionError: the float is not the exact answer ("1/3") and there is
             no tolerance, so the external format would compare responses
             with a different number than MDQ does.
     """
@@ -197,7 +209,8 @@ def float_answer(
     number = float(Fraction(answer))
     has_tolerance = tolerance is not None and bool(tolerance.absolute or tolerance.relative)
     if not has_tolerance and Fraction(repr(number)) != Fraction(answer):
-        raise ValueError(
+        raise conversion_error(
+            "inexact-answer",
             f"cannot convert to {format}: the answer {answer!r} has no exact "
             f"floating-point value, and without a tolerance {format} would "
             f"only accept {number!r}"
@@ -211,10 +224,11 @@ def require_automatic(question: ShortAnswerQuestion, *, format: str) -> None:
     formats grade every response themselves and cannot express a pending one.
 
     Raises:
-        ValueError: the question is not `automatic`.
+        ConversionError: the question is not `automatic`.
     """
     if question.automation != "automatic":
-        raise ValueError(
+        raise conversion_error(
+            "manual-grading-dropped",
             f"cannot convert to {format}: the question has `unmatched` "
             "manual (no accept pattern, or declared), and the format cannot "
             "leave a response for the instructor to grade"
@@ -241,11 +255,12 @@ def literal_text(rule: AnswerPattern, *, format: str) -> str:
     before a `*` is kept: Moodle stores `2\\*3` and matches the literal `2\*3`.
 
     Raises:
-        ValueError: `rule` is a regex, which an external format cannot express.
+        ConversionError: `rule` is a regex, which an external format cannot express.
     """
     pattern = rule.pattern.strip(" \t\r\n")
     if pattern.startswith("/"):
-        raise ValueError(
+        raise conversion_error(
+            "regex-dropped",
             f"cannot convert to {format}: the pattern {pattern!r} is a "
             "regex, and only literal answers are supported"
         )
@@ -260,11 +275,12 @@ def literal_answers(accept: list[AnswerPattern] | None, *, format: str) -> list[
     `accept` list (see `literal_text`).
 
     Raises:
-        ValueError: `accept` is missing or empty, or holds a regex, which
+        ConversionError: `accept` is missing or empty, or holds a regex, which
             an external format cannot express.
     """
     if not accept:
-        raise ValueError(
+        raise conversion_error(
+            "no-accept",
             f"cannot convert to {format}: a short answer needs an `accept` list"
         )
     return [literal_text(rule, format=format) for rule in accept]
@@ -282,7 +298,7 @@ def exported_short_answers(
     none, all with their feedback.
 
     Raises:
-        ValueError: `accept` is missing or empty, or a pattern is a regex.
+        ConversionError: `accept` is missing or empty, or a pattern is a regex.
     """
     literal_answers(accept, format=format)
     return [
@@ -415,7 +431,7 @@ def html_with_blanks_to_mdq(text: str) -> str:
     is left. Inline tags (`<b>`, `<span>`, `<br>`) stay as inline HTML.
 
     Raises:
-        ValueError: a block-level tag, other than `<p>`, opens an HTML block
+        ConversionError: a block-level tag, other than `<p>`, opens an HTML block
             that holds a marker.
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -445,7 +461,8 @@ def html_with_blanks_to_mdq(text: str) -> str:
             end += 1
         if _MARKER_RE.search("\n".join(lines[i : end + 1])):
             tag = lines[i].lstrip()[1:].split(maxsplit=1)[0].split(">")[0].rstrip("/")
-            raise ValueError(
+            raise conversion_error(
+                "blank-in-html-block",
                 f"a blank inside the HTML block starting at `<{tag.lstrip('/')}>` "
                 "cannot be a `[^id]` marker: CommonMark reads an HTML block as "
                 "literal text. Only `<p>` paragraphs are converted; the "
@@ -492,13 +509,14 @@ def exported_general_feedback(question: Question, *, format: str) -> str | None:
     or `None` if the question has none.
 
     Raises:
-        ValueError: the value is not a string with a visible character.
+        ConversionError: the value is not a string with a visible character.
     """
     if not question.meta or GENERAL_FEEDBACK_KEY not in question.meta:
         return None
     value = question.meta[GENERAL_FEEDBACK_KEY]
     if not isinstance(value, str) or not has_visible_character(value):
-        raise ValueError(
+        raise conversion_error(
+            "general-feedback-dropped",
             f"cannot convert to {format}: `meta.{GENERAL_FEEDBACK_KEY}` must be "
             f"a string with a visible character, got {value!r}"
         )
@@ -540,14 +558,15 @@ def _credit_kind(answer: ImportedAnswer, *, format: str, what: str) -> Literal["
     Classify the credit of `answer` as full (100%) or none (0%).
 
     Raises:
-        ValueError: the credit is partial (or negative): the grading of
+        ConversionError: the credit is partial (or negative): the grading of
             `what` is binary.
     """
     if abs(answer.credit - 1) < MOODLE_GRADE_TOLERANCE:
         return "full"
     if abs(answer.credit) < MOODLE_GRADE_TOLERANCE:
         return "none"
-    raise ValueError(
+    raise conversion_error(
+        "partial-credit-dropped",
         f"cannot convert from {format}: the answer {answer.text!r} has partial "
         f"credit ({format_num(answer.credit * 100)}%), and {what} grading is "
         "binary: an answer is worth 100% or 0%"
@@ -574,7 +593,7 @@ def short_answer_key(
     a literal like any other text.
 
     Raises:
-        ValueError: an answer has partial credit, or a `*` wildcard inside
+        ConversionError: an answer has partial credit, or a `*` wildcard inside
             its text, which MDQ patterns would read as a literal `*`.
     """
     accept: list[AnswerPattern] = []
@@ -589,7 +608,8 @@ def short_answer_key(
                 incorrect_feedback = answer.feedback
             continue
         if not _is_wildcard(answer.text) and _WILDCARD_RE.search(answer.text):
-            raise ValueError(
+            raise conversion_error(
+                "wildcard-to-regex",
                 f"cannot convert from {format}: the answer {answer.text!r} has a "
                 "`*` wildcard, which MDQ literal patterns do not support"
             )
@@ -607,7 +627,7 @@ def numeric_answer_key(answers: Sequence[ImportedAnswer], *, format: str) -> Num
     dropped if it has the same value and tolerance as the first.
 
     Raises:
-        ValueError: an answer has partial credit, there is no 100% answer or
+        ConversionError: an answer has partial credit, there is no 100% answer or
             two different ones, or a `*` has credit.
     """
     key: ImportedAnswer | None = None
@@ -616,7 +636,8 @@ def numeric_answer_key(answers: Sequence[ImportedAnswer], *, format: str) -> Num
         kind = _credit_kind(answer, format=format, what="numeric")
         if _is_wildcard(answer.text):
             if kind == "full":
-                raise ValueError(
+                raise conversion_error(
+                    "answer-dropped",
                     f"cannot convert from {format}: a numeric `*` answer worth "
                     "100% accepts any number, which MDQ cannot express"
                 )
@@ -629,12 +650,14 @@ def numeric_answer_key(answers: Sequence[ImportedAnswer], *, format: str) -> Num
                 float(answer.text),
                 answer.tolerance or 0.0,
             ):
-                raise ValueError(
+                raise conversion_error(
+                    "answer-dropped",
                     f"cannot convert from {format}: more than one different "
                     "answer is worth 100%, and a numeric question has one answer"
                 )
     if key is None:
-        raise ValueError(
+        raise conversion_error(
+            "no-full-credit",
             f"cannot convert from {format}: no numeric answer is worth full credit"
         )
     return NumericAnswerKey(
@@ -712,11 +735,29 @@ def import_question(source: str, /, *, format: str) -> Question:
     Args:
         source: Source code from the external question.
         format: The external question format.
+
+    Raises:
+        ConversionError: the source has a syntax error (`syntax-error`,
+            with its 1-based `line`), cannot be read as MDQ, or gives a
+            question the models reject (`invalid-question`).
+        ValueError: `format` is not one of `FORMATS`.
     """
 
     converter = load_converter(format)
-    external = converter.parse(source)
-    return converter.to_mdq(external)
+    try:
+        external = converter.parse(source)
+    except ParserError as exc:
+        diagnostic = Diagnostic(
+            severity="error", code="syntax-error", message=str(exc), line=exc.lineno + 1
+        )
+        raise ConversionError([diagnostic]) from exc
+    try:
+        return converter.to_mdq(external)
+    except ValidationError as exc:
+        # The converter built a question the models reject: a converter
+        # bug, or a source MDQ cannot hold.
+        diagnostic = Diagnostic(severity="error", code="invalid-question", message=str(exc))
+        raise ConversionError([diagnostic]) from exc
 
 
 def export_question(question: Question, /, *, format: str) -> str:
@@ -728,10 +769,14 @@ def export_question(question: Question, /, *, format: str) -> str:
     Args:
         source: Source code from the external question.
         format: The external question format.
+
+    Raises:
+        ConversionError: the format cannot hold the question.
+        ValueError: `format` is not one of `FORMATS`.
     """
     converter = load_converter(format)
     if question.type not in converter.supports:
         msg = f"{format!r} does not support {question.type!r} questions"
-        raise TypeError(msg)
+        raise conversion_error("unsupported-type", msg)
     external = converter.from_mdq(question)
     return converter.render(external)

@@ -1,501 +1,999 @@
 {
   "valid/essay/answer-key-html-comment.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/answer-key-inner-headings.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/answer-key-multi-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/answer-key-no-blank-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/answer-key-setext.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/bom-no-frontmatter.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/bom.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/bracket-text-first-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/code-python.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/code-without-highlight.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-after-blank-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-after-first-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-bare-hash.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-broken-by-blank-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-indented-is-ignored.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/comment-no-space.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/content-text-frontmatter.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/cr-only.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/crlf.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/empty-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/epilogue-and-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/epilogue-rubric-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/epilogue-starts-with-footnote.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/feff-in-middle.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/fenced-code-no-lang.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/footnote-stem-defined-in-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/form-feed-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/frontmatter-nel-ls-in-scalar.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/frontmatter-only-comment.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/full-metadata.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/heading-in-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/id-precedence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/image-and-link.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/indented-tag.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/inline-id-in-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/inline-id.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/inline-non-slug-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/link-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/list-partly-bracketed.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-case-insensitive.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-grandfathered.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-lookalike.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-private-use.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-script-region.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-three-letter.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-uppercase.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/locale-yaml-11-boolean.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/meta-null-value.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/meta-same-key-in-nested-mappings.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/meta-scalar-keys.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/meta.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/metadata-comment.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-after-slug.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-end-of-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-in-code-is-skipped.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-in-frontmatter-is-skipped.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-in-prose.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nbsp-start-of-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nel-before-hash-is-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/nel-in-prose.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/no-title.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/null-content-and-optionals.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/null-id-and-tags.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/plain-content.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/spaced-slug-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/stem-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/stem-hard-breaks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/stem-indented-code-block-of-nbsp.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/stem-with-code.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tag-slug-essay.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tags-as-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tags-null.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tags-single-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tags-string-final-comma.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/tags.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-epilogue-first.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-four-dashes.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-indented-dashes.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-spaced-asterisks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-spaced-dashes.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-stem-first.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/thematic-break-underscores.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/unknown-highlight-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/unsafe-id-trailing-newline.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/unsafe-id.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/unsplit-tag-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/uuid-max.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/uuid-nil.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/uuid-unknown-variant.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/uuid-unknown-version.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/uuid-uppercase.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/weight-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/weight-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/yaml-nel-ls-in-scalar.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/essay/yaml-scalar-keys.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    }
   },
   "valid/fill-in/blank-in-autolink-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-in-code-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-in-code-span-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-in-indented-code-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-in-inline-html.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-in-tilde-fence-is-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-link-is-not-a-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-reference-link-is-not-a-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blank-tag-space-around-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blanks-in-two-paragraphs.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/blockquote-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/capital.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/case-variant-blank-id.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/choice-blank-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/choice-blank-missing-id-second-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/choice-blank-omitted-score-vs-zero-percent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/choice-blank-rich.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/continuation-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/definitions-separated-by-blank-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/diacritics-keep.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/empty-blank-definition-text-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/epilogue-nested-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/first-paragraph-starts-with-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/frontmatter-numeric-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/grading-no-mistakes.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/grading-shuffle-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/grading-symmetric.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/grading.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/ids-choice-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/line-and-detached-list-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/mixed-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/nbsp-after-blank-definition.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/nbsp-in-blank-pattern-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/non-blank-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/null-entry-numeric-maps.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/null-entry-pattern-maps.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-declared.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-domain-mismatch.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-exponent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-forms.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-maps-places.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-relative-tolerance-around-zero-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-representations.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-blank-unit-non-ascii.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-unit-slash.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/numeric-unit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/observation-order.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/open-blank-between-definitions.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/open-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/pre-validation-entry-forms.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/pre-validation-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/regex-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/reject-block-before-accept.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/reject-only-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/short-answer-blank-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/short-answer-blank-then-list-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/short-answer-blank-unmatchable-regex-escape.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/short-answer-patterns.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/shuffle-all-or-nothing.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/stem-starts-with-blank.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/tag-in-epilogue-fence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/fill-in/unmatched-manual.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    }
   },
   "valid/multiple-choice/all-correct.yaml": {
     "export": "Qual destes é um bioma brasileiro?\n\na. Caatinga\nb. Pampa\nc. Pantanal\n\nANSWER: a",
@@ -975,6 +1473,7 @@
   "valid/multiple-choice/line-separators-in-choice-text.yaml": {
     "export": "Qual árvore é símbolo do Brasil?\n\na. Ipêamarelo do\u000bcerrado\fbrasileiro\nb. Jatobá\n\nANSWER: a",
     "import": {
+      "code": "syntax-error",
       "error": "[line 4, col 1]: expect: 'ANSWER:'"
     }
   },
@@ -1436,963 +1935,1923 @@
     }
   },
   "valid/multiple-selection/all-correct.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/bullet-list-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-comment-empty-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-deep-indent-continues-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-deep-indent-continues-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-feedback-image-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-feedback-three-columns.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-ids.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-tab-after-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/choice-wide-item-content.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/epilogue-starts-with-link.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/fullwidth-x.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-all-or-nothing.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading-symmetric.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/grading.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/ids-single-digit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/ids-single-glyph.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/link-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/multi-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/nbsp-blank-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/none-correct.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/shuffle-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/simple.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/stray-choice-marker-stem-yaml.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/stray-choice-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/uppercase-x.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/multiple-selection/visually-identical-choices.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'multiple-selection' questions"
+    }
   },
   "valid/numeric/answer-outside-domain-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/answer-outside-domain.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/bom-in-unit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/decimal-beyond-float.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/decimal-integer-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/decimal-trailing-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/decimal-whole-trailing-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/domain-decimal-integer-answer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/domain-integer-relative-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/domain-integer-whole-float-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/domain-mismatch-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/domain-mismatch-integer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/epilogue-trailing-feff.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-avogadro.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-both-tolerances.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-earth-mass.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-forms.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-largest-double.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-leading-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-number-answer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-relative-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-smallest-double.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-string-answer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-trailing-zero-places.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-trailing-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-water-ions.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent-wavelength.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/exponent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-answer-decimal-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-answer-float-decimal-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-answer-float-whole-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-answer-float.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-answer-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-decimal-places.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-decimal-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-domain-integer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction-integer-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/frontmatter-decimal-places.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/frontmatter-domain.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/h1-line-in-epilogue-code-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/h1-line-in-stem-code-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/ignored-decimal-places-inferred.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/ignored-decimal-places.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/inferred-decimal-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/int32-max-plus-one.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/int32-max.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/int32-min-minus-one.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/int32-min.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/integer-beyond-int32.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/integer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/negative-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/negative-integer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/negative.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/plus-sign.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/redundant-id-different.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/redundant-id-equal.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-around-zero-decimal-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-around-zero-negative-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-around-zero-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-around-zero.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-decimal-shift.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/relative-tolerance-over-one.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/stem-leading-nbsp-feff.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/stem-trailing-feff.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/table-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tabs-around-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tag-indented-three-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tag-tab-before-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tolerance-no-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tolerance-order.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tolerance-spaces-after-sign.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/tolerances.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-code-span.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-currency-symbol.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-escaped-asterisk.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-non-ascii.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-slash.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit-superscript.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/unreduced-fraction.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/whole-decimal-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/whole-fraction-domain-integer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/zero-answer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/numeric/zero-tolerance.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    }
   },
   "valid/ordering/accept-alternative.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-blank-line-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-omits-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-extra-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-line-before-section.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-ordering-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/brazil-timeline.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-accepts-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-alternative-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-parent-item-nested-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue-no-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-inherits-highlight.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-nested-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-info-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-without-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fibonacci.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/full-metadata.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-gcd.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-unit-across-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indented-fence-tab.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/inline-markup-kept.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/lenient-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/list-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nbsp-end-of-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-three-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-two-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/normalizations-comma-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/observations-adjacent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/redundant-strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-differs-only-by-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-unreachable-level-and-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-uses-distractor.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-without-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-empty-feedback-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-closing-sequence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-indented.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-setext.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-reject-other-level.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-stops-mixed.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-indented-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-space-before-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tilde-fence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/trailing-whitespace.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/two-accepts-and-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unknown-highlight-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unmatched-manual.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unreachable-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-across-blocks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    }
   },
   "valid/short-answer/accept-and-reject-blocks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/accept-regex-flags.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/accept-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/accept-tag-without-pattern.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/bare-accept-with-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/bare-tag-detached-list-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/collapsed-link-at-stem-start.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/continuation-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/diacritics-fold-explicit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/diacritics-keep-mixed.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/diacritics-keep.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/em-space-starts-pattern-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/empty-reject-text-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/empty-tag-text-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-backtick-run.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-backtick.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-leading-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-literal-spans-lines-block.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-literal-spans-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-literal-wraps-double-backtick.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-literal-wraps-inner-backticks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact-with-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/exact.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/fence-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/heading-after-content.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/html-block-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/ignored-regex-flag-in-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/ignored-regex-flag.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/image-line-continues.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/incorrect-feedback-unmatched-incorrect.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/incorrect-feedback-with-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/indented-code-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/indented-marker-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/indented-quote-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/indented-underline-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/inline-id-and-indented-tag.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/link-definition-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/list-then-ordered-list-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/list-with-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/literal-asterisk.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/manual.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/multi-line-patterns.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/nbsp-in-pattern-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/nbsp-on-tag-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/nbsp-starts-pattern-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/no-correct-answer.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/null-diacritics.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/observation-order.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/ordered-list-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pattern-empty-feedback-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pattern-one-visible-character.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pre-validation-lint-matrix.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pre-validation-no-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pre-validation-regex-lints.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/pre-validation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/redundant-regex-anchor-cases.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/redundant-regex-anchor-flags-and-literals.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/redundant-regex-anchor-object-entries.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/redundant-regex-anchor.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/regex-flags-f-b.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/regex-subset.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/regex-unescaped-slash.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/regex.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/reject-block-before-accept.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/reject-block-only.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/reject-line-and-detached-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/reject-only.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/semi-automatic.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/simple.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/slug-wins-over-shortcut-link.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/stem-setext-h2.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/stem-with-prose-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/tab-indented-bang-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/tab-indented-quote-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/tab-indented-underline-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/tag-space-around-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/thematic-break-epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/underline-after-feedback-continuation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatchable-regex-escape-fields.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatchable-regex-escape-forms.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged-ascii.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatchable-regex-escape.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/short-answer/unmatched-manual-accept-only.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'short-answer' questions"
+    }
   },
   "valid/true-false/angstrom-sign-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/choice-comment.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/choice-ids.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/cjk-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/false-friend-lowercase.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/false-friend-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/false-friend-true-letter.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/false-friend-vi.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/fullwidth-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/global-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/grading-no-mistakes.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/grading-shuffle-inherit.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/grading.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/inline-id.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-bn-m.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-de-wahr.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-en-cyrillic-false-mismatch.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-es.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-fil-mismatch.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-hi-indic.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-ja-o-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-mismatch.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-mr-b.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-pt-canonical.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-pt-cebraspe.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-pt-han-false-mismatch.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-pt-s-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-pt.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-ru-cyrillic.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-ru-v.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-sw-h.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-sw-k.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-tr-yanlis.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-without-expectation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-yue-han-false.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/locale-zh-fou.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/long-s-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/lowercase-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/nested-list-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/no-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/non-bmp-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/non-nfkc-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/shuffle.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/simple.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/spaced-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/uniform-false.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/unlisted-marker-markdown.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/unlisted-marker.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   },
   "valid/true-false/visually-identical-statements.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'true-false' questions"
+    }
   }
 }

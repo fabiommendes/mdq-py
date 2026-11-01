@@ -21,6 +21,7 @@ from ..models import (
     Statement,
     TrueFalseQuestion,
 )
+from ._codes import conversion_error
 from ._base import (
     blank_choice_scores,
     split_true_false_group,
@@ -248,12 +249,13 @@ def gift_block(
     of an essay, GIFT has one `####` for both).
 
     Raises:
-        ValueError: `general_feedback` and `meta.generalFeedback` are both set,
+        ConversionError: `general_feedback` and `meta.generalFeedback` are both set,
             or the latter is not valid.
     """
     meta_feedback = exported_general_feedback(question, format="GIFT")
     if general_feedback is not None and meta_feedback is not None:
-        raise ValueError(
+        raise conversion_error(
+            "general-feedback-dropped",
             "cannot convert to GIFT: the answer key and `meta.generalFeedback` "
             "are both the `####` text of the question"
         )
@@ -284,7 +286,7 @@ def encode_question(question: Question) -> GiftQuestion:
         case FillInQuestion():
             return GiftQuestion(blocks=[block_from_fill_in(question)])
         case MultipleSelectionQuestion() | OrderingQuestion():
-            raise ValueError(f"GIFT does not support {question.type!r} questions")
+            raise conversion_error("unsupported-type", f"GIFT does not support {question.type!r} questions")
         case _:
             assert_never(question)
 
@@ -351,14 +353,16 @@ def blocks_from_true_false(question: TrueFalseQuestion) -> list[GiftBlock]:
 
 def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
     if len(question.blanks) != 1:
-        raise ValueError(
+        raise conversion_error(
+            "multiple-blanks",
             "cannot convert to GIFT: fill-in question must have exactly one blank"
         )
     blank = question.blanks[0]
     marker = f"[^{blank.id}]"
     stem_part, sep, tail_part = question.stem.partition(marker)
     if not sep:
-        raise ValueError(
+        raise conversion_error(
+            "blank-marker-mismatch",
             f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
         )
 
@@ -396,7 +400,8 @@ def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
 
     tail = "\n".join(part for part in (tail_part.strip(), (question.epilogue or "").strip()) if part)
     if BLANK_LINE_REGEX.search(tail):
-        raise ValueError(
+        raise conversion_error(
+            "blank-line-after-blank",
             "cannot convert to GIFT: the text after the blank has a blank line, "
             "which would end the GIFT block"
         )
@@ -413,13 +418,14 @@ def block_from_fill_in(question: FillInQuestion) -> GiftBlock:
 def decode_question(gift: GiftQuestion) -> Question:
     """A single block converts directly; several blocks must form a true/false group."""
     if not gift.blocks:
-        raise ValueError("GIFT question has no blocks")
+        raise conversion_error("no-question", "GIFT question has no blocks")
     blocks = [markdown_block(block) for block in gift.blocks]
     if len(blocks) == 1:
         return block_to_mdq(blocks[0])
     if all(isinstance(b.answer, GiftBoolean) for b in blocks):
         return true_false_from_blocks(blocks)
-    raise ValueError(
+    raise conversion_error(
+        "multiple-questions",
         "a GIFT question group with more than one block is only "
         "supported when every block is a true/false statement"
     )
@@ -483,7 +489,8 @@ def block_to_mdq(block: GiftBlock) -> Question:
             )
         case GiftBoolean():
             if block.tail:
-                raise ValueError(
+                raise conversion_error(
+                    "missing-word-boolean",
                     "GIFT missing-word tail is not supported for boolean answers"
                 )
             return MultipleChoiceQuestion(
@@ -592,9 +599,10 @@ def blank_from_answer(answer: GiftAnswer) -> Blank:
                 incorrect_feedback=numeric.incorrect_feedback,
             )
         case GiftEssay() | GiftBoolean():
-            raise ValueError(
+            raise conversion_error(
+                "missing-word-joined" if isinstance(answer, GiftEssay) else "missing-word-boolean",
                 "GIFT missing-word tail is not supported for "
-                f"{type(answer).__name__} answers"
+                f"{type(answer).__name__} answers",
             )
         case _:
             assert_never(answer)

@@ -174,11 +174,14 @@ def test_match_group_full_line_advances_lineno():
     assert parser.lineno == 1
 
 
-def test_parser_error_is_a_parse_error_and_a_value_error():
+def test_import_reports_a_parser_error_as_a_syntax_error() -> None:
     from mdq.convert import import_question
-    from mdq.errors import ParseError
+    from mdq.errors import ConversionError
 
-    with pytest.raises(ParserError) as error:
+    with pytest.raises(ConversionError) as error:
         import_question("not a quiz", format="moodle-xml")
-    assert isinstance(error.value, ParseError)
     assert isinstance(error.value, ValueError)
+    assert isinstance(error.value.__cause__, ParserError)
+    [diagnostic] = error.value.diagnostics
+    assert diagnostic.code == "syntax-error"
+    assert diagnostic.line == 1

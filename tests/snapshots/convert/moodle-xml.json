@@ -236,6 +236,7 @@
   "valid/essay/form-feed-is-text.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Ciclo da água</text>\n    </name>\n    <idnumber>ciclo-agua</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique o ciclo\fda água.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
     "import": {
+      "code": "syntax-error",
       "error": "[line 9, col 29]: malformed Moodle XML: not well-formed (invalid token): line 9, column 28"
     }
   },
@@ -875,6 +876,7 @@
   "valid/fill-in/blank-in-code-is-text.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <questiontext format=\"markdown\">\n      <text>Em MDQ, um blank é escrito assim:\n\n```md\nA capital é [^capital].\n```\n\nComplete: a capital do Brasil é {1:SHORTANSWER:=Brasília}.\n\nLembre que `[^capital]` no epílogo também é só texto: [^capital].</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
     "import": {
+      "code": "invalid-question",
       "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, um blank é escr... só texto: [^capital].', input_type=str]"
     }
   },
@@ -1156,6 +1158,7 @@
   },
   "valid/fill-in/choice-blank-lints.yaml": {
     "export": {
+      "code": "no-full-credit",
       "error": "cannot convert to Moodle XML: blank 'b' has no answer worth 100%, which Moodle requires in an embedded answer"
     }
   },
@@ -2044,6 +2047,7 @@
   },
   "valid/fill-in/numeric-blank-representations.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000314159265358979323846' has no exact floating-point value, and without a tolerance Moodle XML would only accept 3.1415926535897933e-301"
     }
   },
@@ -2070,6 +2074,7 @@
   },
   "valid/fill-in/numeric-fraction.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '1/3' has no exact floating-point value, and without a tolerance Moodle XML would only accept 0.3333333333333333"
     }
   },
@@ -2153,11 +2158,13 @@
   },
   "valid/fill-in/open-blank-between-definitions.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to Moodle XML: a short answer needs an `accept` list"
     }
   },
   "valid/fill-in/open-blank.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to Moodle XML: a short answer needs an `accept` list"
     }
   },
@@ -2233,6 +2240,7 @@
   },
   "valid/fill-in/regex-blank.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/18(89|9[0-9])/' is a regex, and only literal answers are supported"
     }
   },
@@ -2264,11 +2272,13 @@
   },
   "valid/fill-in/reject-only-blank.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to Moodle XML: a short answer needs an `accept` list"
     }
   },
   "valid/fill-in/short-answer-blank-lints.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to Moodle XML: a short answer needs an `accept` list"
     }
   },
@@ -2294,6 +2304,7 @@
   },
   "valid/fill-in/short-answer-blank-unmatchable-regex-escape.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\xe1/n' is a regex, and only literal answers are supported"
     }
   },
@@ -2988,6 +2999,7 @@
   "valid/multiple-choice/line-separators-in-choice-text.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multichoice\">\n    <questiontext format=\"markdown\">\n      <text>Qual árvore é símbolo do Brasil?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <single>true</single>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>Ipêamarelo do\u000bcerrado\fbrasileiro</text>\n    </answer>\n    <answer fraction=\"-100\" format=\"markdown\">\n      <text>Jatobá</text>\n    </answer>\n  </question>\n</quiz>",
     "import": {
+      "code": "syntax-error",
       "error": "[line 10, col 27]: malformed Moodle XML: not well-formed (invalid token): line 10, column 26"
     }
   },
@@ -3244,6 +3256,7 @@
   },
   "valid/multiple-choice/percent-forms.yaml": {
     "export": {
+      "code": "score-rounded",
       "error": "cannot convert to Moodle XML: the score 0.335 is not a grade Moodle accepts (100, 90, 83.33333, 80, 75, 70, 66.66667, 60, 50, 40, 33.33333, 30, 25, 20, 16.66667, 14.28571, 12.5, 11.11111, 10, 5, 0, or a negative of these, in percent)"
     }
   },
@@ -4194,6 +4207,7 @@
   },
   "valid/numeric/decimal-beyond-float.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '3.14159265358979323846' has no exact floating-point value, and without a tolerance Moodle XML would only accept 3.141592653589793"
     }
   },
@@ -4430,6 +4444,7 @@
       "unit": "1/mol"
     },
     "reexport": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '602200000000000027262976' has no exact floating-point value, and without a tolerance Moodle XML would only accept 6.022e+23"
     }
   },
@@ -4541,11 +4556,13 @@
   },
   "valid/numeric/fraction-answer-string.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '1/3' has no exact floating-point value, and without a tolerance Moodle XML would only accept 0.3333333333333333"
     }
   },
   "valid/numeric/fraction-decimal-places.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '1/3' has no exact floating-point value, and without a tolerance Moodle XML would only accept 0.3333333333333333"
     }
   },
@@ -4731,6 +4748,7 @@
   },
   "valid/numeric/negative-fraction.yaml": {
     "export": {
+      "code": "inexact-answer",
       "error": "cannot convert to Moodle XML: the answer '-1/3' has no exact floating-point value, and without a tolerance Moodle XML would only accept -0.3333333333333333"
     }
   },
@@ -5078,208 +5096,412 @@
     }
   },
   "valid/ordering/accept-alternative.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-blank-line-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-omits-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-other-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-after-skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-repeats-answer-key.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-extra-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-line-before-section.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/blank-ordering-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/brazil-timeline.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-accepts-after-dedent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-alternative-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/duplicate-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-parent-item-nested-list.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/empty-reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue-no-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/epilogue.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-inherits-highlight.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-nested-distractors.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/extra-text.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-info-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fence-without-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/fibonacci.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/full-metadata.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/incorrect-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-gcd.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indentation-unit-across-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/indented-fence-tab.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/inline-markup-kept.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/lenient-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/list-markers.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nbsp-end-of-stem.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-sections.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-three-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/nested-list-two-levels.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/normalizations-comma-string.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/observations-adjacent.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/redundant-strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-differs-only-by-level-strict.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-other-level-lenient.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-unreachable-level-and-copies.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-uses-distractor.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/reject-without-feedback.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-empty-feedback-marker-line.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-closing-sequence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-indented.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-setext.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/section-heading-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/skip-blanks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/strict-reject-other-level.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-indentation.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tab-stops-mixed.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-indented-trailing-spaces.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tag-space-before-colon.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/tilde-fence.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/trailing-whitespace.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/two-accepts-and-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unknown-highlight-language.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unmatched-manual.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/unreachable-reject.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-across-blocks.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/ordering/visually-identical-lines.yaml": {
-    "export": "unsupported"
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    }
   },
   "valid/short-answer/accept-and-reject-blocks.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"shortanswer\">\n    <name>\n      <text>Capital do Brasil</text>\n    </name>\n    <idnumber>sa-accept-and-reject</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Qual é a capital do Brasil?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <usecase>0</usecase>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>Brasília</text>\n    </answer>\n    <answer fraction=\"0\" format=\"markdown\">\n      <text>Rio de Janeiro</text>\n      <feedback format=\"markdown\">\n        <text>Foi a capital até 1960.</text>\n      </feedback>\n    </answer>\n    <answer fraction=\"0\" format=\"markdown\">\n      <text>Salvador</text>\n      <feedback format=\"markdown\">\n        <text>Foi a primeira capital, até 1763.</text>\n      </feedback>\n    </answer>\n  </question>\n</quiz>",
@@ -5307,26 +5529,31 @@
   },
   "valid/short-answer/accept-regex-flags.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/cerrado/in' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/accept-reject.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/[Bb]ras[íi]lia/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/accept-tag-without-pattern.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/bare-accept-with-reject.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/bare-tag-detached-list-epilogue.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -5383,6 +5610,7 @@
   },
   "valid/short-answer/diacritics-keep-mixed.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/maceio/in' is a regex, and only literal answers are supported"
     }
   },
@@ -5639,11 +5867,13 @@
   },
   "valid/short-answer/ignored-regex-flag-in-reject.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/Brasília/g' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/ignored-regex-flag.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/Bras[íi]lia/m' is a regex, and only literal answers are supported"
     }
   },
@@ -5797,6 +6027,7 @@
   },
   "valid/short-answer/list-with-feedback.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/Bras[íi]lia DF/i' is a regex, and only literal answers are supported"
     }
   },
@@ -5822,16 +6053,19 @@
   },
   "valid/short-answer/literal-asterisk.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\*/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/manual.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/multi-line-patterns.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/recife pe/' is a regex, and only literal answers are supported"
     }
   },
@@ -5878,6 +6112,7 @@
   },
   "valid/short-answer/no-correct-answer.yaml": {
     "export": {
+      "code": "no-accept",
       "error": "cannot convert to Moodle XML: a short answer needs an `accept` list"
     }
   },
@@ -5947,6 +6182,7 @@
   },
   "valid/short-answer/pattern-one-visible-character.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/ /' is a regex, and only literal answers are supported"
     }
   },
@@ -6008,41 +6244,49 @@
   },
   "valid/short-answer/redundant-regex-anchor-cases.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/^AM/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor-flags-and-literals.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/Negro$/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor-object-entries.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/Negro$/b' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/redundant-regex-anchor.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/^18(2[0-9])/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-flags-f-b.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/cerrado/f' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-subset.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/(?=A)(?:AM|AC|AP) \\\\w+/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex-unescaped-slash.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/https?://www\\\\.gov\\\\.br/?/i' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/regex.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/1822-0?9-0?7/' is a regex, and only literal answers are supported"
     }
   },
@@ -6068,6 +6312,7 @@
   },
   "valid/short-answer/reject-block-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -6092,11 +6337,13 @@
   },
   "valid/short-answer/reject-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
   "valid/short-answer/semi-automatic.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },
@@ -6236,31 +6483,37 @@
   },
   "valid/short-answer/unmatchable-regex-escape-fields.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\u00e1\\\\u00e9/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-forms.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\xe1gua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged-ascii.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/agua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape-unchanged.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\u00e1gua/' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatchable-regex-escape.yaml": {
     "export": {
+      "code": "regex-dropped",
       "error": "cannot convert to Moodle XML: the pattern '/\\\\u00e1gua/n' is a regex, and only literal answers are supported"
     }
   },
   "valid/short-answer/unmatched-manual-accept-only.yaml": {
     "export": {
+      "code": "manual-grading-dropped",
       "error": "cannot convert to Moodle XML: the question has `unmatched` manual (no accept pattern, or declared), and the format cannot leave a response for the instructor to grade"
     }
   },

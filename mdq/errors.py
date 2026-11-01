@@ -65,6 +65,25 @@ class IncludeNotFound(MdqError):
         self.question_id = question_id
 
 
+class ConversionError(MdqError):
+    """
+    Raised by `mdq.convert` when a question cannot be converted to or from
+    an external format.
+
+    `diagnostics` holds the problems the converter found. The message and
+    `code` are the ones of the first error. Each code is declared in
+    `mdq.convert.CONVERTER_CODES`.
+    """
+
+    def __init__(self, diagnostics: list[Diagnostic]) -> None:
+        if not diagnostics:
+            raise ValueError("a ConversionError needs at least one diagnostic")
+        self.diagnostics = diagnostics
+        first = next((d for d in diagnostics if d.severity == "error"), diagnostics[0])
+        super().__init__(first.message)
+        self.code = first.code
+
+
 class GradingError(MdqError):
     """
     Base class for errors raised at the grading boundary.

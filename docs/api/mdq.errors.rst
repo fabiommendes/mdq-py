@@ -19,6 +19,10 @@ mdq.errors
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.errors.ConversionError
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.errors.GradingError
    :members:
    :member-order: bysource

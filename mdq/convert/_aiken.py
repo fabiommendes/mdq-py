@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from string import ascii_lowercase
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
+from ._codes import conversion_error
 from ._base import ConversionBase, effective_scores
 from ._string_parser import StringParser
 
@@ -39,7 +40,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
 
     def from_mdq(self, question: Question) -> AikenQuestion:
         if not isinstance(question, MultipleChoiceQuestion):
-            raise ValueError(f"Aiken does not support {question.type!r} questions")
+            raise conversion_error("unsupported-type", f"Aiken does not support {question.type!r} questions")
 
         scores = effective_scores(question)
 
@@ -77,7 +78,8 @@ class AikenQuestion:
         self.choices = [NEWLINE_REGEX.sub(" ", text).strip() for text in self.choices]
 
         if len(self.choices) > len(ascii_lowercase):
-            raise ValueError(
+            raise conversion_error(
+                "too-many-choices",
                 f"Aiken supports at most {len(ascii_lowercase)} choices, "
                 f"got {len(self.choices)}"
             )
