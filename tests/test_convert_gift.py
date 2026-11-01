@@ -27,7 +27,7 @@ from mdq.convert._gift import (
     escape_gift,
     unescape_gift,
 )
-from mdq.convert._string_parser import ParserError
+from mdq.convert._base import ParserError
 from strategies.gift import (
     GIFT_SPECIAL_CHARS,
     gift_blocks,

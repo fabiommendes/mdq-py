@@ -34,7 +34,7 @@ from mdq.convert._moodle_xml import (
     parse_cloze,
     render_cloze,
 )
-from mdq.convert._string_parser import ParserError
+from mdq.convert._base import ParserError
 from strategies.moodle_xml import (
     mdq_text,
     moodle_cloze,

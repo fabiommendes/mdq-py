@@ -28,7 +28,7 @@ from ..models import (
 )
 from ..types import EssayContent
 from ._codes import conversion_error
-from ._base import ConversionBase
+from ._base import ConversionBase, ParserError
 from ._moodle import (
     ImportedAnswer,
     blank_choice_scores,
@@ -57,7 +57,6 @@ from ._common import (
     split_unescaped,
     unescape_text,
 )
-from ._string_parser import ParserError
 
 __all__ = [
     "MoodleXml",

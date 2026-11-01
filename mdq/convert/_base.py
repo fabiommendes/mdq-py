@@ -1,21 +1,43 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, NoReturn
 
 from pydantic import ValidationError
 
 from .._diagnostics import Diagnostic
-from ..errors import ConversionError
+from ..errors import ConversionError, ParseError
 from ..models import Question
 from ..types import QuestionType
 from ._codes import conversion_error
-from ._string_parser import ParserError
 
 type Format = Literal["aiken", "gift", "moodle-xml"]
 
 #: Every format `mdq.convert` can import from and export to.
 FORMATS: tuple[Format, ...] = ("aiken", "gift", "moodle-xml")
+
+
+class ParserError(ParseError):
+    """
+    A syntax error of an external format, with its place in the source.
+
+    It is a `ParseError`, and so a `ValueError`. `lineno` and `colno` are
+    0-based.
+    """
+
+    def __init__(self, message: str, lineno: int, colno: int):
+        super().__init__(message)
+        self.lineno = lineno
+        self.colno = colno
+
+    def __str__(self) -> str:
+        return f"[line {self.lineno + 1}, col {self.colno + 1}]: {self.message}"
+
+
+def fail_at(source: str, offset: int, message: str) -> NoReturn:
+    """Raise a `ParserError` located at the character `offset` of `source`."""
+    prefix = source[:offset]
+    raise ParserError(message, prefix.count("\n"), offset - prefix.rfind("\n") - 1)
 
 
 class ConversionBase[Q](ABC):

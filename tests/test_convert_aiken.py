@@ -9,7 +9,7 @@ import pytest
 from hypothesis import given
 
 from mdq.convert._aiken import Aiken, AikenParser, AikenQuestion
-from mdq.convert._string_parser import ParserError
+from mdq.convert._base import ParserError
 from strategies.aiken import aiken_questions
 from mdq.models import EssayQuestion, MultipleChoiceQuestion, ScoredChoice
 

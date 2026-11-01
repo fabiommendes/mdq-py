@@ -22,7 +22,7 @@ from ..models import (
     TrueFalseQuestion,
 )
 from ._codes import conversion_error
-from ._base import ConversionBase
+from ._base import ConversionBase, fail_at
 from ._moodle import (
     ImportedAnswer,
     blank_choice_scores,
@@ -51,7 +51,7 @@ from ._common import (
 )
 from ._common import escape_text as escape_gift
 from ._common import unescape_text as unescape_gift
-from ._string_parser import fail_at
+
 
 __all__ = [
     "Gift",
