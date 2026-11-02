@@ -114,3 +114,11 @@ mdq.models
 .. autoclass:: mdq.models.BlankScore
    :members:
    :member-order: bysource
+
+.. autoclass:: mdq.models.Presentation
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.ExamPresentation
+   :members:
+   :member-order: bysource

@@ -42,6 +42,7 @@ from . import _lint, _render
 
 if TYPE_CHECKING:
     from ._exam import Exam
+    from ._presentation import Presentation
     from ._score import QuestionScore
 
 __all__ = ["MdqModel", "BaseQuestion", "FreeText"]
@@ -672,6 +673,21 @@ class BaseQuestion[R](MdqModel):
         public = {key: data[key] for key in self._PUBLIC_KEYS if key in data}
         public.update(self._public_body())
         return public
+
+    def presentation(self, seed: str, *, shuffle: bool | None = None) -> Presentation:
+        """
+        Return the presented form machinery of this question for `seed`
+        (docs/public-form.md, "Presented form"). `shuffle` overrides the
+        effective `shuffle` of the question. Inside an exam, use
+        `Exam.presentation`.
+
+        Raises:
+            ValueError: `seed` holds U+0000.
+            MissingIdError: a choice has no id.
+        """
+        from ._presentation import Presentation
+
+        return Presentation(self, seed, shuffle=shuffle)
 
     def _public_body(self) -> dict[str, Any]:
         """

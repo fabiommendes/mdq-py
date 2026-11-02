@@ -57,6 +57,7 @@ from ..types import (
     TrueFalseGrading,
 )
 from . import _lint, _render
+from ._presentation import ExamPresentation, Presentation
 from ._base import (
     BaseQuestion,
     MdqModel,
@@ -528,6 +529,26 @@ class Exam(MdqModel):
         """
         own = getattr(question, "shuffle", "inherit")
         return self.shuffle if own == "inherit" else bool(own)
+
+    def presentation(self, seed: str) -> ExamPresentation:
+        """
+        The presentation of every question of this exam for `seed`, with
+        the `shuffle` each question gets here (`shuffle_for`). The exam
+        must be resolved and its questions must have ids.
+
+        Raises:
+            UnresolvedInclude: the exam still holds an include block.
+            MissingIdError: a question or a choice has no id.
+            ValueError: `seed` holds U+0000.
+        """
+        presentations: dict[str, Presentation] = {}
+        for entry in self.questions:
+            if isinstance(entry, (Include, IncludeAll)):
+                raise UnresolvedInclude("cannot present an exam with include blocks")
+            if entry.id is None:
+                raise MissingIdError("cannot present a question without an id")
+            presentations[entry.id] = Presentation(entry, seed, shuffle=self.shuffle_for(entry))
+        return ExamPresentation(presentations)
 
     def resolve_question(self, question: Question) -> Question:
         """

@@ -68,6 +68,7 @@ from ._exam import (
 from ._fill_in import Blank, ChoiceBlank, FillInQuestion, NumericBlank, ShortAnswerBlank
 from ._numeric import NumericQuestion, Tolerance
 from ._ordering import OrderingAlternative, OrderingLine, OrderingQuestion
+from ._presentation import ExamPresentation, Presentation
 from ._score import BlankScore, ExamScore, QuestionScore
 from ._text import AnswerPattern, EssayQuestion, ShortAnswerQuestion
 
@@ -101,6 +102,8 @@ __all__ = [
     "Select",
     "select_random",
     "Exam",
+    "Presentation",
+    "ExamPresentation",
     "QuestionScore",
     "BlankScore",
     "ExamScore",
