@@ -16,6 +16,9 @@ from mdq import models
 from mdq.convert import export_question, import_question, load_question
 from mdq.errors import ConversionWarning
 
+# These tests convert with losses on purpose: the warnings are expected.
+pytestmark = pytest.mark.filterwarnings("ignore::mdq.errors.ConversionWarning")
+
 STEM = "Qual é a capital do Brasil?"
 NUM_STEM = "Em que ano o Brasil declarou a independência?"
 WILD = "o Brasil tem um bioma chamado Mata *"

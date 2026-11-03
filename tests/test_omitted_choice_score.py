@@ -15,6 +15,9 @@ import mdq
 from mdq import models
 from mdq.convert import export_question
 
+# These tests convert with losses on purpose: the warnings are expected.
+pytestmark = pytest.mark.filterwarnings("ignore::mdq.errors.ConversionWarning")
+
 STEM = "Qual é a maior floresta tropical do mundo?"
 
 MD = f"""{STEM}

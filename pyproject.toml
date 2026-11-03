@@ -91,3 +91,5 @@ ignore = [
 [tool.pytest.ini_options]
 pythonpath = ["tests", "scripts"]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+# A test that converts with losses says so with `pytest.warns` or a filter.
+filterwarnings = ["error::mdq.errors.ConversionWarning"]

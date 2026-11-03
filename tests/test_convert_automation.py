@@ -16,6 +16,9 @@ from mdq import models
 from mdq.convert import dump_question, export_question, import_question
 from mdq.errors import ConversionWarning
 
+# These tests convert with losses on purpose: the warnings are expected.
+pytestmark = pytest.mark.filterwarnings("ignore::mdq.errors.ConversionWarning")
+
 FORMATS = ["gift", "moodle-xml"]
 STEM = "Qual é a capital do Brasil?"
 NOT_THE_CAPITAL = "Not the capital."

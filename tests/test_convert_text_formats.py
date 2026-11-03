@@ -21,6 +21,9 @@ from mdq.convert import import_question
 from mdq.convert._text import html_to_mdq, plain_text_to_markdown
 from mdq.convert._moodle_xml import MoodleXmlParser
 
+# These tests convert with losses on purpose: the warnings are expected.
+pytestmark = pytest.mark.filterwarnings("ignore::mdq.errors.ConversionWarning")
+
 
 def _xml(
     questiontext: str,

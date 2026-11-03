@@ -33,6 +33,9 @@ from mdq.models import (
     Tolerance,
 )
 
+# These tests convert with losses on purpose: the warnings are expected.
+pytestmark = pytest.mark.filterwarnings("ignore::mdq.errors.ConversionWarning")
+
 MOODLE_GRADES = [
     (Fraction(1), "100"),
     (Fraction(9, 10), "90"),
