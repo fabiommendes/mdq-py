@@ -64,6 +64,7 @@ from ._exam import (
     QuestionRoot,
     Select,
     select_random,
+    select_seeded,
 )
 from ._fill_in import Blank, ChoiceBlank, FillInQuestion, NumericBlank, ShortAnswerBlank
 from ._numeric import NumericQuestion, Tolerance
@@ -101,6 +102,7 @@ __all__ = [
     "ExamEntry",
     "Select",
     "select_random",
+    "select_seeded",
     "Exam",
     "Presentation",
     "ExamPresentation",

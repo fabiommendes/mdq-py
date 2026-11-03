@@ -14,6 +14,7 @@ Implements the unreleased MDQ specification.
 
 ### Added
 
+- `mdq.models.select_seeded(seed)`: a `Select` for `Exam.resolve` that keeps the same questions of an `includeAll` for the same seed (`docs/exam.md`, "Seeded selection"). A seed with U+0000 is a `ValueError`.
 - `BaseQuestion.presentation(seed, *, shuffle=None)` and `Exam.presentation(seed)`: the presented form of a question or of a resolved exam (`docs/public-form.md`, "Presented form"). `Presentation` has `public()`, `to_response(presented)` (labels to ids) and `to_presented(response)` (ids to labels); `ExamPresentation` has `public()` (a list, in exam order), `to_responses()` and `to_presented_responses()`. A seed with U+0000 raises `ValueError`; an unknown label or id raises `ResponseError`.
 - `FillInQuestion.combine(response, manual)`: the score of a response with the instructor score of each pending blank, keyed by blank id, combined by the question's strategy. It raises `ResponseError` for a malformed response, `NotAutoGradable` for a pending blank missing from `manual`, and a plain `ValueError` (not a `GradingError`) for a key that is not a pending blank or a score outside [0, 1].
 - `FillInQuestion.score_blanks(response)`: the `BlankScore` (`score` and `feedback`) of each blank, keyed by blank id, with `None` for a pending blank. It raises `ResponseError` like `score_response()`, but not `NotAutoGradable`, so a host can show the settled blanks of a pending response. `QuestionScore.blanks` holds the same map for a settled fill-in response (`None` for other question types).

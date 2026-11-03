@@ -103,6 +103,8 @@ mdq.models
 
 .. autofunction:: mdq.models.select_random
 
+.. autofunction:: mdq.models.select_seeded
+
 .. autoclass:: mdq.models.Exam
    :members:
    :member-order: bysource

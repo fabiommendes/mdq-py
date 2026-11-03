@@ -57,7 +57,7 @@ from ..types import (
     TrueFalseGrading,
 )
 from . import _lint, _render
-from ._presentation import ExamPresentation, Presentation
+from ._presentation import ExamPresentation, Presentation, digest
 from ._base import (
     BaseQuestion,
     MdqModel,
@@ -88,6 +88,7 @@ __all__ = [
     "ExamEntry",
     "Select",
     "select_random",
+    "select_seeded",
     "Exam",
 ]
 
@@ -267,6 +268,27 @@ def select_random(candidates: list[str], max: int | None) -> list[str]:
         return list(candidates)
     chosen = set(random.sample(candidates, max))
     return [candidate for candidate in candidates if candidate in chosen]
+
+
+def select_seeded(seed: str) -> Select:
+    """
+    A `Select` that keeps the same questions for the same `seed` in every
+    implementation (docs/exam.md, "Seeded selection"): every candidate when
+    there is no `max`, or the `max` candidates with the smallest
+    `digest(seed, id)` otherwise. The result keeps the order of `candidates`.
+
+    Raises:
+        ValueError: `seed` holds U+0000.
+    """
+    digest(seed)  # Reject a bad seed now, not at the first `max`.
+
+    def select(candidates: list[str], max: int | None) -> list[str]:
+        if max is None or max >= len(candidates):
+            return list(candidates)
+        chosen = set(sorted(candidates, key=lambda id: digest(seed, id))[:max])
+        return [candidate for candidate in candidates if candidate in chosen]
+
+    return select
 
 
 #: docs/exam.md, "Grading": the strategy each question type gets from an
@@ -454,7 +476,8 @@ class Exam(MdqModel):
         An `includeAll` never adds a question that the exam already
         contains: the target of an `include`, a declared inline id, or a
         question an earlier `includeAll` added. `select` then chooses
-        among the remaining matches; it defaults to `select_random`. A
+        among the remaining matches; it defaults to `select_random`, and
+        `select_seeded(seed)` gives the same exam for the same seed. A
         query that does not follow the recommended language adds no
         questions. Included questions inherit `locale` and `author` from
         the exam.
