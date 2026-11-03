@@ -496,7 +496,7 @@ def test_to_mdq_title_and_comment_carry_over():
 
 
 # ---------------------------------------------------------------------
-# to_mdq: multi-block (true/false groups)
+# to_mdq: multi-block (true or false groups)
 # ---------------------------------------------------------------------
 
 

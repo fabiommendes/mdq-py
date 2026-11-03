@@ -44,7 +44,7 @@ class QuestionScore(MdqModel):
     #: appear in the document. What triggers it depends on the question
     #: type: the picked choice in multiple-choice, wrongly judged
     #: choices in multiple-selection, wrongly judged or unjudged
-    #: statements in true-false. A skipped question triggers none.
+    #: statements in true or false. A skipped question triggers none.
     feedback: list[str] = Field(default_factory=list)
 
     #: The score of each blank of a fill-in question, keyed by blank id,

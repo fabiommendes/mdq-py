@@ -79,7 +79,7 @@ class Gift(ConversionBase["GiftQuestion"]):
     """
     GIFT is Moodle's plain-text question format.
 
-    It supports multiple-choice, true/false, numeric, short-answer and
+    It supports multiple-choice, true or false, numeric, short-answer and
     essay questions, plus a "missing word" form (a `{...}` answer body
     embedded mid-sentence) that MDQ maps to a single-blank `fill-in`
     question.
@@ -149,7 +149,7 @@ class GiftEssay:
 
 @dataclass
 class GiftBoolean:
-    """A true/false answer body: `{T}` / `{F}`."""
+    """A true or false answer body: `{T}` / `{F}`."""
 
     value: bool
 
@@ -223,7 +223,7 @@ class GiftBlock:
 
 @dataclass
 class GiftQuestion:
-    """A GIFT question: one block, or several for a true/false group."""
+    """A GIFT question: one block, or several for a true or false group."""
 
     blocks: list[GiftBlock] = field(default_factory=list)
 
@@ -415,7 +415,7 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
 
 
 def decode_question(gift: GiftQuestion, report: Report) -> Question:
-    """A single block converts directly; several blocks must form a true/false group."""
+    """A single block converts directly; several blocks must form a true or false group."""
     if not gift.blocks:
         report.error("no-question", "GIFT question has no blocks")
     blocks = [markdown_block(block) for block in gift.blocks]
@@ -426,7 +426,7 @@ def decode_question(gift: GiftQuestion, report: Report) -> Question:
     report.error(
         "multiple-questions",
         "a GIFT question group with more than one block is only "
-        "supported when every block is a true/false statement"
+        "supported when every block is a true or false statement"
     )
 
 def markdown_block(block: GiftBlock) -> GiftBlock:

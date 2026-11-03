@@ -210,10 +210,10 @@ the MDQ specification.
 * Import: non-empty general feedback of any question type becomes
   `meta.generalFeedback`. The exception is the GIFT essay, where `####` stays
   the `answerKey`. A Moodle essay keeps `<graderinfo>` as `answerKey` and
-  `<generalfeedback>` as `meta.generalFeedback`. A true/false group joins the
+  `<generalfeedback>` as `meta.generalFeedback`. A true or false group joins the
   distinct general feedback of its statements with a blank line.
 * Export: `meta.generalFeedback` is written as `####` (GIFT) or
-  `<generalfeedback>` (Moodle XML). A true/false group writes it on its first
+  `<generalfeedback>` (Moodle XML). A true or false group writes it on its first
   statement. It must be a string with a visible character, or the export raises
   `ValueError`. A GIFT essay with both an `answerKey` and
   `meta.generalFeedback` raises, because GIFT has one `####`. A GIFT essay with

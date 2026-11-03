@@ -380,7 +380,7 @@ class BooleanChoiceDict(TypedDict, total=False):
 
 
 class StatementDict(TypedDict, total=False):
-    """A true/false statement -- schema/true-false.yaml#/$defs/Choice."""
+    """A true or false statement -- schema/true-false.yaml#/$defs/Choice."""
 
     id: str
     text: Required[str]

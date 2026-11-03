@@ -1260,7 +1260,7 @@
                 "inherit"
               ],
               "default": "inherit",
-              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for true/false: its `true-false` entry when it is a map, `symmetric` if the exam has no `grading` or its map has no `true-false` entry, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
+              "description": "The strategy used to grade the question, see the `Grading` section of the corresponding document in docs/question-types. `inherit`, the default, takes the strategy the exam's `grading` gives for true or false: its `true-false` entry when it is a map, `symmetric` if the exam has no `grading` or its map has no `true-false` entry, or the translation of a scalar by the table of docs/exam.md (Grading). It is `symmetric` outside an exam."
             },
             "shuffle": {
               "oneOf": [
@@ -1286,7 +1286,7 @@
         "Choice": {
           "type": "object",
           "title": "Choice",
-          "description": "A single statement in a true/false question.",
+          "description": "A single statement in a true or false question.",
           "additionalProperties": false,
           "properties": {
             "id": {

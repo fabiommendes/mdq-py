@@ -112,7 +112,7 @@ class BooleanChoice(MdqModel):
 
 class Statement(MdqModel):
     """
-    One true/false statement. Structurally a `BooleanChoice` plus the
+    One true or false statement. Structurally a `BooleanChoice` plus the
     marker that spelled it in the Markdown source.
     """
 
@@ -138,14 +138,14 @@ class Statement(MdqModel):
         if not is_letter(normalize_value(value)) or value != value.strip():
             raise PydanticCustomError(
                 "malformed-true-false-marker",
-                f"{value!r} is not a true/false marker: a marker is a single "
+                f"{value!r} is not a true or false marker: a marker is a single "
                 "letter, with no whitespace around it",
             )
         if normalize_value(value) == "x":
             raise PydanticCustomError(
                 "reserved-true-false-marker",
                 f"{value!r} marks a selected multiple-selection choice "
-                f"and has no true/false meaning",
+                f"and has no true or false meaning",
             )
         return value
 
@@ -548,10 +548,10 @@ class TrueFalseQuestion(ChoiceQuestion[t.TrueFalseResponse, Statement]):
         Raises:
             ResponseError: `response` is not a mapping, a key of it names
                 no statement, or a value is neither a boolean nor `None`
-                (responses.md, "True/false").
+                (responses.md, "True or false").
         """
         not_a_mapping = ResponseError(
-            f"A true/false response must be a mapping of statement ids, found "
+            f"A true or false response must be a mapping of statement ids, found "
             f"{type(response).__name__}"
         )
         if not isinstance(response, Iterable):
@@ -832,6 +832,6 @@ def check_true_false_uniform_answers(
         path=("choices",),
         message=(
             f"every statement is {'true' if choices[0].correct else 'false'}; "
-            f"a true/false question should mix true and false statements"
+            f"a true or false question should mix true and false statements"
         ),
     )

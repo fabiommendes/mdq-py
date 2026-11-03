@@ -188,7 +188,7 @@ class Presentation:
         if isinstance(question, TrueFalseQuestion) and scope is not None:
             if not isinstance(response, Mapping):
                 raise ResponseError(
-                    f"A true/false response must be a mapping of statement ids, found "
+                    f"A true or false response must be a mapping of statement ids, found "
                     f"{type(response).__name__}"
                 )
             return {

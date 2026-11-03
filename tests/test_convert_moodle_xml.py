@@ -627,7 +627,7 @@ def test_to_mdq_common_fields_carry_over():
 
 
 # ---------------------------------------------------------------------
-# to_mdq: multi-block (true/false groups)
+# to_mdq: multi-block (true or false groups)
 # ---------------------------------------------------------------------
 
 

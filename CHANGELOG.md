@@ -26,6 +26,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- Diagnostic messages, docstrings and the README say "true or false" for the question type; `true-false` stays the value of `type`.
 - The converters raise `mdq.errors.ConversionError` (a `MdqError`, so still a `ValueError`) instead of a plain `ValueError`. It holds the `diagnostics` of the problem and its `code`; `mdq.convert.CONVERTER_CODES` declares every code with its severity. The messages do not change. `export_question` of a type the format does not support raises it with `unsupported-type` instead of `TypeError`. `import_question` reports a syntax error of the source as `syntax-error` (with the 1-based `line`, the `ParserError` as the cause) and a question the models reject as `invalid-question`, instead of a `ParserError` or a pydantic `ValidationError`.
 - `normalize()` gives what a render and parse give: it strips the spaces around a choice text, a pattern, and the `feedback` and `comment` of choices, patterns and ordering alternatives; fills `domain` and `decimalPlaces` of numeric questions and numeric blanks, and the `marker` of true/false statements; and puts a numeric `answer` in the form a render and parse keep (`"100"` becomes `100`, `"1.50e3"` stays a string). `mdq.hypothesis` no longer sets these fields itself.
 - A `type` in the frontmatter that disagrees with the body (for example `type: numeric` with a `[short-answer]` body) is one `parse-error` that names both types, instead of `schema-error` entries.

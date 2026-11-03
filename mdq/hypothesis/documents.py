@@ -103,7 +103,7 @@ def multiple_selection_questions() -> st.SearchStrategy[models.Question]:
 
 def true_false_questions() -> st.SearchStrategy[models.Question]:
     """
-    Return a strategy for generating true-false questions.
+    Return a strategy for generating true or false questions.
 
     Two to four statements, each true or false.
     """
@@ -742,7 +742,7 @@ def _boolean_choices() -> st.SearchStrategy[list[models.BooleanChoice]]:
 
 
 def _statements() -> st.SearchStrategy[list[models.Statement]]:
-    """Statements of a true-false question."""
+    """Statements of a true or false question."""
     return _unique_lines(2, 4).flatmap(
         lambda texts: st.builds(
             lambda ids, flags: [

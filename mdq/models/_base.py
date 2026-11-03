@@ -570,7 +570,7 @@ class BaseQuestion[R](MdqModel):
         (base.md, "Automation"): `automatic`, `semi-automatic` or `manual`.
 
         A derived property: never a field, never in the frontmatter or in
-        the YAML/JSON form. Choice, true/false and numeric questions are
+        the YAML/JSON form. Choice, true or false and numeric questions are
         `automatic`; the other types override this.
         """
         return "automatic"

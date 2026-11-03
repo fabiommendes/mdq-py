@@ -1,6 +1,6 @@
 """
 The Moodle question model, shared by GIFT, Moodle XML and Aiken: grades,
-true/false groups, answer keys, general feedback and tolerances.
+true or false groups, answer keys, general feedback and tolerances.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from ..models import (
 from ._base import Report
 from ._common import common_prefix, format_num, join_blocks
 
-#: The stem of a true/false question built from a group of statements that
+#: The stem of a true or false question built from a group of statements that
 #: share no leading paragraph. MDQ requires a stem with a visible character
 #: (docs/question-types/base.md, "Additional Rules").
 TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
@@ -36,7 +36,7 @@ TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
 
 def true_false_group_stem(question: TrueFalseQuestion) -> str:
     """
-    The text every statement of an exported true/false group starts with:
+    The text every statement of an exported true or false group starts with:
     the question stem, plus the epilogue. The fallback stem stands for "no
     shared text", so it round-trips.
     """
@@ -46,7 +46,7 @@ def true_false_group_stem(question: TrueFalseQuestion) -> str:
 
 def split_true_false_group(texts: list[str]) -> tuple[str, list[str]]:
     """
-    Split the texts of an imported true/false group into the shared stem
+    Split the texts of an imported true or false group into the shared stem
     and the statements: the stem is what comes before the last blank line of
     the common prefix. Without one, the stem is `TRUE_FALSE_FALLBACK_STEM`.
     """
@@ -332,7 +332,7 @@ GENERAL_FEEDBACK_KEY = "generalFeedback"
 def general_feedback_meta(*feedbacks: str | None) -> dict[str, object] | None:
     """
     Return the `meta` of an imported question that carries `feedbacks`, the
-    general feedback of the question (of each statement, for a true/false
+    general feedback of the question (of each statement, for a true or false
     group: the distinct ones are joined by a blank line). `None` if all are
     empty.
     """

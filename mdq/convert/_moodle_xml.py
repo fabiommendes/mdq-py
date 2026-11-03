@@ -421,7 +421,7 @@ type MoodleXmlBlock = (
 
 @dataclass
 class MoodleXmlQuestion:
-    """A Moodle XML question: one block, or several for a true/false group."""
+    """A Moodle XML question: one block, or several for a true or false group."""
 
     blocks: Sequence[MoodleXmlBlock] = field(default_factory=list)
 
@@ -657,7 +657,7 @@ def cloze_from_blank(blank: Blank, report: Report) -> MoodleCloze:
 
 
 def decode_question(moodle: MoodleXmlQuestion, report: Report) -> Question:
-    """A single block converts directly; several blocks must form a true/false group."""
+    """A single block converts directly; several blocks must form a true or false group."""
     if not moodle.blocks:
         report.error("no-question", "Moodle XML question has no blocks")
     blocks = [markdown_block(block) for block in moodle.blocks]
@@ -669,7 +669,7 @@ def decode_question(moodle: MoodleXmlQuestion, report: Report) -> Question:
     report.error(
         "multiple-questions",
         "a Moodle XML question group with more than one block is only "
-        "supported when every block is a true/false statement"
+        "supported when every block is a true or false statement"
     )
 
 def markdown_block(block: MoodleXmlBlock) -> MoodleXmlBlock:
@@ -1235,7 +1235,7 @@ def bool_to_moodle(value: bool) -> str:
 
 
 def statement_correct(block: TrueFalseBlock) -> bool:
-    """A true/false block's statement is correct when its `True` answer has positive fraction."""
+    """A true or false block's statement is correct when its `True` answer has positive fraction."""
     for answer in block.answers:
         if answer.text.strip().lower() == "true":
             return answer.fraction > 0
