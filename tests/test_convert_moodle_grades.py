@@ -20,7 +20,7 @@ from fractions import Fraction
 
 import pytest
 
-from mdq.convert import export_question, import_question
+from mdq.convert import dump_question, export_question, import_question
 from mdq.models import (
     ChoiceBlank,
     FillInQuestion,
@@ -98,10 +98,27 @@ def test_moodle_xml_accepts_a_score_within_moodles_grade_tolerance() -> None:
     assert _moodle_fractions(source) == ["100", "83.33333"]
 
 
-@pytest.mark.parametrize("score", [0.35, 0.8333, 0.99, -0.35])
-def test_moodle_xml_rejects_a_score_moodle_does_not_list(score: float) -> None:
+@pytest.mark.parametrize(
+    ("score", "percent"), [(0.35, "33.33333"), (0.8333, "83.33333"), (0.99, "100"), (-0.35, "-33.33333")]
+)
+def test_moodle_xml_rounds_a_score_moodle_does_not_list(score: float, percent: str) -> None:
+    converted = dump_question(_choice_question(score), format="moodle-xml")
+    assert converted.value is not None
+    assert _moodle_fractions(converted.value) == ["100", percent]
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("warning", "score-rounded", ("choices", 1, "score"))
+    ]
     with pytest.raises(ValueError, match="Moodle"):
-        export_question(_choice_question(score), format="moodle-xml")
+        export_question(_choice_question(score), format="moodle-xml", strict=True)
+
+
+def test_a_score_halfway_between_two_grades_is_rounded_towards_zero() -> None:
+    converted = dump_question(_choice_question(0.025), format="moodle-xml")
+    assert converted.value is not None
+    assert _moodle_fractions(converted.value) == ["100", "0"]
+    converted = dump_question(_choice_question(-0.025), format="moodle-xml")
+    assert converted.value is not None
+    assert _moodle_fractions(converted.value) == ["100", "0"]
 
 
 def test_moodle_xml_selection_writes_listed_grades() -> None:
@@ -110,9 +127,12 @@ def test_moodle_xml_selection_writes_listed_grades() -> None:
 
 
 @pytest.mark.parametrize(("n_correct", "n_wrong"), [(11, 1), (1, 11)])
-def test_moodle_xml_selection_rejects_an_unlisted_share(n_correct: int, n_wrong: int) -> None:
-    with pytest.raises(ValueError, match="Moodle"):
-        export_question(_selection_question(n_correct, n_wrong), format="moodle-xml")
+def test_moodle_xml_selection_rounds_an_unlisted_share(n_correct: int, n_wrong: int) -> None:
+    converted = dump_question(_selection_question(n_correct, n_wrong), format="moodle-xml")
+    assert converted.value is not None
+    rounded = [d for d in converted.diagnostics if d.code == "score-rounded"]
+    assert rounded and all(d.path[0] == "choices" for d in rounded)
+    assert {d.code for d in converted.diagnostics} == {"score-rounded", "grading-changed"}
 
 
 def test_moodle_xml_cloze_keeps_an_unlisted_grade() -> None:
@@ -140,9 +160,10 @@ def test_gift_exports_a_listed_grade_as_moodle_writes_it(grade: Fraction, percen
 
 
 @pytest.mark.parametrize("score", [0.35, 0.8333, -0.35])
-def test_gift_rejects_a_score_moodle_does_not_list(score: float) -> None:
-    with pytest.raises(ValueError, match="Moodle"):
-        export_question(_choice_question(score), format="gift")
+def test_gift_rounds_a_score_moodle_does_not_list(score: float) -> None:
+    converted = dump_question(_choice_question(score), format="gift")
+    assert converted.value is not None
+    assert [d.code for d in converted.diagnostics] == ["score-rounded"]
 
 
 # ---------------------------------------------------------------------
@@ -222,11 +243,21 @@ INEXACT = ["1/3", "3.14159265358979323846", "3000000000000000000001"]
 
 @pytest.mark.parametrize("format", ["moodle-xml", "gift"])
 @pytest.mark.parametrize("answer", INEXACT)
-def test_inexact_answer_without_tolerance_is_rejected(format: str, answer: str) -> None:
+def test_inexact_answer_without_tolerance_is_the_nearest_float_with_a_warning(
+    format: str, answer: str
+) -> None:
+    converted = dump_question(_numeric(answer), format=format)
+    assert converted.value is not None
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("warning", "inexact-answer", ("answer",))
+    ]
+    converted = dump_question(_numeric_blank(answer), format=format)
+    assert converted.value is not None
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("warning", "inexact-answer", ("blanks", 0, "answer"))
+    ]
     with pytest.raises(ValueError, match="tolerance"):
-        export_question(_numeric(answer), format=format)
-    with pytest.raises(ValueError, match="tolerance"):
-        export_question(_numeric_blank(answer), format=format)
+        export_question(_numeric(answer), format=format, strict=True)
 
 
 @pytest.mark.parametrize("format", ["moodle-xml", "gift"])

@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from mdq import models
-from mdq.convert import export_question, import_question
+from mdq.convert import dump_question, export_question, import_question
 
 STEM = "Qual é a capital do Brasil?"
 GENERAL = "A capital mudou do Rio de Janeiro para Brasília em 1960."
@@ -124,22 +124,38 @@ def test_general_feedback_round_trip(format: str) -> None:
 
 @pytest.mark.parametrize("format", ["gift", "moodle-xml"])
 @pytest.mark.parametrize("value", [3, ["x"], "", "  \n"])
-def test_invalid_general_feedback_raises(format: str, value: object) -> None:
+def test_invalid_general_feedback_is_dropped_with_a_warning(format: str, value: object) -> None:
+    converted = dump_question(_mc(meta={"generalFeedback": value}), format=format)
+    assert converted.value is not None
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("warning", "general-feedback-dropped", ("meta", "generalFeedback"))
+    ]
+    assert "generalfeedback" not in converted.value.lower()
+    assert "####" not in converted.value
     with pytest.raises(ValueError, match="generalFeedback"):
-        export_question(_mc(meta={"generalFeedback": value}), format=format)
+        export_question(_mc(meta={"generalFeedback": value}), format=format, strict=True)
 
 
 @pytest.mark.parametrize("format", ["gift", "moodle-xml"])
-def test_other_meta_keys_are_ignored(format: str) -> None:
-    export_question(_mc(meta={"fonte": "IBGE"}), format=format)
+def test_other_meta_keys_are_dropped_with_an_info(format: str) -> None:
+    converted = dump_question(_mc(meta={"fonte": "IBGE"}), format=format)
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("info", "metadata-dropped", ("meta", "fonte"))
+    ]
+    export_question(_mc(meta={"fonte": "IBGE"}), format=format, strict=True)
 
 
-def test_gift_essay_with_answer_key_and_general_feedback_raises() -> None:
+def test_gift_essay_with_answer_key_and_general_feedback_keeps_the_answer_key() -> None:
     question = models.EssayQuestion(
         stem="Explique.", answer_key="Chave.", meta={"generalFeedback": GENERAL}
     )
-    with pytest.raises(ValueError, match="generalFeedback"):
-        export_question(question, format="gift")
+    converted = dump_question(question, format="gift")
+    assert converted.value is not None
+    assert [(d.severity, d.code, d.path) for d in converted.diagnostics] == [
+        ("warning", "general-feedback-dropped", ("meta", "generalFeedback"))
+    ]
+    assert "#### Chave." in converted.value
+    assert GENERAL not in converted.value
 
 
 def test_gift_essay_general_feedback_alone_is_written() -> None:

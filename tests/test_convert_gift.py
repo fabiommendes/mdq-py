@@ -599,9 +599,9 @@ def test_from_mdq_short_answer():
 
 
 def test_from_mdq_short_answer_without_accept_raises():
-    """A question with no `accept` is manual: the format cannot express a pending response."""
+    """A question with no `accept` is manual, and no response could be correct."""
     question = ShortAnswerQuestion(stem="Q")
-    with pytest.raises(ValueError, match="(?i)unmatched|manual"):
+    with pytest.raises(ValueError, match="accept"):
         Gift().from_mdq(question, Report("GIFT"))
 
 

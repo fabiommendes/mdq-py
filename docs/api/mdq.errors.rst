@@ -23,6 +23,10 @@ mdq.errors
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.errors.ConversionWarning
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.errors.GradingError
    :members:
    :member-order: bysource

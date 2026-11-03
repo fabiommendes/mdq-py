@@ -196,33 +196,35 @@ def test_b4_render_other_blank_shapes_use_blocks(blank: ShortAnswerBlank) -> Non
 #
 # AC11: converters
 #
-def _gift_texts(question: ShortAnswerQuestion) -> list[str]:
-    [block] = Gift().from_mdq(question, Report("GIFT")).blocks
+def _gift_texts(question: ShortAnswerQuestion, report: Report | None = None) -> list[str]:
+    [block] = Gift().from_mdq(question, report or Report("GIFT")).blocks
     assert isinstance(block.answer, GiftShort)
     return [o.text for o in block.answer.options]
 
 
-def _moodle_texts(question: ShortAnswerQuestion) -> list[str]:
-    [block] = MoodleXml().from_mdq(question, Report("Moodle XML")).blocks
+def _moodle_texts(question: ShortAnswerQuestion, report: Report | None = None) -> list[str]:
+    [block] = MoodleXml().from_mdq(question, report or Report("Moodle XML")).blocks
     return [a.text for a in block.answers]
 
 
-def _gift_import(*texts: str) -> ShortAnswerQuestion:
+def _gift_import(*texts: str, report: Report | None = None) -> ShortAnswerQuestion:
     block = GiftBlock(
         stem="Qual o maior rio do Brasil?",
         answer=GiftShort(options=[GiftOption(text=t) for t in texts]),
     )
-    question = Gift().to_mdq(GiftQuestion(blocks=[block]), Report("GIFT"))
+    question = Gift().to_mdq(GiftQuestion(blocks=[block]), report or Report("GIFT"))
     assert isinstance(question, ShortAnswerQuestion)
     return question
 
 
-def _moodle_import(*texts: str) -> ShortAnswerQuestion:
+def _moodle_import(*texts: str, report: Report | None = None) -> ShortAnswerQuestion:
     block = ShortAnswerBlock(
         questiontext="Qual o maior rio do Brasil?",
         answers=[MoodleAnswer(text=t, fraction=100.0) for t in texts],
     )
-    question = MoodleXml().to_mdq(MoodleXmlQuestion(blocks=[block]), Report("Moodle XML"))
+    question = MoodleXml().to_mdq(
+        MoodleXmlQuestion(blocks=[block]), report or Report("Moodle XML")
+    )
     assert isinstance(question, ShortAnswerQuestion)
     return question
 
@@ -240,10 +242,13 @@ def test_b4_export_exact_literal_without_backticks(texts: str) -> None:
 
 
 @pytest.mark.parametrize("texts", ["_gift_texts", "_moodle_texts"])
-def test_b4_export_regex_raises(texts: str) -> None:
+def test_b4_export_regex_is_dropped(texts: str) -> None:
     question = ShortAnswerQuestion(stem="Rio?", accept=["Amazonas", "/Amaz[oô]nas/"])
-    with pytest.raises(ValueError):
-        globals()[texts](question)
+    report = Report("Format")
+    assert globals()[texts](question, report) == ["Amazonas"]
+    assert [(d.severity, d.code, d.path) for d in report.diagnostics] == [
+        ("warning", "regex-dropped", ("accept", 1))
+    ]
 
 
 @pytest.mark.parametrize("texts", ["_gift_texts", "_moodle_texts"])
@@ -283,15 +288,22 @@ def test_b4_import_wraps_delimiter_lookalikes_in_backticks(
     importer: str, text: str, expected: str | None
 ) -> None:
     if expected is None:
-        with pytest.raises(ValueError):
-            globals()[importer](text)
+        report = Report("Format")
+        question = globals()[importer](text, report=report)
+        assert [d.code for d in report.diagnostics] == ["wildcard-to-regex"]
+        assert [p.pattern for p in question.effective_accept()] == [r"/Amazonas[\s\S]*/i"]
         return
     question = globals()[importer](text)
     assert [p.pattern for p in question.effective_accept()] == [expected]
 
 
-def test_b4_gift_import_writes_a_lone_asterisk_as_an_exact_literal() -> None:
+def test_b4_gift_import_of_a_full_credit_asterisk_is_the_catch_all_regex() -> None:
     question = _gift_import("*")
+    assert [p.pattern for p in question.effective_accept()] == ["/.*/"]
+
+
+def test_b4_gift_import_of_an_escaped_asterisk_is_an_exact_literal() -> None:
+    question = _gift_import("\\*")
     assert [p.pattern for p in question.effective_accept()] == ["`*`"]
 
 

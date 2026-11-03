@@ -13,7 +13,8 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from mdq import models
-from mdq.convert import export_question, import_question
+from mdq.convert import dump_question, export_question, import_question
+from mdq.errors import ConversionWarning
 
 FORMATS = ["gift", "moodle-xml"]
 STEM = "Qual é a capital do Brasil?"
@@ -47,25 +48,30 @@ def _answer(text: str, fraction: int, feedback: str | None = None) -> str:
 # AC1: export
 #
 @pytest.mark.parametrize("format", FORMATS)
+def test_manual_question_with_accept_is_exported_with_a_warning(format: str) -> None:
+    question = _sa(accept=["Brasília"], unmatched="manual")
+    converted = dump_question(question, format=format)
+    assert converted.value is not None
+    assert ("warning", "manual-grading-dropped", ("unmatched",)) in [
+        (d.severity, d.code, d.path) for d in converted.diagnostics
+    ]
+    with pytest.warns(ConversionWarning, match="(?i)unmatched"):
+        export_question(question, format=format)
+    with pytest.raises(ValueError, match="(?i)unmatched"):
+        export_question(question, format=format, strict=True)
+
+
+@pytest.mark.parametrize("format", FORMATS)
 @pytest.mark.parametrize(
     "fields",
-    [
-        {},
-        {"unmatched": "manual"},
-        {"accept": ["Brasília"], "unmatched": "manual"},
-        {"reject": ["Rio"]},
-    ],
-    ids=[
-        "no-pattern",
-        "unmatched-manual-no-pattern",
-        "accept-unmatched-manual",
-        "reject-only",
-    ],
+    [{}, {"unmatched": "manual"}, {"reject": ["Rio"]}],
+    ids=["no-pattern", "unmatched-manual-no-pattern", "reject-only"],
 )
-def test_manual_or_semi_automatic_question_cannot_be_exported(
-    format: str, fields: dict
-) -> None:
-    with pytest.raises(ValueError, match="(?i)unmatched|manual"):
+def test_question_without_accept_cannot_be_exported(format: str, fields: dict) -> None:
+    converted = dump_question(_sa(**fields), format=format)
+    assert converted.value is None
+    assert [(d.severity, d.code) for d in converted.diagnostics][-1] == ("error", "no-accept")
+    with pytest.raises(ValueError, match="accept"):
         export_question(_sa(**fields), format=format)
 
 
@@ -110,13 +116,14 @@ def test_moodle_export_without_incorrect_feedback_has_no_catch_all_answer() -> N
     assert [a.findtext("text") for a in answers] == ["Brasília"]
 
 
-def test_gift_export_ignores_incorrect_feedback() -> None:
-    plain = export_question(_sa(accept=["Brasília"]), format="gift")
-    with_feedback = export_question(
-        _sa(accept=["Brasília"], incorrect_feedback=NOT_THE_CAPITAL), format="gift"
-    )
-    assert with_feedback == plain
-    assert NOT_THE_CAPITAL not in with_feedback
+def test_gift_export_writes_incorrect_feedback_as_the_any_other_answer() -> None:
+    question = _sa(accept=["Brasília"], incorrect_feedback=NOT_THE_CAPITAL)
+    with pytest.warns(ConversionWarning):
+        text = export_question(question, format="gift")
+    assert f"=%0%*#{NOT_THE_CAPITAL}" in text
+    again = import_question(text, format="gift")
+    assert again.incorrect_feedback == NOT_THE_CAPITAL
+    assert [p.pattern for p in again.accept] == ["Brasília"]
 
 
 @pytest.mark.parametrize("format", FORMATS)
@@ -156,8 +163,15 @@ def test_moodle_import_keeps_other_texts_and_wraps_a_leading_slash() -> None:
     assert [p.pattern for p in question.accept] == ["Brasília", "`/usr/bin`", "Plano"]
 
 
-def test_gift_import_writes_a_lone_asterisk_as_an_exact_literal() -> None:
+def test_gift_import_reads_a_lone_asterisk_as_any_answer() -> None:
     question = import_question(f"{STEM} {{=*}}", format="gift")
+    assert [p.pattern for p in question.accept] == ["/.*/"]
+    question = import_question(f"{STEM} {{=Brasília =%0%*#Não.}}", format="gift")
+    assert question.incorrect_feedback == "Não."
+
+
+def test_gift_import_reads_an_escaped_asterisk_as_a_literal() -> None:
+    question = import_question(f"{STEM} {{=\\*}}", format="gift")
     assert [p.pattern for p in question.accept] == ["`*`"]
 
 

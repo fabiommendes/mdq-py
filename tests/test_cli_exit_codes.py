@@ -29,7 +29,8 @@ def assert_clean_error(result, *fragments: str) -> None:
     assert "Traceback" not in result.output
     assert "error: error" not in result.output
     assert "\x1b[" not in result.stderr
-    assert result.stderr.startswith("error: ")
+    # Warnings of a conversion come before the error.
+    assert result.stderr.splitlines()[-1].startswith("error: ")
     for fragment in fragments:
         assert fragment in result.stderr
 

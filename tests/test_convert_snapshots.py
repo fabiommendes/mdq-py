@@ -1,6 +1,6 @@
 """
 Characterization of the converters through the public interface only
-(`import_question`, `export_question`).
+(`load_question`, `dump_question`).
 
 Every valid question of the corpus is exported to every format, and the
 exported text is imported back. The snapshot of a format,
@@ -13,6 +13,8 @@ exported text is imported back. The snapshot of a format,
 * `reexport`: the export of the imported question, or the error, only when
   it is not `export` again. Each one is a known
   bug (dev/issues/converter-round-trip.md).
+* `export_diagnostics`, `import_diagnostics`: each diagnostic as
+  `"<severity> <code> <path>"`, in the order found, when there is one.
 
 Any change in what a converter writes, reads or rejects changes a
 snapshot. Run with `MDQ_UPDATE_SNAPSHOTS=1` to rewrite them after a change
@@ -29,8 +31,8 @@ from typing import Any
 import pytest
 
 from mdq import load
-from mdq.convert import FORMATS, export_question, import_question
-from mdq.errors import ConversionError
+from mdq._diagnostics import Diagnostic
+from mdq.convert import FORMATS, Converted, dump_question, load_question
 from mdq.models import Exam, Question
 from _corpus import EXAMPLES_ROOT, VALID_EXAMS_DIR, VALID_PARSED
 
@@ -53,25 +55,36 @@ def _valid_questions() -> list[tuple[str, Question]]:
 QUESTIONS = _valid_questions()
 
 
-def _error(exc: ConversionError) -> dict[str, str]:
-    return {"error": str(exc), "code": exc.code}
+def _error(converted: Converted[Any]) -> dict[str, str]:
+    first = next(d for d in converted.diagnostics if d.severity == "error")
+    return {"error": first.message, "code": first.code}
+
+
+def _lines(diagnostics: list[Diagnostic]) -> list[str]:
+    return [
+        " ".join([d.severity, d.code, "/".join(str(part) for part in d.path)]).strip()
+        for d in diagnostics
+    ]
 
 
 def _convert(question: Question, format: str) -> dict[str, Any]:
     """What the converters do with `question`: see the module docstring."""
-    try:
-        text = export_question(question, format=format)
-    except ConversionError as exc:
-        return {"export": _error(exc)}
-    try:
-        again = import_question(text, format=format)
-    except ConversionError as exc:
-        return {"export": text, "import": _error(exc)}
-    result: dict[str, Any] = {"export": text, "import": again.to_dict()}
-    try:
-        reexport: Any = export_question(again, format=format)
-    except ConversionError as exc:
-        reexport = _error(exc)
+    exported = dump_question(question, format=format)
+    result: dict[str, Any] = {}
+    if exported.diagnostics:
+        result["export_diagnostics"] = _lines(exported.diagnostics)
+    if exported.value is None:
+        return {**result, "export": _error(exported)}
+    text = exported.value
+    result["export"] = text
+    imported = load_question(text, format=format)
+    if imported.diagnostics:
+        result["import_diagnostics"] = _lines(imported.diagnostics)
+    if imported.value is None:
+        return {**result, "import": _error(imported)}
+    result["import"] = imported.value.to_dict()
+    again = dump_question(imported.value, format=format)
+    reexport: Any = again.value if again.value is not None else _error(again)
     if reexport != text:
         result["reexport"] = reexport
     return result

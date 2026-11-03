@@ -10,6 +10,7 @@ import pytest
 
 from mdq import models
 from mdq.convert import export_question, import_question
+from mdq.errors import ConversionWarning
 from mdq.convert._base import Report
 
 
@@ -51,9 +52,11 @@ def test_gift_import_reads_an_escaped_asterisk_as_literal() -> None:
     assert q.accept[0].pattern == "2*3"
 
 
-def test_gift_import_still_rejects_an_unescaped_inner_asterisk() -> None:
-    with pytest.raises(ValueError, match="wildcard"):
-        import_question("Fórmula? {=2*3}", format="gift")
+def test_gift_import_reads_an_unescaped_inner_asterisk_as_a_wildcard() -> None:
+    with pytest.warns(ConversionWarning, match="wildcard"):
+        q = import_question("Fórmula? {=2*3}", format="gift")
+    assert q.accept is not None
+    assert q.accept[0].pattern == r"/2[\s\S]*3/i"
 
 
 @pytest.mark.parametrize("format", ["gift", "moodle-xml"])
@@ -238,10 +241,16 @@ def test_cloze_import_keeps_backslashes_that_moodle_shows() -> None:
 
 
 @pytest.mark.parametrize("text", ["a~b", "a\\", "a\\}b", "a\\#b", "a\\~b"])
-def test_cloze_multichoice_and_feedback_reject_what_they_cannot_express(
+def test_cloze_multichoice_and_feedback_write_what_they_cannot_express_as_references(
     text: str,
 ) -> None:
-    with pytest.raises(ValueError, match="cannot convert"):
-        _choice_cloze((text, 100.0, None))
-    with pytest.raises(ValueError, match="cannot convert"):
-        _choice_cloze(("ok", 100.0, text))
+    for source in (_choice_cloze((text, 100.0, None)), _choice_cloze(("ok", 100.0, text))):
+        assert "~" not in source.removeprefix("{1:MULTICHOICE:").removesuffix("}")
+        assert "&\\#" in source
+
+
+def test_cloze_text_references_are_written_for_moodle_to_unescape() -> None:
+    # The `#` of a reference is escaped like any other: Moodle reads `\#` as `#`.
+    assert _choice_cloze(("a~b", 100.0, None)) == "{1:MULTICHOICE:=a&\\#126;b}"
+    assert _choice_cloze(("a\\~b", 100.0, None)) == "{1:MULTICHOICE:=a&\\#92;&\\#126;b}"
+    assert _choice_cloze(("a\\}b", 100.0, None)) == "{1:MULTICHOICE:=a&\\#92;\\}b}"
