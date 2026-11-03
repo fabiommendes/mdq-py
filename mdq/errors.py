@@ -1,6 +1,6 @@
 from markdown_it.tree import SyntaxTreeNode as Node
 
-from ._diagnostics import Diagnostic
+from ._diagnostics import RANK, Diagnostic, Severity
 
 
 class MdqError(ValueError):
@@ -68,20 +68,34 @@ class IncludeNotFound(MdqError):
 class ConversionError(MdqError):
     """
     Raised by `mdq.convert` when a question cannot be converted to or from
-    an external format.
+    an external format, or by `Converted.validate` and a `strict`
+    conversion when a diagnostic meets the severity threshold.
 
-    `diagnostics` holds the problems the converter found. The message and
-    `code` are the ones of the first error. Each code is declared in
+    `diagnostics` holds every problem the converter found. The message and
+    `code` are the ones of the first diagnostic at or above `raise_on`
+    (the first one, if none is). Each code is declared in
     `mdq.convert.CONVERTER_CODES`.
     """
 
-    def __init__(self, diagnostics: list[Diagnostic]) -> None:
+    def __init__(self, diagnostics: list[Diagnostic], raise_on: Severity = "error") -> None:
         if not diagnostics:
             raise ValueError("a ConversionError needs at least one diagnostic")
         self.diagnostics = diagnostics
-        first = next((d for d in diagnostics if d.severity == "error"), diagnostics[0])
+        first = next((d for d in diagnostics if RANK[d.severity] >= RANK[raise_on]), diagnostics[0])
         super().__init__(first.message)
         self.code = first.code
+
+
+class ConversionWarning(UserWarning):
+    """
+    Emitted (with `warnings.warn`) by `mdq.convert.import_question` and
+    `export_question` for each warning diagnostic of a conversion that
+    succeeded. The diagnostic is in `diagnostic`.
+    """
+
+    def __init__(self, diagnostic: Diagnostic) -> None:
+        super().__init__(diagnostic.message)
+        self.diagnostic = diagnostic
 
 
 class GradingError(MdqError):

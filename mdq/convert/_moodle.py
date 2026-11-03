@@ -6,11 +6,14 @@ true or false groups, answer keys, general feedback and tolerances.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from typing import Literal
+
+from pydantic import BaseModel
 
 from .. import _parser
 from .._exact import exact_literal, exact_span
@@ -21,10 +24,10 @@ from ..models import (
     ChoiceBlank,
     MultipleChoiceQuestion,
     Question,
-    ShortAnswerQuestion,
     Tolerance,
     TrueFalseQuestion,
 )
+from ..types import Automation, Diacritics
 from ._base import Report
 from ._common import common_prefix, format_num, join_blocks
 
@@ -135,35 +138,37 @@ def effective_scores(question: MultipleChoiceQuestion) -> list[float]:
     return [c.score if c.score is not None else unspecified for c in question.choices]
 
 
-def moodle_score(score: float, report: Report) -> float:
+def nearest_grade(score: float) -> Fraction:
+    """The grade in `MOODLE_GRADES` closest to `score`; a tie goes to the one closer to 0."""
+    return min(MOODLE_GRADES, key=lambda grade: (abs(score - grade), abs(grade)))
+
+
+def moodle_score(score: float, report: Report, path: tuple[str | int, ...] = ()) -> float:
     """
     Return the exact grade in `MOODLE_GRADES` that `score` (a fraction
-    of full credit) matches.
-
-    Raises:
-        ConversionError: `score` is not one of `MOODLE_GRADES`, so Moodle
-            would reject the question or change the score.
+    of full credit) matches. A score that matches none is rounded to the
+    nearest grade, which Moodle would otherwise reject or change, and
+    reported as `score-rounded` at `path`.
     """
     grade = moodle_grade(score)
     if grade is None:
-        percents = ", ".join(format_moodle_percent(g) for g in _MOODLE_POSITIVE_GRADES)
-        report.error(
+        grade = nearest_grade(score)
+        report.warning(
             "score-rounded",
-            f"cannot convert to {report.format}: the score {score!r} is not a grade "
-            f"Moodle accepts ({percents}, 0, or a negative of these, in percent)"
+            f"the score {score!r} is not a grade Moodle accepts; {report.format} gets "
+            f"{format_moodle_percent(grade)}% instead of {format_num(score * 100)}%",
+            path,
         )
     return float(grade)
 
 
-def moodle_percent(score: float, report: Report) -> float:
+def moodle_percent(score: float, report: Report, path: tuple[str | int, ...] = ()) -> float:
     """
     Return the percentage Moodle writes for the grade `score`: 5/6 is
-    `83.33333`, 1/7 is `14.28571`.
-
-    Raises:
-        ConversionError: see `moodle_score`.
+    `83.33333`, 1/7 is `14.28571`. See `moodle_score` for a score that is
+    not a grade.
     """
-    grade = moodle_grade(moodle_score(score, report))
+    grade = moodle_grade(moodle_score(score, report, path))
     assert grade is not None
     return float(format_moodle_percent(grade))
 
@@ -186,44 +191,46 @@ def score_from_moodle_percent(percent: float) -> float:
 
 
 def float_answer(
-    answer: int | float | str, tolerance: Tolerance | None, report: Report
+    answer: int | float | str,
+    tolerance: Tolerance | None,
+    report: Report,
+    path: tuple[str | int, ...] = ("answer",),
 ) -> float:
     """
-    Return a numeric answer as the float an external format stores.
-
-    Raises:
-        ConversionError: the float is not the exact answer ("1/3") and there is
-            no tolerance, so the external format would compare responses
-            with a different number than MDQ does.
+    Return a numeric answer as the float an external format stores. If the
+    float is not the exact answer ("1/3") and there is no tolerance, the
+    external format compares responses with a different number than MDQ
+    does: that is reported as `inexact-answer` at `path`.
     """
     if isinstance(answer, float):
         return answer
     number = float(Fraction(answer))
     has_tolerance = tolerance is not None and bool(tolerance.absolute or tolerance.relative)
     if not has_tolerance and Fraction(repr(number)) != Fraction(answer):
-        report.error(
+        report.warning(
             "inexact-answer",
-            f"cannot convert to {report.format}: the answer {answer!r} has no exact "
-            f"floating-point value, and without a tolerance {report.format} would "
-            f"only accept {number!r}"
+            f"the answer {answer!r} has no exact floating-point value, and without a "
+            f"tolerance {report.format} accepts only {number!r}; add a tolerance",
+            path,
         )
     return number
 
 
-def require_automatic(question: ShortAnswerQuestion, report: Report) -> None:
+def require_automatic(
+    automation: Automation, report: Report, path: tuple[str | int, ...] = ("unmatched",)
+) -> None:
     """
-    Raise if `question` leaves some responses to the instructor: external
-    formats grade every response themselves and cannot express a pending one.
-
-    Raises:
-        ConversionError: the question is not `automatic`.
+    Report `manual-grading-dropped` if `automation` leaves some responses to the
+    instructor: external formats grade every response themselves and cannot
+    express a pending one, so a response that matches no pattern gets 0.
     """
-    if question.automation != "automatic":
-        report.error(
+    if automation != "automatic":
+        report.warning(
             "manual-grading-dropped",
-            f"cannot convert to {report.format}: the question has `unmatched` "
-            "manual (no accept pattern, or declared), and the format cannot "
-            "leave a response for the instructor to grade"
+            f"the question has `unmatched` manual (no accept pattern, or declared); "
+            f"{report.format} cannot leave a response for the instructor to grade, "
+            "so a response that matches no pattern gets 0",
+            path,
         )
 
 
@@ -235,9 +242,11 @@ class ExportedAnswer:
     #: `1.0` for an `accept` pattern, `0.0` for a `reject` pattern.
     credit: float
     feedback: str | None = None
+    #: The path of the pattern in the MDQ question, relative to the question or blank.
+    path: tuple[str | int, ...] = ()
 
 
-def literal_text(rule: AnswerPattern, report: Report) -> str:
+def literal_text(rule: AnswerPattern, report: Report, path: tuple[str | int, ...] = ()) -> str | None:
     r"""
     Return the text an external format stores for a literal pattern: a plain
     literal as it is, a backtick-enclosed literal without its backticks.
@@ -246,57 +255,78 @@ def literal_text(rule: AnswerPattern, report: Report) -> str:
     asterisk, so a lone `*` is not Moodle's "any other answer". A backslash
     before a `*` is kept: Moodle stores `2\\*3` and matches the literal `2\*3`.
 
-    Raises:
-        ConversionError: `rule` is a regex, which an external format cannot express.
+    A regex cannot be expressed: `regex-dropped` is reported at `path`, and
+    the result is `None`.
     """
     pattern = rule.pattern.strip(" \t\r\n")
     if pattern.startswith("/"):
-        report.error(
+        report.warning(
             "regex-dropped",
-            f"cannot convert to {report.format}: the pattern {pattern!r} is a "
-            "regex, and only literal answers are supported"
+            f"the pattern {pattern!r} is a regex, and {report.format} stores only literal "
+            "answers: it is dropped" + (" with its feedback" if rule.feedback else ""),
+            path,
         )
+        return None
     content = exact_literal(pattern)
     text = pattern if content is None else content
     return text.replace("*", "\\*")
 
 
-def literal_answers(accept: list[AnswerPattern] | None, report: Report) -> list[str]:
-    """
-    Return the texts an external format stores for a short answer's
-    `accept` list (see `literal_text`).
-
-    Raises:
-        ConversionError: `accept` is missing or empty, or holds a regex, which
-            an external format cannot express.
-    """
-    if not accept:
-        report.error(
-            "no-accept",
-            f"cannot convert to {report.format}: a short answer needs an `accept` list"
-        )
-    return [literal_text(rule, report) for rule in accept]
+def has_diacritic(text: str) -> bool:
+    """Whether `text` has a letter with a diacritic (a nonspacing mark after NFD)."""
+    return any(unicodedata.category(c) == "Mn" for c in unicodedata.normalize("NFD", text))
 
 
 def exported_short_answers(
     accept: list[AnswerPattern] | None,
     reject: list[AnswerPattern] | None,
     report: Report,
+    diacritics: Diacritics = "fold",
 ) -> list[ExportedAnswer]:
     """
     Return the answers an external format stores for a short answer: each
     `accept` literal worth full credit, then each `reject` literal worth
-    none, all with their feedback.
+    none, all with their feedback. A regex is dropped (`regex-dropped`). With
+    `diacritics` `"fold"`, an inexact literal with a diacritic is reported
+    (`diacritics-not-folded`): Moodle compares diacritics.
 
     Raises:
-        ConversionError: `accept` is missing or empty, or a pattern is a regex.
+        ConversionError: `accept` is missing, or no literal is left in it
+            (`no-accept`): no response could be correct.
     """
-    literal_answers(accept, report)
-    return [
-        ExportedAnswer(literal_text(rule, report), credit, rule.feedback)
-        for credit, rules in ((1.0, accept), (0.0, reject))
-        for rule in rules or []
-    ]
+    if not accept:
+        report.error(
+            "no-accept",
+            f"cannot convert to {report.format}: a short answer needs an `accept` list",
+            ("accept",),
+        )
+    answers: list[ExportedAnswer] = []
+    for credit, field_name, rules in ((1.0, "accept", accept), (0.0, "reject", reject)):
+        for index, rule in enumerate(rules or []):
+            path = (field_name, index)
+            text = literal_text(rule, report, path)
+            if text is None:
+                continue
+            if (
+                diacritics == "fold"
+                and exact_literal(rule.pattern.strip(" \t\r\n")) is None
+                and has_diacritic(text)
+            ):
+                report.warning(
+                    "diacritics-not-folded",
+                    f"the answer {text!r} has a diacritic, and {report.format} compares "
+                    "diacritics: a response without it is wrong",
+                    path,
+                )
+            answers.append(ExportedAnswer(text, credit, rule.feedback, path))
+    if not any(answer.credit == 1.0 for answer in answers):
+        report.error(
+            "no-accept",
+            f"cannot convert to {report.format}: no literal `accept` answer is left, "
+            "so no response could be correct",
+            ("accept",),
+        )
+    return answers
 
 
 #: A line ending and the indentation of the next line, which a pattern string
@@ -345,21 +375,102 @@ def general_feedback_meta(*feedbacks: str | None) -> dict[str, object] | None:
 def exported_general_feedback(question: Question, report: Report) -> str | None:
     """
     Return the general feedback to write for `question`: `meta.generalFeedback`,
-    or `None` if the question has none.
-
-    Raises:
-        ConversionError: the value is not a string with a visible character.
+    or `None` if the question has none. A value that is not a string with a
+    visible character is dropped (`general-feedback-dropped`).
     """
     if not question.meta or GENERAL_FEEDBACK_KEY not in question.meta:
         return None
     value = question.meta[GENERAL_FEEDBACK_KEY]
     if not isinstance(value, str) or not has_visible_character(value):
-        report.error(
+        report.warning(
             "general-feedback-dropped",
-            f"cannot convert to {report.format}: `meta.{GENERAL_FEEDBACK_KEY}` must be "
-            f"a string with a visible character, got {value!r}"
+            f"`meta.{GENERAL_FEEDBACK_KEY}` must be a string with a visible character, "
+            f"got {value!r}: {report.format} drops it",
+            ("meta", GENERAL_FEEDBACK_KEY),
         )
+        return None
     return value
+
+
+#: The fields that are only notes for other instructors or identifiers of the
+#: question bank: dropping them does not change what the student sees or
+#: how the response is graded.
+_METADATA_FIELDS = frozenset({"comment", "author", "uuid", "locale"})
+
+
+def _report_dropped(
+    model: BaseModel,
+    report: Report,
+    fields: frozenset[str],
+    path: tuple[str | int, ...],
+) -> None:
+    """Report each field of `fields` that `model` sets to a non-default value."""
+    for name, info in type(model).model_fields.items():
+        if name not in fields or getattr(model, name) == info.get_default(call_default_factory=True):
+            continue
+        alias = info.alias or name
+        if name in _METADATA_FIELDS:
+            report.info(
+                "metadata-dropped", f"{report.format} has no place for `{alias}`: it is dropped",
+                path + (alias,),
+            )
+        else:
+            report.warning(
+                "field-dropped", f"{report.format} has no place for `{alias}`: it is dropped",
+                path + (alias,),
+            )
+
+
+def report_dropped_fields(
+    question: Question,
+    report: Report,
+    fields: frozenset[str],
+    *,
+    children: frozenset[str] = frozenset({"comment"}),
+    blank_fields: frozenset[str] | None = None,
+    meta_keys: bool = True,
+) -> None:
+    """
+    Report each field with a non-default value that the target format has no
+    place for: `field-dropped` if it changes what the student sees or how the
+    response is graded, `metadata-dropped` for `comment`, `author`, `uuid`,
+    `locale` and the `meta` keys other than `generalFeedback`. One diagnostic
+    per field, at its path.
+
+    Args:
+        question: The question to export.
+        report: Where to report.
+        fields: The attributes of the question (and of its blanks, see
+            `blank_fields`) the format drops.
+        children: The attributes of choices, statements and patterns the
+            format drops.
+        blank_fields: The attributes of the blanks of a fill-in question the
+            format drops. `fields` if `None`.
+        meta_keys: Report each `meta` key other than `generalFeedback`.
+    """
+    _report_dropped(question, report, fields, ())
+    if meta_keys and question.meta:
+        for key in question.meta:
+            if key != GENERAL_FEEDBACK_KEY:
+                report.info(
+                    "metadata-dropped",
+                    f"{report.format} has no place for `meta.{key}`: it is dropped",
+                    ("meta", key),
+                )
+
+    def report_children(owner: BaseModel, path: tuple[str | int, ...]) -> None:
+        for attribute in ("choices", "accept", "reject"):
+            for index, child in enumerate(getattr(owner, attribute, None) or []):
+                if isinstance(child, BaseModel):
+                    _report_dropped(child, report, children, path + (attribute, index))
+
+    report_children(question, ())
+    for index, blank in enumerate(getattr(question, "blanks", [])):
+        path: tuple[str | int, ...] = ("blanks", index)
+        # The `id` of a blank is not data the format drops: the stem refers to it.
+        blank_set = (fields if blank_fields is None else blank_fields) - {"id"}
+        _report_dropped(blank, report, blank_set, path)
+        report_children(blank, path)
 
 
 @dataclass(frozen=True)
@@ -392,28 +503,25 @@ class NumericAnswerKey:
     incorrect_feedback: str | None
 
 
-def _credit_kind(answer: ImportedAnswer, report: Report, what: str) -> Literal["full", "none"]:
-    """
-    Classify the credit of `answer` as full (100%) or none (0%).
-
-    Raises:
-        ConversionError: the credit is partial (or negative): the grading of
-            `what` is binary.
-    """
+def _credit_kind(answer: ImportedAnswer) -> Literal["full", "none", "partial"]:
+    """Classify the credit of `answer` as full (100%), none (0%) or partial (anything else)."""
     if abs(answer.credit - 1) < MOODLE_GRADE_TOLERANCE:
         return "full"
     if abs(answer.credit) < MOODLE_GRADE_TOLERANCE:
         return "none"
-    report.error(
-        "partial-credit-dropped",
-        f"cannot convert from {report.format}: the answer {answer.text!r} has partial "
-        f"credit ({format_num(answer.credit * 100)}%), and {what} grading is "
-        "binary: an answer is worth 100% or 0%"
-    )
+    return "partial"
+
+
+def _partial_credit(answer: ImportedAnswer) -> str:
+    """The credit of a partial `answer`, in percent, as the messages write it."""
+    return f"{format_num(round(answer.credit * 100, 5))}%"
 
 
 #: An asterisk without a backslash before it: a wildcard in Moodle.
 _WILDCARD_RE = re.compile(r"(?<!\\)\*")
+
+#: A character that a regex of MDQ reads as syntax.
+_REGEX_SPECIAL_RE = re.compile(r"[\\^$.|?*+()\[\]{}/]")
 
 
 def _is_wildcard(text: str) -> bool:
@@ -421,83 +529,167 @@ def _is_wildcard(text: str) -> bool:
     return text.strip(" \t\r\n") == "*"
 
 
+def wildcard_pattern(text: str, case_sensitive: bool = False) -> str:
+    r"""
+    The MDQ regex that matches the whole response as Moodle's wildcard does:
+    each `*` without a backslash is any text, every other character is
+    literal (`\*` is an asterisk). It ignores case unless `case_sensitive`.
+    """
+    parts = _WILDCARD_RE.split(text)
+    body = r"[\s\S]*".join(
+        _REGEX_SPECIAL_RE.sub(lambda m: "\\" + m.group(), part.replace("\\*", "*"))
+        for part in parts
+    )
+    return f"/{body}/" + ("" if case_sensitive else "i")
+
+
 def short_answer_key(
-    answers: Sequence[ImportedAnswer], report: Report, any_answer: bool = False
+    answers: Sequence[ImportedAnswer], report: Report, case_sensitive: bool = False
 ) -> ShortAnswerKey:
     """
     Split the answers of an imported short answer by credit: 100% is
-    `accept`, 0% is `reject` (both with their feedback). With `any_answer`, a
-    lone `*` is Moodle's "any other answer": at 100% it is the regex `/.*/`,
-    at 0% its feedback is the `incorrectFeedback`. Without it, a lone `*` is
-    a literal like any other text.
+    `accept`, 0% is `reject` (both with their feedback). A lone `*` is
+    Moodle's "any other answer": at 100% it is the regex `/.*/`, at 0% its
+    feedback is the `incorrectFeedback`.
 
-    Raises:
-        ConversionError: an answer has partial credit, or a `*` wildcard inside
-            its text, which MDQ patterns would read as a literal `*`.
+    An answer with partial or negative credit goes to `reject`, worth 0
+    (`partial-credit-dropped`): it never gets more credit than the source.
+    A `*` inside the text is a wildcard, written as an MDQ regex
+    (`wildcard-to-regex`), which ignores case unless `case_sensitive`.
     """
     accept: list[AnswerPattern] = []
     reject: list[AnswerPattern] = []
     incorrect_feedback: str | None = None
     for answer in answers:
-        kind = _credit_kind(answer, report, what="short-answer")
-        if any_answer and _is_wildcard(answer.text):
+        kind = _credit_kind(answer)
+        if kind == "partial":
+            report.warning(
+                "partial-credit-dropped",
+                f"the answer {answer.text!r} has partial credit ({_partial_credit(answer)}), "
+                "and short-answer grading is binary: it is a `reject` answer worth 0",
+                ("reject", len(reject)),
+            )
+            kind = "none"
+        if _is_wildcard(answer.text):
             if kind == "full":
                 accept.append(AnswerPattern(pattern="/.*/", feedback=answer.feedback))
             elif answer.feedback:
                 incorrect_feedback = answer.feedback
             continue
-        if not _is_wildcard(answer.text) and _WILDCARD_RE.search(answer.text):
-            report.error(
+        target = accept if kind == "full" else reject
+        if _WILDCARD_RE.search(answer.text):
+            pattern = wildcard_pattern(answer.text, case_sensitive)
+            report.warning(
                 "wildcard-to-regex",
-                f"cannot convert from {report.format}: the answer {answer.text!r} has a "
-                "`*` wildcard, which MDQ literal patterns do not support"
+                f"the answer {answer.text!r} has a `*` wildcard: it is the regex {pattern}",
+                ("accept" if kind == "full" else "reject", len(target)),
             )
-        literal = literal_pattern(answer.text.replace("\\*", "*"))
-        entry = AnswerPattern(pattern=literal.pattern, feedback=answer.feedback)
-        (accept if kind == "full" else reject).append(entry)
+        else:
+            pattern = literal_pattern(answer.text.replace("\\*", "*")).pattern
+        target.append(AnswerPattern(pattern=pattern, feedback=answer.feedback))
     return ShortAnswerKey(accept, reject or None, incorrect_feedback)
+
+
+def _number(text: str) -> float | str:
+    """`text` as a number, or as it is if it is not one."""
+    try:
+        return float(text)
+    except ValueError:
+        return text
 
 
 def numeric_answer_key(answers: Sequence[ImportedAnswer], report: Report) -> NumericAnswerKey:
     """
     Pick the numeric key among the imported answers: the answer worth 100%.
-    A 0% answer is dropped, except a lone `*` ("any other answer") with
-    feedback, which is the `incorrectFeedback`. A second 100% answer is
-    dropped if it has the same value and tolerance as the first.
+    A lone `*` ("any other answer") at 0% with feedback is the
+    `incorrectFeedback`. Everything else is dropped, with a warning: a 0%
+    answer, a second 100% answer, a `*` at 100% (`answer-dropped`), an
+    answer with partial credit and the feedback of the key
+    (`partial-credit-dropped`, `feedback-dropped`). Without a 100% answer,
+    the answer with the highest positive credit becomes the key
+    (`partial-credit-dropped`).
 
     Raises:
-        ConversionError: an answer has partial credit, there is no 100% answer or
-            two different ones, or a `*` has credit.
+        ConversionError: no answer has positive credit (`no-full-credit`).
     """
+    path = ("answer",)
     key: ImportedAnswer | None = None
+    partial: list[ImportedAnswer] = []
     incorrect_feedback: str | None = None
     for answer in answers:
-        kind = _credit_kind(answer, report, what="numeric")
+        kind = _credit_kind(answer)
         if _is_wildcard(answer.text):
             if kind == "full":
-                report.error(
+                report.warning(
                     "answer-dropped",
-                    f"cannot convert from {report.format}: a numeric `*` answer worth "
-                    "100% accepts any number, which MDQ cannot express"
+                    "a numeric `*` answer worth 100% accepts any number, which MDQ "
+                    "cannot express: it is dropped",
+                    path,
                 )
-            if answer.feedback:
+            elif kind == "partial":
+                report.warning(
+                    "partial-credit-dropped",
+                    f"the numeric `*` answer has partial credit ({_partial_credit(answer)}), "
+                    "and numeric grading is binary: it is dropped",
+                    path,
+                )
+            elif answer.feedback:
                 incorrect_feedback = answer.feedback
-        elif kind == "full":
-            if key is None:
-                key = answer
-            elif (float(key.text), key.tolerance or 0.0) != (
-                float(answer.text),
+        elif kind == "partial":
+            partial.append(answer)
+        elif kind == "none":
+            report.warning(
+                "answer-dropped",
+                f"the numeric answer {answer.text!r} worth 0% is dropped"
+                + (" with its feedback" if answer.feedback else ""),
+                path,
+            )
+        elif key is None:
+            key = answer
+        else:
+            same = (_number(key.text), key.tolerance or 0.0) == (
+                _number(answer.text),
                 answer.tolerance or 0.0,
-            ):
-                report.error(
-                    "answer-dropped",
-                    f"cannot convert from {report.format}: more than one different "
-                    "answer is worth 100%, and a numeric question has one answer"
-                )
+            )
+            report.warning(
+                "answer-dropped",
+                f"the numeric answer {answer.text!r} worth 100% is dropped: "
+                + (
+                    "it repeats the first one"
+                    if same
+                    else "a numeric question has one answer, the first one"
+                ),
+                path,
+            )
+    positive = [answer for answer in partial if answer.credit > 0]
+    if key is None and positive:
+        key = max(positive, key=lambda answer: answer.credit)
+        partial.remove(key)
+        report.warning(
+            "partial-credit-dropped",
+            f"no numeric answer is worth 100%: the answer {key.text!r} "
+            f"({_partial_credit(key)}) is the answer of the question",
+            path,
+        )
+    for answer in partial:
+        report.warning(
+            "partial-credit-dropped",
+            f"the numeric answer {answer.text!r} has partial credit "
+            f"({_partial_credit(answer)}), and numeric grading is binary: it is dropped",
+            path,
+        )
     if key is None:
         report.error(
             "no-full-credit",
-            f"cannot convert from {report.format}: no numeric answer is worth full credit"
+            f"cannot convert from {report.format}: no numeric answer has positive credit",
+            path,
+        )
+    if key.feedback:
+        report.warning(
+            "feedback-dropped",
+            f"the feedback of the numeric answer {key.text!r} is dropped: a numeric "
+            "question has no feedback for its answer",
+            path,
         )
     return NumericAnswerKey(
         mdq_numeric_answer(key.text, report), absolute_tolerance(key.tolerance), incorrect_feedback

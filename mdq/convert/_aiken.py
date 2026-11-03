@@ -9,13 +9,18 @@ from typing import NoReturn
 
 from ..models import MultipleChoiceQuestion, Question, ScoredChoice
 from ._base import ConversionBase, ParserError, Report
-from ._moodle import effective_scores
+from ._moodle import GENERAL_FEEDBACK_KEY, effective_scores, report_dropped_fields
 
 CHOICE_REGEX = re.compile(r"(?P<letter>[a-zA-Z])[.)]\s+(?P<choice>[^\n]*)")
 NEWLINE_REGEX = re.compile(r"\s*\n\s*")
 WS_REGEX = re.compile(r"\s+")
 
 __all__ = ["Aiken", "AikenQuestion", "AikenParser", "CHOICE_REGEX"]
+
+#: The attributes Aiken has no place for.
+_DROPPED_FIELDS = frozenset(
+    {"id", "title", "tags", "weight", "shuffle", "grading", "comment", "author", "uuid", "locale"}
+)
 
 
 class Aiken(ConversionBase["AikenQuestion"]):
@@ -34,7 +39,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
 
     Aiken carries no metadata, so a conversion drops `id`, `title` and every
     feedback string, and collapses partial credit to 1.0 on the highest
-    scoring choice and 0.0 elsewhere.
+    scoring choice and 0.0 elsewhere. Each loss is a diagnostic.
 
     For more details: https://docs.moodle.org/en/Aiken_format
     """
@@ -46,21 +51,49 @@ class Aiken(ConversionBase["AikenQuestion"]):
         assert isinstance(question, MultipleChoiceQuestion), (
             f"{question.type!r} is excluded by `Aiken.supports`"
         )
+        report_dropped_fields(
+            question,
+            report,
+            _DROPPED_FIELDS,
+            children=frozenset({"comment", "feedback"}),
+        )
+        if question.meta and GENERAL_FEEDBACK_KEY in question.meta:
+            report.warning(
+                "field-dropped",
+                f"Aiken has no place for `meta.{GENERAL_FEEDBACK_KEY}`: it is dropped",
+                ("meta", GENERAL_FEEDBACK_KEY),
+            )
         if len(question.choices) > len(ascii_lowercase):
             report.error(
                 "too-many-choices",
                 f"Aiken supports at most {len(ascii_lowercase)} choices, "
-                f"got {len(question.choices)}"
+                f"got {len(question.choices)}",
+                ("choices",),
             )
 
         scores = effective_scores(question)
+        # `-i` breaks ties towards the first of the highest scoring choices.
+        answer = max(range(len(scores)), key=lambda i: (scores[i], -i))
+        if scores != [1.0 if i == answer else 0.0 for i in range(len(scores))]:
+            report.warning(
+                "partial-credit-dropped",
+                "Aiken has one correct choice: the first choice with the highest score "
+                f"({scores[answer]!r}) is correct, and the others are wrong",
+                ("choices",),
+            )
+        for index, choice in enumerate(question.choices):
+            if NEWLINE_REGEX.search(choice.text.strip()):
+                report.warning(
+                    "line-breaks-dropped",
+                    "an Aiken choice has one line: its line breaks are joined with a space",
+                    ("choices", index, "text"),
+                )
 
         parts = [question.stem, question.epilogue]
         return AikenQuestion(
             stem="\n\n".join(filter(None, parts)),
             choices=[choice.text for choice in question.choices],
-            # `-i` breaks ties towards the first of the highest scoring choices.
-            answer=max(range(len(scores)), key=lambda i: (scores[i], -i)),
+            answer=answer,
         )
 
     def to_mdq(self, aiken: AikenQuestion, report: Report, /) -> MultipleChoiceQuestion:
@@ -72,7 +105,7 @@ class Aiken(ConversionBase["AikenQuestion"]):
             ],
         )
 
-    def parse(self, source: str) -> AikenQuestion:
+    def parse(self, source: str, report: Report | None = None, /) -> AikenQuestion:
         parser = AikenParser(source)
         return parser.parse()
 

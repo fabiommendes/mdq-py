@@ -23,6 +23,9 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest>=7"]
 hypothesis = ["hypothesis>=6.167.1"]
+html = [
+    "markdownify>=1.0",
+]
 
 [project.scripts]
 mdq = "mdq.cli:main"
@@ -50,6 +53,7 @@ dev = [
     "doc-zero>=0.2.1",
     "types-pyyaml>=6.0.12.20260906",
     "types-pygments>=2.21.0.20260819",
+    "markdownify>=1.0",
 ]
 
 [tool.taskipy.tasks]

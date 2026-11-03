@@ -5,7 +5,9 @@ from dataclasses import dataclass, field, replace
 from typing import Literal, NoReturn, assert_never
 
 from .._markdown import locate_blank_markers
+from ..types import Diacritics
 from ..models import (
+    AnswerPattern,
     Blank,
     ChoiceBlank,
     EssayQuestion,
@@ -35,13 +37,14 @@ from ._moodle import (
     moodle_grade,
     moodle_score,
     numeric_answer_key,
+    report_dropped_fields,
     require_automatic,
     score_from_moodle_percent,
     short_answer_key,
     split_true_false_group,
     true_false_group_stem,
 )
-from ._text import html_with_blanks_to_mdq, mdq_text
+from ._text import html_blanks_to_mdq, mdq_text
 from ._common import (
     find_unescaped,
     format_num,
@@ -120,8 +123,8 @@ class Gift(ConversionBase["GiftQuestion"]):
     def to_mdq(self, gift: GiftQuestion, report: Report, /) -> Question:
         return decode_question(gift, report)
 
-    def parse(self, source: str) -> GiftQuestion:
-        return GiftParser(source).parse()
+    def parse(self, source: str, report: Report | None = None, /) -> GiftQuestion:
+        return GiftParser(source, report or Report(self.name)).parse()
 
 
 @dataclass
@@ -209,19 +212,20 @@ class GiftBlock:
 
         head = f"::{escape_gift(self.title)}:: " if self.title is not None else ""
         head += f"[{self.text_format}]"
-        stem = escape_gift(self.stem)
-        if stem:
-            head += f" {stem}"
+        # The space around the answer body may hold a blank line too.
+        space = " " if self.stem_space is None else self.stem_space
+        if self.stem:
+            head += f" {escape_gift_lines(self.stem + space)}"
+            space = ""
 
         body = render_gift_answer(self.answer)
         if self.general_feedback:
             sep = " " if body else ""
-            body = f"{body}{sep}#### {escape_gift(self.general_feedback)}"
+            body = f"{body}{sep}#### {escape_gift_lines(self.general_feedback)}"
 
-        space = " " if self.stem_space is None else self.stem_space
         line = f"{head}{space}{{{body}}}"
         if self.tail:
-            line += self.tail_space + escape_gift(self.tail)
+            line += escape_gift_lines(self.tail_space + self.tail)
         lines.append(line)
         return "\n".join(lines)
 
@@ -250,19 +254,18 @@ def gift_block(
     copies. GIFT has no epilogue: the caller joins it to the stem, as Moodle
     XML does, or puts it in the tail of a missing-word question. The general
     feedback is `meta.generalFeedback`, or `general_feedback` (the answer key
-    of an essay, GIFT has one `####` for both).
-
-    Raises:
-        ConversionError: `general_feedback` and `meta.generalFeedback` are both set,
-            or the latter is not valid.
+    of an essay, GIFT has one `####` for both: the answer key wins and
+    `meta.generalFeedback` is dropped, `general-feedback-dropped`).
     """
     meta_feedback = exported_general_feedback(question, report)
     if general_feedback is not None and meta_feedback is not None:
-        report.error(
+        report.warning(
             "general-feedback-dropped",
-            "cannot convert to GIFT: the answer key and `meta.generalFeedback` "
-            "are both the `####` text of the question"
+            "GIFT has one `####` text: `meta.generalFeedback` is dropped, and the "
+            "`answerKey` is written",
+            ("meta", "generalFeedback"),
         )
+        meta_feedback = None
     return GiftBlock(
         stem=stem,
         answer=answer,
@@ -274,8 +277,61 @@ def gift_block(
     )
 
 
+#: The attributes GIFT has no place for.
+_DROPPED_FIELDS = frozenset(
+    {
+        "id", "tags", "weight", "shuffle", "unit", "domain", "decimal_places", "content",
+        "highlight", "grading", "pre_accept", "pre_reject", "author", "uuid", "locale",
+    }
+)
+
+#: The keys of a question dict that are not text Moodle reads.
+_NOT_TEXT_KEYS = frozenset({"id", "uuid", "author", "locale", "comment", "tags", "title", "type"})
+
+_INDENTED_LINE_REGEX = re.compile(r"\n[ \t]+[^ \t\n]")
+
+
+def report_indentation(question: Question, report: Report) -> None:
+    """
+    Report `indentation-lost` for each text with a line, other than the
+    first, that starts with a space or tab: Moodle trims every line, so an
+    indented code block or a nested list changes.
+    """
+
+    def walk(value: object, path: tuple[str | int, ...]) -> None:
+        if isinstance(value, str):
+            if _INDENTED_LINE_REGEX.search(value):
+                report.warning(
+                    "indentation-lost",
+                    "GIFT has a line that starts with a space or tab: Moodle trims every "
+                    "line, so an indented code block or a nested list changes",
+                    path,
+                )
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if key == "meta":
+                    if isinstance(item, dict) and "generalFeedback" in item:
+                        walk(item["generalFeedback"], path + ("meta", "generalFeedback"))
+                elif key not in _NOT_TEXT_KEYS:
+                    walk(item, path + (key,))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(item, path + (index,))
+
+    walk(question.to_dict(), ())
+
+
 def encode_question(question: Question, report: Report) -> GiftQuestion:
     """Convert an MDQ question into a `GiftQuestion`, by its type."""
+    # The grading of a multiple-choice question is in the score of each choice.
+    fields = (
+        _DROPPED_FIELDS - {"grading"}
+        if isinstance(question, MultipleChoiceQuestion)
+        else _DROPPED_FIELDS
+    )
+    children = frozenset({"comment", "feedback"}) if isinstance(question, TrueFalseQuestion) else frozenset({"comment"})
+    report_dropped_fields(question, report, fields, children=children)
+    report_indentation(question, report)
     match question:
         case MultipleChoiceQuestion():
             return GiftQuestion(blocks=[block_from_choice(question, report)])
@@ -302,22 +358,38 @@ def block_from_choice(question: MultipleChoiceQuestion, report: Report) -> GiftB
     options = [
         GiftOption(
             text=choice.text,
-            credit=moodle_score(score, report),
+            credit=moodle_score(score, report, ("choices", index, "score")),
             feedback=choice.feedback,
         )
-        for choice, score in zip(question.choices, effective_scores(question))
+        for index, (choice, score) in enumerate(zip(question.choices, effective_scores(question)))
     ]
     return gift_block(question, with_epilogue(question), GiftChoice(options=options), report)
 
 def block_from_short(question: ShortAnswerQuestion, report: Report) -> GiftBlock:
-    require_automatic(question, report)
+    require_automatic(question.automation, report)
+    options = short_options(
+        question.accept, question.reject, question.incorrect_feedback, question.diacritics, report
+    )
+    return gift_block(question, with_epilogue(question), GiftShort(options=options), report)
+
+def short_options(
+    accept: list[AnswerPattern] | None,
+    reject: list[AnswerPattern] | None,
+    incorrect_feedback: str | None,
+    diacritics: Diacritics,
+    report: Report,
+) -> list[GiftOption]:
+    """
+    The entries of a short answer: the literal answers, then the
+    `incorrectFeedback` as Moodle's "any other answer" (`=%0%*#feedback`).
+    """
     options = [
         GiftOption(text=answer.text, credit=answer.credit, feedback=answer.feedback)
-        for answer in exported_short_answers(
-            question.accept, question.reject, report
-        )
+        for answer in exported_short_answers(accept, reject, report, diacritics)
     ]
-    return gift_block(question, with_epilogue(question), GiftShort(options=options), report)
+    if incorrect_feedback is not None:
+        options.append(GiftOption(text="*", credit=0.0, feedback=incorrect_feedback))
+    return options
 
 def block_from_numeric(question: NumericQuestion, report: Report) -> GiftBlock:
     value = float_answer(question.answer, question.tolerance, report)
@@ -359,7 +431,8 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
     if len(question.blanks) != 1:
         report.error(
             "multiple-blanks",
-            "cannot convert to GIFT: fill-in question must have exactly one blank"
+            "cannot convert to GIFT: fill-in question must have exactly one blank",
+            ("blanks",),
         )
     blank = question.blanks[0]
     marker = f"[^{blank.id}]"
@@ -375,49 +448,59 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
     if span is None:
         report.error(
             "blank-marker-mismatch",
-            f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
+            f"cannot convert to GIFT: stem does not contain blank marker {marker!r}",
+            ("stem",),
         )
     stem_part, tail_part = question.stem[: span[0]], question.stem[span[1] :]
 
     answer: GiftAnswer
-    match blank:
-        case ChoiceBlank():
-            choice_options = [
-                GiftOption(
-                    text=choice.text,
-                    credit=moodle_score(score, report),
-                    feedback=choice.feedback,
-                )
-                for choice, score in zip(blank.choices, blank_choice_scores(blank))
-            ]
-            answer = GiftChoice(options=choice_options)
-        case ShortAnswerBlank():
-            answer = GiftShort(
-                options=[
+    with report.under("blanks", 0):
+        match blank:
+            case ChoiceBlank():
+                choice_options = [
                     GiftOption(
-                        text=answer.text, credit=answer.credit, feedback=answer.feedback
+                        text=choice.text,
+                        credit=moodle_score(score, report, ("choices", index, "score")),
+                        feedback=choice.feedback,
                     )
-                    for answer in exported_short_answers(
-                        blank.accept, blank.reject, report
+                    for index, (choice, score) in enumerate(
+                        zip(blank.choices, blank_choice_scores(blank))
                     )
                 ]
-            )
-        case NumericBlank():
-            value = float_answer(blank.answer, blank.tolerance, report)
-            tolerance = numeric_tolerance(value, blank.tolerance)
-            answer = GiftNumeric(
-                options=[GiftNumericOption(value=value, tolerance=tolerance)]
-            )
-        case _:
-            assert_never(blank)
+                answer = GiftChoice(options=choice_options)
+            case ShortAnswerBlank():
+                require_automatic(blank.automation(question.unmatched), report, ())
+                answer = GiftShort(
+                    options=short_options(
+                        blank.accept,
+                        blank.reject,
+                        blank.incorrect_feedback,
+                        question.diacritics,
+                        report,
+                    )
+                )
+            case NumericBlank():
+                value = float_answer(blank.answer, blank.tolerance, report)
+                tolerance = numeric_tolerance(value, blank.tolerance)
+                numeric_options = [GiftNumericOption(value=value, tolerance=tolerance)]
+                if blank.incorrect_feedback is not None:
+                    numeric_options.append(
+                        GiftNumericOption(
+                            value=0.0,
+                            credit=0.0,
+                            feedback=blank.incorrect_feedback,
+                            any_value=True,
+                        )
+                    )
+                answer = GiftNumeric(options=numeric_options)
+            case _:
+                assert_never(blank)
 
-    tail = "\n".join(part for part in (tail_part.strip(PHP_SPACE), (question.epilogue or "").strip(PHP_SPACE)) if part)
-    if BLANK_LINE_REGEX.search(tail):
-        report.error(
-            "blank-line-after-blank",
-            "cannot convert to GIFT: the text after the blank has a blank line, "
-            "which would end the GIFT block"
-        )
+    tail = "\n".join(
+        part
+        for part in (tail_part.strip(PHP_SPACE), (question.epilogue or "").strip(PHP_SPACE))
+        if part
+    )
     stem = stem_part.strip(PHP_SPACE)
     block = gift_block(question, stem, answer, report, tail=tail)
     if stem:
@@ -432,18 +515,18 @@ def decode_question(gift: GiftQuestion, report: Report) -> Question:
     """A single block converts directly; several blocks must form a true or false group."""
     if not gift.blocks:
         report.error("no-question", "GIFT question has no blocks")
-    blocks = [markdown_block(block) for block in gift.blocks]
+    blocks = [markdown_block(block, report) for block in gift.blocks]
     if len(blocks) == 1:
         return block_to_mdq(blocks[0], report)
     if all(isinstance(b.answer, GiftBoolean) for b in blocks):
-        return true_false_from_blocks(blocks)
+        return true_false_from_blocks(blocks, report)
     report.error(
         "multiple-questions",
         "a GIFT question group with more than one block is only "
         "supported when every block is a true or false statement"
     )
 
-def markdown_block(block: GiftBlock) -> GiftBlock:
+def markdown_block(block: GiftBlock, report: Report) -> GiftBlock:
     """
     The block with its Markdown texts in MDQ's Markdown: the stem, tail,
     general feedback, choice texts and every feedback of a `[plain]` or `[html]`
@@ -457,12 +540,12 @@ def markdown_block(block: GiftBlock) -> GiftBlock:
         return block
 
     def convert(text: str | None, *, whole: bool = False) -> str | None:
-        return None if text is None else mdq_text(text, block_format, block=whole)
+        return None if text is None else mdq_text(text, block_format, block=whole, html=report.html)
 
     def convert_option(option: GiftOption, *, text: bool) -> GiftOption:
         return replace(
             option,
-            text=mdq_text(option.text, block.text_format) if text else option.text,
+            text=mdq_text(option.text, block.text_format, html=report.html) if text else option.text,
             feedback=convert(option.feedback),
         )
 
@@ -480,10 +563,16 @@ def markdown_block(block: GiftBlock) -> GiftBlock:
             pass
         case _:
             assert_never(answer)
+    if report.html == "markdown" and block_format == "html" and block.tail:
+        # A missing-word stem is converted as a whole, around its blank.
+        stem, tail = block.stem, block.tail
+    else:
+        stem = mdq_text(block.stem, block_format, block=not block.tail, html=report.html)
+        tail = mdq_text(block.tail, block_format, html=report.html)
     return replace(
         block,
-        stem=mdq_text(block.stem, block.text_format, block=not block.tail),
-        tail=mdq_text(block.tail, block.text_format),
+        stem=stem,
+        tail=tail,
         general_feedback=convert(block.general_feedback, whole=True),
         answer=answer,
     )
@@ -494,18 +583,21 @@ def block_to_mdq(block: GiftBlock, report: Report) -> Question:
 
     match answer:
         case GiftEssay():
+            stem = block.stem
+            if block.tail:
+                report.warning(
+                    "missing-word-joined",
+                    "an essay has no blank: the text after `{}` is joined to the stem",
+                    ("stem",),
+                )
+                stem = f"{stem} {block.tail}"
             return EssayQuestion(
-                stem=block.stem,
+                stem=stem,
                 answer_key=block.general_feedback,
                 title=block.title,
                 comment=block.comment,
             )
-        case GiftBoolean():
-            if block.tail:
-                report.error(
-                    "missing-word-boolean",
-                    "GIFT missing-word tail is not supported for boolean answers"
-                )
+        case GiftBoolean() if not block.tail:
             return MultipleChoiceQuestion(
                 stem=block.stem,
                 choices=[
@@ -516,16 +608,17 @@ def block_to_mdq(block: GiftBlock, report: Report) -> Question:
                 title=block.title,
                 comment=block.comment,
             )
-        case GiftChoice() | GiftShort() | GiftNumeric():
+        case GiftChoice() | GiftShort() | GiftNumeric() | GiftBoolean():
             pass
         case _:
             assert_never(answer)
 
     if block.tail:
-        blank = blank_from_answer(answer, report)
+        with report.under("blanks", 0):
+            blank = blank_from_answer(answer, report)
         stem = f"{block.stem}{block.stem_space or ''}[^blank]{block.tail_space}{block.tail}"
         if block.text_format == "html":
-            stem = html_with_blanks_to_mdq(stem, report)
+            stem = html_blanks_to_mdq(stem, report)
         return FillInQuestion(
             stem=stem, blanks=[blank], meta=meta,
                 title=block.title, comment=block.comment
@@ -567,6 +660,8 @@ def block_to_mdq(block: GiftBlock, report: Report) -> Question:
                 title=block.title,
                 comment=block.comment,
             )
+        case GiftEssay() | GiftBoolean():
+            raise AssertionError("an essay and a true or false answer are converted above")
         case _:
             assert_never(answer)
 
@@ -611,17 +706,30 @@ def blank_from_answer(answer: GiftAnswer, report: Report) -> Blank:
                 tolerance=numeric.tolerance,
                 incorrect_feedback=numeric.incorrect_feedback,
             )
-        case GiftEssay() | GiftBoolean():
-            report.error(
-                "missing-word-joined" if isinstance(answer, GiftEssay) else "missing-word-boolean",
-                "GIFT missing-word tail is not supported for "
-                f"{type(answer).__name__} answers",
+        case GiftBoolean():
+            return ChoiceBlank(
+                id="blank",
+                choices=[
+                    ScoredChoice(text="True", score=1.0 if answer.value else 0.0),
+                    ScoredChoice(text="False", score=0.0 if answer.value else 1.0),
+                ],
             )
+        case GiftEssay():
+            raise AssertionError("an essay is joined to its tail before it gets here")
         case _:
             assert_never(answer)
 
-def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
+def true_false_from_blocks(blocks: list[GiftBlock], report: Report) -> TrueFalseQuestion:
     group_stem, statement_texts = split_true_false_group([b.stem for b in blocks])
+    first = blocks[0]
+    for block in blocks[1:]:
+        if block.title is not None and block.title != first.title:
+            report.warning(
+                "field-dropped",
+                f"the title {block.title!r} of a later statement is dropped: the group "
+                f"keeps the title of the first one, {first.title!r}",
+                ("title",),
+            )
 
     choices = []
     for text, block in zip(statement_texts, blocks):
@@ -632,8 +740,8 @@ def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
         stem=group_stem,
         choices=choices,
         meta=general_feedback_meta(*(b.general_feedback for b in blocks)),
-        title=blocks[0].title,
-        comment=blocks[0].comment,
+        title=first.title,
+        comment=first.comment,
     )
 
 
@@ -645,13 +753,22 @@ class GiftParser:
     parsing scans `self.source` directly by character offset.
     """
 
-    def __init__(self, source: str):
+    def __init__(self, source: str, report: Report | None = None):
         self.source = source
+        self.report = report or Report("GIFT")
 
     def parse(self) -> GiftQuestion:
-        blocks = [
-            self.parse_block(raw, offset) for raw, offset in split_blocks(self.source)
-        ]
+        blocks = []
+        for raw, offset, blank_line in split_blocks(self.source):
+            if blank_line is not None:
+                self.report.warning(
+                    "gift-blank-line",
+                    "the question has a blank line before or inside its answer body: Moodle "
+                    "splits a question at every blank line",
+                    (),
+                    blank_line + 1,
+                )
+            blocks.append(self.parse_block(raw, offset))
         if not blocks:
             self.fail("no GIFT question found", 0)
         return GiftQuestion(blocks=blocks)
@@ -855,7 +972,7 @@ def render_gift_numeric(options: list[GiftNumericOption]) -> str:
         if opt.tolerance:
             entry += f":{format_num(opt.tolerance)}"
         if opt.feedback:
-            entry += f"#{escape_gift(opt.feedback)}"
+            entry += f"#{escape_gift_lines(opt.feedback)}"
         parts.append(entry)
     return "# " + " ".join(parts)
 
@@ -891,10 +1008,25 @@ def render_gift_short_option(option: GiftOption) -> str:
 
 def render_gift_option_tail(option: GiftOption) -> str:
     """Render an option's escaped text and optional `#feedback` suffix."""
-    tail = escape_gift(option.text)
+    tail = escape_gift_lines(option.text)
     if option.feedback:
-        tail += f"#{escape_gift(option.feedback)}"
+        tail += f"#{escape_gift_lines(option.feedback)}"
     return tail
+
+
+def escape_gift_lines(text: str) -> str:
+    r"""
+    Escape `text` for GIFT and encode each blank line with the `\n` escape
+    (`a\n\nb` is the two lines `a\n` and `b`), since Moodle splits a question at
+    every blank line. Moodle reads both forms back as `a\n\nb`.
+    """
+    lines: list[str] = []
+    for line in escape_gift(text).split("\n"):
+        if lines and not line.strip(PHP_SPACE):
+            lines[-1] += "\\n"
+        else:
+            lines.append(line)
+    return "\n".join(lines)
 
 
 def format_credit(credit: float) -> str:
@@ -909,34 +1041,40 @@ def format_credit(credit: float) -> str:
     return format_num(credit * 100)
 
 
-def split_blocks(source: str) -> list[tuple[str, int]]:
+def split_blocks(source: str) -> list[tuple[str, int, int | None]]:
     """
-    Split GIFT source into `(block_text, start_offset)` pairs.
+    Split GIFT source into `(block_text, start_offset, blank_line)` triples.
 
     Blocks are separated by blank lines, except inside an unescaped
-    `{...}` answer body, which may itself span blank lines.
+    `{...}` answer body, which may itself span blank lines, and before the
+    `{`. `blank_line` is the 0-based line of the first blank line that a block
+    keeps (Moodle would split the question there), or `None`.
     """
-    blocks: list[tuple[str, int]] = []
+    blocks: list[tuple[str, int, int | None]] = []
     current: list[str] = []
     current_start: int | None = None
+    blank_line: int | None = None
     depth = 0
     closed = False
     in_comment = True  # still within the block's leading `//` comment lines
     offset = 0
 
-    for line in source.split("\n"):
+    for lineno, line in enumerate(source.split("\n")):
         blank = not line.strip(PHP_SPACE)
         if blank and not current:
             offset += len(line) + 1
             continue  # blank lines between blocks
         if blank and depth == 0 and closed:
-            blocks.append(("\n".join(current), current_start or 0))
+            blocks.append(("\n".join(current), current_start or 0, blank_line))
             current = []
             current_start = None
+            blank_line = None
             closed = False
             in_comment = True
             offset += len(line) + 1
             continue
+        if blank and not in_comment and blank_line is None:
+            blank_line = lineno
 
         if current_start is None:
             current_start = offset
@@ -951,7 +1089,7 @@ def split_blocks(source: str) -> list[tuple[str, int]]:
         offset += len(line) + 1
 
     if current:
-        blocks.append(("\n".join(current), current_start or 0))
+        blocks.append(("\n".join(current), current_start or 0, blank_line))
     return blocks
 
 

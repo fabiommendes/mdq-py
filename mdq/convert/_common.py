@@ -15,7 +15,9 @@ from ..models import Tolerance
 
 #: GIFT and Cloze special characters, which a backslash escapes.
 ESCAPE_REGEX = re.compile(r"[:=~{}#\\]")
-UNESCAPE_REGEX = re.compile(r"\\(.)")
+#: What Moodle's `escapedchar_pre` unescapes: a backslash before any other
+#: character stays, as in `\*`.
+UNESCAPE_REGEX = re.compile(r"\\([\\:#=~{}n])")
 #: A `%credit%` tag at the start of an answer entry.
 CREDIT_TAG_REGEX = re.compile(r"%(-?\d+(?:\.\d+)?)%")
 
@@ -26,8 +28,11 @@ def escape_text(text: str) -> str:
 
 
 def unescape_text(text: str) -> str:
-    """Undo `escape_text`."""
-    return UNESCAPE_REGEX.sub(r"\1", text)
+    r"""
+    Undo `escape_text` as Moodle does: `\\`, `\:`, `\#`, `\=`, `\{`, `\}` and
+    `\~` lose the backslash, and `\n` is a line feed. Any other backslash stays.
+    """
+    return UNESCAPE_REGEX.sub(lambda m: "\n" if m.group(1) == "n" else m.group(1), text)
 
 
 def find_unescaped(text: str, target: str, start: int = 0) -> int:

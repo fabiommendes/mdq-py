@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 
 from .._markdown import has_visible_character
-from ._base import Report
+from ._base import HtmlMode, Report
 
 _PLAIN_FORMATS = frozenset({"plain", "plain_text"})
 _MARKDOWN_SPECIALS_RE = re.compile(r"[\\`*_\[\]<>&~]")
@@ -136,14 +136,50 @@ def html_with_blanks_to_mdq(text: str, report: Report) -> str:
                 "blank-in-html-block",
                 f"a blank inside the HTML block starting at `<{tag.lstrip('/')}>` "
                 "cannot be a `[^id]` marker: CommonMark reads an HTML block as "
-                "literal text. Only `<p>` paragraphs are converted; the "
-                "`--html markdown` option (planned) will cover other block tags"
+                "literal text. Only `<p>` paragraphs are converted; use "
+                '`html="markdown"` (`--html markdown`) to convert other block tags'
             )
         i = end + 1
     return text
 
 
-def mdq_text(text: str, text_format: str, *, block: bool = False) -> str:
+def html_to_markdown(text: str) -> str:
+    """
+    Return the Markdown that renders as the HTML `text`, converted with the
+    optional `markdownify` package (extra `mdq[html]`). Return `text`
+    unchanged if it has no visible character.
+    """
+    if not has_visible_character(text):
+        return text
+    from markdownify import markdownify
+
+    return str(markdownify(text, heading_style="ATX")).strip()
+
+
+def html_with_blanks_to_markdown(text: str) -> str:
+    """
+    Return the Markdown for the HTML `text` of a cloze or missing-word stem,
+    where `[^id]` markers stand for the blanks. The stem is converted as a
+    whole, so no HTML element is split: each marker is a placeholder that
+    `markdownify` keeps, and it is put back after the conversion.
+    """
+    markers = _MARKER_RE.findall(text)
+    for index, marker in enumerate(markers):
+        text = text.replace(marker, f"MDQBLANK{index}X", 1)
+    text = html_to_markdown(text)
+    for index, marker in enumerate(markers):
+        text = text.replace(f"MDQBLANK{index}X", marker, 1)
+    return text
+
+
+def html_blanks_to_mdq(text: str, report: Report) -> str:
+    """The MDQ text of the HTML `text` with `[^id]` markers, by the `html` mode of `report`."""
+    if report.html == "markdown":
+        return html_with_blanks_to_markdown(text)
+    return html_with_blanks_to_mdq(text, report)
+
+
+def mdq_text(text: str, text_format: str, *, block: bool = False, html: HtmlMode = "block") -> str:
     """
     Return the MDQ text for a `text` an external format wrote in
     `text_format`: `plain` and `plain_text` are escaped
@@ -154,8 +190,13 @@ def mdq_text(text: str, text_format: str, *, block: bool = False) -> str:
     whole block of the MDQ document (a stem without blanks, a general
     feedback, a grader info) and becomes one HTML block (`html_to_mdq`). The
     text of a choice, an inline feedback or a text around a blank is not a
-    whole block.
+    whole block. With `html="markdown"`, every `html` text is converted to
+    Markdown (`html_to_markdown`) instead.
     """
     if text_format in _PLAIN_FORMATS:
         return plain_text_to_markdown(text)
-    return html_to_mdq(text) if block and text_format == "html" else text
+    if text_format != "html":
+        return text
+    if html == "markdown":
+        return html_to_markdown(text)
+    return html_to_mdq(text) if block else text
