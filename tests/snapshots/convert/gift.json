@@ -10,7 +10,7 @@
   "valid/essay/answer-key-inner-headings.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {#### Evaporação, condensação e precipitação.\\n\n\\#\\# Critérios\\n\n* 1 ponto por etapa.\n* 1 ponto pela relação com o clima.\\n\n\\#\\#\\# Observação\\n\nAceite sinônimos.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Evaporação, condensação e precipitação.\n\n## Critérios\n\n* 1 ponto por etapa.\n* 1 ponto pela relação com o clima.\n\n### Observação\n\nAceite sinônimos.",
@@ -22,7 +22,7 @@
   "valid/essay/answer-key-multi-block.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {#### Etapas esperadas\\:\\n\n1. Evaporação\n2. Condensação\n3. Precipitação\\n\n\\#\\#\\# Critério\\n\n```\n1 ponto por etapa\n```}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Etapas esperadas:\n\n1. Evaporação\n2. Condensação\n3. Precipitação\n\n### Critério\n\n```\n1 ponto por etapa\n```",
@@ -34,7 +34,7 @@
   "valid/essay/answer-key-no-blank-line.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {#### Evaporação, condensação e precipitação.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Evaporação, condensação e precipitação.",
@@ -46,7 +46,7 @@
   "valid/essay/answer-key-setext.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {#### Evaporação, condensação e precipitação.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Evaporação, condensação e precipitação.",
@@ -58,7 +58,7 @@
   "valid/essay/answer-key.yaml": {
     "export": "::Greenhouse effect:: [markdown] Describe how the greenhouse effect works and how it affects the climate. {#### The greenhouse effect is a natural process that warms the Earth's surface. Greenhouse gases such as carbon dioxide, methane, and water vapor trap part of the infrared radiation the Earth emits, keeping the surface and lower atmosphere warm enough to be habitable. Human activity has raised the concentration of those gases, enhancing the effect and driving global warming.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "The greenhouse effect is a natural process that warms the Earth's surface. Greenhouse gases such as carbon dioxide, methane, and water vapor trap part of the infrared radiation the Earth emits, keeping the surface and lower atmosphere warm enough to be habitable. Human activity has raised the concentration of those gases, enhancing the effect and driving global warming.",
@@ -77,7 +77,7 @@
   "valid/essay/bom.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -88,7 +88,7 @@
   "valid/essay/bracket-text-first-block.yaml": {
     "export": "::The Cerrado:: [markdown] [Nota importante] O Cerrado cobre um quarto do território. Descreva o bioma. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "[Nota importante] O Cerrado cobre um quarto do território. Descreva o bioma.",
@@ -99,7 +99,7 @@
   "valid/essay/code-python.yaml": {
     "export": "::Fibonacci:: [markdown] Write a Python function `fib(n)` that returns the n-th Fibonacci number (with `fib(0) \\=\\= 0` and `fib(1) \\=\\= 1`). You may use either an iterative or a recursive approach. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped content",
       "warning field-dropped highlight"
     ],
@@ -122,7 +122,7 @@
   "valid/essay/comment-after-blank-lines.yaml": {
     "export": "// Comentário depois de linhas em branco.\n[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "Comentário depois de linhas em branco.",
@@ -133,7 +133,7 @@
   "valid/essay/comment-after-first-key.yaml": {
     "export": "[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -143,7 +143,7 @@
   "valid/essay/comment-bare-hash.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -154,7 +154,7 @@
   "valid/essay/comment-broken-by-blank-line.yaml": {
     "export": "// Primeira linha do comentário. Segunda linha.\n[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "Primeira linha do comentário. Segunda linha.",
@@ -165,7 +165,7 @@
   "valid/essay/comment-indented-is-ignored.yaml": {
     "export": "[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -175,7 +175,7 @@
   "valid/essay/comment-no-space.yaml": {
     "export": "// Sem espaço após a cerquilha.  Dois espaços: só o primeiro é removido.\n[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "Sem espaço após a cerquilha.  Dois espaços: só o primeiro é removido.",
@@ -186,7 +186,7 @@
   "valid/essay/content-text-frontmatter.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -197,7 +197,7 @@
   "valid/essay/cr-only.yaml": {
     "export": "// Comentário.\n::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "Comentário.",
@@ -209,7 +209,7 @@
   "valid/essay/crlf.yaml": {
     "export": "// Comentário.\n::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "Comentário.",
@@ -221,7 +221,7 @@
   "valid/essay/empty-answer-key.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -232,7 +232,7 @@
   "valid/essay/epilogue-and-answer-key.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água.\\n\nCite ao menos três etapas. {#### Evaporação, condensação e precipitação.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Evaporação, condensação e precipitação.",
@@ -275,7 +275,7 @@
   "valid/essay/footnote-stem-defined-in-answer-key.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água[^1]. {#### Evaporação, condensação e precipitação[^1].\\n\n[^1]\\: Considere apenas o ciclo na superfície do planeta.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Evaporação, condensação e precipitação[^1].\n\n[^1]: Considere apenas o ciclo na superfície do planeta.",
@@ -287,7 +287,7 @@
   "valid/essay/form-feed-is-text.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo\fda água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo\fda água.",
@@ -298,7 +298,7 @@
   "valid/essay/frontmatter-nel-ls-in-scalar.yaml": {
     "export": "[markdown] Describe the Amazon. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/plain"
     ],
     "import": {
@@ -317,7 +317,7 @@
   "valid/essay/full-metadata.yaml": {
     "export": "::Normalização de bancos de dados:: [markdown] Explique a diferença entre a segunda e a terceira forma normal, com um exemplo de cada. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid",
       "info metadata-dropped author",
       "info metadata-dropped locale",
@@ -341,7 +341,7 @@
   "valid/essay/id-precedence.yaml": {
     "export": "[markdown] Explain why the frontmatter takes precedence over an inline slug. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explain why the frontmatter takes precedence over an inline slug.",
@@ -365,7 +365,7 @@
   "valid/essay/inline-id-in-stem.yaml": {
     "export": "[markdown] A água da Terra circula entre oceanos, atmosfera e continentes.\\n\nExplique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "A água da Terra circula entre oceanos, atmosfera e continentes.\n\nExplique o ciclo da água.",
@@ -375,7 +375,7 @@
   "valid/essay/inline-id.yaml": {
     "export": "[markdown] Explain the CAP theorem in distributed systems. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explain the CAP theorem in distributed systems.",
@@ -406,7 +406,7 @@
   "valid/essay/locale-case-insensitive.yaml": {
     "export": "::Locale em minúsculas:: [markdown] Explique por que o Pantanal é considerada a maior planície alagável do mundo. {#### O relevo baixo e plano da bacia do rio Paraguai favorece o alagamento sazonal.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -419,7 +419,7 @@
   "valid/essay/locale-grandfathered.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -431,7 +431,7 @@
   "valid/essay/locale-lookalike.yaml": {
     "export": "::The Great Wall:: [markdown] Descreva brevemente a Grande Muralha da China. {#### Uma série de fortificações construídas ao longo de séculos no norte da China.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -444,7 +444,7 @@
   "valid/essay/locale-private-use.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -456,7 +456,7 @@
   "valid/essay/locale-script-region.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -468,7 +468,7 @@
   "valid/essay/locale-three-letter.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -480,7 +480,7 @@
   "valid/essay/locale-uppercase.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -492,7 +492,7 @@
   "valid/essay/locale-yaml-11-boolean.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -504,7 +504,7 @@
   "valid/essay/meta-null-value.yaml": {
     "export": "[markdown] Describe the Cerrado biome. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/source"
     ],
     "import": {
@@ -515,7 +515,7 @@
   "valid/essay/meta-same-key-in-nested-mappings.yaml": {
     "export": "[markdown] Descreva o bioma Caatinga. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/fonte",
       "info metadata-dropped meta/revisao"
     ],
@@ -527,7 +527,7 @@
   "valid/essay/meta-scalar-keys.yaml": {
     "export": "[markdown] Describe the Pantanal. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/1",
       "info metadata-dropped meta/true",
       "info metadata-dropped meta/null",
@@ -543,7 +543,7 @@
   "valid/essay/meta.yaml": {
     "export": "::Version control:: [markdown] Explain the difference between `git merge` and `git rebase`. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/difficulty",
       "info metadata-dropped meta/estimated_minutes",
       "info metadata-dropped meta/bloom_level"
@@ -557,7 +557,7 @@
   "valid/essay/metadata-comment.yaml": {
     "export": "// This question checks if students understand base cases and recursive cases when explaining recursion informally.\n::Recursion:: [markdown] Explain what recursion is and why a base case is necessary. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "comment": "This question checks if students understand base cases and recursive cases when explaining recursion informally.",
@@ -569,7 +569,7 @@
   "valid/essay/nbsp-after-slug.yaml": {
     "export": "[markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -593,7 +593,7 @@
   "valid/essay/nbsp-in-frontmatter-is-skipped.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explique o ciclo da água.",
@@ -632,7 +632,7 @@
   "valid/essay/no-title.yaml": {
     "export": "[markdown] Explain the difference between a list and a tuple in Python. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Explain the difference between a list and a tuple in Python.",
@@ -642,7 +642,7 @@
   "valid/essay/null-content-and-optionals.yaml": {
     "export": "::Recife:: [markdown] Describe how the Capibaribe river shaped the city of Recife. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Describe how the Capibaribe river shaped the city of Recife.",
@@ -661,7 +661,7 @@
   "valid/essay/plain-content.yaml": {
     "export": "::Regular expression:: [markdown] Write a regular expression that matches a Brazilian CEP (postal code) in the `00000-000` format. Do not use any Markdown formatting. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped content"
     ],
     "import": {
@@ -680,7 +680,7 @@
   "valid/essay/stem-epilogue.yaml": {
     "export": "::Context switching:: [markdown] Operating systems must decide which process runs at any given time on a CPU core. This decision involves saving and restoring process state.\\n\nExplain what a context switch is and describe two costs associated with performing one.\\n\nYour answer should be understandable to a second-year undergraduate student who has taken an introductory OS course. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Operating systems must decide which process runs at any given time on a CPU core. This decision involves saving and restoring process state.\n\nExplain what a context switch is and describe two costs associated with performing one.\n\nYour answer should be understandable to a second-year undergraduate student who has taken an introductory OS course.",
@@ -691,7 +691,7 @@
   "valid/essay/stem-hard-breaks.yaml": {
     "export": "::Rivers of Brazil:: [markdown] O rio Amazonas nasce nos Andes e deságua no Atlântico.  \nLinha com quebra dura (dois espaços).\\\\\nOutra quebra dura (barra).\\n\nExplique por que o Amazonas é o rio de maior vazão do planeta. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "O rio Amazonas nasce nos Andes e deságua no Atlântico.  \nLinha com quebra dura (dois espaços).\\\nOutra quebra dura (barra).\n\nExplique por que o Amazonas é o rio de maior vazão do planeta.",
@@ -722,7 +722,7 @@
   "valid/essay/tag-slug-essay.yaml": {
     "export": "::Pantanal:: [markdown] Descreva a importância do Pantanal para a biodiversidade. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Descreva a importância do Pantanal para a biodiversidade.",
@@ -733,7 +733,7 @@
   "valid/essay/tags-as-string.yaml": {
     "export": "[markdown] Explain why binary search needs a sorted input. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags"
     ],
     "import": {
@@ -744,7 +744,7 @@
   "valid/essay/tags-null.yaml": {
     "export": "[markdown] Descreva o bioma Pampa. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "Descreva o bioma Pampa.",
@@ -754,7 +754,7 @@
   "valid/essay/tags-single-string.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags"
     ],
     "import": {
@@ -766,7 +766,7 @@
   "valid/essay/tags-string-final-comma.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags"
     ],
     "import": {
@@ -778,7 +778,7 @@
   "valid/essay/tags.yaml": {
     "export": "::Big-O notation:: [markdown] Explain, in your own words, what Big-O notation measures. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags"
     ],
     "import": {
@@ -790,7 +790,7 @@
   "valid/essay/thematic-break-answer-key.yaml": {
     "export": "::Formation of the Pantanal:: [markdown] Explain how the Pantanal formed. {#### A floodplain in the Paraguay river basin.\\n\n---\\n\nNote\\: accept a mention of the seasonal floods.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "A floodplain in the Paraguay river basin.\n\n---\n\nNote: accept a mention of the seasonal floods.",
@@ -809,7 +809,7 @@
   "valid/essay/thematic-break-epilogue.yaml": {
     "export": "::Fire in the cerrado:: [markdown] The cerrado burns naturally in the dry season.\\n\n***\\n\nMany of its plants resist fire with thick bark and deep roots.\\n\nExplain how periodic fire shapes the vegetation of the cerrado.\\n\nKeep the answer under 200 words.\\n\n---\\n\nCite at least one adaptation. {}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "stem": "The cerrado burns naturally in the dry season.\n\n***\n\nMany of its plants resist fire with thick bark and deep roots.\n\nExplain how periodic fire shapes the vegetation of the cerrado.\n\nKeep the answer under 200 words.\n\n---\n\nCite at least one adaptation.",
@@ -872,7 +872,7 @@
   "valid/essay/unknown-highlight-language.yaml": {
     "export": "::MDC function:: [markdown] Escreva uma função que calcule o MDC de dois números inteiros. {#### Qualquer implementação correta do algoritmo de Euclides é aceitável.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped content",
       "warning field-dropped highlight"
     ],
@@ -886,7 +886,7 @@
   "valid/essay/unsafe-id-trailing-newline.yaml": {
     "export": "::Mata Atlântica:: [markdown] Descreva a Mata Atlântica e uma ameaça que ela enfrenta. {#### Floresta úmida costeira, reduzida pelo desmatamento e pela urbanização.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "Floresta úmida costeira, reduzida pelo desmatamento e pela urbanização.",
@@ -898,7 +898,7 @@
   "valid/essay/unsafe-id.yaml": {
     "export": "::Biomas brasileiros:: [markdown] Cite dois biomas brasileiros e uma característica de cada um. {#### A Caatinga tem vegetação adaptada à seca; a Mata Atlântica é uma floresta úmida costeira.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answerKey": "A Caatinga tem vegetação adaptada à seca; a Mata Atlântica é uma floresta úmida costeira.",
@@ -910,7 +910,7 @@
   "valid/essay/unsplit-tag-list.yaml": {
     "export": "::Pantanal flooding cycle:: [markdown] Describe the annual flood pulse of the Pantanal wetland. {#### Seasonal rains raise river levels, flooding the plains for months.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags"
     ],
     "import": {
@@ -923,7 +923,7 @@
   "valid/essay/uuid-max.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid"
     ],
     "import": {
@@ -935,7 +935,7 @@
   "valid/essay/uuid-nil.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid"
     ],
     "import": {
@@ -947,7 +947,7 @@
   "valid/essay/uuid-unknown-variant.yaml": {
     "export": "::São Francisco River:: [markdown] Explain why the São Francisco is called \"the river of national integration\". {#### It flows through several states, linking the semi-arid Northeast to the coast.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid"
     ],
     "import": {
@@ -960,7 +960,7 @@
   "valid/essay/uuid-unknown-version.yaml": {
     "export": "::Iguaçu Falls:: [markdown] Explain why the Iguaçu Falls are wider than Niagara Falls. {#### The Iguaçu River spreads across a broad basalt plateau before the drop.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid"
     ],
     "import": {
@@ -973,7 +973,7 @@
   "valid/essay/uuid-uppercase.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped uuid"
     ],
     "import": {
@@ -985,7 +985,7 @@
   "valid/essay/weight-fraction.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped weight"
     ],
     "import": {
@@ -997,7 +997,7 @@
   "valid/essay/weight-zero.yaml": {
     "export": "::Ciclo da água:: [markdown] Explique o ciclo da água. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped weight"
     ],
     "import": {
@@ -1009,7 +1009,7 @@
   "valid/essay/yaml-nel-ls-in-scalar.yaml": {
     "export": "[markdown] Describe the Amazon. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/plain",
       "info metadata-dropped meta/quoted",
       "info metadata-dropped meta/escaped"
@@ -1022,7 +1022,7 @@
   "valid/essay/yaml-scalar-keys.yaml": {
     "export": "[markdown] Describe the Pantanal. {}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped meta/1",
       "info metadata-dropped meta/true",
       "info metadata-dropped meta/null",
@@ -1057,17 +1057,25 @@
     }
   },
   "valid/fill-in/blank-in-code-is-text.yaml": {
-    "export": "[markdown] Em MDQ, um blank é escrito assim\\:\\n\n```md\nA capital é [^capital].\n```\\n\nComplete\\: a capital do Brasil é {=Brasília}.\nLembre que `[^capital]` no epílogo também é só texto\\: [^capital].",
+    "export": "[markdown] Em MDQ, um blank é escrito assim\\:\\n\n```md\nA capital é [^capital].\n```\\n\nComplete\\: a capital do Brasil é {=Brasília}.\nLembre que `[^capital]` no epílogo também é só texto\\: \\\\[^capital].",
     "export_diagnostics": [
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
-      "code": "invalid-question",
-      "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, um blank é escr... só texto: [^capital].', input_type=str]"
-    },
-    "import_diagnostics": [
-      "error invalid-question"
-    ]
+      "blanks": [
+        {
+          "accept": [
+            {
+              "pattern": "Brasília"
+            }
+          ],
+          "id": "blank",
+          "type": "short-answer"
+        }
+      ],
+      "stem": "Em MDQ, um blank é escrito assim:\n\n```md\nA capital é [^capital].\n```\n\nComplete: a capital do Brasil é [^blank].\nLembre que `[^capital]` no epílogo também é só texto: \\[^capital].",
+      "type": "fill-in"
+    }
   },
   "valid/fill-in/blank-in-code-span-is-text.yaml": {
     "export": "[markdown] Em MDQ, o código `[^capital]` é só texto. A capital do Brasil é {=Brasília}.",
@@ -1093,7 +1101,7 @@
   "valid/fill-in/blank-in-indented-code-is-text.yaml": {
     "export": "::Blank marker in indented code:: [markdown] Complete a capital do Brasil\\: {=Brasília}.\\n\n    A capital é [^capital].",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning indentation-lost stem",
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
@@ -1138,7 +1146,7 @@
   "valid/fill-in/blank-in-tilde-fence-is-text.yaml": {
     "export": "::Blank marker in a tilde fence:: [markdown] Complete a capital do Brasil\\: {=Brasília}.\\n\n\\~\\~\\~md\nA capital é [^capital].\n\\~\\~\\~",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
@@ -1182,7 +1190,7 @@
   "valid/fill-in/blank-list.yaml": {
     "export": "::Largest biome:: [markdown] The largest Brazilian biome is the {=Amazon =Amazônia#Both spellings are fine.}.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded blanks/0/accept/1"
     ],
     "import": {
@@ -1243,7 +1251,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -1271,7 +1279,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/1/domain",
       "error multiple-blanks blanks"
     ]
@@ -1282,7 +1290,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -1292,7 +1300,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped blanks/1/choices/1/comment",
       "error multiple-blanks blanks"
     ]
@@ -1303,14 +1311,14 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
   "valid/fill-in/choice-blank-omitted-score-vs-zero-percent.yaml": {
     "export": "::Largest Brazilian biome:: [markdown] The {=Amazon ~Cerrado ~Pampa} is the largest biome in Brazil.",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "blanks": [
@@ -1341,7 +1349,7 @@
   "valid/fill-in/choice-blank-rich.yaml": {
     "export": "::Nascente do Amazonas:: [markdown] O rio Amazonas nasce {=nos Andes peruanos#Exato. ~%50%no Peru#Aceito em parte\\: falta dizer onde no Peru. ~%-25%no Brasil#O Amazonas entra no Brasil já como um grande rio. ~na Europa}.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped blanks/0/choices/0/comment",
       "info metadata-dropped blanks/0/choices/1/comment"
     ],
@@ -1384,7 +1392,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -1400,7 +1408,7 @@
   "valid/fill-in/diacritics-keep.yaml": {
     "export": "::Rios do Nordeste:: [markdown] O rio {=São Francisco} nasce na Serra da Canastra e deságua entre Alagoas e Sergipe.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -1462,6 +1470,27 @@
       "type": "fill-in"
     }
   },
+  "valid/fill-in/escaped-blank-marker-is-text.yaml": {
+    "export": "[markdown] Em MDQ, um blank se escreve \\\\[^capital] e o seu estado, &\\#91;^estado]. A capital do Brasil é {=Brasília}.",
+    "export_diagnostics": [
+      "warning diacritics-not-folded blanks/0/accept/0"
+    ],
+    "import": {
+      "blanks": [
+        {
+          "accept": [
+            {
+              "pattern": "Brasília"
+            }
+          ],
+          "id": "blank",
+          "type": "short-answer"
+        }
+      ],
+      "stem": "Em MDQ, um blank se escreve \\[^capital] e o seu estado, &#91;^estado]. A capital do Brasil é [^blank].",
+      "type": "fill-in"
+    }
+  },
   "valid/fill-in/first-paragraph-starts-with-blank.yaml": {
     "export": "[markdown] {=Brasília} é a capital do Brasil desde 1960.",
     "export_diagnostics": [
@@ -1486,7 +1515,7 @@
   "valid/fill-in/frontmatter-numeric-key.yaml": {
     "export": "::Rio Tocantins:: [markdown] The Tocantins River is {#2500:50} kilometers long.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/0/decimalPlaces"
@@ -1513,7 +1542,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped grading",
       "warning field-dropped blanks/1/domain",
       "warning field-dropped blanks/1/decimalPlaces",
@@ -1523,7 +1552,7 @@
   "valid/fill-in/grading-shuffle-inherit.yaml": {
     "export": "::Iguaçu Falls:: [markdown] Iguaçu Falls sit on the border of Brazil and {=Argentina ~Bolivia ~Uruguay}.",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "blanks": [
@@ -1557,7 +1586,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped grading",
       "error multiple-blanks blanks"
     ]
@@ -1568,7 +1597,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped grading",
       "warning field-dropped blanks/1/domain",
       "warning field-dropped blanks/1/decimalPlaces",
@@ -1578,7 +1607,7 @@
   "valid/fill-in/ids-choice-blank.yaml": {
     "export": "[markdown] A capital do Brasil é {=Brasília ~Rio de Janeiro ~Salvador}.",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "blanks": [
@@ -1611,14 +1640,14 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
   "valid/fill-in/line-and-detached-list-epilogue.yaml": {
     "export": "::Blank lines followed by list epilogues:: [markdown] O bioma {=Amazônia =%0%Cerrado}.\n* Cerrado is the second largest biome.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
@@ -1649,7 +1678,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/2/domain",
       "error multiple-blanks blanks"
     ]
@@ -1720,7 +1749,7 @@
   "valid/fill-in/null-entry-numeric-maps.yaml": {
     "export": "::Rio Tocantins:: [markdown] The Tocantins River is {#2500:50} kilometers long.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain"
     ],
@@ -1743,7 +1772,7 @@
   "valid/fill-in/null-entry-pattern-maps.yaml": {
     "export": "::Pantanal state:: [markdown] The Pantanal lies mostly in the state of {=Mato Grosso do Sul =Mato Grosso}.",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "blanks": [
@@ -1771,7 +1800,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/0/decimalPlaces",
@@ -1782,7 +1811,7 @@
   "valid/fill-in/numeric-blank-domain-mismatch.yaml": {
     "export": "::Biomes:: [markdown] The Pantanal has about {#150:0.5} thousand square kilometers.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/domain"
     ],
     "import": {
@@ -1807,7 +1836,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/0/decimalPlaces",
@@ -1823,7 +1852,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/0/decimalPlaces",
@@ -1842,7 +1871,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/1/unit",
@@ -1856,7 +1885,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/2/decimalPlaces",
       "warning field-dropped blanks/3/domain",
       "warning field-dropped blanks/4/domain",
@@ -1869,7 +1898,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/0/decimalPlaces",
@@ -1882,7 +1911,7 @@
   "valid/fill-in/numeric-blank-relative-tolerance-around-zero-string.yaml": {
     "export": "::Rios:: [markdown] O rio São Francisco atravessa {#0} estados.",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "blanks": [
@@ -1903,7 +1932,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/domain",
       "warning field-dropped blanks/1/domain",
       "warning field-dropped blanks/2/domain",
@@ -1932,7 +1961,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/1/unit",
       "error multiple-blanks blanks"
@@ -1941,7 +1970,7 @@
   "valid/fill-in/numeric-fraction.yaml": {
     "export": "::The Northeast region:: [markdown] The nine states of the Northeast region are {#0.3333333333333333} of Brazil's 27 federative units.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/domain",
       "warning inexact-answer blanks/0/answer"
     ],
@@ -1961,7 +1990,7 @@
   "valid/fill-in/numeric-unit-slash.yaml": {
     "export": "::Fastest cat in the Americas:: [markdown] The jaguar (*Panthera onca*) can sprint at up to {#80:5} in short bursts.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/unit",
       "warning field-dropped blanks/0/domain"
     ],
@@ -1987,7 +2016,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/1/unit",
       "warning field-dropped blanks/1/domain",
       "error multiple-blanks blanks"
@@ -1996,7 +2025,7 @@
   "valid/fill-in/observation-order.yaml": {
     "export": "::Order of feedback and comment lines in blanks:: [markdown] O maior bioma brasileiro é a {=Amazônia#Right. =Amazon#Right, in English. A second feedback line. =%0%Cerrado#It is the second largest.}.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped blanks/0/accept/0/comment",
       "info metadata-dropped blanks/0/accept/1/comment",
       "info metadata-dropped blanks/0/reject/0/comment",
@@ -2036,7 +2065,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -2046,7 +2075,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -2056,7 +2085,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/preAccept",
       "warning field-dropped blanks/0/preReject",
       "error multiple-blanks blanks"
@@ -2068,7 +2097,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/0/preAccept",
       "warning field-dropped blanks/1/preReject",
       "error multiple-blanks blanks"
@@ -2080,14 +2109,14 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
   "valid/fill-in/reject-block-before-accept.yaml": {
     "export": "::Largest biome, reject first:: [markdown] The largest Brazilian biome is the {=Amazônia =%0%Cerrado#It is the second largest.}.",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
@@ -2119,7 +2148,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped blanks/0",
       "error no-accept blanks/0/accept"
     ]
@@ -2130,14 +2159,14 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
   "valid/fill-in/short-answer-blank-then-list-epilogue.yaml": {
     "export": "::Second list as epilogue:: [markdown] A capital do Brasil é {=Brasília}.\n- Brasilia",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
@@ -2163,7 +2192,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped blanks/0/accept/0",
       "error no-accept blanks/0/accept"
     ]
@@ -2174,7 +2203,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error multiple-blanks blanks"
     ]
   },
@@ -2184,7 +2213,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped shuffle",
       "warning field-dropped grading",
       "error multiple-blanks blanks"
@@ -2238,7 +2267,7 @@
       "error": "cannot convert to GIFT: fill-in question must have exactly one blank"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped blanks/1/domain",
       "error multiple-blanks blanks"
     ]
@@ -2246,7 +2275,7 @@
   "valid/multiple-choice/all-correct.yaml": {
     "export": "::Biomas brasileiros:: [markdown] Qual destes é um bioma brasileiro? {=Caatinga =Pampa =Pantanal}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -2268,7 +2297,7 @@
   "valid/multiple-choice/choice-ids.yaml": {
     "export": "::Árvore símbolo do Brasil:: [markdown] Qual destas árvores é considerada a árvore símbolo do Brasil? {=Ipê-amarelo ~%-33.33333%Pau-brasil#O pau-brasil deu nome ao país, mas a árvore símbolo oficial é o ipê-amarelo. ~%-33.33333%Araucária ~%-33.33333%Castanheira-do-pará}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2298,7 +2327,7 @@
   "valid/multiple-choice/choice-text-differs-in-code-span.yaml": {
     "export": "::Whitespace inside a code span:: [markdown] Qual comando lista os arquivos de um diretório com detalhes? {=`ls  -la` ~%-100%`ls -la`}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2319,7 +2348,7 @@
   "valid/multiple-choice/comment-empty-lines.yaml": {
     "export": "::Maior planície alagável:: [markdown] Qual bioma brasileiro é a maior planície alagável do mundo? {=Pantanal ~%-100%Caatinga}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2340,7 +2369,7 @@
   "valid/multiple-choice/comment-only-spaces.yaml": {
     "export": "::Maior planície alagável:: [markdown] Qual bioma brasileiro é a maior planície alagável do mundo? {=Pantanal ~%-100%Caatinga}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2361,7 +2390,7 @@
   "valid/multiple-choice/comment-stripped.yaml": {
     "export": "// Comentário\n::Maior planície alagável:: [markdown] Qual bioma brasileiro é a maior planície alagável do mundo? {=Pantanal ~%-100%Caatinga}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2383,7 +2412,7 @@
   "valid/multiple-choice/comments.yaml": {
     "export": "::Descoberta do méson pi:: [markdown] Qual físico brasileiro participou da descoberta experimental do méson pi em 1947? {=César Lattes#Lattes trabalhou com Powell e Occhialini em Bristol. ~%-33.33333%Mário Schenberg#Schenberg trabalhou em astrofísica, com o processo Urca. ~%-33.33333%José Leite Lopes ~%-33.33333%Jayme Tiomno}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped choices/0/comment",
       "info metadata-dropped choices/1/comment",
       "info metadata-dropped choices/2/comment"
@@ -2417,7 +2446,7 @@
   "valid/multiple-choice/composite-ids.yaml": {
     "export": "::RGB:: [markdown] What does RGB stand for? {=Red, green and blue. ~%-25%Rapid growth boundary ~%-25%Raw grammar baseline ~%-25%None of the above ~%-25%All of the above}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2450,7 +2479,7 @@
   "valid/multiple-choice/context-paragraphs.yaml": {
     "export": "::Pororoca:: [markdown] The pororoca is a tidal bore\\: the sea tide pushes against the current of the Amazon River and a wave travels upstream.\\n\nIt happens mostly around the new moon and the full moon, when the tides are strongest.\\n\nWhat causes the strongest tides on Earth? {=The alignment of the Sun, the Moon and the Earth ~%-50%The rotation of the Earth around its axis ~%-50%The wind over the Atlantic Ocean}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2475,7 +2504,7 @@
   "valid/multiple-choice/continued-choice-text.yaml": {
     "export": "::Teoria da evolução:: [markdown] Qual é a ideia central da seleção natural, como proposta por Darwin e Wallace? {=Indivíduos com características que favorecem a sobrevivência e a reprodução deixam mais descendentes, e essas características se tornam mais comuns na população. ~%-50%Os organismos se esforçam para mudar durante a vida e transmitem as mudanças adquiridas aos descendentes.#Essa é a herança de caracteres adquiridos, de Lamarck. ~%-50%As espécies são fixas e não mudam ao longo do tempo.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2501,7 +2530,7 @@
   "valid/multiple-choice/feedback-after-empty-marker.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília#Planejada por Lucio Costa e Oscar Niemeyer. ~%-100%Salvador}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2523,7 +2552,7 @@
   "valid/multiple-choice/feedback-indented-bullet.yaml": {
     "export": "::Biomes only in Brazil:: [markdown] Which biome exists only in Brazil? {=Caatinga#It occurs only * in the Northeast ~%-100%Amazon rainforest}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2545,7 +2574,7 @@
   "valid/multiple-choice/feedback-indented-fence.yaml": {
     "export": "::Biomes only in Brazil:: [markdown] Which biome exists only in Brazil? {=Caatinga#It occurs only ``` ~%-100%Amazon rainforest}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2567,7 +2596,7 @@
   "valid/multiple-choice/feedback-indented-heading.yaml": {
     "export": "::Biomes only in Brazil:: [markdown] Which biome exists only in Brazil? {=Caatinga#It occurs only \\# in the Northeast ~%-100%Amazon rainforest}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2589,7 +2618,7 @@
   "valid/multiple-choice/feedback.yaml": {
     "export": "::Largest river:: [markdown] Which one is the largest river in the world? {=Amazon ~%-33.33333%Nile#The Amazon is much larger by volume of water, and recent surveys put it ahead by length too. ~%-33.33333%Mississippi#Not even close! ~%-33.33333%Yellow River}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2620,7 +2649,7 @@
   "valid/multiple-choice/fullwidth-asterisk-marker.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília ~%-50%Lisboa ~%-50%Buenos Aires}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2645,7 +2674,7 @@
   "valid/multiple-choice/grading-shuffle-inherit.yaml": {
     "export": "::Brazilian savanna:: [markdown] Which biome is known as the Brazilian savanna? {=Cerrado ~%-50%Caatinga ~%-50%Pampa}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2670,7 +2699,7 @@
   "valid/multiple-choice/grading.yaml": {
     "export": "::Longest river:: [markdown] Which river carries the largest volume of water in the world? {=Amazon ~%50%Congo ~São Francisco ~Paraná}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2699,7 +2728,7 @@
   "valid/multiple-choice/ids-ascii-spelling.yaml": {
     "export": "[markdown] Qual grafia consta no censo demográfico? {~%-50%Brasília =Brasilia ~%-50%Nenhuma das anteriores}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2723,7 +2752,7 @@
   "valid/multiple-choice/ids-explicit-id-wins.yaml": {
     "export": "[markdown] Qual é a capital do Brasil? {~%-50%Brasília =Distrito Federal, sede do governo ~%-50%São Paulo}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2747,7 +2776,7 @@
   "valid/multiple-choice/ids-order-backward.yaml": {
     "export": "[markdown] Qual é a capital do Brasil? {~%-50%São Paulo =Brasília ~%-50%Rio de Janeiro}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2771,7 +2800,7 @@
   "valid/multiple-choice/ids-order-forward.yaml": {
     "export": "[markdown] Qual é a capital do Brasil? {~%-50%Rio de Janeiro =Brasília ~%-50%São Paulo}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2795,7 +2824,7 @@
   "valid/multiple-choice/ids-punctuation-variants.yaml": {
     "export": "[markdown] Qual pontuação está correta? {~%-50%São Paulo! =São Paulo? ~%-50%Rio de Janeiro}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2836,7 +2865,7 @@
   "valid/multiple-choice/link-choice.yaml": {
     "export": "::Capital with a link:: [markdown] Qual é a capital do Brasil? {=[Brasilia](https\\://pt.wikipedia.org/wiki/Brasília) ~%-50%[Rio de Janeiro](https\\://pt.wikipedia.org/wiki/Rio_de_Janeiro) ~%-50%Salvador}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2861,7 +2890,7 @@
   "valid/multiple-choice/many-correct-choices.yaml": {
     "export": "::Fatos sobre o Brasil:: [markdown] Qual destas afirmações é verdadeira? {=O Brasil fica na América do Sul. =O Amazonas é um rio. ~O Brasil fica na Europa.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2965,7 +2994,7 @@
   "valid/multiple-choice/no-correct-answer.yaml": {
     "export": "::Clima do Cerrado:: [markdown] Qual destas características melhor descreve o clima do Cerrado? {~Chuvas o ano inteiro ~Duas estações bem marcadas, uma seca e uma chuvosa ~Neve frequente no inverno}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -2990,7 +3019,7 @@
   "valid/multiple-choice/null-fields.yaml": {
     "export": "[markdown] Which Brazilian state has the longest coastline? {=Bahia ~%-33.33333%Maranhão ~%-33.33333%Rio de Janeiro ~%-33.33333%Santa Catarina}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3018,7 +3047,7 @@
   "valid/multiple-choice/omitted-score-vs-zero-percent.yaml": {
     "export": "::Largest rainforest:: [markdown] What is the largest tropical rainforest in the world? {=Amazon ~%-75%Atlantic Forest ~Cerrado ~%-25%Sahara}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3047,7 +3076,7 @@
   "valid/multiple-choice/partial-credit-no-full-answer.yaml": {
     "export": "::Brazilian biomes:: [markdown] Which biome covers most of the Brazilian territory? {~%50%Amazon ~%50%Cerrado ~%-100%Pampa}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3072,7 +3101,7 @@
   "valid/multiple-choice/partial-credit.yaml": {
     "export": "::Largest ocean:: [markdown] Which is the largest ocean on Earth? {=Pacific ~%50%Atlantic ~%-100%Indian ~%-25%The Moon has no ocean.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3101,7 +3130,7 @@
   "valid/multiple-choice/percent-forms.yaml": {
     "export": "::Nascente do rio Amazonas:: [markdown] Onde fica a nascente do rio Amazonas? {=Nos Andes peruanos ~%50%No Peru#Correto, mas pouco preciso. ~%33.33333%Na América do Sul#Correto, mas vago demais. ~No Brasil ~%-100%Na Europa}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning score-rounded choices/2/score"
     ],
     "import": {
@@ -3137,7 +3166,7 @@
   "valid/multiple-choice/reference-link-and-id-separators.yaml": {
     "export": "::Capitals:: [markdown] Qual é a capital do Brasil?\\n\n[ref]\\: https\\://pt.wikipedia.org/wiki/Salvador {=Brasília ~%-50%Rio de Janeiro ~%-50%[Salvador][ref]}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3162,7 +3191,7 @@
   "valid/multiple-choice/setext-heading-in-epilogue-not-linted.yaml": {
     "export": "::Largest Brazilian river:: [markdown] Which river is the longest inside Brazil?\\n\nSource\n--- {=Amazon ~%-100%Tocantins}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3183,7 +3212,7 @@
   "valid/multiple-choice/shuffle-false.yaml": {
     "export": "[markdown] Qual bioma brasileiro acompanha a maior parte do litoral? {=Mata Atlântica ~%-33.33333%Cerrado ~%-33.33333%Pampa ~%-33.33333%Nenhuma das anteriores}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped shuffle"
     ],
     "import": {
@@ -3212,7 +3241,7 @@
   "valid/multiple-choice/shuffle.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília ~%-33.33333%Rio de Janeiro ~%-33.33333%Salvador ~%-33.33333%Todas as anteriores}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped shuffle"
     ],
     "import": {
@@ -3264,7 +3293,7 @@
   "valid/multiple-choice/spaced-values.yaml": {
     "export": "::Ponto mais alto do Brasil:: [markdown] Qual é o ponto mais alto do Brasil? {=Pico da Neblina ~%50%Pico 31 de Março#Fica a poucos quilômetros da Neblina e é o segundo mais alto. ~%-75%Pico da Bandeira ~%-75%Monte Roraima}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3294,7 +3323,7 @@
   "valid/multiple-choice/visually-identical-choices.yaml": {
     "export": "::Capital visual twins:: [markdown] Qual cidade é a capital do Brasil? {~*Rio de Janeiro* ~_Rio de Janeiro_ =Brasília}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -3319,7 +3348,7 @@
   "valid/multiple-choice/yaml-core-scalars.yaml": {
     "export": "::YAML 1.2 Core schema scalars:: [markdown] Qual rio nasce na Serra da Canastra? {=São Francisco ~%-100%Amazonas}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped weight",
       "info metadata-dropped meta/bool-true",
       "info metadata-dropped meta/bool-title",
@@ -3380,7 +3409,7 @@
   "valid/multiple-choice/yaml-core-schema.yaml": {
     "export": "::YAML 1.2 Core schema:: [markdown] Qual destes valores YAML é um booleano? {=`true` ~%-50%`yes` ~%-50%`on`}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped tags",
       "info metadata-dropped meta/octal",
       "info metadata-dropped meta/leading-zero",
@@ -3695,7 +3724,7 @@
   "valid/numeric/answer-outside-domain.yaml": {
     "export": "::Pi to two decimals:: [markdown] Qual é o valor de pi, com duas casas decimais? {#3.14:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -3723,7 +3752,7 @@
   "valid/numeric/decimal-beyond-float.yaml": {
     "export": "::Pi to twenty decimal places:: [markdown] What is the value of pi, to twenty decimal places? {#3.141592653589793}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces",
       "warning inexact-answer answer"
@@ -3753,7 +3782,7 @@
   "valid/numeric/decimal-trailing-zero.yaml": {
     "export": "::Coins in reais:: [markdown] How much, in reais, are two 1-real coins and one 50-centavo coin worth? {#2.5:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3771,7 +3800,7 @@
   "valid/numeric/decimal-whole-trailing-zero.yaml": {
     "export": "::pH of the Rio Negro:: [markdown] Qual é o pH aproximado da água do rio Negro, um rio de águas pretas? {#4:0.5}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -3799,7 +3828,7 @@
   "valid/numeric/domain-integer-relative-tolerance.yaml": {
     "export": "::Relative tolerance under integer:: [markdown] How many municipalities does Minas Gerais have, within 5%? {#853:42.650000000000006}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -3815,7 +3844,7 @@
   "valid/numeric/domain-integer-whole-float-tolerance.yaml": {
     "export": "::Whole float tolerance under integer:: [markdown] How many states are in the Northeast region of Brazil? {#9:1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -3831,7 +3860,7 @@
   "valid/numeric/domain-mismatch-fraction.yaml": {
     "export": "::Share of the Amazon biome:: [markdown] The Amazon biome covers about one half of Brazil. Which fraction of the national territory is this? {#0.5:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -3847,7 +3876,7 @@
   "valid/numeric/domain-mismatch-integer.yaml": {
     "export": "::States of the Northeast:: [markdown] How many states are in the Northeast region of Brazil? {#9:0.5}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -3874,7 +3903,7 @@
   "valid/numeric/exponent-avogadro.yaml": {
     "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23:1e+20}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3892,7 +3921,7 @@
   "valid/numeric/exponent-both-tolerances.yaml": {
     "export": "::Exponent in both tolerances:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23:1e+20}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3910,7 +3939,7 @@
   "valid/numeric/exponent-earth-mass.yaml": {
     "export": "::Mass of the Earth:: [markdown] What is the mass of the Earth, in kg? {#5.972e+24:5.972000000000001e+22}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3928,7 +3957,7 @@
   "valid/numeric/exponent-forms.yaml": {
     "export": "::Exponent forms:: [markdown] How many bacteria does a culture hold, to the nearest hundred? {#25000:100}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -3945,7 +3974,7 @@
   "valid/numeric/exponent-largest-double.yaml": {
     "export": "::Largest double:: [markdown] What is the largest finite IEEE 754 double-precision number, to four significant digits? {#1.797e+308:1e+305}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -3962,7 +3991,7 @@
   "valid/numeric/exponent-leading-zero.yaml": {
     "export": "::Leading zero in the exponent:: [markdown] What is the area of the Pantanal, in km2, to two significant digits? {#150000}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3977,7 +4006,7 @@
   "valid/numeric/exponent-number-answer.yaml": {
     "export": "::Violet light:: [markdown] What is the wavelength of violet light, in meters, to two significant digits? {#4.1e-07:1e-08}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -3995,7 +4024,7 @@
   "valid/numeric/exponent-relative-tolerance.yaml": {
     "export": "::Exponent in a relative tolerance:: [markdown] How many states are in the Northeast region of Brazil? {#9:9e-05}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4011,7 +4040,7 @@
   "valid/numeric/exponent-smallest-double.yaml": {
     "export": "::Smallest double:: [markdown] What is the smallest positive IEEE 754 double-precision number? {#5e-324}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -4025,7 +4054,7 @@
   "valid/numeric/exponent-string-answer.yaml": {
     "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit"
     ],
     "import": {
@@ -4038,7 +4067,7 @@
   "valid/numeric/exponent-trailing-zero-places.yaml": {
     "export": "::Places of a mantissa with trailing zero:: [markdown] What is the area of the Pantanal in hundreds of km2, to three significant digits? {#15:1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -4055,7 +4084,7 @@
   "valid/numeric/exponent-trailing-zero.yaml": {
     "export": "::Trailing zero of the mantissa:: [markdown] What is the area of the Cerrado, in km2, to three significant digits? {#2000000}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4070,7 +4099,7 @@
   "valid/numeric/exponent-water-ions.yaml": {
     "export": "::Ions in pure water:: [markdown] What is the concentration of H+ ions in pure water at 25 C, in mol/L? {#1e-07}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4085,7 +4114,7 @@
   "valid/numeric/exponent-wavelength.yaml": {
     "export": "::Sodium lamp:: [markdown] What is the wavelength of the yellow light of a sodium vapor lamp, in meters? {#5.89e-07:1e-09}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4103,7 +4132,7 @@
   "valid/numeric/exponent.yaml": {
     "export": "::Speed of light:: [markdown] What is the speed of light in a vacuum, in km/s, to one significant digit? {#300000}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4118,7 +4147,7 @@
   "valid/numeric/fraction-answer-decimal-string.yaml": {
     "export": "::Three quarters:: [markdown] Which fraction of an hour is 45 minutes? {#0.75}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4131,7 +4160,7 @@
   "valid/numeric/fraction-answer-float-decimal-tolerance.yaml": {
     "export": "::Quarto de real:: [markdown] Que fração de um real vale uma moeda de 75 centavos? {#0.75:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4147,7 +4176,7 @@
   "valid/numeric/fraction-answer-float-whole-tolerance.yaml": {
     "export": "::Quarto de real:: [markdown] Que fração de um real vale uma moeda de 75 centavos? {#0.75:1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4163,7 +4192,7 @@
   "valid/numeric/fraction-answer-float.yaml": {
     "export": "::A 25-centavo coin:: [markdown] What fraction of one real is a 25-centavo coin worth? {#0.25}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4176,7 +4205,7 @@
   "valid/numeric/fraction-answer-string.yaml": {
     "export": "::Rolling a multiple of three:: [markdown] Playing Banco Imobiliário with a fair six-sided die, what is the probability of rolling a number divisible by three? {#0.3333333333333333}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning inexact-answer answer"
     ],
     "import": {
@@ -4217,7 +4246,7 @@
   "valid/numeric/fraction-domain-integer.yaml": {
     "export": "::Four 25-centavo coins:: [markdown] How many reais are four 25-centavo coins worth? {#1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4244,7 +4273,7 @@
   "valid/numeric/fraction.yaml": {
     "export": "::Three quarters:: [markdown] What is 3 divided by 4? {#0.75}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4306,7 +4335,7 @@
   "valid/numeric/ignored-decimal-places-inferred.yaml": {
     "export": "::Federative units:: [markdown] How many federative units does Brazil have? {#27}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped decimalPlaces"
     ],
     "import": {
@@ -4319,7 +4348,7 @@
   "valid/numeric/ignored-decimal-places.yaml": {
     "export": "::Order of magnitude:: [markdown] Quantos habitantes tinha o Brasil, em milhões, no censo de 2022 (arredondado)? {#203}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -4333,7 +4362,7 @@
   "valid/numeric/incorrect-feedback.yaml": {
     "export": "::Highest peak of Brazil:: [markdown] What is the altitude of the Pico da Neblina, the highest peak of Brazil, in meters? {# =2995:5 =%0%*#Not quite. The Pico da Neblina is in the Serra do Imeri, on the border with Venezuela.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4351,7 +4380,7 @@
   "valid/numeric/inferred-decimal-tolerance.yaml": {
     "export": "::Boiling point:: [markdown] At what temperature, in degrees Celsius, does water boil at sea level? {#100:1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -4412,7 +4441,7 @@
   "valid/numeric/integer-beyond-int32.yaml": {
     "export": "::Trees in the Amazon:: [markdown] Approximately how many trees grow in the Amazon rainforest? {#390000000000:39000000000}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4428,7 +4457,7 @@
   "valid/numeric/integer.yaml": {
     "export": "::Days in a leap year:: [markdown] How many days are there in a leap year? {#366}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4464,7 +4493,7 @@
   "valid/numeric/negative.yaml": {
     "export": "::Absolute zero:: [markdown] What is absolute zero, in degrees Celsius? {#-273.15:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4493,7 +4522,7 @@
   "valid/numeric/redundant-id-different.yaml": {
     "export": "::Saca de café:: [markdown] Qual é a massa de uma saca de café beneficiado, em quilogramas? {#60}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4506,7 +4535,7 @@
   "valid/numeric/redundant-id-equal.yaml": {
     "export": "::Saca de café:: [markdown] Qual é a massa de uma saca de café beneficiado, em quilogramas? {#60}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4554,7 +4583,7 @@
   "valid/numeric/relative-tolerance-decimal-shift.yaml": {
     "export": "[markdown] How many kilograms are there in one metric ton of sugarcane? {#1000:7}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4570,7 +4599,7 @@
   "valid/numeric/relative-tolerance-over-one.yaml": {
     "export": "::População do Brasil:: [markdown] Quantos habitantes, aproximadamente, tem o Brasil (em milhões)? {#203:1015}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "answer": 203,
@@ -4634,7 +4663,7 @@
   "valid/numeric/tag-indented-three-spaces.yaml": {
     "export": "::States of the Northeast:: [markdown] How many states does the Northeast region of Brazil have? {#9}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -4707,7 +4736,7 @@
   "valid/numeric/tolerances.yaml": {
     "export": "::Pi:: [markdown] What is the value of pi, to two decimal places? {#3.14:0.1}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
     ],
@@ -4724,7 +4753,7 @@
   "valid/numeric/unit-code-span.yaml": {
     "export": "::Torque of a turbine:: [markdown] What is the torque of a turbine at the Itaipu dam, in newton meters? {#42}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4738,7 +4767,7 @@
   "valid/numeric/unit-currency-symbol.yaml": {
     "export": "::Preço do pão de queijo:: [markdown] Quanto custa um pão de queijo na padaria? {#4.5}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit"
     ],
     "import": {
@@ -4751,7 +4780,7 @@
   "valid/numeric/unit-escaped-asterisk.yaml": {
     "export": "::Torque of a turbine:: [markdown] What is the torque of a turbine at the Itaipu dam, in newton meters? {#42}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4765,7 +4794,7 @@
   "valid/numeric/unit-non-ascii.yaml": {
     "export": "::Amazon rainforest temperature:: [markdown] What is the average annual temperature of the Amazon rainforest? {#26:2}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4805,7 +4834,7 @@
   "valid/numeric/unit.yaml": {
     "export": "::Water in a litre:: [markdown] How many grams of water are there in a litre? {#1000:5}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain"
     ],
@@ -4859,7 +4888,7 @@
   "valid/numeric/zero-answer.yaml": {
     "export": "::Net force:: [markdown] A book rests on a table. What is the net force on it, in newtons? {#0:0.01}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped unit",
       "warning field-dropped domain",
       "warning field-dropped decimalPlaces"
@@ -4877,7 +4906,7 @@
   "valid/numeric/zero-tolerance.yaml": {
     "export": "::Brazilian states:: [markdown] Quantos estados tem a Região Sudeste do Brasil? {#4}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped domain"
     ],
     "import": {
@@ -5502,7 +5531,7 @@
   "valid/short-answer/accept-and-reject-blocks.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília =%0%Rio de Janeiro#Foi a capital até 1960. =%0%Salvador#Foi a primeira capital, até 1763.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -5532,7 +5561,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "error no-accept accept"
@@ -5544,7 +5573,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped reject/0/comment",
       "warning regex-dropped accept/0",
       "error no-accept accept"
@@ -5556,7 +5585,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -5567,7 +5596,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -5578,7 +5607,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -5599,7 +5628,7 @@
   "valid/short-answer/continuation-lines.yaml": {
     "export": "::Longest river in Brazil:: [markdown] Which river is the longest one that runs only inside Brazil? {=Rio São Francisco#Right\\: about 2,800 km, from Minas Gerais to the Atlantic. =São Francisco#Right. The full name is Rio São Francisco. =%0%Rio Amazonas}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped accept/1/comment",
       "warning diacritics-not-folded accept/0",
       "warning diacritics-not-folded accept/1"
@@ -5628,7 +5657,7 @@
   "valid/short-answer/diacritics-fold-explicit.yaml": {
     "export": "::Capital de Alagoas:: [markdown] Qual é a capital de Alagoas? {=Maceió}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -5645,7 +5674,7 @@
   "valid/short-answer/diacritics-keep-mixed.yaml": {
     "export": "::Grafia de Maceió:: [markdown] Escreva o nome da capital de Alagoas, com a acentuação correta. {=Maceió#The inexact literal keeps its diacritics\\: `Maceio` does not match. =MACEIÓ#An exact literal is compared verbatim regardless of `diacritics`.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning regex-dropped accept/2"
     ],
@@ -5668,7 +5697,7 @@
   "valid/short-answer/diacritics-keep.yaml": {
     "export": "::Grafia de Maceió:: [markdown] Escreva o nome da capital de Alagoas, com a acentuação correta. {=Maceió =%0%Maceio#Falta o acento agudo no \"o\".}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -5691,7 +5720,7 @@
   "valid/short-answer/em-space-starts-pattern-line.yaml": {
     "export": "::Unicode space starts a pattern line:: [markdown] Qual é a capital do Brasil? {= /bras[íi]lia/i}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -5708,7 +5737,7 @@
   "valid/short-answer/empty-reject-text-line.yaml": {
     "export": "::Biggest dry forest:: [markdown] Which biome is the Caatinga part of? {=semiárido =%0%Cerrado}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -5730,7 +5759,7 @@
   "valid/short-answer/empty-tag-text-line.yaml": {
     "export": "::Highest mountain in Brazil:: [markdown] What is the highest mountain in Brazil? {=Pico da Neblina}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5746,7 +5775,7 @@
   "valid/short-answer/exact-backtick-run.yaml": {
     "export": "::Fence of a code block:: [markdown] A fenced code block in Markdown opens with a run of three backticks. Write that run. {=```}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5762,7 +5791,7 @@
   "valid/short-answer/exact-backtick.yaml": {
     "export": "::Command substitution:: [markdown] In Bash, the old syntax of command substitution encloses a command in backticks. Write the form that runs `date` and uses its output. {=`date`#Correct -- the backticks are part of the answer. =$(date)#Correct -- this is the modern form.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5783,7 +5812,7 @@
   "valid/short-answer/exact-block.yaml": {
     "export": "::Checking for NaN:: [markdown] Which **Python** function is used to check if a number is NaN? {=math.isnan#Correct -- that is the exact name of the function. =not a number#Correct -- that is the acronym.}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5804,7 +5833,7 @@
   "valid/short-answer/exact-leading-spaces.yaml": {
     "export": "::Chemical symbol of oxygen:: [markdown] Which is the chemical symbol of the gas that the Amazon forest releases by photosynthesis? {=O}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5844,7 +5873,7 @@
   "valid/short-answer/exact-literal-wraps-double-backtick.yaml": {
     "export": "::Exact literal wrapped inside the text:: [markdown] Qual função calcula a raiz quadrada em Python? {=a`b c}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5860,7 +5889,7 @@
   "valid/short-answer/exact-literal-wraps-inner-backticks.yaml": {
     "export": "::Exact literal wrapped inside the text:: [markdown] Qual função calcula a raiz quadrada em Python? {=a ``b}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5876,7 +5905,7 @@
   "valid/short-answer/exact-with-spaces.yaml": {
     "export": "::Chamada de função:: [markdown] Escreva a chamada que testa se `x` é NaN em Python, com espaços ao redor do ponto. {=math . isnan(x)}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5892,7 +5921,7 @@
   "valid/short-answer/exact.yaml": {
     "export": "::Python truthiness:: [markdown] Write the Python literal for boolean truth, exactly as the interpreter spells it. {=True}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5920,7 +5949,7 @@
   "valid/short-answer/heading-after-content.yaml": {
     "export": "::Largest island of Brazil:: [markdown] What is the largest river island in Brazil?\\n\n\\#\\# Note {=Ilha do Bananal}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -5951,7 +5980,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped reject/0",
@@ -5965,7 +5994,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "error no-accept accept"
     ]
@@ -5988,7 +6017,7 @@
   "valid/short-answer/incorrect-feedback-unmatched-incorrect.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília =%0%*#Essa cidade nunca foi a capital.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6006,7 +6035,7 @@
   "valid/short-answer/incorrect-feedback-with-reject.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília =%0%Rio de Janeiro#Foi a capital até 1960. =%0%*#Essa cidade nunca foi a capital.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6045,7 +6074,7 @@
   "valid/short-answer/indented-marker-continuation.yaml": {
     "export": "::Peaks of Brazil:: [markdown] Pico da Neblina is higher than Pico da Bandeira. Write the pair as \"Neblina ! Bandeira\". {=Neblina ! Bandeira =%0%Serra > Mar}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6066,7 +6095,7 @@
   "valid/short-answer/indented-quote-continuation.yaml": {
     "export": "::Highest peaks of Brazil:: [markdown] Pico da Neblina is 2995 m high and Pico da Bandeira is 2892 m high. Write the comparison of their heights as \"Neblina > Bandeira\". {=Neblina > Bandeira}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6082,7 +6111,7 @@
   "valid/short-answer/indented-underline-continuation.yaml": {
     "export": "::Rio Negro:: [markdown] Which river meets the Solimões at Manaus? {=Rio \\=\\=\\=}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6098,7 +6127,7 @@
   "valid/short-answer/inline-id-and-indented-tag.yaml": {
     "export": "[markdown] Qual é a capital do Brasil? {=Brasília}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6114,7 +6143,7 @@
   "valid/short-answer/link-definition-continuation.yaml": {
     "export": "::Capital do Brasil:: [markdown] Qual é a capital do Brasil? {=Brasília [ibge]\\: https\\://www.ibge.gov.br}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6131,7 +6160,7 @@
   "valid/short-answer/list-then-ordered-list-epilogue.yaml": {
     "export": "::Ordered list after a blank line:: [markdown] Qual é a capital do Brasil?\\n\n1. Capital federal {=Brasília}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6148,7 +6177,7 @@
   "valid/short-answer/list-with-feedback.yaml": {
     "export": "::Capital of Brazil:: [markdown] What is the capital of Brazil? {=Brasília#Right\\: the capital since 1960. =%0%Rio de Janeiro#It used to be, but not since 1960.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped accept/1/comment",
       "warning diacritics-not-folded accept/0",
       "warning regex-dropped accept/1"
@@ -6174,7 +6203,7 @@
   "valid/short-answer/list.yaml": {
     "export": "::Primary colours:: [markdown] Name one of the three additive primary colours. {=red =green =blue}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6196,7 +6225,7 @@
   "valid/short-answer/literal-asterisk.yaml": {
     "export": "::Operador de multiplicação:: [markdown] Qual símbolo representa a multiplicação na maioria das linguagens de programação? {=\\\\*}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/2"
     ],
@@ -6217,7 +6246,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -6225,7 +6254,7 @@
   "valid/short-answer/multi-line-patterns.yaml": {
     "export": "::Capital of Pernambuco:: [markdown] What is the full name of the capital of Pernambuco? {=Recife dos Pernambucanos =Cidade do Recife}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/1"
     ],
     "import": {
@@ -6279,7 +6308,7 @@
   "valid/short-answer/nbsp-starts-pattern-line.yaml": {
     "export": "::Unicode space starts a pattern line:: [markdown] Qual é a capital do Brasil? {= /bras[íi]lia/i}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6299,14 +6328,14 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "error no-accept accept"
     ]
   },
   "valid/short-answer/null-diacritics.yaml": {
     "export": "::Capital of Pará:: [markdown] What is the capital of Pará? {=Belém}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6323,7 +6352,7 @@
   "valid/short-answer/observation-order.yaml": {
     "export": "::Order of feedback and comment lines:: [markdown] Which river is the longest in Brazil? {=Amazonas#Right. =Rio Amazonas#Right, with the word river. A second feedback line. =%0%São Francisco#It is the longest river entirely inside Brazil.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped accept/0/comment",
       "info metadata-dropped accept/1/comment",
       "info metadata-dropped reject/0/comment",
@@ -6379,7 +6408,7 @@
   "valid/short-answer/pattern-one-visible-character.yaml": {
     "export": "::One visible character:: [markdown] Which punctuation mark ends a sentence in Portuguese? {=.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/1"
     ],
     "import": {
@@ -6396,7 +6425,7 @@
   "valid/short-answer/pre-validation-lint-matrix.yaml": {
     "export": "::Rio Negro:: [markdown] Qual rio banha Manaus? {=Negro}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning field-dropped preReject"
     ],
@@ -6414,7 +6443,7 @@
   "valid/short-answer/pre-validation-no-lints.yaml": {
     "export": "::Rio Negro:: [markdown] Qual rio banha Manaus? {=Negro}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning field-dropped preReject"
     ],
@@ -6432,7 +6461,7 @@
   "valid/short-answer/pre-validation-regex-lints.yaml": {
     "export": "::Ano da Lei Áurea:: [markdown] Em que ano a Lei Áurea aboliu a escravidão no Brasil? {=1888}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning field-dropped preReject"
     ],
@@ -6450,7 +6479,7 @@
   "valid/short-answer/pre-validation.yaml": {
     "export": "::Independence of Brazil:: [markdown] In which year did Brazil declare its independence from Portugal? {=1822}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning field-dropped preReject"
     ],
@@ -6471,7 +6500,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
@@ -6483,7 +6512,7 @@
   "valid/short-answer/redundant-regex-anchor-flags-and-literals.yaml": {
     "export": "::Rio de Manaus:: [markdown] Qual rio banha Manaus? {=Negro =^Negro =Negro$ =Negro\\\\$}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/5",
@@ -6515,7 +6544,7 @@
   "valid/short-answer/redundant-regex-anchor-object-entries.yaml": {
     "export": "::Rio de Manaus:: [markdown] Qual rio banha Manaus? {=^Negro =%0%Madeira}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
       "warning regex-dropped reject/1"
@@ -6542,7 +6571,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "error no-accept accept"
     ]
@@ -6553,7 +6582,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
@@ -6566,7 +6595,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
@@ -6579,7 +6608,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "error no-accept accept"
@@ -6591,7 +6620,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "error no-accept accept"
     ]
@@ -6599,7 +6628,7 @@
   "valid/short-answer/reject-block-before-accept.yaml": {
     "export": "::Capital of Brazil, reject first:: [markdown] What is the capital of Brazil? {=Brasília =%0%Rio de Janeiro#It used to be, but not since 1960.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6625,7 +6654,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -6633,7 +6662,7 @@
   "valid/short-answer/reject-line-and-detached-list.yaml": {
     "export": "::Reject line followed by a list epilogue:: [markdown] Which city is the capital of Bahia?\\n\n* Recife is the capital of Pernambuco.\n* Do not accept Aracaju. {=Salvador =%0%Recife}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6657,7 +6686,7 @@
       "error": "cannot convert to GIFT: a short answer needs an `accept` list"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched",
       "error no-accept accept"
     ]
@@ -6665,7 +6694,7 @@
   "valid/short-answer/semi-automatic.yaml": {
     "export": "::Biome of central Brazil:: [markdown] Name a biome of central Brazil. {=Cerrado =Pantanal =%0%Savana#Savanna is the general term. Name the Brazilian biome.}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched"
     ],
     "import": {
@@ -6691,7 +6720,7 @@
   "valid/short-answer/simple.yaml": {
     "export": "[markdown] What is the answer to life, the universe, and everything? {=42}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6706,7 +6735,7 @@
   "valid/short-answer/slug-wins-over-shortcut-link.yaml": {
     "export": "::Census agency:: [markdown] coleta dados do censo a cada dez anos. Qual o nome do órgão?\\n\n[ibge]\\: https\\://www.ibge.gov.br {=IBGE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6722,7 +6751,7 @@
   "valid/short-answer/stem-setext-h2.yaml": {
     "export": "::Bioma do Brasil:: [markdown] Bioma\n-----\\n\nQual bioma cobre a maior parte do Brasil? {=Amazônia}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning diacritics-not-folded accept/0"
     ],
     "import": {
@@ -6751,7 +6780,7 @@
   "valid/short-answer/tab-indented-bang-continuation.yaml": {
     "export": "::Tab-indented marker line:: [markdown] Qual é o ponto mais alto do Brasil? {=Neblina ! Bandeira}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6767,7 +6796,7 @@
   "valid/short-answer/tab-indented-quote-continuation.yaml": {
     "export": "::Tab-indented marker line:: [markdown] Qual é o ponto mais alto do Brasil? {=Neblina > Bandeira}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6783,7 +6812,7 @@
   "valid/short-answer/tab-indented-underline-continuation.yaml": {
     "export": "::Tab-indented underline:: [markdown] Qual rio forma a planície do Pantanal? {=Rio ---}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6823,7 +6852,7 @@
   "valid/short-answer/underline-after-feedback-continuation.yaml": {
     "export": "::Rio Negro:: [markdown] Which river meets the Solimões at Manaus? {=Rio Negro#Almost \\=\\=\\=}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "accept": [
@@ -6840,7 +6869,7 @@
   "valid/short-answer/unmatchable-regex-escape-fields.yaml": {
     "export": "::Water in Portuguese, all lists:: [markdown] Como se escreve \"water\" em português? {=Água}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped preAccept",
       "warning field-dropped preReject",
       "warning regex-dropped accept/0",
@@ -6861,7 +6890,7 @@
   "valid/short-answer/unmatchable-regex-escape-forms.yaml": {
     "export": "::Water in Portuguese, escape forms:: [markdown] Como se escreve \"water\" em português? {=Água}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
@@ -6881,7 +6910,7 @@
   "valid/short-answer/unmatchable-regex-escape-unchanged-ascii.yaml": {
     "export": "::Water in Portuguese, ASCII escape:: [markdown] Como se escreve \"water\" em português? {=Água}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning diacritics-not-folded accept/1"
     ],
@@ -6899,7 +6928,7 @@
   "valid/short-answer/unmatchable-regex-escape-unchanged.yaml": {
     "export": "::Water in Portuguese, safe escapes:: [markdown] Como se escreve \"water\" em português? {=Água}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "warning regex-dropped accept/2",
@@ -6923,7 +6952,7 @@
       "error": "cannot convert to GIFT: no literal `accept` answer is left, so no response could be correct"
     },
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning regex-dropped accept/0",
       "warning regex-dropped accept/1",
       "error no-accept accept"
@@ -6932,7 +6961,7 @@
   "valid/short-answer/unmatched-manual-accept-only.yaml": {
     "export": "::Biome of central Brazil:: [markdown] Name a biome of central Brazil. {=Cerrado =Pantanal}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning manual-grading-dropped unmatched"
     ],
     "import": {
@@ -6952,7 +6981,7 @@
   "valid/true-false/angstrom-sign-marker.yaml": {
     "export": "::Fatos sobre o Brasil:: [markdown] Julgue as afirmações sobre o Brasil.\\n\nA Floresta Amazônica fica no Brasil. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Brasil.\\n\nA capital do Brasil é Buenos Aires. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -6993,7 +7022,7 @@
   "valid/true-false/choice-ids.yaml": {
     "export": "::Fatos sobre o Pantanal:: [markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal é a maior planície alagável do planeta. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal fica no litoral brasileiro. {FALSE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO rio Paraguai atravessa o Pantanal. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal é um deserto. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped choices/1/feedback"
     ],
     "import": {
@@ -7023,7 +7052,7 @@
   "valid/true-false/cjk-markers.yaml": {
     "export": "::关于巴西的陈述:: [markdown] 判断下列关于巴西的陈述。\\n\n巴西是南美洲面积最大的国家。 {TRUE}\n\n[markdown] 判断下列关于巴西的陈述。\\n\n巴西的首都是里约热内卢。 {FALSE}\n\n[markdown] 判断下列关于巴西的陈述。\\n\n亚马逊河流经巴西。 {TRUE}\n\n[markdown] 判断下列关于巴西的陈述。\\n\n巴西的官方语言是西班牙语。 {FALSE}\n\n[markdown] 判断下列关于巴西的陈述。\\n\n巴西位于南半球。 {TRUE}\n\n[markdown] 判断下列关于巴西的陈述。\\n\n巴西的首都是圣保罗。 {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale",
       "warning field-dropped choices/1/feedback"
     ],
@@ -7062,7 +7091,7 @@
   "valid/true-false/false-friend-lowercase.yaml": {
     "export": "::Fakta tentang Amazon:: [markdown] Nilai pernyataan tentang hutan Amazon.\\n\nHutan Amazon adalah hutan hujan tropis terbesar di dunia. {TRUE}\n\n[markdown] Nilai pernyataan tentang hutan Amazon.\\n\nHutan Amazon terletak di Afrika. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7084,7 +7113,7 @@
   "valid/true-false/false-friend-marker.yaml": {
     "export": "::Fatos sobre a Amazônia:: [markdown] Nilai pernyataan tentang hutan Amazon.\\n\nHutan Amazon adalah hutan hujan tropis terbesar di dunia. {TRUE}\n\n[markdown] Nilai pernyataan tentang hutan Amazon.\\n\nHutan Amazon terletak di Afrika. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7106,7 +7135,7 @@
   "valid/true-false/false-friend-true-letter.yaml": {
     "export": "::অ্যামাজন সম্পর্কে তথ্য:: [markdown] অ্যামাজন সম্পর্কে বিবৃতিগুলো মূল্যায়ন করুন।\\n\nঅ্যামাজন নদী ব্রাজিলের ভেতর দিয়ে বয়ে গেছে। {TRUE}\n\n[markdown] অ্যামাজন সম্পর্কে বিবৃতিগুলো মূল্যায়ন করুন।\\n\nঅ্যামাজন নদী প্রশান্ত মহাসাগরে পড়েছে। {TRUE}\n\n[markdown] অ্যামাজন সম্পর্কে বিবৃতিগুলো মূল্যায়ন করুন।\\n\nঅ্যামাজন নদী আফ্রিকায় অবস্থিত। {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7132,7 +7161,7 @@
   "valid/true-false/false-friend-vi.yaml": {
     "export": "::Sự thật về Amazon:: [markdown] Đánh giá các phát biểu về sông Amazon.\\n\nSông Amazon chảy qua Brazil. {TRUE}\n\n[markdown] Đánh giá các phát biểu về sông Amazon.\\n\nSông Amazon chảy vào Thái Bình Dương. {TRUE}\n\n[markdown] Đánh giá các phát biểu về sông Amazon.\\n\nSông Amazon nằm ở châu Phi. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7158,7 +7187,7 @@
   "valid/true-false/feedback.yaml": {
     "export": "::Fatos sobre a Caatinga:: [markdown] Julgue as afirmações sobre a Caatinga.\\n\nA Caatinga é um bioma exclusivamente brasileiro. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Caatinga.\\n\nA Caatinga tem chuvas regulares o ano inteiro. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Caatinga.\\n\nA Caatinga fica na região Sul. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Caatinga.\\n\nPlantas da Caatinga perdem as folhas na seca. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped choices/0/feedback",
       "info metadata-dropped choices/0/comment",
       "warning field-dropped choices/1/feedback",
@@ -7192,7 +7221,7 @@
   "valid/true-false/fullwidth-marker.yaml": {
     "export": "::Fatos sobre o Brasil:: [markdown] Julgue as afirmações sobre o Brasil.\\n\nA capital do Brasil é Buenos Aires. {FALSE}\n\n[markdown] Julgue as afirmações sobre o Brasil.\\n\nA Floresta Amazônica fica no Brasil. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7213,7 +7242,7 @@
   "valid/true-false/global-markers.yaml": {
     "export": "::Fatos sobre a Mata Atlântica:: [markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica se estende pelo litoral brasileiro. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica é um dos biomas mais ameaçados do país. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica abriga o mico-leão-dourado. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica alcança o Paraguai e a Argentina. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica tem alta biodiversidade. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica foi o primeiro bioma explorado pelos colonizadores. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica tem florestas de araucária. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica cobria cerca de 15% do território brasileiro. {TRUE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica fica inteiramente na região Norte. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica é o maior bioma do Brasil. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica é um bioma desértico. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica não tem rios. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica fica apenas no interior do continente. {FALSE}\n\n[markdown] Julgue as afirmações sobre a Mata Atlântica.\\n\nA Mata Atlântica não tem nenhuma espécie endêmica. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7282,7 +7311,7 @@
   "valid/true-false/grading-no-mistakes.yaml": {
     "export": "::Cerrado facts:: [markdown] Judge the statements.\\n\nThe Cerrado is the Brazilian savanna. {TRUE}\n\n[markdown] Judge the statements.\\n\nThe Cerrado covers the whole coast of Brazil. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped grading"
     ],
     "import": {
@@ -7304,7 +7333,7 @@
   "valid/true-false/grading-shuffle-inherit.yaml": {
     "export": "::Climate claims:: [markdown] Judge the statements.\\n\nDeforestation in the Amazon reduces regional rainfall. {TRUE}\n\n[markdown] Judge the statements.\\n\nCarbon dioxide does not absorb infrared radiation. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7325,7 +7354,7 @@
   "valid/true-false/grading.yaml": {
     "export": "::Climate claims:: [markdown] Judge the statements.\\n\nDeforestation in the Amazon reduces regional rainfall. {TRUE}\n\n[markdown] Judge the statements.\\n\nCarbon dioxide does not absorb infrared radiation. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped grading"
     ],
     "import": {
@@ -7347,7 +7376,7 @@
   "valid/true-false/inline-id.yaml": {
     "export": "[markdown] Julgue as afirmações sobre o Cerrado.\\n\nO Cerrado é a savana mais biodiversa do mundo. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Cerrado.\\n\nO Cerrado não tem estação seca. {FALSE}\n\n[markdown] Julgue as afirmações sobre o Cerrado.\\n\nAs árvores do Cerrado têm raízes profundas. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7371,7 +7400,7 @@
   "valid/true-false/locale-bn-m.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {FALSE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7393,7 +7422,7 @@
   "valid/true-false/locale-de-wahr.yaml": {
     "export": "::Fakten über den Regenwald:: [markdown] Beurteilen Sie die Aussagen über den Amazonas-Regenwald.\\n\nDer Amazonas-Regenwald liegt überwiegend in Brasilien. {TRUE}\n\n[markdown] Beurteilen Sie die Aussagen über den Amazonas-Regenwald.\\n\nDer Amazonas mündet in den Atlantik. {TRUE}\n\n[markdown] Beurteilen Sie die Aussagen über den Amazonas-Regenwald.\\n\nDer Amazonas fließt durch Australien. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7419,7 +7448,7 @@
   "valid/true-false/locale-en-cyrillic-false-mismatch.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7441,7 +7470,7 @@
   "valid/true-false/locale-es.yaml": {
     "export": "::Hechos sobre el río Amazonas:: [markdown] Juzgue las afirmaciones sobre el río Amazonas.\\n\nEl Amazonas es el río más caudaloso del mundo. {TRUE}\n\n[markdown] Juzgue las afirmaciones sobre el río Amazonas.\\n\nEl Amazonas nace en Brasil. {FALSE}\n\n[markdown] Juzgue las afirmaciones sobre el río Amazonas.\\n\nEl Amazonas desemboca en el océano Atlántico. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale",
       "warning field-dropped choices/1/feedback"
     ],
@@ -7468,7 +7497,7 @@
   "valid/true-false/locale-fil-mismatch.yaml": {
     "export": "::Mga katotohanan tungkol sa Brazil:: [markdown] Suriin ang mga pahayag tungkol sa Brazil.\\n\nAng Brasília ang kabisera ng Brazil. {TRUE}\n\n[markdown] Suriin ang mga pahayag tungkol sa Brazil.\\n\nAng Brazil ay may hangganan sa Chile. {FALSE}\n\n[markdown] Suriin ang mga pahayag tungkol sa Brazil.\\n\nAng Ilog Amazonas ay dumadaloy sa Brazil. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7494,7 +7523,7 @@
   "valid/true-false/locale-hi-indic.yaml": {
     "export": "::अमेज़न के तथ्य:: [markdown] अमेज़न के बारे में कथनों का मूल्यांकन कीजिए।\\n\nअमेज़न नदी ब्राज़ील से होकर बहती है। {TRUE}\n\n[markdown] अमेज़न के बारे में कथनों का मूल्यांकन कीजिए।\\n\nअमेज़न नदी प्रशांत महासागर में गिरती है। {FALSE}\n\n[markdown] अमेज़न के बारे में कथनों का मूल्यांकन कीजिए।\\n\nअमेज़न दुनिया की सबसे अधिक जलप्रवाह वाली नदी है। {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7520,7 +7549,7 @@
   "valid/true-false/locale-ja-o-marker.yaml": {
     "export": "::アマゾンの事実:: [markdown] アマゾン川に関する記述を判定しなさい。\\n\nアマゾン川はブラジルを流れる。 {TRUE}\n\n[markdown] アマゾン川に関する記述を判定しなさい。\\n\nアマゾン川は世界で最も流量が多い。 {TRUE}\n\n[markdown] アマゾン川に関する記述を判定しなさい。\\n\nアマゾン川は太平洋に注ぐ。 {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7566,7 +7595,7 @@
   "valid/true-false/locale-mr-b.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7588,7 +7617,7 @@
   "valid/true-false/locale-pt-canonical.yaml": {
     "export": "::Geografia do Brasil:: [markdown] Julgue as alternativas.\\n\nBrasília é a capital do Brasil. {TRUE}\n\n[markdown] Julgue as alternativas.\\n\nO Rio Amazonas deságua no Oceano Pacífico. {FALSE}\n\n[markdown] Julgue as alternativas.\\n\nO Brasil faz fronteira com a Argentina. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7614,7 +7643,7 @@
   "valid/true-false/locale-pt-cebraspe.yaml": {
     "export": "::Julgamento de itens:: [markdown] Julgue os itens a seguir sobre o Brasil.\\n\nO Pantanal é a maior planície alagável do mundo. {TRUE}\n\n[markdown] Julgue os itens a seguir sobre o Brasil.\\n\nO Brasil faz fronteira com o Equador. {FALSE}\n\n[markdown] Julgue os itens a seguir sobre o Brasil.\\n\nA Chapada Diamantina fica no Rio Grande do Sul. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7640,7 +7669,7 @@
   "valid/true-false/locale-pt-han-false-mismatch.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7662,7 +7691,7 @@
   "valid/true-false/locale-pt-s-marker.yaml": {
     "export": "::Pantanal:: [markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal é a maior planície alagável do planeta. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal fica no litoral brasileiro. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7684,7 +7713,7 @@
   "valid/true-false/locale-pt.yaml": {
     "export": "::Geografia do Brasil:: [markdown] Julgue as alternativas.\\n\nBrasília é a capital do Brasil. {TRUE}\n\n[markdown] Julgue as alternativas.\\n\nO Rio Amazonas deságua no Oceano Pacífico. {FALSE}\n\n[markdown] Julgue as alternativas.\\n\nO Brasil faz fronteira com a Argentina. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7710,7 +7739,7 @@
   "valid/true-false/locale-ru-cyrillic.yaml": {
     "export": "::Факты об Амазонке:: [markdown] Оцените утверждения об Амазонке.\\n\nАмазонка течёт по территории Бразилии. {TRUE}\n\n[markdown] Оцените утверждения об Амазонке.\\n\nАмазонка впадает в Тихий океан. {FALSE}\n\n[markdown] Оцените утверждения об Амазонке.\\n\nАмазонка — самая полноводная река мира. {TRUE}\n\n[markdown] Оцените утверждения об Амазонке.\\n\nАмазонка находится в Африке. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7740,7 +7769,7 @@
   "valid/true-false/locale-ru-v.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7762,7 +7791,7 @@
   "valid/true-false/locale-sw-h.yaml": {
     "export": "::Ukweli kuhusu Brazil:: [markdown] Tathmini kauli kuhusu Brazil.\\n\nBrasília ni mji mkuu wa Brazil. {TRUE}\n\n[markdown] Tathmini kauli kuhusu Brazil.\\n\nBrazil inapakana na Chile. {FALSE}\n\n[markdown] Tathmini kauli kuhusu Brazil.\\n\nMto Amazon unapita Brazil. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7788,7 +7817,7 @@
   "valid/true-false/locale-sw-k.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7810,7 +7839,7 @@
   "valid/true-false/locale-tr-yanlis.yaml": {
     "export": "::Amazon hakkında gerçekler:: [markdown] Amazon Nehri hakkındaki ifadeleri değerlendirin.\\n\nAmazon Nehri Brezilya'dan geçer. {TRUE}\n\n[markdown] Amazon Nehri hakkındaki ifadeleri değerlendirin.\\n\nAmazon Nehri Pasifik Okyanusu'na dökülür. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7832,7 +7861,7 @@
   "valid/true-false/locale-without-expectation.yaml": {
     "export": "::Uitspraken over Brazilië:: [markdown] Beurteilen Sie die Uitspraken over Brazilië.\\n\nBrazilië is het grootste land van Zuid-Amerika. {TRUE}\n\n[markdown] Beurteilen Sie die Uitspraken over Brazilië.\\n\nDe hoofdstad van Brazilië is Rio de Janeiro. {FALSE}\n\n[markdown] Beurteilen Sie die Uitspraken over Brazilië.\\n\nDe Amazone stroomt door Brazilië. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7858,7 +7887,7 @@
   "valid/true-false/locale-yue-han-false.yaml": {
     "export": "::Brazil facts:: [markdown] Rate the statements about Brazil.\\n\nBrasília is the capital of Brazil. {TRUE}\n\n[markdown] Rate the statements about Brazil.\\n\nBrazil borders Chile. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7880,7 +7909,7 @@
   "valid/true-false/locale-zh-fou.yaml": {
     "export": "::巴西的事实:: [markdown] 判断下列关于巴西的说法。\\n\n巴西利亚是巴西的首都。 {TRUE}\n\n[markdown] 判断下列关于巴西的说法。\\n\n巴西与智利接壤。 {FALSE}\n\n[markdown] 判断下列关于巴西的说法。\\n\n亚马孙河流经巴西。 {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "info metadata-dropped locale"
     ],
     "import": {
@@ -7906,7 +7935,7 @@
   "valid/true-false/long-s-marker.yaml": {
     "export": "::Fatos sobre o Brasil:: [markdown] Julgue as afirmações sobre o Brasil.\\n\nA Floresta Amazônica fica no Brasil. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Brasil.\\n\nA capital do Brasil é Buenos Aires. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7927,7 +7956,7 @@
   "valid/true-false/lowercase-markers.yaml": {
     "export": "[markdown] Judge the alternatives.\\n\nMarkdown is a lightweight markup language. {TRUE}\n\n[markdown] Judge the alternatives.\\n\nMarkdown is a programming language. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7967,7 +7996,7 @@
   "valid/true-false/no-markers.yaml": {
     "export": "[markdown] Judge the alternatives.\\n\nWater boils at 100 °C at sea level. {TRUE}\n\n[markdown] Judge the alternatives.\\n\nWater boils at 50 °C at sea level. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -7987,7 +8016,7 @@
   "valid/true-false/non-bmp-marker.yaml": {
     "export": "::Fatos sobre o rio Amazonas:: [markdown] Julgue as afirmações sobre o rio Amazonas.\\n\nO rio Amazonas é o mais caudaloso do mundo. {TRUE}\n\n[markdown] Julgue as afirmações sobre o rio Amazonas.\\n\nO rio Amazonas nasce no Brasil. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8008,7 +8037,7 @@
   "valid/true-false/non-nfkc-marker.yaml": {
     "export": "::Fatos sobre o Brasil:: [markdown] Julgue as afirmações sobre o Brasil.\\n\nO Amazonas é o maior rio do mundo em volume de água. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Brasil.\\n\nBrasília fica no litoral. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8029,7 +8058,7 @@
   "valid/true-false/shuffle.yaml": {
     "export": "::Evolution claims:: [markdown] Judge the statements.\\n\nNatural selection acts on heritable variation. {TRUE}\n\n[markdown] Judge the statements.\\n\nIndividual organisms evolve during their own lifetime. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped shuffle"
     ],
     "import": {
@@ -8051,7 +8080,7 @@
   "valid/true-false/simple.yaml": {
     "export": "::Astronomy claims:: [markdown] Judge the alternatives.\\n\nEarth is flat. {FALSE}\n\n[markdown] Judge the alternatives.\\n\nHumans descend from apes. {TRUE}\n\n[markdown] Judge the alternatives.\\n\nThe Earth is billions of years old. {TRUE}\n\n[markdown] Judge the alternatives.\\n\nLight travels instantly through space. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8080,7 +8109,7 @@
   "valid/true-false/spaced-markers.yaml": {
     "export": "::Fatos sobre o Pampa:: [markdown] Julgue as afirmações sobre o Pampa.\\n\nO Pampa fica no Rio Grande do Sul. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pampa.\\n\nO Pampa é uma floresta tropical. {FALSE}\n\n[markdown] Julgue as afirmações sobre o Pampa.\\n\nO Pampa fica na região Norte. {FALSE}\n\n[markdown] Julgue as afirmações sobre o Pampa.\\n\nO Pampa tem campos nativos. {TRUE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8109,7 +8138,7 @@
   "valid/true-false/uniform-false.yaml": {
     "export": "::Physics claims:: [markdown] Judge the alternatives.\\n\nLight travels instantly through space. {FALSE}\n\n[markdown] Judge the alternatives.\\n\nA heavier body falls faster than a lighter one in a vacuum. {FALSE}\n\n[markdown] Judge the alternatives.\\n\nSound travels through the vacuum. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8134,7 +8163,7 @@
   "valid/true-false/unlisted-marker-markdown.yaml": {
     "export": "::Climate claims:: [markdown] `W` is a WARNING letter\\: it reads as true, which is not what the author meant.\\n\nThe Amazon rainforest is a source of rain for central Brazil. {TRUE}\n\n[markdown] `W` is a WARNING letter\\: it reads as true, which is not what the author meant.\\n\nThe greenhouse effect does not exist. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [
@@ -8172,7 +8201,7 @@
   "valid/true-false/visually-identical-statements.yaml": {
     "export": "::Fatos sobre o Pantanal:: [markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal é a *maior* planície alagável do planeta. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal é a _maior_ planície alagável do planeta. {TRUE}\n\n[markdown] Julgue as afirmações sobre o Pantanal.\\n\nO Pantanal fica no litoral. {FALSE}",
     "export_diagnostics": [
-      "warning field-dropped id"
+      "info metadata-dropped id"
     ],
     "import": {
       "choices": [

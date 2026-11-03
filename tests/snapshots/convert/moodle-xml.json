@@ -987,17 +987,25 @@
     }
   },
   "valid/fill-in/blank-in-code-is-text.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <questiontext format=\"markdown\">\n      <text>Em MDQ, um blank é escrito assim:\n\n```md\nA capital é [^capital].\n```\n\nComplete: a capital do Brasil é {1:SHORTANSWER:=Brasília}.\n\nLembre que `[^capital]` no epílogo também é só texto: [^capital].</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <questiontext format=\"markdown\">\n      <text>Em MDQ, um blank é escrito assim:\n\n```md\nA capital é [^capital].\n```\n\nComplete: a capital do Brasil é {1:SHORTANSWER:=Brasília}.\n\nLembre que `[^capital]` no epílogo também é só texto: \\[^capital].</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
     "export_diagnostics": [
       "warning diacritics-not-folded blanks/0/accept/0"
     ],
     "import": {
-      "code": "invalid-question",
-      "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, um blank é escr... só texto: [^capital].', input_type=str]"
-    },
-    "import_diagnostics": [
-      "error invalid-question"
-    ]
+      "blanks": [
+        {
+          "accept": [
+            {
+              "pattern": "Brasília"
+            }
+          ],
+          "id": "blank1",
+          "type": "short-answer"
+        }
+      ],
+      "stem": "Em MDQ, um blank é escrito assim:\n\n```md\nA capital é [^capital].\n```\n\nComplete: a capital do Brasil é [^blank1].\n\nLembre que `[^capital]` no epílogo também é só texto: \\[^capital].",
+      "type": "fill-in"
+    }
   },
   "valid/fill-in/blank-in-code-span-is-text.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <questiontext format=\"markdown\">\n      <text>Em MDQ, o código `[^capital]` é só texto. A capital do Brasil é {1:SHORTANSWER:=Brasília}.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
@@ -1541,6 +1549,27 @@
         }
       ],
       "stem": "The [^blank1] is a giant rodent native to South America and is the largest living rodent in the world.\n\n* Common mistakes\n  * Some students answer \"capivara\" (the Portuguese name) -- accept it too.\n  * Do not accept \"rat\" or \"beaver\" as synonyms.\n* Follow-up\n  * Consider asking about its semi-aquatic habitat next.",
+      "type": "fill-in"
+    }
+  },
+  "valid/fill-in/escaped-blank-marker-is-text.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <questiontext format=\"markdown\">\n      <text>Em MDQ, um blank se escreve \\[^capital] e o seu estado, &amp;#91;^estado]. A capital do Brasil é {1:SHORTANSWER:=Brasília}.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning diacritics-not-folded blanks/0/accept/0"
+    ],
+    "import": {
+      "blanks": [
+        {
+          "accept": [
+            {
+              "pattern": "Brasília"
+            }
+          ],
+          "id": "blank1",
+          "type": "short-answer"
+        }
+      ],
+      "stem": "Em MDQ, um blank se escreve \\[^capital] e o seu estado, &#91;^estado]. A capital do Brasil é [^blank1].",
       "type": "fill-in"
     }
   },

@@ -461,9 +461,9 @@ def test_s20_gift_fields() -> None:
     converted = dump_question(mc(comment="nota", **FIELDS), format="gift")
     assert converted.value is not None
     by_code = {(d.severity, d.code, d.path) for d in converted.diagnostics}
-    for field in ("id", "tags", "weight", "shuffle"):
+    for field in ("tags", "weight", "shuffle"):
         assert ("warning", "field-dropped", (field,)) in by_code
-    for field in ("author", "uuid", "locale"):
+    for field in ("id", "author", "uuid", "locale"):
         assert ("info", "metadata-dropped", (field,)) in by_code
     assert ("info", "metadata-dropped", ("meta", "fonte")) in by_code
     # `comment` is a `//` comment line in GIFT.
@@ -527,8 +527,9 @@ def test_s22_aiken_fields() -> None:
         format="aiken",
     )
     by_code = {(d.severity, d.code, d.path) for d in converted.diagnostics}
-    for path in (("id",), ("title",), ("tags",), ("weight",), ("shuffle",)):
+    for path in (("title",), ("tags",), ("weight",), ("shuffle",)):
         assert ("warning", "field-dropped", path) in by_code
+    assert ("info", "metadata-dropped", ("id",)) in by_code
     assert ("warning", "field-dropped", ("choices", 0, "feedback")) in by_code
     assert ("warning", "field-dropped", ("meta", "generalFeedback")) in by_code
     assert ("info", "metadata-dropped", ("meta", "fonte")) in by_code

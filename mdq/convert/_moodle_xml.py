@@ -32,7 +32,9 @@ from ._base import ConversionBase, ParserError, Report
 from ._moodle import (
     ImportedAnswer,
     blank_choice_scores,
+    blank_id_after,
     effective_scores,
+    escape_literal_markers,
     exported_general_feedback,
     exported_short_answers,
     float_answer,
@@ -699,7 +701,12 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> MultianswerB
             ("blanks",),
         )
     return MultianswerBlock(
-        questiontext=join_blocks(questiontext, question.epilogue),
+        # The epilogue holds no blank: once it joins the stem, its `[^id]` is
+        # escaped, or the import would read it as a blank.
+        questiontext=join_blocks(
+            questiontext,
+            None if question.epilogue is None else escape_literal_markers(question.epilogue, set()),
+        ),
         shuffle_answers=_moodle_shuffle(question.shuffle),
         **_block_meta(question, report),
     )
@@ -953,8 +960,10 @@ def fill_in_from_block(block: MultianswerBlock, report: Report) -> FillInQuestio
         segments = [mdq_text(segment, block.text_format, html=report.html) for segment in segments]
     parts = [segments[0]]
     blanks: list[Blank] = []
+    taken = "".join(segments)
     for i, cloze in enumerate(clozes):
-        blank_id = f"blank{i + 1}"
+        blank_id = blank_id_after(taken, f"blank{i + 1}")
+        taken += f"[^{blank_id}]"
         with report.under("blanks", i):
             blanks.append(blank_from_cloze(blank_id, cloze, block.text_format, report))
         parts.append(f"[^{blank_id}]")
@@ -962,6 +971,7 @@ def fill_in_from_block(block: MultianswerBlock, report: Report) -> FillInQuestio
     stem = "".join(parts)
     if block.text_format == "html":
         stem = html_blanks_to_mdq(stem, report)
+    stem = escape_literal_markers(stem, {blank.id for blank in blanks})
     return FillInQuestion(
         stem=stem,
         blanks=blanks,

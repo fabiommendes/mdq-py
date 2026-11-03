@@ -58,6 +58,7 @@ mdq show exam.mdq.md                  # render the parsed document
 mdq show exam.mdq.md --no-answer-key  # preview it as a student sees it
 mdq export question.mdq.md --format gift
 mdq export question.mdq.md --format gift --strict   # a warning is an error
+mdq export question.mdq.md --format gift -v         # also the info diagnostics
 mdq import question.gift -o question.mdq.md
 mdq import question.xml --html markdown             # needs mdq[html]
 ```
@@ -185,7 +186,8 @@ Without it, the call raises `ImportError`.
 
 On the command line, `mdq import` and `mdq export` print each diagnostic to
 stderr as `<severity>: <message> [<code>]`, followed by ` at <path>` when it
-has a path. A conversion with only warnings writes the output and exits 0.
+has a path. An `info` (such as `metadata-dropped`) is printed only with
+`-v`/`--verbose`. A conversion with only warnings writes the output and exits 0.
 `--strict` counts a warning as an error, and an error writes nothing and
 exits 1. `mdq import --html markdown` selects the Markdown conversion; if
 `markdownify` is missing, the command exits 2.
@@ -211,8 +213,8 @@ exits 1. `mdq import --html markdown` selects the Markdown conversion; if
 | `diacritics-not-folded` | warning | GIFT, Moodle XML | export | An inexact literal with a diacritic: Moodle compares diacritics, MDQ folds them by default. |
 | `line-breaks-dropped` | warning | Aiken | export | A line break inside a choice is written as a space. |
 | `indentation-lost` | warning | GIFT | export | A text has a line, other than the first, that starts with a space or tab. Moodle trims every line. |
-| `field-dropped` | warning | all | export, import | A field with a value that changes what the student sees or how the response is graded has no place in the target (`id`, `tags`, `weight`, `shuffle`, `grading`, `domain`, `decimalPlaces`, `preAccept`, and so on, by format), or an import drops a Moodle element (`<correctfeedback>`, `<hint>`) or a field of a later statement of a true or false group. One per field. |
-| `metadata-dropped` | info | all | export | `comment`, `author`, `uuid`, `locale` or a `meta` key other than `generalFeedback` is dropped. |
+| `field-dropped` | warning | all | export, import | A field with a value that changes what the student sees or how the response is graded has no place in the target (`tags`, `weight`, `shuffle`, `grading`, `domain`, `decimalPlaces`, `preAccept`, and so on, by format), or an import drops a Moodle element (`<correctfeedback>`, `<hint>`) or a field of a later statement of a true or false group. One per field. |
+| `metadata-dropped` | info | all | export | `id`, `comment`, `author`, `uuid`, `locale` or a `meta` key other than `generalFeedback` is dropped. |
 | `partial-credit-dropped` | warning | all | export, import | Import: a short-answer entry with partial or negative credit is a `reject` answer; a numeric one is dropped, and without a 100% answer the best positive one is the answer. Aiken export: the first choice with the highest score is the only correct one. |
 | `answer-dropped` | warning | GIFT, Moodle XML | import, export | Import: a 0% numeric answer, a second 100% one or a `*` at 100% is dropped. Export: a short-answer literal of a cloze blank that has no cloze form (`~`, a backslash before `~`, `}`, `#` or at the end) is dropped. |
 | `wildcard-to-regex` | warning | GIFT, Moodle XML | import | A `*` inside a short answer is Moodle's wildcard: it becomes an MDQ regex that matches the whole response (`*` is any text, other characters are literal, case is ignored). |

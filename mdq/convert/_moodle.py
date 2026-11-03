@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from .. import _parser
 from .._exact import exact_literal, exact_span
-from .._markdown import has_visible_character, starts_block
+from .._markdown import has_visible_character, locate_blank_markers, starts_block
 from ..errors import ParseError
 from ..models import (
     AnswerPattern,
@@ -35,6 +35,36 @@ from ._common import common_prefix, format_num, join_blocks
 #: share no leading paragraph. MDQ requires a stem with a visible character
 #: (docs/question-types/base.md, "Additional Rules").
 TRUE_FALSE_FALLBACK_STEM = "Mark each statement as true or false."
+
+
+#: Text that looks like a `[^id]` marker, inside code or not.
+_MARKER_TEXT_RE = re.compile(r"\[\^([^\]\s]+)\]")
+
+
+def blank_id_after(text: str, base: str) -> str:
+    """
+    The first of `base`, `base1`, `base2`, ... that no `[^id]` of `text`
+    holds, so a blank the importer creates never shares the id of a text
+    that looks like a marker.
+    """
+    taken = set(_MARKER_TEXT_RE.findall(text))
+    if base not in taken:
+        return base
+    return next(f"{base}{n}" for n in range(1, len(taken) + 2) if f"{base}{n}" not in taken)
+
+
+def escape_literal_markers(stem: str, blank_ids: set[str]) -> str:
+    """
+    Escape each `[^id]` of an imported `stem` that is not one of the blanks
+    the importer created (`blank_ids`): in Moodle it is text, and in MDQ the
+    escaped `\\[^id]` is text too (fill-in.md, "Where blanks may appear").
+    Code and the other literal contexts hold no marker, so they stay.
+    """
+    for marker in reversed(locate_blank_markers(stem)):
+        if marker.id not in blank_ids and marker.span is not None:
+            start = marker.span[0]
+            stem = f"{stem[:start]}\\{stem[start:]}"
+    return stem
 
 
 def true_false_group_stem(question: TrueFalseQuestion) -> str:
@@ -395,7 +425,7 @@ def exported_general_feedback(question: Question, report: Report) -> str | None:
 #: The fields that are only notes for other instructors or identifiers of the
 #: question bank: dropping them does not change what the student sees or
 #: how the response is graded.
-_METADATA_FIELDS = frozenset({"comment", "author", "uuid", "locale"})
+_METADATA_FIELDS = frozenset({"id", "comment", "author", "uuid", "locale"})
 
 
 def _report_dropped(
@@ -433,7 +463,7 @@ def report_dropped_fields(
     """
     Report each field with a non-default value that the target format has no
     place for: `field-dropped` if it changes what the student sees or how the
-    response is graded, `metadata-dropped` for `comment`, `author`, `uuid`,
+    response is graded, `metadata-dropped` for `id`, `comment`, `author`, `uuid`,
     `locale` and the `meta` keys other than `generalFeedback`. One diagnostic
     per field, at its path.
 

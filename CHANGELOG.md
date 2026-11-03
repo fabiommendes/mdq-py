@@ -33,6 +33,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- An escaped `\[^slug]` and `&#91;^slug]` in a fill-in stem are text, not blanks. The GIFT and Moodle XML imports escape a `[^slug]` of the Moodle text that is not a blank, and the exports escape the `[^slug]` of the epilogue, so every question of the corpus imports back the same. A dropped `id` is `metadata-dropped` (info), not `field-dropped`, and `mdq import`/`mdq export` print an info only with `-v`/`--verbose`.
 - GIFT export never writes a blank line inside a question: Moodle splits a file at every blank line. A blank line of a text is the escape `\n` at the end of the previous line (a multi-paragraph stem, an epilogue, a true or false group, a general feedback). The fill-in error "the text after the blank has a blank line" is gone.
 - GIFT import unescapes what Moodle does: `\\`, `\:`, `\#`, `\=`, `\{`, `\}`, `\~` and `\n` (a line feed). Any other backslash stays (`\*` in a stem is kept). Before, every backslash was dropped and `\n` was `n`.
 - GIFT reads a lone `*` short answer as Moodle does, like Moodle XML: at 100% it is `accept: /.*/`, at 0% with feedback it is the `incorrectFeedback`. A literal asterisk is `\*` (breaking: `=*` was the literal `*`). The export writes the `incorrectFeedback` of a short answer, and of short-answer and numeric blanks, as `=%0%*#feedback`. It was dropped.

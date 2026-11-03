@@ -57,6 +57,9 @@ def import_(
     strict: bool = typer.Option(
         False, "--strict", help="Treat a warning as an error: write nothing and exit 1."
     ),
+    verbose: bool = typer.Option(
+        False, "-v", "--verbose", help="Also print the info diagnostics (data that only a note or an id held)."
+    ),
     html: str = typer.Option(
         "block",
         "--html",
@@ -84,7 +87,7 @@ def import_(
     except (ValueError, NotImplementedError) as exc:
         fail(str(exc), EXIT_INVALID)
 
-    _report(converted.diagnostics, strict)
+    _report(converted.diagnostics, strict, verbose)
     assert converted.value is not None
     _write_output(str(converted.value), output)
 
@@ -117,6 +120,9 @@ def export(
     strict: bool = typer.Option(
         False, "--strict", help="Treat a warning as an error: write nothing and exit 1."
     ),
+    verbose: bool = typer.Option(
+        False, "-v", "--verbose", help="Also print the info diagnostics (data that only a note or an id held)."
+    ),
 ) -> None:
     """
     Export an MDQ question document to an external format.
@@ -135,18 +141,21 @@ def export(
     except (ValueError, NotImplementedError) as exc:
         fail(str(exc), EXIT_INVALID)
 
-    _report(converted.diagnostics, strict)
+    _report(converted.diagnostics, strict, verbose)
     assert converted.value is not None
     _write_output(converted.value, output)
 
 
-def _report(diagnostics: list[Diagnostic], strict: bool) -> None:
+def _report(diagnostics: list[Diagnostic], strict: bool, verbose: bool) -> None:
     """
     Print every diagnostic on stderr as `<severity>: <message> [<code>]`,
-    followed by ` at <path>` if it has one. Exit with code 1 if one is an
-    error, or a warning under `strict`: there is nothing to write.
+    followed by ` at <path>` if it has one; an info only with `verbose`.
+    Exit with code 1 if one is an error, or a warning under `strict`: there
+    is nothing to write.
     """
     for d in diagnostics:
+        if d.severity == "info" and not verbose:
+            continue
         line = f"{d.severity}: {d.message} [{d.code}]"
         if d.path:
             line += " at " + "/".join(str(part) for part in d.path)

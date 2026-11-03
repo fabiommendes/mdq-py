@@ -1097,6 +1097,15 @@
       "error unsupported-type"
     ]
   },
+  "valid/fill-in/escaped-blank-marker-is-text.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'fill-in' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/fill-in/first-paragraph-starts-with-blank.yaml": {
     "export": {
       "code": "unsupported-type",
@@ -1496,7 +1505,7 @@
   "valid/multiple-choice/all-correct.yaml": {
     "export": "Qual destes é um bioma brasileiro?\n\na. Caatinga\nb. Pampa\nc. Pantanal\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1522,7 +1531,7 @@
   "valid/multiple-choice/choice-ids.yaml": {
     "export": "Qual destas árvores é considerada a árvore símbolo do Brasil?\n\na. Ipê-amarelo\nb. Pau-brasil\nc. Araucária\nd. Castanheira-do-pará\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/1/feedback",
       "warning partial-credit-dropped choices"
@@ -1553,7 +1562,7 @@
   "valid/multiple-choice/choice-text-differs-in-code-span.yaml": {
     "export": "Qual comando lista os arquivos de um diretório com detalhes?\n\na. `ls  -la`\nb. `ls -la`\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1575,7 +1584,7 @@
   "valid/multiple-choice/comment-empty-lines.yaml": {
     "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1597,7 +1606,7 @@
   "valid/multiple-choice/comment-only-spaces.yaml": {
     "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1619,7 +1628,7 @@
   "valid/multiple-choice/comment-stripped.yaml": {
     "export": "Qual bioma brasileiro é a maior planície alagável do mundo?\n\na. Pantanal\nb. Caatinga\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "info metadata-dropped comment",
       "warning partial-credit-dropped choices"
@@ -1642,7 +1651,7 @@
   "valid/multiple-choice/comments.yaml": {
     "export": "Qual físico brasileiro participou da descoberta experimental do méson pi em 1947?\n\na. César Lattes\nb. Mário Schenberg\nc. José Leite Lopes\nd. Jayme Tiomno\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/0/feedback",
       "info metadata-dropped choices/0/comment",
@@ -1677,7 +1686,7 @@
   "valid/multiple-choice/composite-ids.yaml": {
     "export": "What does RGB stand for?\n\na. Red, green and blue.\nb. Rapid growth boundary\nc. Raw grammar baseline\nd. None of the above\ne. All of the above\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1711,7 +1720,7 @@
   "valid/multiple-choice/context-paragraphs.yaml": {
     "export": "The pororoca is a tidal bore: the sea tide pushes against the current of the Amazon River and a wave travels upstream.\n\nIt happens mostly around the new moon and the full moon, when the tides are strongest.\n\nWhat causes the strongest tides on Earth?\n\na. The alignment of the Sun, the Moon and the Earth\nb. The rotation of the Earth around its axis\nc. The wind over the Atlantic Ocean\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1737,7 +1746,7 @@
   "valid/multiple-choice/continued-choice-text.yaml": {
     "export": "Qual é a ideia central da seleção natural, como proposta por Darwin e Wallace?\n\na. Indivíduos com características que favorecem a sobrevivência e a reprodução deixam mais descendentes, e essas características se tornam mais comuns na população.\nb. Os organismos se esforçam para mudar durante a vida e transmitem as mudanças adquiridas aos descendentes.\nc. As espécies são fixas e não mudam ao longo do tempo.\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/1/feedback",
       "warning partial-credit-dropped choices"
@@ -1764,7 +1773,7 @@
   "valid/multiple-choice/feedback-after-empty-marker.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Salvador\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/0/feedback",
       "warning partial-credit-dropped choices"
@@ -1787,7 +1796,7 @@
   "valid/multiple-choice/feedback-indented-bullet.yaml": {
     "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/0/feedback",
       "warning partial-credit-dropped choices"
@@ -1810,7 +1819,7 @@
   "valid/multiple-choice/feedback-indented-fence.yaml": {
     "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/0/feedback",
       "warning partial-credit-dropped choices"
@@ -1833,7 +1842,7 @@
   "valid/multiple-choice/feedback-indented-heading.yaml": {
     "export": "Which biome exists only in Brazil?\n\na. Caatinga\nb. Amazon rainforest\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/0/feedback",
       "warning partial-credit-dropped choices"
@@ -1856,7 +1865,7 @@
   "valid/multiple-choice/feedback.yaml": {
     "export": "Which one is the largest river in the world?\n\na. Amazon\nb. Nile\nc. Mississippi\nd. Yellow River\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/1/feedback",
       "warning field-dropped choices/2/feedback",
@@ -1888,7 +1897,7 @@
   "valid/multiple-choice/fullwidth-asterisk-marker.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Lisboa\nc. Buenos Aires\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1914,7 +1923,7 @@
   "valid/multiple-choice/grading-shuffle-inherit.yaml": {
     "export": "Which biome is known as the Brazilian savanna?\n\na. Cerrado\nb. Caatinga\nc. Pampa\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -1940,7 +1949,7 @@
   "valid/multiple-choice/grading.yaml": {
     "export": "Which river carries the largest volume of water in the world?\n\na. Amazon\nb. Congo\nc. São Francisco\nd. Paraná\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped grading",
       "warning partial-credit-dropped choices"
@@ -1971,7 +1980,7 @@
   "valid/multiple-choice/ids-ascii-spelling.yaml": {
     "export": "Qual grafia consta no censo demográfico?\n\na. Brasília\nb. Brasilia\nc. Nenhuma das anteriores\n\nANSWER: b",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -1996,7 +2005,7 @@
   "valid/multiple-choice/ids-explicit-id-wins.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Distrito Federal, sede do governo\nc. São Paulo\n\nANSWER: b",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -2021,7 +2030,7 @@
   "valid/multiple-choice/ids-order-backward.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. São Paulo\nb. Brasília\nc. Rio de Janeiro\n\nANSWER: b",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -2046,7 +2055,7 @@
   "valid/multiple-choice/ids-order-forward.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. Rio de Janeiro\nb. Brasília\nc. São Paulo\n\nANSWER: b",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -2071,7 +2080,7 @@
   "valid/multiple-choice/ids-punctuation-variants.yaml": {
     "export": "Qual pontuação está correta?\n\na. São Paulo!\nb. São Paulo?\nc. Rio de Janeiro\n\nANSWER: b",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -2116,7 +2125,7 @@
   "valid/multiple-choice/link-choice.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. [Brasilia](https://pt.wikipedia.org/wiki/Brasília)\nb. [Rio de Janeiro](https://pt.wikipedia.org/wiki/Rio_de_Janeiro)\nc. Salvador\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2142,7 +2151,7 @@
   "valid/multiple-choice/many-correct-choices.yaml": {
     "export": "Qual destas afirmações é verdadeira?\n\na. O Brasil fica na América do Sul.\nb. O Amazonas é um rio.\nc. O Brasil fica na Europa.\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2259,7 +2268,7 @@
   "valid/multiple-choice/no-correct-answer.yaml": {
     "export": "Qual destas características melhor descreve o clima do Cerrado?\n\na. Chuvas o ano inteiro\nb. Duas estações bem marcadas, uma seca e uma chuvosa\nc. Neve frequente no inverno\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2285,7 +2294,7 @@
   "valid/multiple-choice/null-fields.yaml": {
     "export": "Which Brazilian state has the longest coastline?\n\na. Bahia\nb. Maranhão\nc. Rio de Janeiro\nd. Santa Catarina\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning partial-credit-dropped choices"
     ],
     "import": {
@@ -2314,7 +2323,7 @@
   "valid/multiple-choice/omitted-score-vs-zero-percent.yaml": {
     "export": "What is the largest tropical rainforest in the world?\n\na. Amazon\nb. Atlantic Forest\nc. Cerrado\nd. Sahara\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2344,7 +2353,7 @@
   "valid/multiple-choice/partial-credit-no-full-answer.yaml": {
     "export": "Which biome covers most of the Brazilian territory?\n\na. Amazon\nb. Cerrado\nc. Pampa\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2370,7 +2379,7 @@
   "valid/multiple-choice/partial-credit.yaml": {
     "export": "Which is the largest ocean on Earth?\n\na. Pacific\nb. Atlantic\nc. Indian\nd. The Moon has no ocean.\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2400,7 +2409,7 @@
   "valid/multiple-choice/percent-forms.yaml": {
     "export": "Onde fica a nascente do rio Amazonas?\n\na. Nos Andes peruanos\nb. No Peru\nc. Na América do Sul\nd. No Brasil\ne. Na Europa\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped grading",
       "warning field-dropped choices/1/feedback",
@@ -2437,7 +2446,7 @@
   "valid/multiple-choice/reference-link-and-id-separators.yaml": {
     "export": "Qual é a capital do Brasil?\n\n[ref]: https://pt.wikipedia.org/wiki/Salvador\n\na. Brasília\nb. Rio de Janeiro\nc. [Salvador][ref]\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2463,7 +2472,7 @@
   "valid/multiple-choice/setext-heading-in-epilogue-not-linted.yaml": {
     "export": "Which river is the longest inside Brazil?\n\nSource\n---\n\na. Amazon\nb. Tocantins\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning partial-credit-dropped choices"
     ],
@@ -2485,7 +2494,7 @@
   "valid/multiple-choice/shuffle-false.yaml": {
     "export": "Qual bioma brasileiro acompanha a maior parte do litoral?\n\na. Mata Atlântica\nb. Cerrado\nc. Pampa\nd. Nenhuma das anteriores\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped shuffle",
       "warning partial-credit-dropped choices"
     ],
@@ -2515,7 +2524,7 @@
   "valid/multiple-choice/shuffle.yaml": {
     "export": "Qual é a capital do Brasil?\n\na. Brasília\nb. Rio de Janeiro\nc. Salvador\nd. Todas as anteriores\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped shuffle",
       "warning partial-credit-dropped choices"
@@ -2571,7 +2580,7 @@
   "valid/multiple-choice/spaced-values.yaml": {
     "export": "Qual é o ponto mais alto do Brasil?\n\na. Pico da Neblina\nb. Pico 31 de Março\nc. Pico da Bandeira\nd. Monte Roraima\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped choices/1/feedback",
       "warning partial-credit-dropped choices"
@@ -2602,7 +2611,7 @@
   "valid/multiple-choice/visually-identical-choices.yaml": {
     "export": "Qual cidade é a capital do Brasil?\n\na. *Rio de Janeiro*\nb. _Rio de Janeiro_\nc. Brasília\n\nANSWER: c",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title"
     ],
     "import": {
@@ -2627,7 +2636,7 @@
   "valid/multiple-choice/yaml-core-scalars.yaml": {
     "export": "Qual rio nasce na Serra da Canastra?\n\na. São Francisco\nb. Amazonas\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped weight",
       "info metadata-dropped meta/bool-true",
@@ -2689,7 +2698,7 @@
   "valid/multiple-choice/yaml-core-schema.yaml": {
     "export": "Qual destes valores YAML é um booleano?\n\na. `true`\nb. `yes`\nc. `on`\n\nANSWER: a",
     "export_diagnostics": [
-      "warning field-dropped id",
+      "info metadata-dropped id",
       "warning field-dropped title",
       "warning field-dropped tags",
       "info metadata-dropped meta/octal",

@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 from markdown_it import MarkdownIt
 from markdown_it.rules_block import StateBlock
+from markdown_it.rules_core import StateCore
 from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
 from markdown_it.tree import SyntaxTreeNode as Node
@@ -154,6 +155,34 @@ def _note_blank_position(state: StateInline, silent: bool) -> bool:
 md.inline.ruler.before("link", "mdq_blank_position", _note_blank_position)
 
 
+#: What `_hide_escaped_brackets` writes in place of an escaped `[`. The
+#: `normalize` rule of markdown-it replaces U+0000 in the source, so it
+#: never comes from the text, and it never starts a marker.
+_ESCAPED_BRACKET = "\0"
+
+
+def _hide_escaped_brackets(state: StateCore) -> None:
+    """
+    fill-in.md, "Where blanks may appear": a `[` written as a backslash
+    escape (`\\[^id]`) or a character reference (`&#91;^id]`) is a literal
+    `[`, as in CommonMark, so it starts no marker. Before `text_join` merges
+    it into the text around it, the `[` of such a token is replaced, only
+    when `env` asks for the markers.
+    """
+    if _POSITIONS_KEY not in state.env:
+        return
+    stack = [token for token in state.tokens if token.children]
+    while stack:
+        for child in stack.pop().children or []:
+            if child.type == "text_special" and child.content == "[":
+                child.content = _ESCAPED_BRACKET
+            elif child.children:
+                stack.append(child)
+
+
+md.core.ruler.before("text_join", "mdq_hide_escaped_brackets", _hide_escaped_brackets)
+
+
 class BlankMarker(NamedTuple):
     """One `[^id]` marker of a stem, as `locate_blank_markers` reports it."""
 
@@ -161,7 +190,7 @@ class BlankMarker(NamedTuple):
     #: Whether the marker sits where fill-in.md does not allow a blank.
     misplaced: bool
     #: `(start, end)` offsets of the marker in the text, `end` exclusive.
-    #: `None` when the marker cannot be located (an escaped `\\[^id]`).
+    #: `None` when the marker cannot be located in the text.
     span: tuple[int, int] | None
 
 
@@ -176,6 +205,7 @@ def locate_blank_markers(text: str) -> list[BlankMarker]:
     text. Code (fenced, indented or a code span) and the text of an
     autolink (`<https://...>`, a bare URL, a `www.` address) are literal:
     they hold no marker. `[^x](url)` and `[^x][ref]` are links, not markers.
+    An escaped `\\[^x]` and `&#91;^x]` are literal text.
 
     Args:
         text: A fill-in question's stem.

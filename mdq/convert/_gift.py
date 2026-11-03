@@ -28,7 +28,9 @@ from ._base import ConversionBase, Report, fail_at
 from ._moodle import (
     ImportedAnswer,
     blank_choice_scores,
+    blank_id_after,
     effective_scores,
+    escape_literal_markers,
     exported_general_feedback,
     exported_short_answers,
     float_answer,
@@ -496,10 +498,11 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
             case _:
                 assert_never(blank)
 
+    # The epilogue holds no blank: once it joins the tail, its `[^id]` is
+    # escaped, or the import would read it as a blank.
+    epilogue = escape_literal_markers(question.epilogue or "", set())
     tail = "\n".join(
-        part
-        for part in (tail_part.strip(PHP_SPACE), (question.epilogue or "").strip(PHP_SPACE))
-        if part
+        part for part in (tail_part.strip(PHP_SPACE), epilogue.strip(PHP_SPACE)) if part
     )
     stem = stem_part.strip(PHP_SPACE)
     block = gift_block(question, stem, answer, report, tail=tail)
@@ -616,9 +619,11 @@ def block_to_mdq(block: GiftBlock, report: Report) -> Question:
     if block.tail:
         with report.under("blanks", 0):
             blank = blank_from_answer(answer, report)
-        stem = f"{block.stem}{block.stem_space or ''}[^blank]{block.tail_space}{block.tail}"
+        blank = blank.model_copy(update={"id": blank_id_after(block.stem + block.tail, blank.id)})
+        stem = f"{block.stem}{block.stem_space or ''}[^{blank.id}]{block.tail_space}{block.tail}"
         if block.text_format == "html":
             stem = html_blanks_to_mdq(stem, report)
+        stem = escape_literal_markers(stem, {blank.id})
         return FillInQuestion(
             stem=stem, blanks=[blank], meta=meta,
                 title=block.title, comment=block.comment
