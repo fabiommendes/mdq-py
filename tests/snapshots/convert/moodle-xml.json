@@ -234,10 +234,9 @@
     }
   },
   "valid/essay/form-feed-is-text.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Ciclo da água</text>\n    </name>\n    <idnumber>ciclo-agua</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique o ciclo\fda água.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
-    "import": {
-      "code": "syntax-error",
-      "error": "[line 9, col 29]: malformed Moodle XML: not well-formed (invalid token): line 9, column 28"
+    "export": {
+      "code": "invalid-xml-character",
+      "error": "cannot convert to Moodle XML: the text has U+000C, which XML 1.0 cannot hold, not even as a character reference"
     }
   },
   "valid/essay/frontmatter-nel-ls-in-scalar.yaml": {
@@ -1600,12 +1599,7 @@
             }
           ],
           "id": "blank1",
-          "reject": [
-            {
-              "feedback": "The Amazon basin holds the largest river by volume.",
-              "pattern": "`*`"
-            }
-          ],
+          "incorrectFeedback": "The Amazon basin holds the largest river by volume.",
           "type": "short-answer"
         },
         {
@@ -1616,13 +1610,10 @@
             }
           ],
           "id": "blank2",
+          "incorrectFeedback": "Look at the north of Brazil.",
           "reject": [
             {
               "pattern": "Bahia"
-            },
-            {
-              "feedback": "Look at the north of Brazil.",
-              "pattern": "`*`"
             }
           ],
           "type": "short-answer"
@@ -1632,8 +1623,7 @@
       "stem": "The [^blank1] flows through the Brazilian state of [^blank2] before it reaches the Atlantic Ocean.",
       "title": "The Amazon",
       "type": "fill-in"
-    },
-    "reexport": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <name>\n      <text>The Amazon</text>\n    </name>\n    <idnumber>fill-in-amazon</idnumber>\n    <questiontext format=\"markdown\">\n      <text>The {1:SHORTANSWER:=Amazonas~\\*#The Amazon basin holds the largest river by volume.} flows through the Brazilian state of {1:SHORTANSWER:=Pará#Right: the mouth of the river is in Pará.~Bahia~\\*#Look at the north of Brazil.} before it reaches the Atlantic Ocean.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>"
+    }
   },
   "valid/fill-in/line-and-detached-list-epilogue.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <name>\n      <text>Blank lines followed by list epilogues</text>\n    </name>\n    <idnumber>fill-in-line-detached-list</idnumber>\n    <questiontext format=\"markdown\">\n      <text>O bioma {1:SHORTANSWER:=Amazônia~Cerrado}.\n\n* Cerrado is the second largest biome.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
@@ -1855,11 +1845,11 @@
     }
   },
   "valid/fill-in/numeric-blank-exponent.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <name>\n      <text>Constants</text>\n    </name>\n    <idnumber>fill-in-numeric-exponent</idnumber>\n    <questiontext format=\"markdown\">\n      <text>The Avogadro constant is about {1:NUMERICAL:=602200000000000027262976:100000000000000000000} per mole, and the Earth has a mass of about {1:NUMERICAL:=5972000000000000327155712:59720000000000006291456}.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multianswer\">\n    <name>\n      <text>Constants</text>\n    </name>\n    <idnumber>fill-in-numeric-exponent</idnumber>\n    <questiontext format=\"markdown\">\n      <text>The Avogadro constant is about {1:NUMERICAL:=6.022e+23:1e+20} per mole, and the Earth has a mass of about {1:NUMERICAL:=5.972e+24:5.972000000000001e+22}.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n  </question>\n</quiz>",
     "import": {
       "blanks": [
         {
-          "answer": "602200000000000027262976",
+          "answer": 6.022e+23,
           "id": "blank1",
           "tolerance": {
             "absolute": 1e+20
@@ -1867,7 +1857,7 @@
           "type": "numeric"
         },
         {
-          "answer": "5972000000000000327155712",
+          "answer": 5.972e+24,
           "id": "blank2",
           "tolerance": {
             "absolute": 5.972000000000001e+22
@@ -2997,10 +2987,9 @@
     }
   },
   "valid/multiple-choice/line-separators-in-choice-text.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multichoice\">\n    <questiontext format=\"markdown\">\n      <text>Qual árvore é símbolo do Brasil?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <single>true</single>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>Ipêamarelo do\u000bcerrado\fbrasileiro</text>\n    </answer>\n    <answer fraction=\"-100\" format=\"markdown\">\n      <text>Jatobá</text>\n    </answer>\n  </question>\n</quiz>",
-    "import": {
-      "code": "syntax-error",
-      "error": "[line 10, col 27]: malformed Moodle XML: not well-formed (invalid token): line 10, column 26"
+    "export": {
+      "code": "invalid-xml-character",
+      "error": "cannot convert to Moodle XML: the text has U+000B, which XML 1.0 cannot hold, not even as a character reference"
     }
   },
   "valid/multiple-choice/link-choice.yaml": {
@@ -4318,9 +4307,9 @@
     }
   },
   "valid/numeric/exponent-avogadro.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Avogadro constant</text>\n    </name>\n    <idnumber>num-avogadro</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>602200000000000027262976</text>\n      <tolerance>100000000000000000000</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Avogadro constant</text>\n    </name>\n    <idnumber>num-avogadro</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>6.022e+23</text>\n      <tolerance>1e+20</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "id": "num-avogadro",
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Avogadro constant",
@@ -4332,9 +4321,9 @@
     }
   },
   "valid/numeric/exponent-both-tolerances.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Exponent in both tolerances</text>\n    </name>\n    <idnumber>num-exponent-both-tolerances</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>602200000000000027262976</text>\n      <tolerance>100000000000000000000</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Exponent in both tolerances</text>\n    </name>\n    <idnumber>num-exponent-both-tolerances</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>6.022e+23</text>\n      <tolerance>1e+20</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "id": "num-exponent-both-tolerances",
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Exponent in both tolerances",
@@ -4346,9 +4335,9 @@
     }
   },
   "valid/numeric/exponent-earth-mass.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Mass of the Earth</text>\n    </name>\n    <idnumber>num-earth-mass</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the mass of the Earth, in kg?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>5972000000000000327155712</text>\n      <tolerance>59720000000000006291456</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>kg</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Mass of the Earth</text>\n    </name>\n    <idnumber>num-earth-mass</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the mass of the Earth, in kg?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>5.972e+24</text>\n      <tolerance>5.972000000000001e+22</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>kg</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
     "import": {
-      "answer": "5972000000000000327155712",
+      "answer": 5.972e+24,
       "id": "num-earth-mass",
       "stem": "What is the mass of the Earth, in kg?",
       "title": "Mass of the Earth",
@@ -4373,9 +4362,9 @@
     }
   },
   "valid/numeric/exponent-largest-double.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Largest double</text>\n    </name>\n    <idnumber>num-largest-double</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the largest finite IEEE 754 double-precision number, to four significant digits?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>179699999999999995905583193224901611072291632858140147022196965453183254804882333283158350892704195965340850558876415698952989333541237197049756210812543716071112914325883132079881143218860183987564403694835026082366930530891133544472016095261267320024522778316642355122561812896796181678766044130382320762880</text>\n      <tolerance>99999999999999993925355250553646218600402872201173249531907715713232045630132339028433092574405077484368561180561621725787171937426360305302357988408668827749873014416820110410677102531624409058437198025485515990766396825508218326595491122696079498053460349186625724064076043808459598620749043481381437440</tolerance>\n    </answer>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Largest double</text>\n    </name>\n    <idnumber>num-largest-double</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the largest finite IEEE 754 double-precision number, to four significant digits?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>1.797e+308</text>\n      <tolerance>1e+305</tolerance>\n    </answer>\n  </question>\n</quiz>",
     "import": {
-      "answer": "179699999999999995905583193224901611072291632858140147022196965453183254804882333283158350892704195965340850558876415698952989333541237197049756210812543716071112914325883132079881143218860183987564403694835026082366930530891133544472016095261267320024522778316642355122561812896796181678766044130382320762880",
+      "answer": 1.797e+308,
       "id": "num-largest-double",
       "stem": "What is the largest finite IEEE 754 double-precision number, to four significant digits?",
       "title": "Largest double",
@@ -4434,18 +4423,14 @@
     }
   },
   "valid/numeric/exponent-string-answer.yaml": {
-    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Avogadro constant</text>\n    </name>\n    <idnumber>num-avogadro-string</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>602200000000000027262976</text>\n      <tolerance>0</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Avogadro constant</text>\n    </name>\n    <idnumber>num-avogadro-string</idnumber>\n    <questiontext format=\"markdown\">\n      <text>What is the Avogadro constant, in 1/mol?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>6.022e+23</text>\n      <tolerance>0</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>1/mol</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "id": "num-avogadro-string",
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Avogadro constant",
       "type": "numeric",
       "unit": "1/mol"
-    },
-    "reexport": {
-      "code": "inexact-answer",
-      "error": "cannot convert to Moodle XML: the answer '602200000000000027262976' has no exact floating-point value, and without a tolerance Moodle XML would only accept 6.022e+23"
     }
   },
   "valid/numeric/exponent-trailing-zero-places.yaml": {

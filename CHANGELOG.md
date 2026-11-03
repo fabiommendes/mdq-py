@@ -78,6 +78,14 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- The GIFT import trims only the spaces PHP's `trim()` removes, as Moodle does: a Unicode space (NBSP, em space) at the start of an answer is kept, so an exported question imports back the same.
+- The GIFT export writes an explicit `%credit%` before an answer text that starts with `%`, which Moodle would read as the credit.
+- The GIFT export of a fill-in question puts the answer at the blank, not at a `[^id]` inside code.
+- The Aiken import breaks lines only at a line feed, as Moodle does: a form feed, a vertical tab or U+2028 in a choice is text.
+- The Moodle XML import reads a lone `*` of a cloze `SHORTANSWER` as "any other answer" (`incorrectFeedback` at 0%), as for a short-answer question.
+- The Moodle XML export of a text with a character XML 1.0 forbids (a form feed, a vertical tab) fails with `invalid-xml-character`, where it wrote a file that no XML reader reads.
+- The GIFT and Moodle XML exports write a whole float above 2**53 with its shortest form (`6.022e+23`), not the digits of its exact value, which imported back as an integer that the export rejected.
+
 - Cloze (Moodle XML) and GIFT missing-word imports of `html` text wrapped in `<p>` no longer fail: each `<p>` becomes a Markdown paragraph, so the `[^blank]` marker stays inline (the attributes of `<p>` are dropped). Another block tag that holds a blank raises a clear error.
 - Import of GIFT `[html]` and Moodle `html` text wraps a stem without blanks, the general feedback and the grader info in one `<div>` HTML block with no blank lines, so Markdown never reads part of it. Choices, inline feedback and text with blanks are copied as is.
 - Moodle XML cloze export escapes only `}` and `#` in choice options and in every feedback, as Moodle's cloze import unescapes only those two, so `Razão 1:2` shows as written. Import reads them the same way and keeps other backslashes. A 100% option that starts with `=` or `%` gets an explicit `%100%`.

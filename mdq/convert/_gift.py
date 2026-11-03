@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field, replace
 from typing import Literal, NoReturn, assert_never
 
+from .._markdown import locate_blank_markers
 from ..models import (
     Blank,
     ChoiceBlank,
@@ -50,6 +51,10 @@ from ._common import (
 )
 from ._common import escape_text as escape_gift
 from ._common import unescape_text as unescape_gift
+
+#: The characters PHP's `trim()` removes. Moodle's GIFT reader trims with it,
+#: so a Unicode space (NBSP, em space) at the edge of a text is kept.
+PHP_SPACE = " \t\n\r\0\x0b"
 
 __all__ = [
     "Gift",
@@ -358,12 +363,21 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
         )
     blank = question.blanks[0]
     marker = f"[^{blank.id}]"
-    stem_part, sep, tail_part = question.stem.partition(marker)
-    if not sep:
+    # Code, `[^x](url)` links and autolinks are literal text, not blanks.
+    span = next(
+        (
+            m.span
+            for m in locate_blank_markers(question.stem)
+            if m.id == blank.id and m.span is not None
+        ),
+        None,
+    )
+    if span is None:
         report.error(
             "blank-marker-mismatch",
             f"cannot convert to GIFT: stem does not contain blank marker {marker!r}"
         )
+    stem_part, tail_part = question.stem[: span[0]], question.stem[span[1] :]
 
     answer: GiftAnswer
     match blank:
@@ -397,19 +411,19 @@ def block_from_fill_in(question: FillInQuestion, report: Report) -> GiftBlock:
         case _:
             assert_never(blank)
 
-    tail = "\n".join(part for part in (tail_part.strip(), (question.epilogue or "").strip()) if part)
+    tail = "\n".join(part for part in (tail_part.strip(PHP_SPACE), (question.epilogue or "").strip(PHP_SPACE)) if part)
     if BLANK_LINE_REGEX.search(tail):
         report.error(
             "blank-line-after-blank",
             "cannot convert to GIFT: the text after the blank has a blank line, "
             "which would end the GIFT block"
         )
-    stem = stem_part.strip()
+    stem = stem_part.strip(PHP_SPACE)
     block = gift_block(question, stem, answer, report, tail=tail)
     if stem:
-        block.stem_space = stem_part[len(stem_part.rstrip()) :]
-    if tail_part.strip():
-        block.tail_space = tail_part[: len(tail_part) - len(tail_part.lstrip())]
+        block.stem_space = stem_part[len(stem_part.rstrip(PHP_SPACE)) :]
+    if tail_part.strip(PHP_SPACE):
+        block.tail_space = tail_part[: len(tail_part) - len(tail_part.lstrip(PHP_SPACE))]
     return block
 
 
@@ -612,7 +626,7 @@ def true_false_from_blocks(blocks: list[GiftBlock]) -> TrueFalseQuestion:
     choices = []
     for text, block in zip(statement_texts, blocks):
         assert isinstance(block.answer, GiftBoolean)
-        choices.append(Statement(text=text.strip(), correct=block.answer.value))
+        choices.append(Statement(text=text.strip(PHP_SPACE), correct=block.answer.value))
 
     return TrueFalseQuestion(
         stem=group_stem,
@@ -647,8 +661,8 @@ class GiftParser:
         comment_lines: list[str] = []
         index = 0
         consumed = offset
-        while index < len(lines) and lines[index].lstrip().startswith("//"):
-            comment_lines.append(lines[index].lstrip()[2:].strip())
+        while index < len(lines) and lines[index].lstrip(PHP_SPACE).startswith("//"):
+            comment_lines.append(lines[index].lstrip(PHP_SPACE)[2:].strip(PHP_SPACE))
             consumed += len(lines[index]) + 1
             index += 1
         rest = "\n".join(lines[index:])
@@ -681,8 +695,8 @@ class GiftParser:
         if brace_pos == -1:
             self.fail("missing answer '{...}' body", consumed + pos)
         stem_raw = unescape_gift(rest[pos:brace_pos])
-        stem = stem_raw.strip()
-        stem_space = stem_raw[len(stem_raw.rstrip()) :] if stem else None
+        stem = stem_raw.strip(PHP_SPACE)
+        stem_space = stem_raw[len(stem_raw.rstrip(PHP_SPACE)) :] if stem else None
         pos = brace_pos + 1
 
         close_pos = find_unescaped(rest, "}", pos)
@@ -700,9 +714,9 @@ class GiftParser:
                 consumed + pos + extra_open,
             )
         tail_unescaped = unescape_gift(tail_raw)
-        tail = tail_unescaped.strip()
+        tail = tail_unescaped.strip(PHP_SPACE)
         tail_space = (
-            tail_unescaped[: len(tail_unescaped) - len(tail_unescaped.lstrip())]
+            tail_unescaped[: len(tail_unescaped) - len(tail_unescaped.lstrip(PHP_SPACE))]
             if tail
             else ""
         )
@@ -724,12 +738,12 @@ class GiftParser:
         fb_pos = find_unescaped(body_raw, "####")
         if fb_pos != -1:
             content_raw = body_raw[:fb_pos]
-            general_feedback = unescape_gift(body_raw[fb_pos + 4 :]).strip() or None
+            general_feedback = unescape_gift(body_raw[fb_pos + 4 :]).strip(PHP_SPACE) or None
         else:
             content_raw = body_raw
             general_feedback = None
 
-        content = content_raw.strip()
+        content = content_raw.strip(PHP_SPACE)
         if content == "":
             return GiftEssay(), general_feedback
 
@@ -752,7 +766,7 @@ class GiftParser:
     def parse_options(self, content: str) -> list[GiftOption]:
         return [
             GiftOption(
-                text=unescape_gift(entry.text).strip(),
+                text=unescape_gift(entry.text).strip(PHP_SPACE),
                 credit=entry.credit,
                 feedback=unescape_feedback(entry.feedback),
             )
@@ -764,12 +778,12 @@ class GiftParser:
     ) -> list[GiftNumericOption]:
         body = content[1:]
         if find_unescaped(body, "=") == -1:
-            value, tolerance = self.parse_numeric_spec(body.strip(), offset)
+            value, tolerance = self.parse_numeric_spec(body.strip(PHP_SPACE), offset)
             return [GiftNumericOption(value=value, tolerance=tolerance)]
 
         options = []
         for entry in parse_entries(body, "=~", score_from_moodle_percent):
-            spec = entry.text.strip()
+            spec = entry.text.strip(PHP_SPACE)
             # `=%0%*#fb` is MDQ's form of "any other answer"; `~#fb` is Moodle's own.
             any_value = spec == "*" or (spec == "" and entry.credit == 0.0)
             value, tolerance = (0.0, 0.0) if any_value else self.parse_numeric_spec(spec, offset)
@@ -804,7 +818,7 @@ class GiftParser:
 
 def unescape_feedback(raw: str | None) -> str | None:
     """The text of an entry's `#feedback`, or `None` if it is missing or blank."""
-    return (unescape_gift(raw).strip() or None) if raw else None
+    return (unescape_gift(raw).strip(PHP_SPACE) or None) if raw else None
 
 
 def render_gift_answer(answer: GiftAnswer) -> str:
@@ -847,8 +861,14 @@ def render_gift_numeric(options: list[GiftNumericOption]) -> str:
 
 
 def render_gift_option(option: GiftOption) -> str:
-    """Render one choice answer entry: `=` for full credit, `~` otherwise."""
-    if option.credit == 1.0:
+    """
+    Render one choice answer entry: `=` for full credit, `~` otherwise. A
+    text that starts with `%` gets an explicit `%credit%`, or it reads as one.
+    """
+    if option.text.startswith("%"):
+        marker = "=" if option.credit == 1.0 else "~"
+        entry = f"{marker}%{format_credit(option.credit)}%"
+    elif option.credit == 1.0:
         entry = "="
     elif option.credit == 0.0:
         entry = "~"
@@ -861,10 +881,10 @@ def render_gift_short_option(option: GiftOption) -> str:
     """
     Render one short-answer entry: always the `=` delimiter (a `~` would
     misclassify the body as a choice on reparse), with credit carried by
-    a `%NN%` tag whenever it isn't the default 1.0.
+    a `%NN%` tag whenever it isn't the default 1.0 or the text starts with `%`.
     """
     entry = "="
-    if option.credit != 1.0:
+    if option.credit != 1.0 or option.text.startswith("%"):
         entry += f"%{format_credit(option.credit)}%"
     return entry + render_gift_option_tail(option)
 
@@ -905,7 +925,7 @@ def split_blocks(source: str) -> list[tuple[str, int]]:
     offset = 0
 
     for line in source.split("\n"):
-        blank = not line.strip()
+        blank = not line.strip(PHP_SPACE)
         if blank and not current:
             offset += len(line) + 1
             continue  # blank lines between blocks
@@ -923,7 +943,7 @@ def split_blocks(source: str) -> list[tuple[str, int]]:
         current.append(line)
         # A leading `// ...` comment line's braces don't count towards the
         # answer body: `parse_block` strips these lines before parsing.
-        if in_comment and line.lstrip().startswith("//"):
+        if in_comment and line.lstrip(PHP_SPACE).startswith("//"):
             pass
         else:
             in_comment = False

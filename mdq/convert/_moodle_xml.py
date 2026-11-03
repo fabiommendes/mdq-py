@@ -207,13 +207,26 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
     )
 
     def from_mdq(self, question: Question, report: Report, /) -> MoodleXmlQuestion:
-        return encode_question(question, report)
+        moodle = encode_question(question, report)
+        if match := _NOT_XML_CHAR_RE.search(str(moodle)):
+            report.error(
+                "invalid-xml-character",
+                f"cannot convert to Moodle XML: the text has U+{ord(match.group()):04X}, "
+                "which XML 1.0 cannot hold, not even as a character reference",
+            )
+        return moodle
 
     def to_mdq(self, moodle: MoodleXmlQuestion, report: Report, /) -> Question:
         return decode_question(moodle, report)
 
     def parse(self, source: str) -> MoodleXmlQuestion:
         return MoodleXmlParser(source).parse()
+
+
+#: The characters XML 1.0 forbids (its `Char` production): the C0 controls
+#: other than tab, line feed and carriage return, the surrogates, U+FFFE and
+#: U+FFFF. A form feed or a vertical tab is text in MDQ.
+_NOT_XML_CHAR_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
 
 @dataclass
@@ -875,7 +888,9 @@ def blank_from_cloze(
             ],
         )
     if cloze.kind == "SHORTANSWER":
-        short = short_answer_key(imported_answers(answers), report)
+        # A cloze SHORTANSWER is graded as a Moodle short answer: a lone `*`
+        # is "any other answer", as in `short_answer_from_block`.
+        short = short_answer_key(imported_answers(answers), report, any_answer=True)
         return ShortAnswerBlank(
             id=blank_id,
             accept=short.accept,

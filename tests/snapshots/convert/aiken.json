@@ -1473,8 +1473,18 @@
   "valid/multiple-choice/line-separators-in-choice-text.yaml": {
     "export": "Qual árvore é símbolo do Brasil?\n\na. Ipêamarelo do\u000bcerrado\fbrasileiro\nb. Jatobá\n\nANSWER: a",
     "import": {
-      "code": "syntax-error",
-      "error": "[line 4, col 1]: expect: 'ANSWER:'"
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Ipêamarelo do\u000bcerrado\fbrasileiro"
+        },
+        {
+          "score": 0.0,
+          "text": "Jatobá"
+        }
+      ],
+      "stem": "Qual árvore é símbolo do Brasil?",
+      "type": "multiple-choice"
     }
   },
   "valid/multiple-choice/link-choice.yaml": {

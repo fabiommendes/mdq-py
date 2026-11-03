@@ -123,8 +123,12 @@ def join_blocks(*parts: str | None) -> str:
 
 
 def format_num(value: float) -> str:
-    """Render a float compactly: as an integer when it has no fractional part."""
-    if value == int(value):
+    """
+    Render a float compactly: as an integer when it has no fractional part
+    and is at most 2**53, else with `repr` (`6.022e+23`, not the 24 digits
+    of its exact value, which read back as an integer with no exact float).
+    """
+    if value == int(value) and abs(value) <= 2**53:
         return str(int(value))
     return repr(value)
 

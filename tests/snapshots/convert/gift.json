@@ -785,16 +785,28 @@
     }
   },
   "valid/fill-in/blank-in-code-is-text.yaml": {
-    "export": {
-      "code": "blank-line-after-blank",
-      "error": "cannot convert to GIFT: the text after the blank has a blank line, which would end the GIFT block"
+    "export": "[markdown] Em MDQ, um blank é escrito assim\\:\n\n```md\nA capital é [^capital].\n```\n\nComplete\\: a capital do Brasil é {=Brasília}.\nLembre que `[^capital]` no epílogo também é só texto\\: [^capital].",
+    "import": {
+      "code": "invalid-question",
+      "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, um blank é escr... só texto: [^capital].', input_type=str]"
     }
   },
   "valid/fill-in/blank-in-code-span-is-text.yaml": {
-    "export": "[markdown] Em MDQ, o código `{=Brasília}` é só texto. A capital do Brasil é [^capital].",
+    "export": "[markdown] Em MDQ, o código `[^capital]` é só texto. A capital do Brasil é {=Brasília}.",
     "import": {
-      "code": "invalid-question",
-      "error": "1 validation error for FillInQuestion\nstem\n  the stem references [^capital] but no blank with that id is defined [type=undefined-blank, input_value='Em MDQ, o código `[^bla...o Brasil é [^capital].', input_type=str]"
+      "blanks": [
+        {
+          "accept": [
+            {
+              "pattern": "Brasília"
+            }
+          ],
+          "id": "blank",
+          "type": "short-answer"
+        }
+      ],
+      "stem": "Em MDQ, o código `[^capital]` é só texto. A capital do Brasil é [^blank].",
+      "type": "fill-in"
     }
   },
   "valid/fill-in/blank-in-indented-code-is-text.yaml": {
@@ -1222,7 +1234,7 @@
         {
           "accept": [
             {
-              "pattern": "Brasília"
+              "pattern": " Brasília"
             }
           ],
           "id": "blank",
@@ -1231,8 +1243,7 @@
       ],
       "stem": "A capital é [^blank].",
       "type": "fill-in"
-    },
-    "reexport": "[markdown] A capital é {=Brasília}."
+    }
   },
   "valid/fill-in/nbsp-in-blank-pattern-list.yaml": {
     "export": "[markdown] A capital é {=Bras ília}.",
@@ -2153,7 +2164,7 @@
       "choices": [
         {
           "score": 1.0,
-          "text": "Ipê"
+          "text": " Ipê"
         },
         {
           "score": -1.0,
@@ -2162,8 +2173,7 @@
       ],
       "stem": "Qual árvore é símbolo do Brasil?",
       "type": "multiple-choice"
-    },
-    "reexport": "[markdown] Qual árvore é símbolo do Brasil? {=Ipê ~%-100%Jatobá}"
+    }
   },
   "valid/multiple-choice/nbsp-in-text-and-feedback.yaml": {
     "export": "[markdown] Qual árvore é símbolo do Brasil? {=Ipê amarelo#Árvore símbolo. ~%-100%Jatobá}",
@@ -2873,9 +2883,9 @@
     }
   },
   "valid/numeric/exponent-avogadro.yaml": {
-    "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#602200000000000027262976:100000000000000000000}",
+    "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23:1e+20}",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Avogadro constant",
       "tolerance": {
@@ -2885,9 +2895,9 @@
     }
   },
   "valid/numeric/exponent-both-tolerances.yaml": {
-    "export": "::Exponent in both tolerances:: [markdown] What is the Avogadro constant, in 1/mol? {#602200000000000027262976:100000000000000000000}",
+    "export": "::Exponent in both tolerances:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23:1e+20}",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Exponent in both tolerances",
       "tolerance": {
@@ -2897,9 +2907,9 @@
     }
   },
   "valid/numeric/exponent-earth-mass.yaml": {
-    "export": "::Mass of the Earth:: [markdown] What is the mass of the Earth, in kg? {#5972000000000000327155712:59720000000000006291456}",
+    "export": "::Mass of the Earth:: [markdown] What is the mass of the Earth, in kg? {#5.972e+24:5.972000000000001e+22}",
     "import": {
-      "answer": "5972000000000000327155712",
+      "answer": 5.972e+24,
       "stem": "What is the mass of the Earth, in kg?",
       "title": "Mass of the Earth",
       "tolerance": {
@@ -2921,9 +2931,9 @@
     }
   },
   "valid/numeric/exponent-largest-double.yaml": {
-    "export": "::Largest double:: [markdown] What is the largest finite IEEE 754 double-precision number, to four significant digits? {#179699999999999995905583193224901611072291632858140147022196965453183254804882333283158350892704195965340850558876415698952989333541237197049756210812543716071112914325883132079881143218860183987564403694835026082366930530891133544472016095261267320024522778316642355122561812896796181678766044130382320762880:99999999999999993925355250553646218600402872201173249531907715713232045630132339028433092574405077484368561180561621725787171937426360305302357988408668827749873014416820110410677102531624409058437198025485515990766396825508218326595491122696079498053460349186625724064076043808459598620749043481381437440}",
+    "export": "::Largest double:: [markdown] What is the largest finite IEEE 754 double-precision number, to four significant digits? {#1.797e+308:1e+305}",
     "import": {
-      "answer": "179699999999999995905583193224901611072291632858140147022196965453183254804882333283158350892704195965340850558876415698952989333541237197049756210812543716071112914325883132079881143218860183987564403694835026082366930530891133544472016095261267320024522778316642355122561812896796181678766044130382320762880",
+      "answer": 1.797e+308,
       "stem": "What is the largest finite IEEE 754 double-precision number, to four significant digits?",
       "title": "Largest double",
       "tolerance": {
@@ -2975,16 +2985,12 @@
     }
   },
   "valid/numeric/exponent-string-answer.yaml": {
-    "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#602200000000000027262976}",
+    "export": "::Avogadro constant:: [markdown] What is the Avogadro constant, in 1/mol? {#6.022e+23}",
     "import": {
-      "answer": "602200000000000027262976",
+      "answer": 6.022e+23,
       "stem": "What is the Avogadro constant, in 1/mol?",
       "title": "Avogadro constant",
       "type": "numeric"
-    },
-    "reexport": {
-      "code": "inexact-answer",
-      "error": "cannot convert to GIFT: the answer '602200000000000027262976' has no exact floating-point value, and without a tolerance GIFT would only accept 6.022e+23"
     }
   },
   "valid/numeric/exponent-trailing-zero-places.yaml": {
@@ -4125,14 +4131,13 @@
     "import": {
       "accept": [
         {
-          "pattern": "`/bras[íi]lia/i`"
+          "pattern": " /bras[íi]lia/i"
         }
       ],
       "stem": "Qual é a capital do Brasil?",
       "title": "Unicode space starts a pattern line",
       "type": "short-answer"
-    },
-    "reexport": "::Unicode space starts a pattern line:: [markdown] Qual é a capital do Brasil? {=/bras[íi]lia/i}"
+    }
   },
   "valid/short-answer/empty-reject-text-line.yaml": {
     "export": "::Biggest dry forest:: [markdown] Which biome is the Caatinga part of? {=semiárido =%0%Cerrado}",
@@ -4553,27 +4558,25 @@
     "import": {
       "accept": [
         {
-          "pattern": "Brasília"
+          "pattern": " Brasília"
         }
       ],
       "stem": "Qual é a capital do Brasil?",
       "type": "short-answer"
-    },
-    "reexport": "[markdown] Qual é a capital do Brasil? {=Brasília}"
+    }
   },
   "valid/short-answer/nbsp-starts-pattern-line.yaml": {
     "export": "::Unicode space starts a pattern line:: [markdown] Qual é a capital do Brasil? {= /bras[íi]lia/i}",
     "import": {
       "accept": [
         {
-          "pattern": "`/bras[íi]lia/i`"
+          "pattern": " /bras[íi]lia/i"
         }
       ],
       "stem": "Qual é a capital do Brasil?",
       "title": "Unicode space starts a pattern line",
       "type": "short-answer"
-    },
-    "reexport": "::Unicode space starts a pattern line:: [markdown] Qual é a capital do Brasil? {=/bras[íi]lia/i}"
+    }
   },
   "valid/short-answer/no-correct-answer.yaml": {
     "export": {

@@ -336,6 +336,16 @@ def test_numeric_block_round_trips(block: GiftBlock) -> None:
         tail=gift_text(),
     )
 )
+# A text that starts with `%` is not read as a credit tag.
+@example(
+    GiftBlock(
+        stem="0",
+        answer=GiftChoice(
+            options=[GiftOption(text="%50%", credit=1.0), GiftOption(text="%0%", credit=0.0)]
+        ),
+        tail="0",
+    )
+)
 def test_choice_block_with_tail_round_trips(block: GiftBlock) -> None:
     q = GiftQuestion(blocks=[block])
     assert parse(str(q)) == q

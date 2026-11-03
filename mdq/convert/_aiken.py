@@ -120,7 +120,11 @@ class StringParser[T]:
 
     def __init__(self, source: str):
         self.source = source
-        self.original_lines = source.splitlines()
+        # Moodle reads the file with PHP's `file()`, which breaks lines only at
+        # "\n": a form feed, a vertical tab or U+2028 is text, not a line break.
+        self.original_lines = source.replace("\r\n", "\n").split("\n")
+        if self.original_lines[-1] == "":
+            self.original_lines.pop()
         self.lineno = 0
         self.colno = 0
         self.lines = deque(self.original_lines)

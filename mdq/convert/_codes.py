@@ -27,6 +27,7 @@ CONVERTER_CODES: dict[str, Severity] = {
     "blank-line-after-blank": "error",
     "no-full-credit": "error",
     "cloze-text-changed": "error",
+    "invalid-xml-character": "error",
     # Import: the format to MDQ.
     "partial-credit-dropped": "error",
     "wildcard-to-regex": "error",
