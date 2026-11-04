@@ -30,13 +30,7 @@ from _corpus import VALID_SOURCES, parsed_sibling, relative_id
 #: Pairs the parser is known not to reproduce exactly, with the reason.
 #: Keyed by the same id `relative_id` gives the pair (e.g.
 #: "multiple-choice.composite-ids.mdq.md").
-NOT_YET_SUPPORTED: dict[str, str] = {
-    # "numeric.table-stem.mdq.md": (
-    #     "the parser uses plain CommonMark with no table extension, so a "
-    #     "GFM pipe table is just an ordinary paragraph to it and its rows "
-    #     "collapse into a single line of prose; see BACKLOG.md"
-    # ),
-}
+NOT_YET_SUPPORTED: dict[str, str] = {}
 
 
 console = Console(force_terminal=True)

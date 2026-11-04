@@ -353,6 +353,7 @@ class PatternKey(MdqModel):
         )
 
 
+# r2: adr-0008
 class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
     type: Literal["short-answer"] = "short-answer"
 

@@ -46,6 +46,7 @@ __all__ = [
 #: U+001C to U+001F, and JavaScript `\s` matches U+FEFF instead of U+0085,
 #: so the grammar never uses `\s`. Written without the brackets, to be
 #: embedded in other classes.
+# r2: adr-0009
 UNICODE_SPACE = (
     r"\t\n\v\f\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000"
 )
@@ -90,6 +91,7 @@ def starts_after(previous: Node, node: Node) -> bool:
     """Whether `node` starts on the line right after `previous` ends."""
     return span(node)[0] == span(previous)[1]
 
+# r2: adr-0001
 # MDQ's own tags (`[short-answer]: ...`, `[numeric]: ...`, `[^blank]: ...`)
 # are syntactically indistinguishable from CommonMark link reference
 # definitions (`[label]: destination`), which are otherwise consumed

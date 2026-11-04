@@ -32,6 +32,7 @@ __all__ = ["Presentation", "ExamPresentation", "digest"]
 LABEL_LENGTHS = (8, 16, 32, 64)
 
 
+# r2: adr-0012
 def digest(seed: str, *parts: str) -> str:
     """
     The SHA-256 of `seed` and the key `parts`, joined by U+0000 and
@@ -88,6 +89,7 @@ class _Scope:
         return table[value]
 
 
+# r2: adr-0012
 class Presentation:
     """
     The labels and the order of the choices of one question, for one seed.

@@ -461,6 +461,7 @@ class Exam(MdqModel):
                 )
         return self
 
+    # r2: adr-0007
     def resolve(
         self,
         bank: QuestionBank,
@@ -669,6 +670,7 @@ class Exam(MdqModel):
             penalty=self.penalty,
         )
 
+    # r2: adr-0006
     def with_ids(self) -> Self:
         """
         Return a copy of this exam in which every question -- and every

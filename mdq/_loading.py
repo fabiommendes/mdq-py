@@ -1,3 +1,4 @@
+# r2: adr-0007, adr-0013
 """
 The one path from Markdown/data to a validated model: parse, build the
 pydantic model, then lint. An exam's include blocks stay unresolved; the
@@ -249,6 +250,7 @@ def _format_from_path(path: Path) -> Format:
     raise UnknownSuffix(path)
 
 
+# r2: adr-0011
 def _load_text(
     text: str,
     fmt: str,
@@ -277,6 +279,7 @@ def _load_text(
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
 
 
+# r2: adr-0011
 def _json_constant(name: str) -> Any:
     """`NaN`, `Infinity` and `-Infinity` are not JSON (RFC 8259, section 6)."""
     raise ValueError(f"{name} is not allowed in JSON (RFC 8259)")

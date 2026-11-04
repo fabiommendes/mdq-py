@@ -1,3 +1,9 @@
+"""
+The GIFT converter: multiple choice, true or false, numeric, short answer and
+essay questions, and the GIFT missing-word form as a single-blank fill-in
+question.
+"""
+
 from __future__ import annotations
 
 import re

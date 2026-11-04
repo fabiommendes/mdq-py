@@ -1,3 +1,11 @@
+"""
+The exceptions of mdq, all derived from `MdqError`.
+
+An `MdqError` carries the `code`, `path` and `node` that `mdq.load` reports
+as a `Diagnostic`. `ConversionWarning` is the one exception to the rule: it
+is a `UserWarning` that a conversion with losses emits.
+"""
+
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from ._diagnostics import RANK, Diagnostic, Severity

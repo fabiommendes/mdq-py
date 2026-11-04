@@ -1,3 +1,4 @@
+# r2: adr-0004, adr-0005
 """
 Locations of the example documents the test suite runs against.
 

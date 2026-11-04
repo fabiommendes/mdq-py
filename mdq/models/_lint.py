@@ -1,3 +1,4 @@
+# r2: adr-0013
 """
 Lint rules shared by several models in `mdq.models`: the common
 document fields (`id`, `uuid`, `tags`, `locale`), text checks, and the

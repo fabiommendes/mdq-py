@@ -1,3 +1,10 @@
+"""
+The Aiken converter: multiple choice questions only, to and from Aiken text.
+
+Aiken has no metadata, feedback or partial credit, so an export reports each
+loss as a diagnostic.
+"""
+
 from __future__ import annotations
 
 import re

@@ -81,6 +81,7 @@ class _NumericExpr(TypedDict, total=False):
     tolerance: ToleranceDict
 
 
+# r2: adr-0010
 def _check_double_range(value: str, text: str) -> None:
     """
     numeric.md, "Answer representation": the runtimes read a number as a

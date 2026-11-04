@@ -471,6 +471,7 @@ def _clean_block(text: str) -> str | None:
     return stripped or None
 
 
+# r2: adr-0006
 def _parse_exam_block(
     lines: list[str],
     exam: dict[str, Any],

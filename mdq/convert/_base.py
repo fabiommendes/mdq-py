@@ -1,3 +1,13 @@
+"""
+The conversion machinery every format shares: `ConversionBase`, the `Report`
+of diagnostics, `Converted`, and the `load_question`, `dump_question`,
+`import_question` and `export_question` functions that `mdq.convert`
+re-exports.
+
+A format module is imported only on first use (`load_converter`), so
+importing `mdq.convert` does not load every converter.
+"""
+
 from __future__ import annotations
 
 import warnings

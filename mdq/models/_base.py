@@ -563,6 +563,7 @@ class BaseQuestion[R](MdqModel):
         self.tags = [tag.strip() for tag in self.tags if tag.strip()]
         self.author = opt.map(str.strip, self.author)
 
+    # r2: adr-0008
     @property
     def automation(self) -> Automation:
         """
@@ -637,6 +638,7 @@ class BaseQuestion[R](MdqModel):
             )
         return diagnostics
 
+    # r2: adr-0006
     def with_ids(self) -> Self:
         """
         Return a copy of this question with a derived id filled in for

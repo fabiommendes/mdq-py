@@ -1,3 +1,8 @@
+"""
+The Moodle XML converter: a question to and from a `<question>` element,
+including Cloze (`multianswer`) for fill-in questions.
+"""
+
 from __future__ import annotations
 
 import math

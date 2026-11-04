@@ -1,4 +1,5 @@
 # doc0: skip
+# r2: adr-0001
 """
 A basic Markdown parser for one MDQ question document.
 

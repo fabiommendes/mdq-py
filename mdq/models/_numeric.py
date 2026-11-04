@@ -308,6 +308,7 @@ class NumericKey(MdqModel):
         return QuestionScore(score=1.0 if correct else 0.0, feedback=feedback)
 
 
+# r2: adr-0010
 class NumericQuestion(NumericKey, BaseQuestion[t.NumericResponse]):
     type: Literal["numeric"] = "numeric"
 
