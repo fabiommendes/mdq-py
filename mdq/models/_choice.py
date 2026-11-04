@@ -151,7 +151,7 @@ class Statement(MdqModel):
 
 
 #
-# `with_ids()`: deriving ids (dev/specs/to-do/derived-ids.md)
+# `with_ids()`: deriving ids (docs/references/choices.md)
 #
 
 

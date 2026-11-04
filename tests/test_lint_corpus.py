@@ -1,9 +1,8 @@
 """
-Tests for the `.lint.json` corpus convention and its snapshot script (see
-"Expected lint files (`.lint.json`)" in
-dev/specs/to-do/loading-module.md).
+Tests for the `.lint.json` corpus convention and its snapshot script (one
+`.lint.json` per document under `examples/valid/`).
 
-ASSUMPTION (the spec names the script but not its exact CLI shape): the
+ASSUMPTION (the script's exact CLI shape is not documented): the
 snapshot script `mdq-py/scripts/lint_snapshot.py` exposes a
 `main(argv: list[str]) -> int` entry point mirroring
 `main` in the root `scripts/schema_bundle.py`, accepting `--root PATH` to point at a
@@ -87,12 +86,11 @@ def _assert_matches_lint_json(doc_path: Path) -> None:
 #: An unsplit tag -- one default-level warning.
 #:
 #: (Previously a malformed `locale`; `malformed-locale` is an `error`
-#: diagnostic raised by the models now -- dev/specs/to-do/
-#: lint-on-models.md -- so a document that trips it never reaches the
+#: diagnostic raised by the models now (docs/lint-codes.md,
+#: "Errors") -- so a document that trips it never reaches the
 #: lint pass at all, and can no longer stand in for "a document with a
 #: lint warning" here. Before that, it stood in for a pair of duplicate
-#: choices, promoted to `error` the same way by
-#: dev/specs/to-do/unique-ids.md.)
+#: choices, promoted to `error` the same way; see docs/lint-codes.md.)
 DUPLICATE_TEXT_YAML = """\
 type: essay
 id: coriolis
@@ -127,7 +125,7 @@ DUPLICATE_TEXT_LINT_JSON = [
 #: An essay question with `id`/`title`/`answerKey` all defined, so it
 #: produces no diagnostics at all -- a genuine zero-diagnostics baseline,
 #: now that those three are their own info-level rules
-#: (dev/specs/to-do/rule-conformance.md, section C).
+#: (docs/lint-codes.md).
 _ZERO_DIAGNOSTIC_ESSAY_MD = (
     "---\n"
     "id: coriolis\n"

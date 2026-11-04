@@ -1,7 +1,6 @@
 """
 Maintain the `.lint.json` snapshots next to the examples under
-`examples/valid/` (see "Expected lint files" in
-`dev/specs/to-do/loading-module.md`).
+`examples/valid/` (one `.lint.json` per document).
 
 A `.lint.json` records the non-error diagnostics `mdq.load` is expected
 to produce for one document; a clean document records `[]`. `foo.mdq.md`

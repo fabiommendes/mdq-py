@@ -3,7 +3,7 @@ Tests for the `invalid-frontmatter-field` error
 (docs/question-types/question-base.md, "Frontmatter").
 
 Which documents report it, with which path, is covered by the invalid
-corpus (`*-frontmatter-*`, `*unknown-frontmatter-key*`) and by
+corpus (`*-frontmatter-*`) and by
 `examples/valid/numeric/redundant-id-*`. The message texts and the
 properties stay here.
 

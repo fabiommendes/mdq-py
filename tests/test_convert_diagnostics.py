@@ -1,5 +1,5 @@
 """
-Converter diagnostics (dev/specs/to-do/converter-diagnostics.md): every
+Converter diagnostics (see docs/lint-codes.md): every
 row of the inventory with a code, through `load_question` and
 `dump_question`, the simple calls, the CLI, and the registry.
 """

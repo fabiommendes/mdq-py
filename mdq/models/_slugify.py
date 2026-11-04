@@ -52,7 +52,7 @@ _EMPTY_SLUG_PLACEHOLDER = "item"
 # the "typical case" workaround docs/question-types/multiple-choice.md
 # gestures at (`! -> bang`, `? -> question`). Formerly `mdq._parser`'s
 # `DIGIT_NAMES`/`SYMBOL_NAMES`, moved here so a derived id stays the same
-# regardless of who computes it (dev/specs/to-do/derived-ids.md).
+# regardless of who computes it.
 DIGIT_NAMES = {
     "0": "zero",
     "1": "one",

@@ -855,7 +855,7 @@ def check_short_answer(
 
     Whether every `/`-delimited pattern in `accept`/`reject`/
     `preAccept`/`preReject` compiles is a model error
-    (`invalid-regex` -- dev/specs/to-do/lint-on-models.md), not checked
+    (`invalid-regex`, see docs/lint-codes.md), not checked
     here.
     """
     yield from _check_pattern_list(accept, "accept", path=path)

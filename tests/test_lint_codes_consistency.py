@@ -1,12 +1,7 @@
 """
-Tests for the "Tests" section of `dev/specs/to-do/rule-conformance.md`:
-
-    A test that every code in `docs/lint-codes.md` is produced by some
-    corpus example, and every code the implementation produces is in
-    `docs/lint-codes.md`.
-
-No such test existed before this file (checked with `grep -rl
-lint-codes mdq-py/tests/`), so this is new, not an extension.
+Lint code consistency: every code in `docs/lint-codes.md` is produced by
+some corpus example, and every code the implementation produces is in
+`docs/lint-codes.md`.
 
 `docs/lint-codes.md` has two tables: a `warning`/`info` reference table,
 and an "## Errors" table for codes now raised as pydantic errors. Both

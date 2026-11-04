@@ -228,8 +228,7 @@ def mdq_text(max_size: int = 30) -> st.SearchStrategy[str]:
             and "[^" not in s
             # base.md, "Forbidden elements": an H1 heading, a heading or
             # paragraph starting with '[', or a '['-led list, is now a
-            # model error (dev/specs/to-do/rule-conformance.md, section
-            # D) wherever it lands as a stem, so a generated
+            # model error (see docs/lint-codes.md) wherever it lands as a stem, so a generated
             # value that happens to look like one is excluded rather
             # than producing a document that can never be built.
             and not _parser.find_forbidden_elements(

@@ -1,7 +1,7 @@
 """
 Tests for `mdq._loading`, the module that owns the full
-markdown/data -> model -> diagnostics pipeline (see
-`dev/specs/to-do/loading-module.md`).
+markdown/data -> model -> diagnostics pipeline (the
+public `mdq.load`/`mdq.parse` entry points).
 
 Every caller -- library, CLI, include resolution -- is meant to go
 through `load`/`parse` instead of the old `parse_question`/`parse_exam`

@@ -1,6 +1,5 @@
 """
-Schema/model agreement (see "Schema/model agreement" in
-dev/specs/to-do/loading-module.md).
+Schema/model agreement.
 
 Runtime JSON Schema validation goes away with `mdq.validator`; this test
 is what replaces it as the guard against the schema and the pydantic
@@ -13,7 +12,7 @@ both live in the same directory -- must satisfy both sides. Every
 document under `examples/invalid/` must fail both, except
 `examples/invalid/model-only/`: a rule like "unique by field" cannot be
 expressed in JSON Schema, so those documents satisfy the schema and are
-only rejected by `load` (dev/specs/to-do/unique-ids.md).
+only rejected by `load` (see docs/lint-codes.md, "Errors").
 """
 
 from __future__ import annotations
@@ -142,7 +141,7 @@ def test_model_only_invalid_example_satisfies_schema_but_fails_to_load(
     """
     A rule like "unique by field" (`duplicate-choice-id`,
     `duplicate-choice-text`, `duplicate-blank-id`, `duplicate-question-id`
-    -- dev/specs/to-do/unique-ids.md) cannot be expressed in JSON Schema.
+    -- docs/lint-codes.md, "Errors") cannot be expressed in JSON Schema.
     These documents satisfy the schema, and are rejected by `load` alone.
     """
     document = load_yaml(path.read_text(encoding="utf-8"))

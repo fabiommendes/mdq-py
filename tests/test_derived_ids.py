@@ -1,5 +1,5 @@
 """
-Tests for `dev/specs/to-do/derived-ids.md`.
+Tests for derived ids (docs/exam.md, "Question ids").
 
 Derived ids move from the parser to the models:
 

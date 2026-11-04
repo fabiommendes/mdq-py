@@ -1,6 +1,6 @@
 """
 Short answer: `accept` is the only answer list (see
-`dev/specs/to-do/short-answer-accept-only.md`).
+docs/question-types/short-answer.md).
 
 `oneOf` and `regex` no longer exist in short-answer questions. The Markdown
 parser always emits `accept`, and the pattern keeps its delimiters.

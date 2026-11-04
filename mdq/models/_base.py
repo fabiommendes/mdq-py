@@ -3,8 +3,8 @@
 `BaseQuestion`, the fields and behavior every question type shares.
 
 Also home to generic helpers with no question-type of their own: the
-unique-id machinery shared by every "duplicate choice/id" rule
-(dev/specs/to-do/unique-ids.md), the `locale`/`blank-text`/regex
+unique-id machinery shared by every "duplicate choice/id" rule,
+the `locale`/`blank-text`/regex
 validators reused across question and blank types, and the
 stem/epilogue normalization helpers `BaseQuestion._normalize`
 calls.
@@ -152,7 +152,7 @@ class MdqModel(BaseModel):
 
 #
 # Unique ids: shared machinery for the four "duplicate" rules
-# (dev/specs/to-do/unique-ids.md). These used to be `warning`-level lint
+# (see docs/lint-codes.md). These used to be `warning`-level lint
 # checks in `mdq.models._lint`; they are model validators now, so a
 # violation is an `error` that stops `load` from returning a document at
 # all.
@@ -269,7 +269,7 @@ def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:
 
 #
 # Model errors that used to be `warning`-level lint checks
-# (dev/specs/to-do/lint-on-models.md, "New errors"): a document that
+# (see docs/lint-codes.md): a document that
 # violates one of these fails to build at all, the same way a duplicate
 # id does above.
 #
@@ -407,7 +407,7 @@ class BaseQuestion[R](MdqModel):
         `[` -- any of these could be mistaken for the question's body.
         Checked here (not only by `mdq._parser`), so a document built
         directly from a `dict`/YAML/JSON skips no less than a parsed one
-        does (dev/specs/to-do/rule-conformance.md, section D).
+        does.
 
         A leading `[slug]` prefix is exempt only on the very first block
         of the stem (generic.md, "Slug") --
@@ -612,8 +612,8 @@ class BaseQuestion[R](MdqModel):
         """
         Run the lint rules common to every question type.
 
-        Subclasses call `super().lint()` and add their own rules on top
-        (dev/specs/to-do/lint-on-models.md). These are advisory
+        Subclasses call `super().lint()` and add their own rules on top.
+        These are advisory
         (`warning`/`info`) checks only -- a rule serious enough to stop a
         document from loading at all is a model validator instead (see
         the module docstring).
@@ -640,7 +640,8 @@ class BaseQuestion[R](MdqModel):
     def with_ids(self) -> Self:
         """
         Return a copy of this question with a derived id filled in for
-        every choice that has none of its own (dev/specs/to-do/derived-ids.md).
+        every choice that has none of its own
+        (docs/exam.md, "Question ids").
 
         A question type with no choices (essay, numeric, short answer,
         ordering) has nothing to derive, so this returns a plain copy.

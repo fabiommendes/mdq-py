@@ -173,8 +173,8 @@ def test_loose_singleton_never_raises(items: frozenset[str]) -> None:
 
 
 #: A single digit or symbol is also a valid one-character slug, but
-#: `loose` names it from a fixed table instead (dev/specs/to-do/derived-ids.md)
-#: -- excluded from the no-op check below, which is about there being
+#: `loose` names it from a fixed table instead
+#: (docs/references/choices.md) -- excluded from the no-op check below, which is about there being
 #: nothing *more descriptive* to slugify a short text into.
 _NAMED_GLYPHS = frozenset(DIGIT_NAMES) | frozenset(SYMBOL_NAMES)
 

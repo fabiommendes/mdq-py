@@ -1,6 +1,6 @@
 """
-Tests for `mdq validate`, once it is rebuilt on top of `mdq._loading` (see
-`dev/specs/to-do/loading-module.md`).
+Tests for `mdq validate`, once it is rebuilt on top of `mdq._loading` (the
+`mdq.load` pipeline).
 
 The command drops `--type`/`--schema-dir` (`load` figures out the format
 from the file itself) and keeps `--level default|strict`, which now only
@@ -44,10 +44,9 @@ reject:
 #
 # (Previously a malformed `locale`; `malformed-locale` is an `error`
 # diagnostic raised by the models now --
-# dev/specs/to-do/lint-on-models.md -- so it no longer fits "a warning,
+# (docs/lint-codes.md, "Errors") -- so it no longer fits "a warning,
 # not an error". Before that, it stood in for two choices sharing the
-# same text, promoted to `error` the same way by
-# dev/specs/to-do/unique-ids.md.)
+# same text, promoted to `error` the same way.)
 WARNING_ONLY_MD = (
     "---\n"
     "id: Capital Do Brasil\n"

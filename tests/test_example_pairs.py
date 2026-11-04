@@ -13,8 +13,6 @@ parsed fields, and that the body's shape matches the parsed structure.
 
 from __future__ import annotations
 
-import json
-
 import re
 from pathlib import Path
 from typing import Any
@@ -92,16 +90,6 @@ def test_source_has_a_parsed_sibling(source: Path) -> None:
     )
 
 
-def _is_pinned_unknown_key(source: Path, key: str) -> bool:
-    lint_json = source.with_name(source.name.removesuffix(".mdq.md") + ".lint.json")
-    if not lint_json.exists():
-        return False
-    return any(
-        entry["code"] == "unknown-frontmatter-key" and entry["path"] == [key]
-        for entry in json.loads(lint_json.read_text(encoding="utf-8"))
-    )
-
-
 @pytest.mark.parametrize("source", VALID_SOURCES, ids=_ids(VALID_SOURCES))
 def test_frontmatter_agrees_with_the_parsed_document(source: Path) -> None:
     """
@@ -128,10 +116,6 @@ def test_frontmatter_agrees_with_the_parsed_document(source: Path) -> None:
             "domain",
             "decimalPlaces",
         ):
-            continue
-        # A key the parser does not know is dropped with
-        # `unknown-frontmatter-key`, which the source's `.lint.json` pins.
-        if _is_pinned_unknown_key(source, key):
             continue
         assert key in parsed, (
             f"{relative_id(source)} sets {key!r} in its frontmatter, but the "

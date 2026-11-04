@@ -44,7 +44,7 @@ VALID_DIR = EXAMPLES_ROOT / "valid"
 #: Invalid examples JSON Schema cannot reject on its own -- a rule like
 #: "unique by field" -- so the schema accepts them and only `load`
 #: (the pydantic models) rejects them. Every other example under
-#: `examples/invalid/` must fail both (see dev/specs/to-do/unique-ids.md).
+#: `examples/invalid/` must fail both (see docs/lint-codes.md, "Errors").
 INVALID_MODEL_ONLY_DIR = INVALID_DIR / "model-only"
 #: Invalid examples that are not documents at all: YAML or JSON that does
 #: not parse, repeats a key, or is not a mapping at the top level. Only

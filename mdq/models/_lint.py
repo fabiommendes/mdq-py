@@ -11,7 +11,7 @@ to accept these documents, but an author almost never wants them. A
 handful of rules serious enough that the specification calls them
 critical stopped a document from *loading* instead -- those live as
 pydantic validators in `mdq.models` now (see its module docstring and
-dev/specs/to-do/lint-on-models.md), not here.
+docs/lint-codes.md), not here.
 
 Every rule always runs, and each is tagged with the severity of what it
 found:

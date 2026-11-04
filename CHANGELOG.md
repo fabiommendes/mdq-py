@@ -33,6 +33,7 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- `load` and `parse` take no `loader`: an exam's `include` and `includeAll` blocks stay unresolved, and the host resolves them with `Exam.resolve(bank)`. `mdq validate` checks the exam source only, not the included questions (`dev/issues/validate-resolve-includes.md`).
 - An escaped `\[^slug]` and `&#91;^slug]` in a fill-in stem are text, not blanks. The GIFT and Moodle XML imports escape a `[^slug]` of the Moodle text that is not a blank, and the exports escape the `[^slug]` of the epilogue, so every question of the corpus imports back the same. A dropped `id` is `metadata-dropped` (info), not `field-dropped`, and `mdq import`/`mdq export` print an info only with `-v`/`--verbose`.
 - GIFT export never writes a blank line inside a question: Moodle splits a file at every blank line. A blank line of a text is the escape `\n` at the end of the previous line (a multi-paragraph stem, an epilogue, a true or false group, a general feedback). The fill-in error "the text after the blank has a blank line" is gone.
 - GIFT import unescapes what Moodle does: `\\`, `\:`, `\#`, `\=`, `\{`, `\}`, `\~` and `\n` (a line feed). Any other backslash stays (`\*` in a stem is kept). Before, every backslash was dropped and `\n` was `n`.
@@ -324,10 +325,9 @@ Implements the unreleased MDQ specification.
 - An exact literal normalizes the pattern and the response to NFC, so a
   response typed in NFD matches, and trims only the `UNICODE_SPACE` code
   points from their ends.
-- `redundant-regex-anchor`, `ignored-regex-flag`, `accept-wildcard` and
-  `unreachable-reject` are also reported on `preAccept`/`preReject`, at the
-  paths `preAccept[i]`/`preReject[i]` (`blanks[n].preAccept[i]` in a
-  fill-in blank).
+- `redundant-regex-anchor` and `ignored-regex-flag` are also reported on
+  `preAccept`/`preReject`, at the paths `preAccept[i]`/`preReject[i]`
+  (`blanks[n].preAccept[i]` in a fill-in blank).
 - `.md` is an MDQ extension, like `.mdq.md` and `.mdq`. `load`, `parse` and
   the CLI read a `Path` ending in `.md` as MDQ Markdown, and `FileLoader`
   resolves an include to `<id>.md` if there is no `<id>.mdq.md`.

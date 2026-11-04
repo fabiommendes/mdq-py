@@ -1,6 +1,6 @@
 """
 Short answer: two blocks, `[short-answer]` and `[short-answer/reject]` (see
-`dev/specs/to-do/short-answer-two-blocks.md`).
+docs/question-types/short-answer.md).
 
 `[short-answer]` is the accept block and `[short-answer/accept]` is only an
 alias of it. Each block takes one pattern on the tag line or a bullet list on

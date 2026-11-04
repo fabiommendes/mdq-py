@@ -1066,8 +1066,8 @@ def test_full_round_trip_fill_in_multiple_blanks():
             score=st.sampled_from([0.0, 1.0, 0.5, -0.5, 0.25]),
             feedback=st.none() | mdq_text(),
         ),
-        # Choice texts must be unique (`duplicate-choice-text` --
-        # dev/specs/to-do/unique-ids.md), so `MultipleChoiceQuestion`
+        # Choice texts must be unique (`duplicate-choice-text`,
+        # docs/lint-codes.md), so `MultipleChoiceQuestion`
         # itself now rejects two choices sharing a text.
         unique_by=lambda choice: choice.text,
         min_size=2,

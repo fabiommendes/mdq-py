@@ -93,8 +93,8 @@ def parse_exam(
             the caller checks the severity.
 
     Returns:
-        The parsed exam document, in the shape validated by
-        `mdq.validator.validate_document`.
+        The parsed exam document, in the dict shape of
+        `schema/*.yaml`.
 
     Raises:
         MissingField: If the exam has no title.
@@ -486,8 +486,7 @@ def _parse_exam_block(
 
     A block with no explicit `id` gets none here -- the implicit,
     position-based id (`q<position>`, exam.md "Question ids") is
-    `Exam.with_ids()`'s job, not the parser's
-    (dev/specs/to-do/derived-ids.md).
+    `Exam.with_ids()`'s job, not the parser's.
     """
 
     # Drop a leading `===`; what follows is ordinary question source.

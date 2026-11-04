@@ -410,7 +410,7 @@ class Exam(MdqModel):
         the implicit, position-based id (`q1`, `q2`, ...) another
         question would get. Neither the parser nor this model fills
         implicit ids in; `with_ids()` does that once the exam already
-        validated (dev/specs/to-do/derived-ids.md). This validator only
+        validated (docs/exam.md, "Question ids"). This validator only
         computes them, to catch the collision early. A question with
         neither a declared id nor a colliding implicit one does not
         participate: there is nothing to collide.
@@ -707,8 +707,7 @@ class Exam(MdqModel):
     def lint(self) -> list[Diagnostic]:
         """
         Run the exam-level lint rules, then each question's own `lint()`,
-        with `("questions", i)` prepended to that question's diagnostics
-        (dev/specs/to-do/lint-on-models.md).
+        with `("questions", i)` prepended to that question's diagnostics.
 
         exam.md, "Additional Rules" imports every base rule of a field
         the exam shares with a question (`id`, `uuid`, `locale`, `title`,

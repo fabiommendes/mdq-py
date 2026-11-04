@@ -4,8 +4,8 @@ A basic Markdown parser for one MDQ question document.
 
 This module turns MDQ Markdown source (frontmatter + introduction + body +
 epilogue, as described in ``docs/question-types/generic.md``) into the same
-dict shape that ``mdq.validator.validate_document`` expects, i.e. the
-shape documented by ``schema/*.yaml``.
+dict shape documented by ``schema/*.yaml``, which ``mdq.load`` and
+``mdq.parse`` validate through the pydantic models.
 
 Design notes
 ------------
@@ -135,7 +135,7 @@ def parse_question(
 ) -> QuestionDict:
     """
     Parse MDQ Markdown source into a question document dict, matching the
-    shape validated by mdq.validator.validate_document.
+    dict shape of `schema/*.yaml`.
 
     Args:
         text: MDQ source text for a single question, with or without YAML
@@ -147,8 +147,8 @@ def parse_question(
             fails because of them; the caller checks the severity.
 
     Returns:
-        The parsed question document, in the shape validated by
-        `mdq.validator.validate_document`.
+        The parsed question document, in the dict shape of
+        `schema/*.yaml`.
 
     Raises:
         MissingField: If the question has no stem.
