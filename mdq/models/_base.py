@@ -360,6 +360,21 @@ def validate_unique_tags(value: list[str] | None) -> list[str] | None:
     return value
 
 
+#: The key of the JSON Schema URI a YAML or JSON document may hold.
+SCHEMA_KEY = "$schema"
+
+
+def drop_schema_key(data: Any) -> Any:
+    """
+    base.md, "Frontmatter": a question or an exam in YAML or JSON may hold
+    a `$schema` string, which the parser ignores. A `null` is an absent
+    field. Any other value stays, so pydantic reports it at `$schema`.
+    """
+    if isinstance(data, dict) and isinstance(data.get(SCHEMA_KEY, ""), str | None):
+        return {key: value for key, value in data.items() if key != SCHEMA_KEY}
+    return data
+
+
 class BaseQuestion[R](MdqModel):
     """
     Fields every question type carries.
@@ -386,6 +401,11 @@ class BaseQuestion[R](MdqModel):
         return validate_unique_tags(value) or []
 
     _exam: Annotated[weakref.ref[Exam] | None, Field(default=None, exclude=True)] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_schema_key(cls, data: Any) -> Any:
+        return drop_schema_key(data)
 
     @field_validator("locale")
     @classmethod

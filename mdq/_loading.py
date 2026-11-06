@@ -500,6 +500,8 @@ def _missing_tag_message(entry: Any, *, exam_entry: bool) -> str:
 
 
 def _pydantic_message(error: Mapping[str, Any], path: tuple[str | int, ...], exam: bool) -> str:
+    if error["type"] == "extra_forbidden" and path and path[-1] == "$schema":
+        return "`$schema` must be a string"
     if error["type"] != "union_tag_not_found":
         return str(error["msg"])
     if exam and len(path) == 2 and path[0] == "questions":

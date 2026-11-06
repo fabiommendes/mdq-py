@@ -65,6 +65,7 @@ from ._base import (
     _validate_locale,
     FreeText,
     _validate_uuid,
+    drop_schema_key,
     validate_unique_tags,
 )
 from ._choice import (
@@ -354,6 +355,11 @@ class Exam(MdqModel):
     start: ExamStart | None = None
     duration: ExamDuration | None = None
     questions: list[ExamEntry]
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_schema_key(cls, data: Any) -> Any:
+        return drop_schema_key(data)
 
     @field_validator("tags")
     @classmethod

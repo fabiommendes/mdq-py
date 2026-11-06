@@ -14,6 +14,7 @@ Implements the unreleased MDQ specification.
 
 ### Added
 
+- A question or an exam in YAML or JSON may hold a `$schema` string. The models drop it, so `to_dict()` does not write it. Another type is a `schema-error` at `$schema`.
 - `mdq.models.select_seeded(seed)`: a `Select` for `Exam.resolve` that keeps the same questions of an `includeAll` for the same seed (`docs/exam.md`, "Seeded selection"). A seed with U+0000 is a `ValueError`.
 - `BaseQuestion.presentation(seed, *, shuffle=None)` and `Exam.presentation(seed)`: the presented form of a question or of a resolved exam (`docs/public-form.md`, "Presented form"). `Presentation` has `public()`, `to_response(presented)` (labels to ids) and `to_presented(response)` (ids to labels); `ExamPresentation` has `public()` (a list, in exam order), `to_responses()` and `to_presented_responses()`. A seed with U+0000 raises `ValueError`; an unknown label or id raises `ResponseError`.
 - `FillInQuestion.combine(response, manual)`: the score of a response with the instructor score of each pending blank, keyed by blank id, combined by the question's strategy. It raises `ResponseError` for a malformed response, `NotAutoGradable` for a pending blank missing from `manual`, and a plain `ValueError` (not a `GradingError`) for a key that is not a pending blank or a score outside [0, 1].

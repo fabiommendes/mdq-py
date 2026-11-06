@@ -670,6 +670,17 @@
       "type": "essay"
     }
   },
+  "valid/essay/schema-key.yaml": {
+    "export": "::Cheias do Pantanal:: [markdown] Explique por que o Pantanal alaga todo ano. {}",
+    "export_diagnostics": [
+      "info metadata-dropped id"
+    ],
+    "import": {
+      "stem": "Explique por que o Pantanal alaga todo ano.",
+      "title": "Cheias do Pantanal",
+      "type": "essay"
+    }
+  },
   "valid/essay/spaced-slug-is-text.yaml": {
     "export": "[markdown] [ Q1 ] Explique o ciclo da água. {}",
     "import": {

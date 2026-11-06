@@ -624,6 +624,15 @@
       "type": "essay"
     }
   },
+  "valid/essay/schema-key.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Cheias do Pantanal</text>\n    </name>\n    <idnumber>pantanal-cheias</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique por que o Pantanal alaga todo ano.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "import": {
+      "id": "pantanal-cheias",
+      "stem": "Explique por que o Pantanal alaga todo ano.",
+      "title": "Cheias do Pantanal",
+      "type": "essay"
+    }
+  },
   "valid/essay/spaced-slug-is-text.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <questiontext format=\"markdown\">\n      <text>[ Q1 ] Explique o ciclo da água.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
     "import": {

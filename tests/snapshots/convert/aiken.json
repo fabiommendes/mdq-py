@@ -584,6 +584,15 @@
       "error unsupported-type"
     ]
   },
+  "valid/essay/schema-key.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/essay/spaced-slug-is-text.yaml": {
     "export": {
       "code": "unsupported-type",

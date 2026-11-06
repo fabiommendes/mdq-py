@@ -102,6 +102,14 @@
       "description": "A set of questions gathered for assessment. An exam is recognized by its H1 title, which a question document can never carry. Each entry in `questions` is either a complete question document or an `include` referring to one that lives elsewhere.",
       "type": "object",
       "properties": {
+        "$schema": {
+          "type": "string",
+          "format": "uri-reference",
+          "description": "URI of the JSON Schema of the document, for editors and tools. Any URI is valid, also a relative path to a local copy. Parsers ignore it: it is not part of the parsed document, and a serializer does not write it. Only a document in YAML or JSON may hold it; in a Markdown frontmatter it is an `invalid-frontmatter-field`.",
+          "examples": [
+            "https://cdn.jsdelivr.net/npm/mdq-schema@1/mdq.schema.json"
+          ]
+        },
         "type": {
           "const": "exam",
           "description": "Redundant in practice -- an exam is recognized by its H1 title -- but accepted so a document can state its kind explicitly."
@@ -1042,6 +1050,14 @@
       "description": "Common properties shared by every MDQ question type. Question-type schemas (multiple-choice, multiple-selection, true-false, numeric, short-answer, fill-in, essay, ordering) extend this schema, typically via `allOf` + `$ref`, and add their own `type`-specific fields (e.g. `choices`).",
       "type": "object",
       "properties": {
+        "$schema": {
+          "type": "string",
+          "format": "uri-reference",
+          "description": "URI of the JSON Schema of the document, for editors and tools. Any URI is valid, also a relative path to a local copy. Parsers ignore it: it is not part of the parsed document, and a serializer does not write it. Only a document in YAML or JSON may hold it; in a Markdown frontmatter it is an `invalid-frontmatter-field`.",
+          "examples": [
+            "https://cdn.jsdelivr.net/npm/mdq-schema@1/mdq.schema.json"
+          ]
+        },
         "id": {
           "type": "string",
           "description": "Identifier for the question. Used to reference the question from exams, results, and cross-links. It SHOULD be url-safe; an id that is not gets the `unsafe-id` lint warning. It MUST be a YAML string: a number is a schema error, never converted. When omitted, a host system may derive one (see `with_ids()` in mdq-py); the parsed document does not.",
