@@ -21,7 +21,13 @@ from pathlib import Path
 import pytest
 
 from mdq import load
-from _corpus import PARSER_ONLY_CODES, VALID_PARSED, VALID_SOURCES, relative_id
+from _corpus import (
+    PARSER_ONLY_CODES,
+    VALID_PARSED,
+    VALID_SOURCES,
+    read_lint_json,
+    relative_id,
+)
 
 # ---------------------------------------------------------------------
 # Shared helpers: computing / comparing a document's expected diagnostics
@@ -48,7 +54,7 @@ def _expected_diagnostics(doc_path: Path) -> list[dict]:
     assert lint_json.exists(), (
         f"{doc_path.name} has no {lint_json.name}; a clean document pins `[]`"
     )
-    expected = json.loads(lint_json.read_text(encoding="utf-8"))
+    expected = read_lint_json(lint_json)
     if doc_path.name.endswith(".mdq.md"):
         return expected
     # A parsed sibling has no source layout, so it never reports the
@@ -106,7 +112,7 @@ DUPLICATE_TEXT_MD = (
     "id: coriolis\n"
     "title: O efeito Coriolis\n"
     "tags:\n"
-    "  - \"a,b\"\n"
+    '  - "a,b"\n'
     "---\n"
     "\n"
     "Explique o efeito Coriolis.\n"
@@ -266,7 +272,9 @@ def test_snapshot_writes_a_missing_lint_json(tmp_path: Path) -> None:
     )
 
 
-def test_snapshot_writes_an_empty_lint_json_for_a_clean_document(tmp_path: Path) -> None:
+def test_snapshot_writes_an_empty_lint_json_for_a_clean_document(
+    tmp_path: Path,
+) -> None:
     root = tmp_path
     (root / "coriolis.mdq.md").write_text(_ZERO_DIAGNOSTIC_ESSAY_MD, encoding="utf-8")
     code = lint_snapshot.main(["--root", str(root)])
@@ -333,14 +341,12 @@ def test_snapshot_overwrite_rewrites_only_the_given_files(tmp_path: Path) -> Non
     capital_lint.write_text(stale, encoding="utf-8")
     outro_lint.write_text(stale, encoding="utf-8")
 
-    code = lint_snapshot.main(
-        ["--root", str(root), "--overwrite", str(capital_lint)]
-    )
+    code = lint_snapshot.main(["--root", str(root), "--overwrite", str(capital_lint)])
 
     # The named file is rewritten to match reality...
-    assert _multiset(
-        json.loads(capital_lint.read_text(encoding="utf-8"))
-    ) == _multiset(DUPLICATE_TEXT_LINT_JSON)
+    assert _multiset(json.loads(capital_lint.read_text(encoding="utf-8"))) == _multiset(
+        DUPLICATE_TEXT_LINT_JSON
+    )
     # ...but the other stale file is left untouched, so the run as a
     # whole still reports a difference.
     assert outro_lint.read_text(encoding="utf-8") == stale

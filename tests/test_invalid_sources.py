@@ -22,6 +22,7 @@ from _corpus import (
     INVALID_SOURCES,
     INVALID_SYNTAX,
     parsed_sibling,
+    read_lint_json,
     relative_id,
 )
 
@@ -34,13 +35,16 @@ def _diagnostics(path: Path) -> Counter:
     loaded = load(path)
     assert loaded.document is None, f"{path.name} loaded without an error"
     return Counter(
-        json.dumps({"code": d.code, "severity": d.severity, "path": list(d.path)}, sort_keys=True)
+        json.dumps(
+            {"code": d.code, "severity": d.severity, "path": list(d.path)},
+            sort_keys=True,
+        )
         for d in loaded.diagnostics
     )
 
 
 def _expected(source: Path) -> Counter:
-    entries = json.loads(_lint_json(source).read_text(encoding="utf-8"))
+    entries = read_lint_json(_lint_json(source))
     return Counter(json.dumps(entry, sort_keys=True) for entry in entries)
 
 
@@ -48,13 +52,17 @@ def test_there_are_invalid_sources() -> None:
     assert INVALID_SOURCES
 
 
-@pytest.mark.parametrize("source", INVALID_SOURCES, ids=[relative_id(p) for p in INVALID_SOURCES])
+@pytest.mark.parametrize(
+    "source", INVALID_SOURCES, ids=[relative_id(p) for p in INVALID_SOURCES]
+)
 def test_invalid_source_reports_its_lint_json(source: Path) -> None:
     assert _lint_json(source).exists(), f"{source.name} has no .lint.json"
     assert _diagnostics(source) == _expected(source)
 
 
-@pytest.mark.parametrize("source", INVALID_SOURCES, ids=[relative_id(p) for p in INVALID_SOURCES])
+@pytest.mark.parametrize(
+    "source", INVALID_SOURCES, ids=[relative_id(p) for p in INVALID_SOURCES]
+)
 def test_invalid_yaml_sibling_reports_the_same_diagnostics(source: Path) -> None:
     sibling = parsed_sibling(source)
     if not sibling.exists():
@@ -88,6 +96,6 @@ def test_there_are_invalid_parsed_only_examples() -> None:
 def test_invalid_parsed_only_example_reports_its_lint_json(path: Path) -> None:
     lint_json = _parsed_lint_json(path)
     assert lint_json.exists(), f"{path.name} has no .lint.json"
-    entries = json.loads(lint_json.read_text(encoding="utf-8"))
+    entries = read_lint_json(lint_json)
     expected = Counter(json.dumps(entry, sort_keys=True) for entry in entries)
     assert _diagnostics(path) == expected

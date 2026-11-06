@@ -10,7 +10,9 @@ Files that sit in the corpus but are not documents, each with its own
 runner (`collect_files` leaves them out):
 
 * `<name>.lint.json` -- the diagnostics of the document of the same name
-  (`test_lint_corpus.py`, `test_invalid_sources.py`).
+  (`test_lint_corpus.py`, `test_invalid_sources.py`). An entry may
+  also pin the 1-based `line` and `column` of the diagnostic in the source;
+  mdq-py does not check them yet (`read_lint_json`).
 * `valid/exam/<name>.resolved.yaml` -- an exam with includes after
   `resolve` and `with_ids`: the `questions` ids in order,
   `diagnostics`, and optionally `fields` (an inherited field -> its value
@@ -123,6 +125,18 @@ VALID_EXAMS = [
 #: The bundled schema shipped with the package. `scripts/schema_bundle.py`
 #: at the repository root builds it from `schema/*.yaml`.
 SCHEMA_BUNDLE_PATH = PY_PROJECT_ROOT / "mdq" / "mdq.schema.json"
+
+
+def read_lint_json(path: Path) -> list[dict[str, Any]]:
+    """
+    The entries of a `.lint.json`, without their source position (`line`,
+    `column`): mdq-py does not report it yet, mdq-js checks it.
+    """
+    # r2: issue/numeros-de-linha-nos-diagnosticos
+    entries = json.loads(path.read_text(encoding="utf-8"))
+    return [
+        {key: entry[key] for key in ("code", "severity", "path")} for entry in entries
+    ]
 
 
 def load_schema_bundle() -> dict[str, Any]:
