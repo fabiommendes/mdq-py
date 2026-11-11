@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Iterable
 
-from .._parser import dump_yaml
+from .._markdown import split_lines
+from .._parser import close_unclosed_fence, dump_yaml
 
 if TYPE_CHECKING:
     from . import _base, _choice
@@ -42,10 +43,12 @@ def yield_introduction(
     The `id` is passed to `mdq.models._render.yield_introduction()`.
     """
 
+    # A fence with no closing fence would swallow the tag that follows.
+    stem = close_unclosed_fence(model.stem)
     if id is not None:
-        yield f"[{id}] {model.stem}"
+        yield f"[{id}] {stem}"
     else:
-        yield model.stem
+        yield stem
 
 
 def yield_conclusion(
@@ -59,7 +62,8 @@ def yield_conclusion(
     if model.epilogue:
         if skip_line:
             yield ""
-        yield model.epilogue
+        # A fence with no closing fence would swallow what follows.
+        yield close_unclosed_fence(model.epilogue)
 
 
 def yield_ordering_content(
@@ -139,6 +143,29 @@ def score_mark(score: float | None) -> str:
     return f"{percent}%"
 
 
+def yield_item(
+    head: str, text: str, feedback: str | None, comment: str | None
+) -> Iterable[str]:
+    """
+    Yield lines of a list item: `head` and the first line of `text` after
+    the `* ` marker, the other lines of `text` indented, then the feedback
+    (`> `) and the comment (`! `) lines. The lines of a field end at
+    `\\r\\n`, `\\r` and `\\n` only: a U+2028 is text, not a line end.
+    """
+    text_lines = iter(split_lines(text) or [""])
+    yield f"* {head}{next(text_lines)}"
+    for line in text_lines:
+        yield f"  {line}"
+
+    if feedback:
+        for line in split_lines(feedback):
+            yield f"  > {line}"
+
+    if comment:
+        for line in split_lines(comment):
+            yield f"  ! {line}"
+
+
 def yield_choice(
     choice: _choice.ScoredChoice | _choice.BooleanChoice | _choice.Statement, mark: str
 ) -> Iterable[str]:
@@ -146,16 +173,7 @@ def yield_choice(
     Yield lines of a choice as strings. An `id` is written as the
     `[choice-id]` of the item grammar, so it survives a round trip.
     """
-    text_lines = iter(choice.text.splitlines())
     choice_id = f"[{choice.id}] " if choice.id else ""
-    yield f"* [{mark}] {choice_id}{next(text_lines)}"
-    for line in text_lines:
-        yield f"  {line}"
-
-    if choice.feedback:
-        for line in choice.feedback.splitlines():
-            yield f"  > {line}"
-
-    if choice.comment:
-        for line in choice.comment.splitlines():
-            yield f"  ! {line}"
+    yield from yield_item(
+        f"[{mark}] {choice_id}", choice.text, choice.feedback, choice.comment
+    )

@@ -110,8 +110,9 @@
           "properties": {
             "format": {
               "type": "string",
-              "description": "The test format: the first word of the info string of a fence, or the extension of a linked file. Case is kept.",
+              "description": "The test format: the first word of the info string of a fence, or the extension of a linked file. Case is kept. It is not empty and has no Unicode space and no backtick, so a fence can write it. With an `origin`, it MUST be the extension of the origin (the model rule `test-format-disagrees-with-origin`).",
               "minLength": 1,
+              "pattern": "^[^\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000`]+$",
               "examples": [
                 "pytest",
                 "py",
@@ -124,9 +125,9 @@
             },
             "origin": {
               "type": "string",
-              "description": "The destination of the link: a relative path with no scheme, no query and no fragment. A fenced block has no origin.",
+              "description": "The destination of the link: a relative path with no scheme, no query, no fragment and no line break, and a file name with an extension (the `ORIGIN` rule of the grammar). A fenced block has no origin.",
               "minLength": 1,
-              "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#]+$",
+              "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#\\r\\n]*[.][^.\\\\/?#\\r\\n]+$",
               "examples": [
                 "test_conta.py",
                 "tests/conta.iospec"

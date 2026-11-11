@@ -17,6 +17,7 @@ from ..errors import ParseError
 from ..types import RubricItemDict, TestSourceDict
 from ._blocks import BlockCursor, BlockReader
 from ._choices import split_item
+from ._ordering import fence_language
 from ._rubric import (
     LIST_MODIFIERS,
     RubricSyntaxError,
@@ -33,8 +34,6 @@ _ORIGIN_RE = re.compile(
     r"(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#]*[.][^.\/?#]+"
 )
 _SCHEME_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
-#: The test format of a fenced block: its info string up to the first space.
-_FORMAT_RE = re.compile(r"[^ \t]+")
 
 #: Reads a paragraph as CommonMark does, keeping the destination of a link as
 #: the author wrote it. `normalizeLink` would percent-encode it, and the
@@ -135,12 +134,20 @@ def parse_code_body(cursor: BlockCursor) -> tuple[dict[str, object], list[Node]]
     return fields, epilogue
 
 
+def _offender(blocks: list[Node], expected: str) -> Node:
+    """
+    The block that breaks a section of exactly one block of the type
+    `expected`: the first block of another type, else the extra block.
+    """
+    return next((b for b in blocks if b.type != expected), blocks[1] if len(blocks) > 1 else blocks[0])
+
+
 def _template(reader: BlockReader, blocks: list[Node]) -> str:
     """The `template`: the Markdown source of the one fenced block."""
     if len(blocks) != 1 or blocks[0].type != "fence":
         raise ParseError(
             "the ## [template] section holds exactly one fenced code block",
-            blocks[-1] if len(blocks) != 1 else blocks[0],
+            _offender(blocks, "fence"),
         )
     return reader.block_text(blocks[0])
 
@@ -150,14 +157,14 @@ def _tests(reader: BlockReader, blocks: list[Node]) -> list[TestSourceDict]:
     sources: list[TestSourceDict] = []
     for block in blocks:
         if block.type == "fence":
-            found = _FORMAT_RE.match(block.info.strip(" \t"))
-            if found is None:
+            test_format = fence_language(block.info)
+            if test_format is None:
                 raise ParseError(
                     "a fenced test source starts its info string with the test "
                     "format, as in ```pytest",
                     block,
                 )
-            sources.append({"format": found.group(0), "text": block.content})
+            sources.append({"format": test_format, "text": block.content})
         elif block.type == "paragraph":
             sources.append(_linked_source(reader, block))
         else:
@@ -213,12 +220,21 @@ def _rubric(reader: BlockReader, blocks: list[Node]) -> list[RubricItemDict]:
     if len(blocks) != 1 or blocks[0].type != "bullet_list":
         raise ParseError(
             "the ## [rubric] section holds exactly one unordered list",
-            blocks[0] if len(blocks) != 1 or blocks[0].type != "bullet_list" else None,
+            _offender(blocks, "bullet_list"),
         )
     node = blocks[0]
     for item in node.children:
         reader.check_no_setext_item(item)
-    return [_rubric_item(reader.item_lines(item), index, item) for index, item in enumerate(node.children)]
+        if item.children and item.children[0].type != "paragraph":
+            raise ParseError(
+                "an item of `## [rubric]` starts with a paragraph: the criterion "
+                f"is not a {item.children[0].type.replace('_', ' ')}",
+                item,
+            )
+    return [
+        _rubric_item(reader.item_lines(item), index, item)
+        for index, item in enumerate(node.children)
+    ]
 
 
 def _rubric_item(lines: list[str], index: int, node: Node) -> RubricItemDict:

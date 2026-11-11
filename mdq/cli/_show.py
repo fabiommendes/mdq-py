@@ -671,14 +671,8 @@ class _View:
         has the manual items only.
         """
         resolved = question.resolved
-        items = (
-            question.full_rubric()
-            if resolved
-            else [
-                models.FullRubricItem(item.points, "manual", item.text, item.feedback, item.comment)
-                for item in question.rubric or []
-            ]
-        )
+        # With no test source, the full rubric is the manual items.
+        items = (question if resolved else question.model_copy(update={"tests": None})).full_rubric()
         total = sum(item.value for item in items if item.value > 0)
         table = Table(box=self.t.inner_box, border_style=self.t.border, expand=True)
         for header in ("Item", "Applied by", "Value", "Share", "Criterion"):

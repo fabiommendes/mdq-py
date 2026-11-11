@@ -98,6 +98,15 @@
       "error unsupported-type"
     ]
   },
+  "valid/code/rubric-value-minus-zero-decimal.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/code/rubric-value-minus-zero.yaml": {
     "export": {
       "code": "unsupported-type",

@@ -35,10 +35,12 @@ from ._exam import INHERITED_FIELDS, SEPARATOR, inherit, is_exam, parse_exam
 from ._frontmatter import dump_yaml, load_yaml
 from ._numeric import parse_numeric_answer, parse_numeric_string
 from ._blocks import (
+    close_unclosed_fence,
     find_answer_key_forbidden_elements,
     find_forbidden_elements,
     find_stray_choice_markers,
     first_fenced_code,
+    has_unclosed_fence,
     reconstruct_blocks,
 )
 from ._question import parse_question
@@ -63,7 +65,9 @@ __all__ = [
     "find_forbidden_elements",
     "find_answer_key_forbidden_elements",
     "find_stray_choice_markers",
+    "close_unclosed_fence",
     "first_fenced_code",
+    "has_unclosed_fence",
     "parse_numeric_answer",
     "parse_numeric_string",
     "find_unicode_spaces",

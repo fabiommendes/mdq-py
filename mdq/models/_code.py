@@ -12,8 +12,10 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
+from fractions import Fraction
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, Literal, Self
+from typing import Annotated, Any, ClassVar, Literal, Self, cast
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -24,11 +26,12 @@ from .._diagnostics import Diagnostic
 from .._markdown import UNICODE_SPACE, strip_bom
 from ..errors import NotAutoGradable, ReportError, UnresolvedTestSource
 from ..types import Automation
-from . import _lint
+from . import _lint, _render
 from ._base import (
     BaseQuestion,
     FreeText,
     MdqModel,
+    ModelErrorCode,
     raise_model_error,
     raise_model_errors,
 )
@@ -45,8 +48,14 @@ Number = (
     | Annotated[float, Field(strict=True, allow_inf_nan=False)]
 )
 
-#: `origin` of the schema: a relative path with no scheme, query or fragment.
-_ORIGIN_RE = re.compile(r"(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#]+")
+#: `origin` of the schema, the `ORIGIN` terminal of code.md: a relative path
+#: with no scheme, query, fragment or line break, and an extension.
+_ORIGIN_RE = re.compile(
+    r"(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#\r\n]*[.][^.\\/?#\r\n]+"
+)
+#: `format` of the schema: the first word of an info string, which has no
+#: space and no backtick.
+_FORMAT_RE = re.compile(rf"[^{UNICODE_SPACE}`]+")
 #: `language` of the schema: at least one character that is not a Unicode space.
 _VISIBLE_LANGUAGE_RE = re.compile(rf"[^{UNICODE_SPACE}]")
 #: `file` of the schema: a plain name.
@@ -68,21 +77,52 @@ class TestSource(MdqModel):
 
     #: The test format: the first word of the info string of a fence, or the
     #: extension of a linked file. The case is kept.
-    format: Annotated[str, Field(min_length=1)]
+    format: str
     #: The code text. A fenced block has one line ending after each line.
     text: str | None = None
     origin: Annotated[str, Field(min_length=1)] | None = None
 
+    @field_validator("format")
+    @classmethod
+    def check_format_is_a_word(cls, value: str) -> str:
+        """code.md, "Test format": not empty, no Unicode space, no backtick."""
+        if not _FORMAT_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "schema-error",
+                "the format must be a word that is not empty, with no space and no backtick",
+            )
+        return value
+
     @field_validator("origin")
     @classmethod
     def check_origin_is_relative(cls, value: str | None) -> str | None:
-        """code.md, "Test sources": no scheme, no `/` at the start, no `?`, no `#`."""
+        """
+        code.md, "Test sources": no scheme, no `/` at the start, no `?`, no
+        `#`, no line break, and an extension.
+        """
         if value is not None and not _ORIGIN_RE.fullmatch(value):
             raise PydanticCustomError(
                 "schema-error",
-                "the origin must be a relative path with no scheme, query or fragment",
+                "the origin must be a relative path with no scheme, query, fragment or "
+                "line break, and a file name with an extension",
             )
         return value
+
+    @model_validator(mode="after")
+    def check_format_is_the_extension_of_the_origin(self) -> Self:
+        """code.md, "Test format": the format of a linked file is its extension."""
+        if self.origin is not None:
+            extension = self.origin.rsplit(".", 1)[1]
+            if self.format != extension:
+                raise_model_error(
+                    type(self).__name__,
+                    "test-format-disagrees-with-origin",
+                    f"the format {self.format!r} is not the extension {extension!r} of "
+                    f"the origin {self.origin!r}",
+                    ("format",),
+                    self.format,
+                )
+        return self
 
     @model_validator(mode="after")
     def check_has_text_or_origin(self) -> Self:
@@ -253,11 +293,11 @@ class CodeQuestion(BaseQuestion[str]):
         if self.template is None:
             return self
         kinds = [kind for kind, _ in _parser.reconstruct_blocks(self.template)]
-        if kinds != ["fence"]:
+        if kinds != ["fence"] or _parser.has_unclosed_fence(self.template):
             raise_model_error(
                 type(self).__name__,
                 "forbidden-block-element",
-                "'template' must be exactly one fenced code block",
+                "'template' must be exactly one fenced code block, with its closing fence",
                 ("template",),
                 self.template,
             )
@@ -369,17 +409,33 @@ class CodeQuestion(BaseQuestion[str]):
 
         Raises:
             pydantic.ValidationError: a text breaks the rules of the
-                annotations (`invalid-rubric-item`, `blank-text`).
+                annotations (`invalid-rubric-item`, `blank-text`). The `loc`
+                of each error is `("tests", i, "text")`.
         """
         if not self.tests:
             return self.model_copy()
         sources: list[TestSource] = []
-        for source in self.tests:
+        for index, source in enumerate(self.tests):
             origin = source.origin
             if source.text is None and origin is not None and origin in texts:
-                source = TestSource(
-                    format=source.format, origin=origin, text=strip_bom(texts[origin])
-                )
+                try:
+                    source = TestSource(
+                        format=source.format, origin=origin, text=strip_bom(texts[origin])
+                    )
+                except ValidationError as exc:
+                    raise_model_errors(
+                        type(self).__name__,
+                        [
+                            (
+                                # `TestSource` raises only model error codes.
+                                cast(ModelErrorCode, error["type"]),
+                                error["msg"],
+                                ("tests", index, *error["loc"]),
+                            )
+                            for error in exc.errors()
+                        ],
+                        texts[origin],
+                    )
             sources.append(source)
         return self.model_copy(update={"tests": sources})
 
@@ -578,21 +634,21 @@ class CodeQuestion(BaseQuestion[str]):
                 raise NotAutoGradable("the instructor has not scored the response")
             return QuestionScore(score=float(instructor))
 
-        credit = 0.0
-        discount = 0.0
-        positive = 0.0
+        credit = Fraction(0)
+        discount = Fraction(0)
+        positive = Fraction(0)
         build_error = parsed is not None and parsed.status == "build-error"
         cases = [] if parsed is None or build_error else parsed.cases
         for index, source in enumerate(self.tests or []):
             scan = source.annotations
             owned = [case for case in cases if case.source == index]
-            groups: list[tuple[int | float, list[ReportCase]]]
+            groups: list[tuple[Fraction, list[ReportCase]]]
             if not scan.annotated:
-                groups = [(1, owned)]
+                groups = [(Fraction(1), owned)]
             else:
                 groups = [
                     (
-                        1 if note.value is None else note.value,
+                        _exact(1 if note.value is None else note.value),
                         [c for c in owned if note.line <= c.line <= note.end],
                     )
                     for note in scan.items
@@ -609,14 +665,16 @@ class CodeQuestion(BaseQuestion[str]):
                         failed = sum(not c.passed for c in group)
                         discount += -value * failed / len(group)
         for item, score in zip(rubric, scores, strict=True):
-            if item.points > 0:
-                positive += item.points
-                credit += item.points * (score or 0)
-            elif item.points < 0:
-                discount += -item.points * (score or 0)
+            points = _exact(item.points)
+            earned = _exact(score or 0)
+            if points > 0:
+                positive += points
+                credit += points * earned
+            elif points < 0:
+                discount += -points * earned
         if positive == 0:
             return QuestionScore(score=0.0)
-        return QuestionScore(score=max(-1.0, (credit - discount) / positive))
+        return QuestionScore(score=float(max(Fraction(-1), (credit - discount) / positive)))
 
     def _check_report(
         self, report: RunnerReport | Mapping[str, Any] | None
@@ -685,6 +743,14 @@ def _check_manual(
             raise ValueError(f"the score {instructor!r} is not a number in [0, 1]")
 
 
+def _exact(value: int | float) -> Fraction:
+    """
+    The exact value of the decimal text of a number (`0.1` is 1/10, not the
+    nearest double), so the score has one rounding, at the end.
+    """
+    return Fraction(repr(value))
+
+
 def _is_unit_score(value: object) -> bool:
     """Whether `value` is a number in [0, 1]. A `bool` is not a number here."""
     return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1
@@ -715,22 +781,22 @@ def _render_source(source: TestSource) -> Iterable[str]:
         return
     text = source.text or ""
     fence = _fence_for(text)
-    yield f"{fence}{source.format}"
+    # The info string reads backslash escapes and entities back.
+    yield f"{fence}{re.sub(r'([\\&])', r'\\\1', source.format)}"
     if text:
         yield text.removesuffix("\n")
     yield fence
 
 
+def _decimal(value: int | float) -> str:
+    """The plain decimal text of a number, with no exponent (`1e-07` is `0.0000001`)."""
+    return format(Decimal(repr(value)), "f")
+
+
 def _render_rubric_item(item: RubricItem) -> Iterable[str]:
     """An item of `## [rubric]` as a list item."""
-    value = "" if item.value is None else f"[{item.value:+}] "
-    text_lines = iter(item.text.splitlines() or [""])
-    yield f"* {value}{{manual}} {next(text_lines)}"
-    for line in text_lines:
-        yield f"  {line}"
-    if item.feedback:
-        for line in item.feedback.splitlines():
-            yield f"  > {line}"
-    if item.comment:
-        for line in item.comment.splitlines():
-            yield f"  ! {line}"
+    value = ""
+    if item.value is not None:
+        sign = "-" if item.value < 0 else "+"
+        value = f"[{sign}{_decimal(abs(item.value))}] "
+    yield from _render.yield_item(f"{value}{{manual}} ", item.text, item.feedback, item.comment)

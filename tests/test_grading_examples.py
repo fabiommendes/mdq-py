@@ -375,6 +375,8 @@ def test_code(case: dict[str, Any], example: dict[str, Any]) -> None:
         if example["error"] == "ValueError":
             # An error of the host, not of the response or the document.
             assert not isinstance(info.value, GradingError)
+    elif example.get("exact"):
+        assert grade().score == example["score"]
     else:
         assert grade().score == pytest.approx(example["score"], abs=1e-9)
 

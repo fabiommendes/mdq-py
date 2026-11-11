@@ -72,7 +72,7 @@ class RubricLine:
 def _number(text: str) -> int | float:
     """The value of the number of a `RUBRIC_VALUE`; `-0` is 0."""
     number: int | float = float(text) if "." in text else int(text)
-    return 0 * number if number == 0 else number
+    return abs(number) if number == 0 else number
 
 
 def check_criterion_start(text: str) -> None:
@@ -229,6 +229,9 @@ class _Draft:
     lines: int = 1
     feedback: list[str] | None = None
     comment: list[str] | None = None
+    #: The line where the feedback block and the comment block start.
+    feedback_line: int = 0
+    comment_line: int = 0
     #: The kind of the observation block that is open, if any.
     open_kind: str | None = None
     #: The kinds of the blocks that ended.
@@ -291,8 +294,10 @@ def scan_annotations(text: str) -> Annotations:
             current.open_kind = kind
             if kind == ">":
                 current.feedback = []
+                current.feedback_line = number
             else:
                 current.comment = []
+                current.comment_line = number
         block = current.feedback if kind == ">" else current.comment
         assert block is not None  # opened above
         block.append(content)
@@ -340,13 +345,16 @@ def _read_item(rest: str, number: int, result: Annotations) -> RubricLine | None
 
 def _check_blocks(draft: _Draft, result: Annotations) -> None:
     """Record a feedback or comment of `draft` that has no visible character."""
-    for name, block in (("feedback", draft.feedback), ("comment", draft.comment)):
+    for name, block, line in (
+        ("feedback", draft.feedback, draft.feedback_line),
+        ("comment", draft.comment, draft.comment_line),
+    ):
         if block is not None and not has_visible_character(join_paragraph_lines(block)):
             result.problems.append(
                 AnnotationProblem(
                     "blank-text",
                     f"the {name} of the annotation has no visible character",
-                    draft.line,
+                    line,
                 )
             )
 

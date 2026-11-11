@@ -2,17 +2,26 @@
 The runner report (docs/runner-report.md, `schema/runner-report.yaml`): the
 JSON document a runner returns for the test sources of a code question.
 
-The models are strict as the schema is: a field the schema does not define, a
-value of another JSON type and a `version` this reader does not know are
-errors, since grading a report in silence would hide a runner that is out of
-step with MDQ. Grading turns them into `ReportError` (`mdq.errors`).
+The models accept what the schema accepts: a field the schema does not define,
+a value of another JSON type (an explicit `null` included) and a `version` this
+reader does not know are errors, since grading a report in silence would hide a
+runner that is out of step with MDQ. A number with no fraction (`5.0`) is an
+integer, as in JSON Schema. Grading turns the errors into `ReportError`
+(`mdq.errors`). `tests/test_runner_report_schema.py` checks the agreement.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 __all__ = [
@@ -23,6 +32,19 @@ __all__ = [
     "RunnerReport",
 ]
 
+
+def _integral(value: object) -> object:
+    """
+    A JSON integer: an `int`, or a finite `float` with no fraction (`5.0`),
+    as the `integer` type of JSON Schema. A `bool` is not a number.
+    """
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+#: An integer of the schema. The constraint of the field applies after it.
+Integer = Annotated[int, BeforeValidator(_integral), Field(strict=True)]
 #: A SHA-256 digest: 64 lowercase hexadecimal digits.
 Digest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 #: A non-empty string.
@@ -44,6 +66,19 @@ class _ReportModel(BaseModel):
         alias_generator=to_camel, populate_by_name=True, extra="forbid", strict=True
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null(cls, data: Any) -> Any:
+        """
+        The schema gives no `null` to a field: an optional field is absent,
+        not `null`. Only the fields of this object: `meta` keeps its nulls.
+        """
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if value is None:
+                    raise ValueError(f"{key!r} is null: omit the field instead")
+        return data
+
 
 class ReportOutput(_ReportModel):
     """The captured text of a stream of a case, and whether the runner cut it."""
@@ -60,9 +95,9 @@ class ReportCase(_ReportModel):
     """
 
     #: The 0-based index of the test source in `tests`.
-    source: Annotated[int, Field(ge=0)]
+    source: Annotated[Integer, Field(ge=0)]
     #: The line of the source where the case is defined, from 1.
-    line: Annotated[int, Field(ge=1)]
+    line: Annotated[Integer, Field(ge=1)]
     verdict: Literal["pass", "fail", "error", "timeout", "resource-limit", "skipped"]
     id: Name | None = None
     message: str | None = None
@@ -110,7 +145,7 @@ class RunnerReport(_ReportModel):
 
     #: The version of the format. Absent means 1; any other value is an
     #: error, as this reader does not know it.
-    version: Annotated[int, Field(strict=True, ge=1, le=1)] = 1
+    version: Annotated[Integer, Field(ge=1, le=1)] = 1
     status: Literal["completed", "build-error", "runner-error"]
     cases: list[ReportCase]
     #: The message of the compiler or of the syntax error.

@@ -95,35 +95,36 @@ What is the capital of Brazil?
 """,
     "code": """\
 ---
-title: Temperature conversion
+title: Coffee bags
 type: code
 language: python
-file: kelvin.py
+file: cafe.py
 ---
 
-Write the function `kelvin(c)`, which converts degrees Celsius to kelvin.
+Write the function `sacas(kg)`, which converts kilograms of coffee into bags of
+60 kg, the unit of the Brazilian coffee trade.
 
 [code]
 
 ## [template]
 
 ```python
-def kelvin(c):
+def sacas(kg):
     ...
 ```
 
 ## [tests]
 
 ```pytest
-from kelvin import kelvin
+from cafe import sacas
 
-# mdq: [+1] {example} Converts the freezing point of water
-def test_freezing():
-    assert kelvin(0) == 273.15
+# mdq: [+1] {example} Converts one bag
+def test_one_bag():
+    assert sacas(60) == 1
 
-# mdq: [+2] Converts any temperature
-def test_absolute_zero():
-    assert kelvin(-273.15) == 0
+# mdq: [+2] Converts any weight
+def test_fraction_of_a_bag():
+    assert sacas(150) == 2.5
 ```
 """,
     "essay": """\
@@ -360,20 +361,21 @@ memoization to avoid exponential blow-up for large `n`.
 ''',
     "code": '''\
 ---
-id: code-kelvin
+id: code-sacas-de-cafe
 uuid: 7b0e2a4c-5d1f-4c3a-9e8b-2f6a1d9c0b34
-title: Temperature conversion
+title: Coffee bags
 type: code
-tags: [programming, python, physics]
-author: Ada Lovelace
+tags: [programming, python, agriculture]
+author: Carlos Chagas
 locale: en-US
 language: python
-file: kelvin.py
+file: cafe.py
 meta:
   difficulty: easy
 ---
 
-Write the function `kelvin(c)`, which converts degrees Celsius to kelvin.
+Write the function `sacas(kg)`, which converts kilograms of coffee into bags of
+60 kg, the unit of the Brazilian coffee trade.
 
 [code]
 
@@ -382,7 +384,7 @@ Do not read from the standard input.
 ## [template]
 
 ```python
-def kelvin(c):
+def sacas(kg):
     ...
 ```
 
@@ -390,27 +392,27 @@ def kelvin(c):
 
 ```pytest
 import pytest
-from kelvin import kelvin
+from cafe import sacas
 
 # mdq: [0] {public} Accepts a number
 # mdq: > The function takes one number.
 def test_signature():
-    kelvin(1)
+    sacas(1)
 
-# mdq: [+1] {example} Converts the freezing point of water
-def test_freezing():
-    assert kelvin(0) == 273.15
+# mdq: [+1] {example} Converts one bag
+def test_one_bag():
+    assert sacas(60) == 1
 
-# mdq: [+2] Converts any temperature
-# mdq: > Add 273.15 to the value.
-# mdq: ! The cases cover negative values.
-def test_absolute_zero():
-    assert kelvin(-273.15) == 0
+# mdq: [+2] Converts any weight
+# mdq: > Divide the weight by 60.
+# mdq: ! The cases cover fractions of a bag.
+def test_fraction_of_a_bag():
+    assert sacas(150) == 2.5
 
-# mdq: [-1] Rejects a temperature below absolute zero
-def test_below_absolute_zero():
+# mdq: [-1] Accepts a negative weight
+def test_negative_weight():
     with pytest.raises(ValueError):
-        kelvin(-300)
+        sacas(-60)
 ```
 
 [more tests, resolved by the host](tests/test_more.py)
@@ -419,16 +421,16 @@ def test_below_absolute_zero():
 
 * [+1] {manual} Clear variable names
   > Choose names that say what the variable holds.
-  ! Do not discount English names.
+  ! Do not discount names in Portuguese.
 * [-1] {manual} Left debugging code
 
 ## [answer-key]
 
 ```python
-def kelvin(c):
-    if c < -273.15:
-        raise ValueError(c)
-    return c + 273.15
+def sacas(kg):
+    if kg < 0:
+        raise ValueError(kg)
+    return kg / 60
 ```
 ''',
     "fill-in": """\

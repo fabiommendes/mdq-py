@@ -160,6 +160,24 @@ class BlockReader:
             return "\n".join(self.raw_lines(node))
         return text
 
+    def is_unclosed_fence(self, node: Node) -> bool:
+        """
+        Whether `node` is a fenced code block that has no closing fence: it
+        runs to the end of the text, so in a document it swallows whatever
+        follows it.
+        """
+        if node.type != "fence":
+            return False
+        lines = self.raw_lines(node)
+        marker = str(node.markup)
+        if len(lines) < 2:
+            return True
+        last = lines[-1].lstrip(" ")
+        if len(lines[-1]) - len(last) > 3:
+            return True
+        run = last.rstrip(" \t")
+        return not (run and set(run) == {marker[0]} and len(run) >= len(marker))
+
     def join_blocks(self, nodes: list[Node]) -> str | None:
         if not nodes:
             return None
@@ -325,7 +343,7 @@ def parse_plain_item(item_lines: list[str]) -> RawChoice:
 #
 # Block reconstruction, shared with mdq.models
 #
-def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
+def reconstruct_blocks(src: str, close_fences: bool = False) -> list[tuple[str, str]]:
     """
     Parse `src` as a standalone sequence of top-level Markdown blocks and
     reconstruct each one exactly as it would read after being embedded in
@@ -343,13 +361,41 @@ def reconstruct_blocks(src: str) -> list[tuple[str, str]]:
         src: Markdown source for a stem or epilogue -- a
             sequence of block elements with no YAML frontmatter of its
             own. A leading `---` is a thematic break.
+        close_fences: Add the closing fence to a fenced code block that has
+            none. Such a block swallows what follows it, so a field that is
+            written before other content needs it closed.
 
     Returns:
         One `(node_type, text)` pair per top-level block found in `src`,
         in source order.
     """
     reader = BlockReader(src)
-    return [(node.type, reader.block_text(node)) for node in reader.children]
+    blocks = []
+    for node in reader.children:
+        text = reader.block_text(node)
+        if close_fences and reader.is_unclosed_fence(node):
+            text = f"{text}\n{node.markup}"
+        blocks.append((node.type, text))
+    return blocks
+
+
+def close_unclosed_fence(src: str) -> str:
+    """
+    `src` with the closing fence that its last block lacks, if it lacks one.
+    The renderer uses it for a field that is written before other content:
+    an unclosed fence would swallow that content when the text is read
+    again.
+    """
+    reader = BlockReader(src)
+    if reader.children and reader.is_unclosed_fence(reader.children[-1]):
+        return f"{src.rstrip(chr(10))}\n{reader.children[-1].markup}"
+    return src
+
+
+def has_unclosed_fence(src: str) -> bool:
+    """Whether a top-level fenced code block of `src` has no closing fence."""
+    reader = BlockReader(src)
+    return any(reader.is_unclosed_fence(node) for node in reader.children)
 
 
 def _join_soft_breaks(content: str) -> str:

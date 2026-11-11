@@ -200,6 +200,7 @@ ModelErrorCode = Literal[
     "invalid-regex",
     "invalid-rubric-item",
     "misplaced-blank",
+    "test-format-disagrees-with-origin",
     "true-false-marker-disagrees-with-correct",
     "undefined-blank",
     "unknown-include-field",
@@ -809,7 +810,9 @@ def normalize_paragraphs(src: str) -> str:
     block instead of guessing, so this function is a fixed point of
     render-then-parse: normalizing again after a round trip is a no-op.
     """
-    return "\n\n".join(text for _, text in _parser.reconstruct_blocks(src))
+    return "\n\n".join(
+        text for _, text in _parser.reconstruct_blocks(src, close_fences=True)
+    )
 
 
 def normalize_stem(stem: str) -> str:
@@ -823,7 +826,7 @@ def normalize_stem(stem: str) -> str:
     """
     # Trim only ASCII whitespace: a Unicode space is text (grammar.md,
     # "Unicode spaces"), and `str.strip()` would remove U+00A0 and others.
-    blocks = _parser.reconstruct_blocks(stem.strip(_ASCII_WS))
+    blocks = _parser.reconstruct_blocks(stem.strip(_ASCII_WS), close_fences=True)
     if not blocks:
         return stem.strip(_ASCII_WS)
     return "\n\n".join(text for _, text in blocks)

@@ -189,9 +189,9 @@ def parse_exam(
                     code="setext-heading",
                     path=("questions", block_index, *field),
                     message=(
-                        "a '---' line right after text is a setext heading, "
-                        "not a block boundary; put a blank line before the "
-                        "'---' that opens a block"
+                        "a '---' line, or a line of '-', right after text is a "
+                        "setext heading, not a block boundary; put a blank line "
+                        "before the '---' that opens a block"
                     ),
                 )
             )
@@ -249,6 +249,8 @@ def _code_line_indices(lines: list[str]) -> set[int]:
     return covered
 
 
+#: The underline of a setext section heading.
+_SECTION_UNDERLINE_RE = re.compile(r" {0,3}-+")
 _SECTION_LINE_RE = re.compile(
     r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|template|tests|rubric|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
 )
@@ -273,17 +275,27 @@ def _glued_field(
     """
     if not body_seen:
         return ("stem",)
-    match = _SECTION_LINE_RE.match(lines[index - 1].rstrip(" \t"))
-    if match is None:
+    first = starts[-1] if starts else 0
+    # The section that holds the line: the nearest section heading above it.
+    heading = next(
+        (
+            i
+            for i in range(index - 1, first - 1, -1)
+            if i not in code_lines and _SECTION_LINE_RE.match(lines[i].rstrip(" \t"))
+        ),
+        None,
+    )
+    if heading is None:
         return ("epilogue",)
+    match = _SECTION_LINE_RE.match(lines[heading].rstrip(" \t"))
+    assert match is not None
     name = match.group("name")
     if name == "answer-key":
         return ("answerKey",)
     if name in ("extra", "template", "tests", "rubric"):
         return (name,)
-    first = starts[-1] if starts else 0
     position = 0
-    for i in range(first, index - 1):
+    for i in range(first, heading):
         if i in code_lines:
             continue
         earlier = _SECTION_LINE_RE.match(lines[i].rstrip(" \t"))
@@ -401,7 +413,19 @@ def _split_exam_blocks(
             index += 1
             continue
 
-        if line == "---" and not blank_before and lines[index - 1].strip(" \t"):
+        # A `---`, or a longer underline of a section heading (`[tests]` over
+        # `-------`), right after text is a setext underline.
+        if (
+            not blank_before
+            and lines[index - 1].strip(" \t")
+            and (
+                line == "---"
+                or (
+                    _SECTION_UNDERLINE_RE.fullmatch(line)
+                    and _SECTION_LINE_RE.match(lines[index - 1].rstrip(" \t"))
+                )
+            )
+        ):
             glued.append(
                 (
                     index,
