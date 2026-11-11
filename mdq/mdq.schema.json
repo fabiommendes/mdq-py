@@ -17,6 +17,9 @@
       "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml"
     },
     {
+      "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/code.yaml"
+    },
+    {
       "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/numeric.yaml"
     },
     {
@@ -33,6 +36,160 @@
     }
   ],
   "$defs": {
+    "code": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/code.yaml",
+      "title": "Code question",
+      "description": "A question whose student submits one source file. Test sources and a rubric score the submission: a runner executes the test cases, and the instructor applies the manual rubric items. Extends the common question-base schema. The rubric items that the annotations of a test source declare are not in this document: they are part of the `text` of the test source.",
+      "allOf": [
+        {
+          "$ref": "./question-base.yaml"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "code"
+            },
+            "language": {
+              "type": "string",
+              "description": "The programming language of the submission, not empty and not only Unicode spaces. The host derives the syntax highlighting from it and, with the format of a test source, chooses the runner. It is not compared with the format of the test sources.",
+              "minLength": 1,
+              "pattern": "[^\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]",
+              "examples": [
+                "python",
+                "c",
+                "prolog"
+              ]
+            },
+            "file": {
+              "type": "string",
+              "description": "The name of the file the student submits: a plain name, with no `/` and no `\\`, that is not `.` or `..` and not only Unicode spaces. A question whose tests need no file name, such as a test of input and output, omits it.",
+              "minLength": 1,
+              "pattern": "^(?!\\.\\.?$)(?![\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$)[^/\\\\]+$",
+              "examples": [
+                "conta.py",
+                "main.c"
+              ]
+            },
+            "tests": {
+              "type": "array",
+              "description": "The test sources, in the order of the `## [tests]` section. The runner report names a source by its index in this list.",
+              "items": {
+                "$ref": "#/$defs/TestSource"
+              },
+              "minItems": 1
+            },
+            "rubric": {
+              "type": "array",
+              "description": "The manual rubric items, in the order of the `## [rubric]` section. The items that a test applies are not here: they are the annotations in the `text` of each test source.",
+              "items": {
+                "$ref": "#/$defs/RubricItem"
+              },
+              "minItems": 1
+            },
+            "template": {
+              "type": "string",
+              "description": "The starting code the student receives, written as Markdown. In a Markdown source it is the content of the `## [template]` section, without the heading: exactly one fenced code block."
+            },
+            "answerKey": {
+              "type": "string",
+              "description": "A model answer, written as Markdown. In a Markdown source it is the content of the `## [answer-key]` section, without the heading. The first fenced code block is the reference solution. A host MUST NOT show it to the student before the student submits the response. An empty value or one with no visible character is a `blank-text` error, like `title`."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "$defs": {
+        "TestSource": {
+          "title": "Test source",
+          "description": "One block of test text: a fenced block of the `## [tests]` section or a file that a link of the section points to. The core does not read the content. A source with `origin` and no `text` is unresolved.",
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "description": "The test format: the first word of the info string of a fence, or the extension of a linked file. Case is kept.",
+              "minLength": 1,
+              "examples": [
+                "pytest",
+                "py",
+                "iospec"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "description": "The text of the source. For a fenced block it is the content of the block, with a line ending after each line. A source that a link declares has no `text` until it is resolved."
+            },
+            "origin": {
+              "type": "string",
+              "description": "The destination of the link: a relative path with no scheme, no query and no fragment. A fenced block has no origin.",
+              "minLength": 1,
+              "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#]+$",
+              "examples": [
+                "test_conta.py",
+                "tests/conta.iospec"
+              ]
+            }
+          },
+          "required": [
+            "format"
+          ],
+          "anyOf": [
+            {
+              "required": [
+                "text"
+              ]
+            },
+            {
+              "required": [
+                "origin"
+              ]
+            }
+          ],
+          "additionalProperties": false
+        },
+        "RubricItem": {
+          "title": "Rubric item",
+          "description": "A rubric item of the `## [rubric]` section. It has the shape of a choice of a choice list, with `value` and `binding` in the place of the verdict field of the choice.",
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "number",
+              "description": "The value of the item, in relative points. A positive value is a credit, a negative value is a discount and zero counts for nothing. When omitted, the value is 1.",
+              "examples": [
+                2,
+                -1,
+                0.5
+              ]
+            },
+            "binding": {
+              "description": "What applies the item. `manual` is the only binding of a rubric item in this section: the instructor scores it.",
+              "const": "manual"
+            },
+            "text": {
+              "type": "string",
+              "description": "The criterion, written as Markdown. An empty value or one with no visible character is a `blank-text` error."
+            },
+            "feedback": {
+              "type": "string",
+              "description": "Text shown to the student after grading. Same rules as the feedback of a choice."
+            },
+            "comment": {
+              "type": "string",
+              "description": "Text for other instructors, never shown to students. Same rules as the comment of a choice."
+            }
+          },
+          "required": [
+            "binding",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "unevaluatedProperties": false
+    },
     "essay": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml",
@@ -178,7 +335,7 @@
           "additionalProperties": true
         },
         "grading": {
-          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy, translated for each question type by the table in docs/exam.md, or a mapping from question type to a strategy of that type. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely. Short answer, numeric, essay and ordering questions have no `grading` field, so this field does not apply to them, and the mapping has no key for them.",
+          "description": "The grading strategy applied to the questions of the exam that do not declare their own. Either a single strategy, translated for each question type by the table in docs/exam.md, or a mapping from question type to a strategy of that type. Types absent from the mapping are graded as `symmetric`. A question that declares its own `grading` ignores this field entirely. Short answer, numeric, essay, code and ordering questions have no `grading` field, so this field does not apply to them, and the mapping has no key for them.",
           "oneOf": [
             {
               "$ref": "#/$defs/GradingStrategy"
@@ -233,7 +390,7 @@
             "full"
           ],
           "default": "none",
-          "description": "The exam's policy for whether a negative question score survives. Questions never clamp their own score -- this is the only place clamping happens. `none` floors each question score at 0 before weighting it into the total. `capped` keeps the full, possibly negative, question values but floors the exam total at 0. `full` floors nothing, at either level."
+          "description": "The exam's policy for whether a negative question score survives. A question never clamps its own score at 0: only the exam does it. The one floor of a question is the one at -1 of a `code` question, which does not depend on the exam. `none` floors each question score at 0 before weighting it into the total. `capped` keeps the full, possibly negative, question values but floors the exam total at 0. `full` floors nothing, at either level."
         },
         "start": {
           "type": "string",
@@ -296,6 +453,9 @@
             },
             {
               "$ref": "./essay.yaml"
+            },
+            {
+              "$ref": "./code.yaml"
             },
             {
               "$ref": "./numeric.yaml"
@@ -1131,6 +1291,200 @@
         "stem"
       ]
     },
+    "runner-report": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/runner-report.yaml",
+      "title": "Runner report",
+      "description": "The JSON document that a runner returns after it executes the test sources of a code question against a submission: a status and one verdict for each test case. MDQ turns the report into a score through the rubric of the question, see docs/runner-report.md. This is not a question or an exam: no `type` selects it.",
+      "type": "object",
+      "properties": {
+        "version": {
+          "description": "The version of the format of the report. This schema is the version 1, and a report with no `version` is a version 1 report. A reader that does not know the value does not grade the report.",
+          "const": 1,
+          "default": 1
+        },
+        "status": {
+          "description": "How the execution ended. `completed`: the runner ran the test cases and `cases` is the result. `build-error`: the submission did not build, so no case ran. `runner-error`: the infrastructure failed, and the report says nothing about the submission. With any status but `completed`, `cases` is ignored.",
+          "enum": [
+            "completed",
+            "build-error",
+            "runner-error"
+          ]
+        },
+        "cases": {
+          "type": "array",
+          "description": "The test cases that the runner executed, in any order. One entry for each case, also for the cases that a parametrized test defines on the same line.",
+          "items": {
+            "$ref": "#/$defs/Case"
+          }
+        },
+        "build": {
+          "type": "string",
+          "description": "The message of the compiler or of the syntax error, as the runner got it. A runner MAY set it with any status, for example for the warnings of a build that worked."
+        },
+        "message": {
+          "type": "string",
+          "description": "A short message for a human, mainly with `runner-error`, for example the reason of the failure. Not used in grading."
+        },
+        "runner": {
+          "type": "object",
+          "description": "What ran the tests. Free information for the host, not used in grading.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of the runner.",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "description": "The version of the runner.",
+              "minLength": 1
+            },
+            "language": {
+              "type": "string",
+              "description": "The programming language of the toolchain that ran the submission.",
+              "minLength": 1
+            },
+            "toolchainVersion": {
+              "type": "string",
+              "description": "The version of that toolchain.",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "hashes": {
+          "type": "object",
+          "description": "SHA-256 digests that tie the report to its input. A digest is 64 lowercase hexadecimal digits, computed over the UTF-8 encoding of the text, with no change to its line endings.",
+          "properties": {
+            "submission": {
+              "$ref": "#/$defs/Digest"
+            },
+            "sources": {
+              "type": "array",
+              "description": "The digest of the text of each test source, in the order of `tests` of the question.",
+              "items": {
+                "$ref": "#/$defs/Digest"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "description": "Data of the runner that the format does not define, for example a coverage figure or the identifier of a container. Any key and any JSON value. MDQ ignores it.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "status",
+        "cases"
+      ],
+      "additionalProperties": false,
+      "$defs": {
+        "Digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "examples": [
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          ]
+        },
+        "Case": {
+          "title": "Test case",
+          "description": "One test case and the verdict of the runner for it.",
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "integer",
+              "description": "Which test source the case comes from: its 0-based index in `tests` of the question.",
+              "minimum": 0
+            },
+            "line": {
+              "type": "integer",
+              "description": "The line of the test source where the case is defined, counted from 1 as in `text` of the source. It decides the region and so the rubric item of the case.",
+              "minimum": 1
+            },
+            "verdict": {
+              "description": "The result of the case. Only `pass` passes. A case is binary: the runner does not return a score.",
+              "enum": [
+                "pass",
+                "fail",
+                "error",
+                "timeout",
+                "resource-limit",
+                "skipped"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "description": "A name to show for the case, such as `test_verde` or `test_x[3]`.",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string",
+              "description": "A short message about the verdict."
+            },
+            "expected": {
+              "type": "string",
+              "description": "The expected value, for a diff with `actual`."
+            },
+            "actual": {
+              "type": "string",
+              "description": "The value the submission produced, for a diff with `expected`."
+            },
+            "stdout": {
+              "$ref": "#/$defs/Output"
+            },
+            "stderr": {
+              "$ref": "#/$defs/Output"
+            },
+            "duration": {
+              "type": "number",
+              "description": "The time the case took, in seconds.",
+              "minimum": 0
+            },
+            "memory": {
+              "type": "number",
+              "description": "The peak memory of the case, in bytes.",
+              "minimum": 0
+            },
+            "meta": {
+              "type": "object",
+              "description": "Data of the runner that the format does not define, for example a coverage figure or the identifier of a container. Any key and any JSON value. MDQ ignores it.",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "source",
+            "line",
+            "verdict"
+          ],
+          "additionalProperties": false
+        },
+        "Output": {
+          "title": "Captured output",
+          "description": "What a case wrote to a stream, and whether the runner cut it.",
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The captured text, at most what the runner kept."
+            },
+            "truncated": {
+              "type": "boolean",
+              "description": "`true` when the runner cut the text. When omitted, the text is whole."
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
     "short-answer": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/short-answer.yaml",
@@ -1500,6 +1854,54 @@
         },
         "highlight": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/essay.yaml#/allOf/1/properties/highlight"
+        },
+        "title": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"
+        },
+        "id": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/id"
+        },
+        "uuid": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/uuid"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/tags"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "author": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/author"
+        },
+        "locale": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/locale"
+        },
+        "meta": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/meta"
+        },
+        "weight": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/weight"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontmatter-code": {
+      "title": "Frontmatter of a code",
+      "description": "The fields that the frontmatter of a code in Markdown may hold: the frontmatter table of its document and, for a question, the one of the base type. Any other key is the `invalid-frontmatter-field` error. Validate the mapping after removing each key with a `null` value.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/code.yaml#/allOf/1/properties/type"
+        },
+        "language": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/code.yaml#/allOf/1/properties/language"
+        },
+        "file": {
+          "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/code.yaml#/allOf/1/properties/file"
         },
         "title": {
           "$ref": "https://raw.githubusercontent.com/fabiommendes/mdq-spec/main/schema/question-base.yaml#/properties/title"

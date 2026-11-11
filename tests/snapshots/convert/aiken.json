@@ -1,4 +1,211 @@
 {
+  "valid/code/annotation-after-letter.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotation-comment-starts.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotation-criterion-forms.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotations.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/answer-key-prose.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/epilogue.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/full-example.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/language-and-file.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/minimal.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/resolved-source.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-criterion-forms.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-value-minus-zero.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-without-positive-item-tests-only.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-without-positive-item.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/sections-any-order.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/template.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-empty-source.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-fenced.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-linked-origin.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-linked.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-mixed.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/essay/answer-key-escaped-section-heading.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/essay/answer-key-html-comment.yaml": {
     "export": {
       "code": "unsupported-type",
@@ -9,6 +216,15 @@
     ]
   },
   "valid/essay/answer-key-inner-headings.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/essay/answer-key-link-heading.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'aiken' does not support 'essay' questions"

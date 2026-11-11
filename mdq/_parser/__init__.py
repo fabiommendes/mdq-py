@@ -38,9 +38,17 @@ from ._blocks import (
     find_answer_key_forbidden_elements,
     find_forbidden_elements,
     find_stray_choice_markers,
+    first_fenced_code,
     reconstruct_blocks,
 )
 from ._question import parse_question
+from ._rubric import (
+    Annotation,
+    Annotations,
+    RubricSyntaxError,
+    check_criterion_start,
+    scan_annotations,
+)
 from ._spaces import find_unicode_spaces
 
 __all__ = [
@@ -55,9 +63,15 @@ __all__ = [
     "find_forbidden_elements",
     "find_answer_key_forbidden_elements",
     "find_stray_choice_markers",
+    "first_fenced_code",
     "parse_numeric_answer",
     "parse_numeric_string",
     "find_unicode_spaces",
     "load_yaml",
     "dump_yaml",
+    "Annotation",
+    "Annotations",
+    "RubricSyntaxError",
+    "check_criterion_start",
+    "scan_annotations",
 ]

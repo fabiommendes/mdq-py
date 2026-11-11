@@ -43,6 +43,14 @@ mdq.errors
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.errors.UnresolvedTestSource
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.errors.ReportError
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.errors.NotAutoGradable
    :members:
    :member-order: bysource

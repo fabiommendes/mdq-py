@@ -79,6 +79,8 @@ from ._numeric import NumericQuestion
 from ._ordering import OrderingQuestion
 from ._score import ExamScore, QuestionScore
 from ._query import QuerySyntaxError, is_standard_query, parse_query
+from ._code import CodeQuestion
+from ._report import RunnerReport
 from ._text import EssayQuestion, ShortAnswerQuestion
 
 __all__ = [
@@ -152,6 +154,7 @@ Question = Annotated[
     | NumericQuestion
     | ShortAnswerQuestion
     | EssayQuestion
+    | CodeQuestion
     | FillInQuestion
     | OrderingQuestion,
     Field(discriminator="type"),
@@ -614,16 +617,36 @@ class Exam(MdqModel):
         )
         return question
 
-    def score_responses(self, responses: Mapping[str, object]) -> ExamScore:
+    def score_responses(
+        self,
+        responses: Mapping[str, object],
+        *,
+        reports: Mapping[str, RunnerReport | Mapping[str, Any]] | None = None,
+        manual: Mapping[str, Sequence[float | None]] | None = None,
+        instructor: Mapping[str, float] | None = None,
+    ) -> ExamScore:
         """
         Score one attempt: a mapping from question id to response
         (responses.md, "Responses to an exam"; exam.md, "Exam score").
+
+        A code question also takes the runner report of its response
+        (`reports`), the scores of the instructor for its manual items
+        (`manual`) and, when it has no rubric item, one score for the whole
+        response (`instructor`), each by question id. See
+        `CodeQuestion.score_response`. A key of these mappings that is not a
+        code question of the exam is an error, as for `responses`.
 
         Raises:
             UnresolvedInclude: the exam still holds an include block.
             MissingIdError: a question has no id.
             ResponseError: a key of `responses` is not a question of the
                 exam, or a response cannot be graded by its question.
+            UnresolvedTestSource: a code question has a test source that is
+                not resolved.
+            ReportError: a code question that has a test source has no valid
+                report.
+            ValueError: the scores of the instructor do not fit a code
+                question.
         """
         questions: list[Question] = []
         for entry in self.questions:
@@ -636,6 +659,11 @@ class Exam(MdqModel):
         for key in responses:
             if key not in ids:
                 raise ResponseError(f"response for unknown question {key!r}")
+        code_ids = {q.id for q in questions if isinstance(q, CodeQuestion)}
+        for mapping in (reports, manual, instructor):
+            for key in mapping or {}:
+                if key not in code_ids:
+                    raise ResponseError(f"{key!r} is not a code question of the exam")
 
         scores: dict[str, QuestionScore | None] = {}
         pending: list[str] = []
@@ -653,7 +681,15 @@ class Exam(MdqModel):
                 result = QuestionScore(score=0.0)
             else:
                 try:
-                    result = self.resolve_question(question).score_response(response)
+                    if isinstance(question, CodeQuestion):
+                        result = question.score_response(
+                            response,
+                            report=(reports or {}).get(qid),
+                            manual=(manual or {}).get(qid),
+                            instructor=(instructor or {}).get(qid),
+                        )
+                    else:
+                        result = self.resolve_question(question).score_response(response)
                 except NotAutoGradable:
                     pending.append(qid)
                     scores[qid] = None

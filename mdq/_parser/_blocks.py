@@ -494,17 +494,39 @@ def find_forbidden_elements(
 def find_answer_key_forbidden_elements(src: str) -> list[str]:
     """
     essay.md, "Answer key": the section holds every block except an H1
-    heading. Return one description per H1 heading (ATX or setext) in
-    `src`, an `answerKey` field checked on its own, in source order.
+    heading and a heading that starts with `[` under the rule of the
+    epilogue (question-base.md, "Forbidden elements"), which also cannot
+    follow `## [answer-key]`. Return one description per such heading
+    (ATX or setext, any level) in `src`, an `answerKey` field checked on
+    its own, in source order. A heading that starts a link and an escaped
+    heading (`## \\[x]`) are not reported.
     """
     if not src.strip():
         return []
     reader = BlockReader(src)
-    return [
-        "an H1 heading"
-        for node in reader.children
-        if node.type == "heading" and node.tag == "h1"
-    ]
+    found: list[str] = []
+    for node in reader.children:
+        if node.type != "heading":
+            continue
+        if node.tag == "h1":
+            found.append("an H1 heading")
+        elif _starts_with_bracket(reader.raw_text(node)):
+            found.append("a heading starting with '['")
+    return found
+
+
+def first_fenced_code(src: str) -> str | None:
+    """
+    code.md, "Answer key": the code text of the first fenced code block that
+    is a direct child of `src`, an `answerKey` field; `None` when there is
+    none. An indented block and a block inside a list or a quote do not
+    count. The code text is the content between the fences, with a line
+    ending U+000A after each line.
+    """
+    for node in BlockReader(src).children:
+        if node.type == "fence":
+            return str(node.content)
+    return None
 
 
 def find_stray_choice_markers(src: str) -> list[str]:

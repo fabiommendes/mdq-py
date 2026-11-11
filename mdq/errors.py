@@ -148,6 +148,26 @@ class ResponseError(GradingError):
     """
 
 
+class UnresolvedTestSource(GradingError):
+    """
+    Raised when an operation that needs the text of a test source meets a
+    source that is not resolved: the grading and the public form of a code
+    question (code.md, "JSON form").
+
+    A linked source has an `origin` and no `text` until
+    `CodeQuestion.resolve` fills it.
+    """
+
+
+class ReportError(GradingError):
+    """
+    Raised when a code question is graded with a runner report that does not
+    follow `schema/runner-report.yaml`, does not fit the question, or is
+    missing while the question has a test source (runner-report.md,
+    "Errors").
+    """
+
+
 class NotAutoGradable(GradingError):
     """
     Raised when a score is asked of a pending response (responses.md,

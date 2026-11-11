@@ -18,7 +18,13 @@ import yaml
 from _corpus import EXAMPLES_ROOT
 
 import mdq
-from mdq.errors import GradingError, NotAutoGradable, ResponseError
+from mdq.errors import (
+    GradingError,
+    NotAutoGradable,
+    ReportError,
+    ResponseError,
+    UnresolvedTestSource,
+)
 
 GRADING_ROOT = EXAMPLES_ROOT / "grading"
 
@@ -288,6 +294,7 @@ def test_every_grading_file_is_covered() -> None:
     names = sorted(p.stem for p in GRADING_ROOT.glob("*.yaml"))
     assert names == [
         "automation",
+        "code",
         "essay",
         "exam",
         "fill-in",
@@ -324,6 +331,52 @@ def test_essay(case: dict[str, Any], example: dict[str, Any]) -> None:
     expected = example["score"]
     with pytest.raises(NotAutoGradable if expected == "pending" else ResponseError):
         question.score_response(example["response"])
+
+
+_CODE_ERRORS = {
+    "ReportError": ReportError,
+    "UnresolvedTestSource": UnresolvedTestSource,
+    "ValueError": ValueError,
+}
+
+
+def _code_params() -> list[Any]:
+    return [
+        pytest.param(case, example, id=f"{case['name']}/{example['name']}")
+        for case in _cases("code")
+        for example in case["examples"]
+    ]
+
+
+def _code_question(case: dict[str, Any]) -> Any:
+    doc = {"type": "code", "stem": case["name"], **case["question"]}
+    loaded = mdq.load(doc, kind="question")
+    assert [d for d in loaded.diagnostics if d.severity == "error"] == []
+    return loaded.document
+
+
+@pytest.mark.parametrize(("case", "example"), _code_params())
+def test_code(case: dict[str, Any], example: dict[str, Any]) -> None:
+    question = _code_question(case)
+    assert question.automation == case["automation"]
+    # The response does not matter: the report is what the runner made of it.
+    grade = lambda: question.score_response(  # noqa: E731
+        "",
+        report=example.get("report"),
+        manual=example.get("manual"),
+        instructor=example.get("instructor"),
+    )
+    if example["score"] == "pending":
+        with pytest.raises(NotAutoGradable):
+            grade()
+    elif example["score"] == "error":
+        with pytest.raises(_CODE_ERRORS[example["error"]]) as info:
+            grade()
+        if example["error"] == "ValueError":
+            # An error of the host, not of the response or the document.
+            assert not isinstance(info.value, GradingError)
+    else:
+        assert grade().score == pytest.approx(example["score"], abs=1e-9)
 
 
 def _automation_params() -> list[Any]:
@@ -403,7 +456,11 @@ def test_exam_score(case: dict[str, Any], example: dict[str, Any]) -> None:
         with pytest.raises(ResponseError):
             exam.score_responses(example["responses"])
         return
-    result = exam.score_responses(example["responses"])
+    result = exam.score_responses(
+        example["responses"],
+        reports=example.get("reports"),
+        manual=example.get("manual"),
+    )
     if example["score"] == "pending":
         assert result.score is None
     else:

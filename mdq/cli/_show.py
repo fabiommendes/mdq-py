@@ -498,6 +498,8 @@ class _View:
                 )
             case models.EssayQuestion():
                 return self._essay(question)
+            case models.CodeQuestion():
+                return self._code(question)
             case models.OrderingQuestion():
                 return self._ordering(question)
             case models.FillInQuestion():
@@ -639,6 +641,77 @@ class _View:
                 self._key_panel(self._md(question.answer_key)) if self.show_key else self._hidden_key()
             )
         return parts
+
+    #
+    # Code body
+    #
+    def _code(self, question: models.CodeQuestion) -> list[RenderableType]:
+        rows: list[tuple[str, str]] = [("automation", question.automation)]
+        if question.language:
+            rows.append(("language", question.language))
+        if question.file:
+            rows.append(("file", question.file))
+        parts: list[RenderableType] = [self._facts(rows), _GAP]
+        if question.template:
+            parts += [self._md(question.template), _GAP]
+        parts.append(self._input_box(f"{self.g.edit} Write your code here...", height=7))
+        if not self.show_key:
+            return parts
+        parts.append(_GAP)
+        parts.append(self._rubric_table(question))
+        if question.answer_key:
+            parts += [_GAP, self._key_panel(self._md(question.answer_key))]
+        return parts
+
+    def _rubric_table(self, question: models.CodeQuestion) -> RenderableType:
+        """
+        The full rubric and the distribution of the points: what each positive
+        item is worth, in percent of the sum of the positive values. Without
+        the text of every test source the rubric is not known, so the table
+        has the manual items only.
+        """
+        resolved = question.resolved
+        items = (
+            question.full_rubric()
+            if resolved
+            else [
+                models.FullRubricItem(item.points, "manual", item.text, item.feedback, item.comment)
+                for item in question.rubric or []
+            ]
+        )
+        total = sum(item.value for item in items if item.value > 0)
+        table = Table(box=self.t.inner_box, border_style=self.t.border, expand=True)
+        for header in ("Item", "Applied by", "Value", "Share", "Criterion"):
+            table.add_column(header, no_wrap=header != "Criterion")
+        for number, item in enumerate(items, start=1):
+            if item.binding == "manual":
+                applied = "instructor"
+            else:
+                applied = f"tests[{item.source}]"
+                if item.line is not None:
+                    applied += f":{item.line}"
+                if item.example:
+                    applied += " (example)"
+                elif item.public:
+                    applied += " (public)"
+            share = f"{item.value / total:.0%}" if item.value > 0 and total else "-"
+            table.add_row(
+                str(number),
+                applied,
+                f"{item.value:+g}",
+                share,
+                Text(item.text or "(each case of the source, in equal parts)"),
+            )
+        parts: list[RenderableType] = [self._muted("Rubric")]
+        if not items:
+            parts.append(self._muted("No rubric item: the instructor scores the whole response."))
+        else:
+            parts.append(table)
+        if not resolved:
+            parts.append(
+                self._muted("Linked test sources are not resolved: only the manual items are shown.")
+            )
+        return Group(*parts)
 
     #
     # Ordering body

@@ -198,6 +198,7 @@ ModelErrorCode = Literal[
     "forbidden-block-element",
     "invalid-outline-level",
     "invalid-regex",
+    "invalid-rubric-item",
     "misplaced-blank",
     "true-false-marker-disagrees-with-correct",
     "undefined-blank",
@@ -225,6 +226,24 @@ def raise_model_error(
         type=PydanticCustomError(code, message), loc=loc, input=input_value
     )
     raise pydantic_core.ValidationError.from_exception_data(model_name, [error])
+
+
+def raise_model_errors(
+    model_name: str,
+    errors: Sequence[tuple[ModelErrorCode, str, tuple[str | int, ...]]],
+    input_value: Any,
+) -> None:
+    """
+    Raise one pydantic `ValidationError` that holds every `(code, message,
+    loc)` of `errors`, as `raise_model_error` does for one.
+    """
+    details = [
+        InitErrorDetails(
+            type=PydanticCustomError(code, message), loc=loc, input=input_value
+        )
+        for code, message, loc in errors
+    ]
+    raise pydantic_core.ValidationError.from_exception_data(model_name, details)
 
 
 def _check_unique_choices(model_name: str, choices: Sequence[Any]) -> None:

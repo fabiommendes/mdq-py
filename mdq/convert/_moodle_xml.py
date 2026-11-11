@@ -18,6 +18,7 @@ from ..models import (
     Blank,
     BooleanChoice,
     ChoiceBlank,
+    CodeQuestion,
     EssayQuestion,
     FillInQuestion,
     MultipleChoiceQuestion,
@@ -504,7 +505,7 @@ def encode_question(question: Question, report: Report) -> MoodleXmlQuestion:
             return MoodleXmlQuestion(blocks=[block_from_essay(question, report)])
         case FillInQuestion():
             return MoodleXmlQuestion(blocks=[block_from_fill_in(question, report)])
-        case OrderingQuestion():
+        case OrderingQuestion() | CodeQuestion():
             raise AssertionError(f"{question.type!r} is excluded by `MoodleXml.supports`")
         case _:
             assert_never(question)

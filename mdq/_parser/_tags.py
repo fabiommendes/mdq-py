@@ -50,6 +50,7 @@ BLANK_LABEL_RE = re.compile(rf"^\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>(?s:.+)))?$
 #: "Body tags").
 TYPE_NAMES = (
     "essay",
+    "code",
     "numeric",
     "short-answer",
     "ordering",
@@ -80,6 +81,11 @@ Role = Literal["accept", "reject"]
 @dataclass(frozen=True)
 class EssayTag:
     """`[essay]`."""
+
+
+@dataclass(frozen=True)
+class CodeTag:
+    """`[code]`."""
 
 
 @dataclass(frozen=True)
@@ -142,7 +148,7 @@ class UnrecognizedBlankTag:
 BlankTag = (
     ChoiceBlankTag | NumericBlankTag | ShortAnswerBlankTag | UnrecognizedBlankTag
 )
-BodyTag = EssayTag | OrderingTag | ShortAnswerTag | NumericTag | BlankTag
+BodyTag = EssayTag | CodeTag | OrderingTag | ShortAnswerTag | NumericTag | BlankTag
 
 
 def _role(variant: str | None) -> Role:
@@ -164,6 +170,7 @@ def split_tag(line: str) -> tuple[str, bool, str] | None:
 
 TagKind = Literal[
     "essay",
+    "code",
     "ordering",
     "numeric",
     "short-answer",
@@ -203,6 +210,8 @@ def classify_label(label: str) -> Label | None:
     """
     if label == "essay":
         return Label("essay")
+    if label == "code":
+        return Label("code")
     if label == "ordering":
         return Label("ordering")
     blank = BLANK_LABEL_RE.match(label)
@@ -237,6 +246,8 @@ def read_body_tag(text: str) -> BodyTag | None:
     match found.kind:
         case "essay":
             return None if colon else EssayTag()
+        case "code":
+            return None if colon else CodeTag()
         case "ordering":
             return OrderingTag(rest if colon else None)
         case "numeric":
@@ -427,6 +438,10 @@ def check_tag_label(label: str, colon: bool) -> None:
     if known is not None and known.kind == "essay" and colon:
         raise ParseError(
             "the tag of an essay has no content: write `[essay]` without a colon"
+        )
+    if known is not None and known.kind == "code" and colon:
+        raise ParseError(
+            "the tag of a code question has no content: write `[code]` without a colon"
         )
     if needs_colon and not colon:
         raise ParseError(f"the tag `{shown}` needs a colon and its content: `{shown}:`")

@@ -16,6 +16,7 @@ from ..models import (
     AnswerPattern,
     Blank,
     ChoiceBlank,
+    CodeQuestion,
     EssayQuestion,
     FillInQuestion,
     MultipleChoiceQuestion,
@@ -353,7 +354,7 @@ def encode_question(question: Question, report: Report) -> GiftQuestion:
             return GiftQuestion(blocks=blocks_from_true_false(question, report))
         case FillInQuestion():
             return GiftQuestion(blocks=[block_from_fill_in(question, report)])
-        case MultipleSelectionQuestion() | OrderingQuestion():
+        case MultipleSelectionQuestion() | OrderingQuestion() | CodeQuestion():
             raise AssertionError(f"{question.type!r} is excluded by `Gift.supports`")
         case _:
             assert_never(question)

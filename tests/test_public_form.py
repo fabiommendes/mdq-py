@@ -15,6 +15,7 @@ import yaml
 from mdq import errors, load
 from mdq.models import (
     BaseQuestion,
+    CodeQuestion,
     EssayQuestion,
     FillInQuestion,
     OrderingQuestion,
@@ -58,7 +59,11 @@ def test_public_form_case(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize(
     "case",
-    [case for case in CASES if "error" not in case and case["question"]["type"] != "essay"],
+    [
+        case
+        for case in CASES
+        if "error" not in case and case["question"]["type"] not in ("essay", "code")
+    ],
     ids=lambda case: case["name"],
 )
 def test_case_correct_responses_score_one(case: dict[str, Any]) -> None:
@@ -94,6 +99,10 @@ def _valid_questions() -> list[tuple[str, BaseQuestion[Any]]]:
         if path.is_relative_to(VALID_EXAMS_DIR):
             continue
         document = load(path).document
+        if isinstance(document, CodeQuestion):
+            # A linked source has no text until the host resolves it.
+            texts = {s.origin: "def test_a(): ...\n" for s in document.tests or [] if s.origin}
+            document = document.resolve(texts)
         if isinstance(document, BaseQuestion):
             name = path.relative_to(EXAMPLES_ROOT).as_posix()
             questions.append((name, document.with_ids()))
@@ -180,7 +189,7 @@ def test_valid_corpus_public_form_has_effective_unmatched(
 SCORED_QUESTIONS = [
     (name, question)
     for name, question in VALID_QUESTIONS
-    if not isinstance(question, EssayQuestion)
+    if not isinstance(question, EssayQuestion | CodeQuestion)
     and not {d.code for d in question.lint()} & SHADOWING_CODES
 ]
 

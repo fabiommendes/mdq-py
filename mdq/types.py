@@ -20,6 +20,7 @@ QuestionType = Literal[
     "numeric",
     "short-answer",
     "essay",
+    "code",
     "fill-in",
     "ordering",
 ]
@@ -182,6 +183,7 @@ type QuestionDict = (
     | NumericQuestionDict
     | ShortAnswerQuestionDict
     | EssayQuestionDict
+    | CodeQuestionDict
     | FillInQuestionDict
     | OrderingQuestionDict
 )
@@ -276,6 +278,36 @@ class EssayQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["essay"]]
     content: EssayContent
     highlight: str
+    answerKey: str
+
+
+class TestSourceDict(TypedDict, total=False):
+    """schema/code.yaml#/$defs/TestSource"""
+
+    format: Required[str]
+    text: str
+    origin: str
+
+
+class RubricItemDict(TypedDict, total=False):
+    """schema/code.yaml#/$defs/RubricItem"""
+
+    value: int | float
+    binding: Required[Literal["manual"]]
+    text: Required[str]
+    feedback: str
+    comment: str
+
+
+class CodeQuestionDict(QuestionBaseDict, total=False):
+    """schema/code.yaml"""
+
+    type: Required[Literal["code"]]
+    language: str
+    file: str
+    tests: list[TestSourceDict]
+    rubric: list[RubricItemDict]
+    template: str
     answerKey: str
 
 
@@ -472,8 +504,8 @@ type MultipleSelectionResponse = set[str]
 #: `ResponseError`.
 type TrueFalseResponse = dict[str, bool | None]
 
-#: short-answer and essay: the text the student wrote, before
-#: normalisation.
+#: short-answer, essay and code: the text the student wrote, before
+#: normalisation. For code, the content of the submitted file.
 type TextResponse = str
 
 #: numeric: the value the student entered. A string spells an exact

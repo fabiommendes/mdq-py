@@ -220,6 +220,65 @@ def essay_questions(
     )
 
 
+def _fenced_code() -> st.SearchStrategy[str]:
+    """A fenced code block of a few plain lines, as a `template` or an `answerKey`."""
+    return st.lists(_words(), min_size=1, max_size=3).map(
+        lambda lines: "```python\n" + "\n".join(lines) + "\n```"
+    )
+
+
+@st.composite
+def _test_sources(draw: st.DrawFn) -> models.TestSource:
+    """
+    A test source: a linked file, a fenced block with no annotation, or a
+    fenced block whose test cases carry one to three annotated items.
+    """
+    kind = draw(st.sampled_from(["linked", "plain", "annotated"]))
+    if kind == "linked":
+        return models.TestSource(format="py", origin=f"tests/{draw(_words())}.py")
+    if kind == "plain":
+        return models.TestSource(format="pytest", text="def test_a(): ...\n")
+    lines = ["import pytest", ""]
+    for index in range(draw(st.integers(min_value=1, max_value=3))):
+        value = draw(st.integers(min_value=-3, max_value=3))
+        modifier = draw(st.sampled_from(["", "{public} ", "{example} "]))
+        lines += [
+            f"# mdq: [{value:+}] {modifier}{draw(_words())}",
+            *(["# mdq: > " + draw(_words())] if draw(st.booleans()) else []),
+            f"def test_{index}(): ...",
+            "",
+        ]
+    return models.TestSource(format="pytest", text="\n".join(lines))
+
+
+def code_questions() -> st.SearchStrategy[models.Question]:
+    """
+    Return a strategy for generating code questions.
+
+    Optional `language`, `file` and `template`; one or two test sources
+    (linked, plain or annotated), manual rubric items and an answer key
+    with a fenced block, each present or not.
+    """
+    rubric_items = st.builds(
+        models.RubricItem,
+        value=st.none() | st.integers(min_value=-3, max_value=3),
+        binding=st.just("manual"),
+        text=_words(),
+        feedback=st.none() | _words(),
+        comment=st.none() | _words(),
+    )
+    return st.builds(
+        models.CodeQuestion,
+        language=st.none() | st.just("python"),
+        file=st.none() | st.just("main.py"),
+        tests=st.none() | st.lists(_test_sources(), min_size=1, max_size=2),
+        rubric=st.none() | st.lists(rubric_items, min_size=1, max_size=3),
+        template=st.none() | _fenced_code(),
+        answer_key=st.none() | _fenced_code(),
+        **_base_question_kwargs(),
+    )
+
+
 def fill_in_questions() -> st.SearchStrategy[models.Question]:
     """
     Return a strategy for generating fill-in questions.
@@ -811,6 +870,7 @@ QUESTION_STRATEGIES: dict[
     "numeric": numeric_questions,
     "short-answer": short_answer_questions,
     "essay": essay_questions,
+    "code": code_questions,
     "fill-in": fill_in_questions,
     "ordering": ordering_questions,
 }

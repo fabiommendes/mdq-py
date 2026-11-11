@@ -1,4 +1,212 @@
 {
+  "valid/code/annotation-after-letter.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotation-comment-starts.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotation-criterion-forms.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/annotations.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/answer-key-prose.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/epilogue.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/full-example.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/language-and-file.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/minimal.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/resolved-source.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-criterion-forms.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-value-minus-zero.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-without-positive-item-tests-only.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric-without-positive-item.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/rubric.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/sections-any-order.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/template.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-empty-source.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-fenced.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-linked-origin.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-linked.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/tests-mixed.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/essay/answer-key-escaped-section-heading.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Cheia do Pantanal</text>\n    </name>\n    <idnumber>pantanal-cheia</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique por que o Pantanal alaga a cada ano.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O rio Paraguai transborda na estação chuvosa e cobre a planície.\n\n## \\[rubric]\n\nUm ponto por causa citada.</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "import": {
+      "answerKey": "O rio Paraguai transborda na estação chuvosa e cobre a planície.\n\n## \\[rubric]\n\nUm ponto por causa citada.",
+      "id": "pantanal-cheia",
+      "stem": "Explique por que o Pantanal alaga a cada ano.",
+      "title": "Cheia do Pantanal",
+      "type": "essay"
+    }
+  },
   "valid/essay/answer-key-html-comment.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <questiontext format=\"markdown\">\n      <text>Explique por que a Caatinga é um bioma exclusivamente brasileiro.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>&lt;!-- TODO: escrever a chave --&gt;</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
     "import": {
@@ -14,6 +222,16 @@
       "id": "ciclo-agua-criterios",
       "stem": "Explique o ciclo da água.",
       "title": "Ciclo da água",
+      "type": "essay"
+    }
+  },
+  "valid/essay/answer-key-link-heading.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Cheia do Pantanal</text>\n    </name>\n    <idnumber>pantanal-cheia</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique por que o Pantanal alaga a cada ano.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O rio Paraguai transborda na estação chuvosa e cobre a planície.\n\n## [INPE](https://www.inpe.br)\n\nUm ponto por causa citada.</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "import": {
+      "answerKey": "O rio Paraguai transborda na estação chuvosa e cobre a planície.\n\n## [INPE](https://www.inpe.br)\n\nUm ponto por causa citada.",
+      "id": "pantanal-cheia",
+      "stem": "Explique por que o Pantanal alaga a cada ano.",
+      "title": "Cheia do Pantanal",
       "type": "essay"
     }
   },

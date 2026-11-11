@@ -55,6 +55,30 @@ mdq.models
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.models.CodeQuestion
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.TestSource
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.RubricItem
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.FullRubricItem
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.RunnerReport
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.models.ReportCase
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.models.ChoiceBlank
    :members:
    :member-order: bysource

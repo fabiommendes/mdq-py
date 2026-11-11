@@ -84,9 +84,11 @@ from ._frontmatter import (
 from ._numeric import _parse_numeric_expression, numeric_fields
 from ._fill_in import parse_fill_in_body
 from ._short_answer import parse_short_answer_body
+from ._code import parse_code_body
 from ._ordering import check_ordering_tag, parse_ordering_body
 from ._tags import (
     ChoiceBlankTag,
+    CodeTag,
     EssayTag,
     NumericBlankTag,
     NumericTag,
@@ -118,6 +120,7 @@ ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
 #: The types a body tag allows, and how the message calls the body.
 _TAG_BODY: dict[type[object], tuple[frozenset[str], str]] = {
     EssayTag: (frozenset({"essay"}), "an essay (`[essay]`)"),
+    CodeTag: (frozenset({"code"}), "a code question (`[code]`)"),
     OrderingTag: (frozenset({"ordering"}), "an ordering (`[ordering]`)"),
     ShortAnswerTag: (frozenset({"short-answer"}), "a short-answer (`[short-answer]`)"),
     NumericTag: (frozenset({"numeric"}), "a numeric (`[numeric]`)"),
@@ -576,6 +579,10 @@ class MDQParser:
             match tag:
                 case EssayTag():
                     question_type = question_type or "essay"
+                case CodeTag():
+                    question_type = question_type or "code"
+                    fields, epilogue_nodes = parse_code_body(self.cursor)
+                    self.state.update(fields)
                 case OrderingTag():
                     question_type = question_type or "ordering"
                     check_ordering_tag(tag)

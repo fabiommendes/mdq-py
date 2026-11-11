@@ -250,7 +250,7 @@ def _code_line_indices(lines: list[str]) -> set[int]:
 
 
 _SECTION_LINE_RE = re.compile(
-    r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
+    r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|template|tests|rubric|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
 )
 
 
@@ -266,7 +266,8 @@ def _glued_field(
     line at `lines[index]`, glued to the text line before it.
 
     When that text line is a type-specific section heading (`[extra]`,
-    `[accept]`, `[reject]` or `[answer-key]`), the path points at the
+    `[accept]`, `[reject]`, `[answer-key]`, `[template]`, `[tests]` or
+    `[rubric]`), the path points at the
     section; otherwise it is `stem` before the body tag and `epilogue`
     after it.
     """
@@ -278,8 +279,8 @@ def _glued_field(
     name = match.group("name")
     if name == "answer-key":
         return ("answerKey",)
-    if name == "extra":
-        return ("extra",)
+    if name in ("extra", "template", "tests", "rubric"):
+        return (name,)
     first = starts[-1] if starts else 0
     position = 0
     for i in range(first, index - 1):
