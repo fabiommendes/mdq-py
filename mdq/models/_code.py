@@ -9,6 +9,7 @@ question turns the report and the scores of the instructor into a score.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -195,6 +196,21 @@ class RubricItem(MdqModel):
     text: FreeText
     feedback: FreeText | None = None
     comment: FreeText | None = None
+
+    @field_validator("value")
+    @classmethod
+    def check_value_is_a_double(cls, value: int | float | None) -> int | float | None:
+        """rubric.md, "Value": the value is finite as a double."""
+        if value is not None:
+            try:
+                finite = math.isfinite(float(value))
+            except OverflowError:  # an integer beyond a double
+                finite = False
+            if not finite:
+                raise PydanticCustomError(
+                    "invalid-rubric-item", "the value is not finite as a double"
+                )
+        return value
 
     @model_validator(mode="after")
     def check_criterion_start(self) -> Self:
@@ -409,12 +425,14 @@ class CodeQuestion(BaseQuestion[str]):
 
         Raises:
             pydantic.ValidationError: a text breaks the rules of the
-                annotations (`invalid-rubric-item`, `blank-text`). The `loc`
-                of each error is `("tests", i, "text")`.
+                annotations (`invalid-rubric-item`, `blank-text`). It holds
+                the errors of every source. The `loc` of each error is
+                `("tests", i, "text")`.
         """
         if not self.tests:
             return self.model_copy()
         sources: list[TestSource] = []
+        problems: list[tuple[ModelErrorCode, str, tuple[str | int, ...]]] = []
         for index, source in enumerate(self.tests):
             origin = source.origin
             if source.text is None and origin is not None and origin in texts:
@@ -423,20 +441,18 @@ class CodeQuestion(BaseQuestion[str]):
                         format=source.format, origin=origin, text=strip_bom(texts[origin])
                     )
                 except ValidationError as exc:
-                    raise_model_errors(
-                        type(self).__name__,
-                        [
-                            (
-                                # `TestSource` raises only model error codes.
-                                cast(ModelErrorCode, error["type"]),
-                                error["msg"],
-                                ("tests", index, *error["loc"]),
-                            )
-                            for error in exc.errors()
-                        ],
-                        texts[origin],
+                    problems.extend(
+                        (
+                            # `TestSource` raises only model error codes.
+                            cast(ModelErrorCode, error["type"]),
+                            error["msg"],
+                            ("tests", index, *error["loc"]),
+                        )
+                        for error in exc.errors()
                     )
             sources.append(source)
+        if problems:
+            raise_model_errors(type(self).__name__, problems, dict(texts))
         return self.model_copy(update={"tests": sources})
 
     def lint(self) -> list[Diagnostic]:
@@ -745,10 +761,11 @@ def _check_manual(
 
 def _exact(value: int | float) -> Fraction:
     """
-    The exact value of the decimal text of a number (`0.1` is 1/10, not the
-    nearest double), so the score has one rounding, at the end.
+    The exact value of the shortest decimal text of the double nearest to a
+    number (`0.1` is 1/10, not the nearest double), so the score has one
+    rounding, at the end.
     """
-    return Fraction(repr(value))
+    return Fraction(repr(float(value)))
 
 
 def _is_unit_score(value: object) -> bool:

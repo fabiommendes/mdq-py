@@ -12,6 +12,7 @@ rubric item, in every form of the document) share one reading.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Literal
@@ -31,6 +32,8 @@ __all__ = [
     "scan_annotations",
 ]
 
+#: The largest integer that a double holds exactly, with all below it.
+_MAX_EXACT_INT = 2**53
 #: The `RUBRIC_VALUE` terminal of docs/references/rubric.md.
 _VALUE_RE = re.compile(r"\[(?P<number>[+-]?(?:[1-9][0-9]*|0)(?:[.][0-9]+)?)\](?![(\[])")
 #: A modifier: a lower case name between braces.
@@ -70,9 +73,23 @@ class RubricLine:
 
 
 def _number(text: str) -> int | float:
-    """The value of the number of a `RUBRIC_VALUE`; `-0` is 0."""
-    number: int | float = float(text) if "." in text else int(text)
-    return abs(number) if number == 0 else number
+    """
+    The value of the number of a `RUBRIC_VALUE`: the nearest double (rubric.md,
+    "Value"); `-0` is 0. An integer text that a double holds exactly is an
+    `int`.
+
+    Raises:
+        RubricSyntaxError: The number is not finite as a double.
+    """
+    number = float(text)
+    if not math.isfinite(number):
+        shown = text if len(text) <= 20 else f"{text[:20]}..."
+        raise RubricSyntaxError(f"the value [{shown}] is not finite as a double")
+    if number == 0:
+        return 0.0 if "." in text else 0
+    if "." not in text and abs(number) <= _MAX_EXACT_INT:
+        return int(number)
+    return number
 
 
 def check_criterion_start(text: str) -> None:

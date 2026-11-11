@@ -514,3 +514,70 @@ def test_setext_section_headings_of_a_code_question_in_an_exam_warn() -> None:
         loaded = mdq.load(head + body + tail)
         found = [d.path for d in loaded.diagnostics if d.code == "setext-heading"]
         assert found == [("questions", 0, field)], field
+
+
+#
+# Review fixes
+#
+def test_resolve_reports_the_errors_of_every_source() -> None:
+    question = _question(
+        tests=[
+            {"format": "py", "origin": "a.py"},
+            {"format": "py", "origin": "b.py"},
+            {"format": "py", "origin": "c.py"},
+        ]
+    )
+    bad = "# mdq: [50%] x\n"
+    with pytest.raises(ValidationError) as caught:
+        question.resolve({"a.py": bad, "b.py": "ok\n", "c.py": bad})
+    locs = [error["loc"] for error in caught.value.errors()]
+    assert locs == [("tests", 0, "text"), ("tests", 2, "text")]
+
+
+def test_a_parse_error_of_a_block_has_the_line_of_the_file() -> None:
+    src = (
+        "---\nid: q\n---\n\nStem\n\n[code]\n\n## [rubric]\n\n- {manual} x\n\n"
+        "## [rubric]\n\n- {manual} y\n"
+    )
+    loaded = mdq.load(src)
+    assert [(d.code, d.line) for d in loaded.diagnostics] == [("parse-error", 13)]
+
+
+def test_an_invalid_rubric_item_has_the_line_of_the_file() -> None:
+    src = "---\nid: q\n---\n\nStem\n\n[code]\n\n## [rubric]\n\n- x\n"
+    loaded = mdq.load(src)
+    assert [(d.code, d.line, d.path) for d in loaded.diagnostics] == [
+        ("invalid-rubric-item", 11, ("rubric", 0))
+    ]
+
+
+def test_a_rubric_value_beyond_a_double_is_invalid() -> None:
+    markdown = "Stem\n\n[code]\n\n## [rubric]\n\n- [+" + "9" * 320 + "] {manual} x\n"
+    codes = [d.code for d in mdq.load(markdown).diagnostics]
+    assert "invalid-rubric-item" in codes
+    loaded = mdq.load(
+        {
+            "type": "code",
+            "id": "q",
+            "stem": "s",
+            "rubric": [{"binding": "manual", "text": "x", "value": 10**400}],
+        },
+        kind="question",
+    )
+    assert [(d.code, d.path) for d in loaded.diagnostics][0] == (
+        "invalid-rubric-item",
+        ("rubric", 0, "value"),
+    )
+
+
+def test_a_rubric_value_above_2_to_the_53_is_the_nearest_double() -> None:
+    markdown = "Stem\n\n[code]\n\n## [rubric]\n\n- [+9007199254740993] {manual} x\n"
+    value = mdq.load(markdown).document.rubric[0].value  # type: ignore[union-attr]
+    assert value == 9007199254740992
+    question = _question(
+        rubric=[
+            {"binding": "manual", "text": "a", "value": 9007199254740993},
+            {"binding": "manual", "text": "b", "value": 3},
+        ]
+    )
+    assert question.score_response("x", manual=[0, 1]).score == 3.3306690738754686e-16

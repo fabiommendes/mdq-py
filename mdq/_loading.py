@@ -386,7 +386,7 @@ def _kind_mismatch(kind: Kind | None, is_exam_doc: bool) -> Diagnostic | None:
 def _parse_error(exc: MdqError) -> Diagnostic:
     line = None
     if exc.node is not None and exc.node.map is not None:
-        line = exc.node.map[0] + 1
+        line = exc.node.map[0] + 1 + exc.line_offset
     return Diagnostic(
         severity="error", code=exc.code, message=str(exc), line=line, path=exc.path
     )

@@ -45,7 +45,7 @@ from typing import assert_never, cast
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._diagnostics import Diagnostic
-from .._markdown import SLUG_BODY_RE
+from .._markdown import SLUG_BODY_RE, split_lines, strip_bom
 from ..errors import (
     IncompleteQuestion,
     MdqError,
@@ -174,7 +174,9 @@ def parse_question(
     parser = MDQParser(text)
     try:
         doc = parser.parse_question()
-    except MdqError:
+    except MdqError as exc:
+        # The nodes of the body count their lines from the body.
+        exc.line_offset += parser.line_offset
         # The frontmatter errors do not depend on the body: report them
         # along with the error that stops the parse.
         if warnings is not None:
@@ -296,6 +298,9 @@ class MDQParser:
     #: Warnings the parser found in the source layout.
     diagnostics: list[Diagnostic] = field(default_factory=list, init=False)
 
+    #: The lines of the source before the body (the frontmatter).
+    line_offset: int = field(default=0, init=False)
+
     #: The type the body implies, once the parser knows it. Set before the
     #: body is parsed, so it is available when the body fails.
     body_type: str | None = field(default=None, init=False)
@@ -308,6 +313,9 @@ class MDQParser:
         else:
             self.frontmatter = {}
             self.comment = None
+        source = strip_bom(self.src)
+        head = source[: len(source) - len(body_text)]
+        self.line_offset = len(split_lines(head, keepends=True))
         self.reader = BlockReader(body_text)
         self.cursor = BlockCursor(self.reader, self.diagnostics)
 

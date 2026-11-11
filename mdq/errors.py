@@ -18,11 +18,14 @@ class MdqError(ValueError):
     The class attributes are what `mdq.load` reports as a diagnostic: its
     `code`, the `path` of the field it is about, and the markdown `node`
     that gives its line. A subclass or an instance overrides them.
+    `line_offset` is the number of lines before the text that `node` comes
+    from, so `node.map` gives a line of the file.
     """
 
     code: str = "parse-error"
     path: tuple[str | int, ...] = ()
     node: Node | None = None
+    line_offset: int = 0
 
     def __init__(self, message: str):
         super().__init__(message)

@@ -19,6 +19,7 @@ Implements the unreleased MDQ specification.
 - `CodeQuestion.score_response(response, *, report=None, manual=None, instructor=None)`: the score from a runner report (`mdq.models.RunnerReport`, a mapping or the object) and the scores of the instructor. The checks run in this order: `UnresolvedTestSource`, the scores of the instructor (`ValueError`), `ReportError`, then `NotAutoGradable` for a pending response. The score floors at -1 and is computed with exact fractions, so a value such as `[0.1]` gives no rounding error. The report is checked as `schema/runner-report.yaml` does.
 - `Exam.score_responses(responses, *, reports=None, manual=None, instructor=None)`: the report, the manual scores and the single instructor score of each code question, by question id.
 - `mdq.errors.UnresolvedTestSource` and `mdq.errors.ReportError`; the warning `rubric-without-positive-item`.
+- A rubric value is an IEEE 754 double (`docs/references/rubric.md`, "Value"): a value that is not finite as a double, such as a number with 320 digits, is an `invalid-rubric-item`, in Markdown and in a YAML or JSON document. The exact score starts from the shortest decimal text of the double, so `[+9007199254740993]` counts as 9007199254740992.
 - A question or an exam in YAML or JSON may hold a `$schema` string. The models drop it, so `to_dict()` does not write it. Another type is a `schema-error` at `$schema`.
 - `mdq.models.select_seeded(seed)`: a `Select` for `Exam.resolve` that keeps the same questions of an `includeAll` for the same seed (`docs/exam.md`, "Seeded selection"). A seed with U+0000 is a `ValueError`.
 - `BaseQuestion.presentation(seed, *, shuffle=None)` and `Exam.presentation(seed)`: the presented form of a question or of a resolved exam (`docs/public-form.md`, "Presented form"). `Presentation` has `public()`, `to_response(presented)` (labels to ids) and `to_presented(response)` (ids to labels); `ExamPresentation` has `public()` (a list, in exam order), `to_responses()` and `to_presented_responses()`. A seed with U+0000 raises `ValueError`; an unknown label or id raises `ResponseError`.
@@ -39,6 +40,8 @@ Implements the unreleased MDQ specification.
 
 ### Changed
 
+- `CodeQuestion.resolve` reports the annotation errors of every source in one `ValidationError`, not only those of the first source that fails.
+- A parse error that points at a block, and an `invalid-rubric-item` of `## [rubric]`, give the line of the file in `Diagnostic.line`. With a frontmatter, the line was short by the lines of the frontmatter (`MdqError.line_offset`).
 - A `stem` or an `epilogue` that ends inside an open code fence is written to Markdown with the closing fence, in every question type. Before, the open fence took the body or the sections after it.
 - The `setext-heading` warning of an exam covers the heading of every type section (`answerKey`, `extra`, `accept`, `reject`, `template`, `tests`, `rubric`) with an underline of any length. Before, it covered only a `---` under `stem` and `epilogue`.
 - A feedback or comment line of a choice is split at CommonMark line endings only when it is written to Markdown: a U+2028 in the text no longer starts a new line.
