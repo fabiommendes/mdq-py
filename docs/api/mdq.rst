@@ -16,6 +16,8 @@ Loading
 
 .. autofunction:: mdq.parse
 
+.. autofunction:: mdq.sync_question
+
 .. autoclass:: mdq.Loaded
    :members:
    :member-order: bysource
@@ -31,6 +33,10 @@ Loading
    :member-order: bysource
 
 .. autoclass:: mdq.InvalidDocument
+   :members:
+   :member-order: bysource
+
+.. autoclass:: mdq.SyncError
    :members:
    :member-order: bysource
 

@@ -205,7 +205,6 @@ _CORE_RESOLVERS: list[tuple[str, re.Pattern[str], str]] = [
 ]
 
 
-
 def _core_resolver_table() -> dict[str | None, list[tuple[str, re.Pattern[str]]]]:
     """PyYAML's `yaml_implicit_resolvers` table for `_CORE_RESOLVERS`."""
     table: dict[str | None, list[tuple[str, re.Pattern[str]]]] = {}
@@ -267,6 +266,7 @@ _FrontmatterLoader.add_constructor("tag:yaml.org,2002:int", _construct_core_int)
 #: `!!binary`, `!!set`, `!!omap` and `!!pairs`; a tag outside the schema is a
 #: constructor error.
 _CORE_TAGS = frozenset(
+
     f"tag:yaml.org,2002:{name}" for name in ("null", "bool", "int", "float", "str", "seq", "map")
 )
 _FrontmatterLoader.yaml_constructors = {
@@ -323,17 +323,63 @@ def _hide_unicode_breaks(text: str) -> tuple[str, dict[str, str]]:
     return text, table
 
 
+def compose_yaml(text: str) -> yaml.Node | None:
+    """
+    The node tree of MDQ YAML (see `load_yaml`), with the position of every
+    node in `text`, or `None` for an empty document. The index of a mark
+    counts the characters of `text`.
+
+    Raises:
+        yaml.YAMLError: `text` is not valid YAML, or has a tag outside the
+            Core schema.
+    """
+    hidden, _ = _hide_unicode_breaks(text)
+    loader = _PositionedLoader(hidden)
+    try:
+        return loader.get_single_node()
+    finally:
+        loader.dispose()
+
+
+class _PositionedLoader(_FrontmatterLoader):
+    """
+    A loader whose composed tree gives every alias (`*name`) a node of its
+    own, with the position of the alias token. PyYAML returns the anchored
+    node itself, so the alias would have the position of the anchor.
+    """
+
+    def compose_node(  # type: ignore[no-untyped-def]  # signature of the PyYAML base class
+        self, parent, index
+    ) -> yaml.Node | None:
+        if not self.check_event(yaml.AliasEvent):
+            return super().compose_node(parent, index)
+        event = self.peek_event()  # type: ignore[no-untyped-call]  # untyped in PyYAML
+        node = super().compose_node(parent, index)
+        assert node is not None
+        if isinstance(node, yaml.ScalarNode):
+            return yaml.ScalarNode(
+                node.tag, node.value, event.start_mark, event.end_mark, node.style
+            )
+        assert isinstance(node, yaml.CollectionNode)
+        return type(node)(
+            node.tag, node.value, event.start_mark, event.end_mark, node.flow_style
+        )
+
+
 def article(word: str) -> str:
     """The indefinite article of a document type: "an" before a vowel."""
     return "an" if word[0] in "aeiou" else "a"
 
 
-def dump_yaml(data: Any) -> str:
+def dump_yaml(data: Any, *, sort_keys: bool = True) -> str:
     """
     Dump `data` as YAML that `load_yaml` reads back unchanged: block style,
-    sorted keys, strings quoted exactly when the Core schema needs it.
+    sorted keys (unless `sort_keys` is false), strings quoted exactly when
+    the Core schema needs it.
     """
-    return yaml.dump(data, Dumper=_FrontmatterDumper, allow_unicode=True)
+    return yaml.dump(
+        data, Dumper=_FrontmatterDumper, allow_unicode=True, sort_keys=sort_keys
+    )
 
 
 def _load_frontmatter_yaml(text: str) -> dict[str, Any]:
@@ -397,7 +443,7 @@ def _bundle() -> dict[str, Any]:
 
 
 @cache
-def _frontmatter_fields(document_type: str) -> frozenset[str]:
+def frontmatter_fields(document_type: str) -> frozenset[str]:
     """
     The keys a frontmatter may hold, from the frontmatter schema of the
     bundle (`$defs/frontmatter-<type>`, built from the frontmatter tables).
@@ -466,7 +512,7 @@ def _invalid_frontmatter_fields(
     """
     if f"frontmatter-{document_type}" not in _bundle()["$defs"]:
         return []  # not a document type: the schema reports the `type`
-    allowed = _frontmatter_fields(document_type)
+    allowed = frontmatter_fields(document_type)
     body_fields = _schema_fields(document_type) - allowed
     diagnostics = []
     for key in front:
@@ -517,7 +563,7 @@ def copy_passthrough_fields(
     ):
         return
     skipped = _TRANSFORMED_KEYS | _TRANSFORMED_KEYS_OF_TYPE.get(document_type, frozenset())
-    for key in sorted(_frontmatter_fields(document_type) - skipped):
+    for key in sorted(frontmatter_fields(document_type) - skipped):
         if key in front and key not in doc:
             doc[key] = front[key]
 

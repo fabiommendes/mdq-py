@@ -19,6 +19,10 @@ mdq.errors
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.errors.SyncError
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.errors.ConversionError
    :members:
    :member-order: bysource

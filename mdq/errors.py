@@ -76,6 +76,16 @@ class IncludeNotFound(MdqError):
         self.question_id = question_id
 
 
+class SyncError(MdqError):
+    """
+    Raised by `mdq.sync_question` when it cannot write the new state of a
+    question into the source: the source does not parse, or Markdown cannot
+    express the target, so that no text parses back to it.
+    """
+
+    code = "sync-error"
+
+
 class ConversionError(MdqError):
     """
     Raised by `mdq.convert` when a question cannot be converted to or from

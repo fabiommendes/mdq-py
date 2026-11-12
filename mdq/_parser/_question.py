@@ -78,7 +78,7 @@ from ._frontmatter import (
     _extract_comment,
     common_frontmatter,
     _load_frontmatter_yaml,
-    _frontmatter_fields,
+    frontmatter_fields,
     _invalid_frontmatter_fields,
     _split_frontmatter,
 )
@@ -208,7 +208,7 @@ def _frontmatter_errors_without_body(
     for question_type in (declared, body_type):
         if isinstance(question_type, str) and question_type in QUESTION_TYPES:
             return _invalid_frontmatter_fields(front, question_type)
-    allowed = frozenset().union(*(_frontmatter_fields(t) for t in QUESTION_TYPES))
+    allowed = frozenset().union(*(frontmatter_fields(t) for t in QUESTION_TYPES))
     return [
         Diagnostic(
             severity="error",
