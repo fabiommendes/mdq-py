@@ -10,7 +10,9 @@ that it implements.
 
 ## [Unreleased]
 
-Implements the unreleased MDQ specification.
+## [0.2.0] - 2026-11-12
+
+Implements MDQ specification 0.1.0.
 
 ### Added
 
@@ -637,3 +639,19 @@ Implements the unreleased MDQ specification.
   without `.0`.
 - `[numeric]: 2.0` and `[numeric]: 4/2` no longer get a false
   `domain-mismatch`.
+
+## [0.1.0] - 2026-09-25
+
+First release on PyPI. Implements the unreleased MDQ specification.
+
+### Added
+
+- Parser for every question type and for exams, from MDQ Markdown, YAML and
+  JSON, into Pydantic models.
+- `mdq.load()` and `mdq.parse()`, with diagnostics for errors, warnings and
+  lint problems.
+- Derived ids for questions and choices (`with_ids()`).
+- Scoring of student responses.
+- Import and export of GIFT, Aiken and Moodle XML.
+- `mdq` CLI with the `new`, `validate`, `show`, `import` and `export`
+  commands.
