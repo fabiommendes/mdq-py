@@ -98,3 +98,14 @@ def test_render_keeps_a_stem_that_starts_with_a_thematic_break() -> None:
     reparsed = load(rendered).document
     assert reparsed is not None
     assert reparsed.to_dict() == question.to_dict()
+
+
+def test_multiple_choice_with_no_score_keeps_its_type() -> None:
+    question = parse(
+        "---\ntype: multiple-choice\n---\n\nQual rio corta Manaus?\n\n"
+        "* [ ] Rio Negro\n* [ ] Rio Tietê\n"
+    )
+    assert question.type == "multiple-choice"
+    text = question.render()
+    assert "type: multiple-choice" in text
+    assert parse(text).type == "multiple-choice"

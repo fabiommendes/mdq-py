@@ -415,7 +415,9 @@ class ShortAnswerQuestion(PatternKey, BaseQuestion[t.TextResponse]):
 
     def _render_body(self) -> Iterable[str]:
         yield ""
-        yield from render_short_answer_patterns(self.accept, self.reject)
+        yield from render_short_answer_patterns(
+            self.accept, self.reject, bullet=epilogue_bullet(self.epilogue)
+        )
 
     _PUBLIC_KEYS: ClassVar[tuple[str, ...]] = (
         *BaseQuestion._PUBLIC_KEYS, "diacritics",
@@ -765,6 +767,7 @@ def render_short_answer_patterns(
     accept: list[AnswerPattern] | None,
     reject: list[AnswerPattern] | None,
     tag: str = "short-answer",
+    bullet: str = "*",
 ) -> Iterable[str]:
     """
     Render the answer key of a short answer.
@@ -775,13 +778,14 @@ def render_short_answer_patterns(
     written. A question with no `accept` renders `[<tag>]` without a colon,
     followed by the reject block if any. `tag`
     names the owning construct: a fill-in blank passes `^<id>/short-answer`.
+    `bullet` is the list marker of the pattern lists, see `epilogue_bullet`.
     """
     if accept is None:
         # The grammar requires the accept block, even with no pattern.
         yield f"[{tag}]"
         if reject is not None:
             yield ""
-            yield from render_pattern_list(f"[{tag}/reject]:", reject)
+            yield from render_pattern_list(f"[{tag}/reject]:", reject, bullet)
         return
     if accept is not None:
         lone = (
@@ -793,22 +797,50 @@ def render_short_answer_patterns(
         if lone:
             yield f"[{tag}]: {accept[0].pattern}"
         else:
-            yield from render_pattern_list(f"[{tag}]:", accept)
+            yield from render_pattern_list(f"[{tag}]:", accept, bullet)
         if reject is not None:
             yield ""
     if reject is not None:
-        yield from render_pattern_list(f"[{tag}/reject]:", reject)
+        yield from render_pattern_list(f"[{tag}/reject]:", reject, bullet)
 
 
-def render_pattern_list(tag_line: str, patterns: list[AnswerPattern]) -> Iterable[str]:
+_BULLET_ITEM_RE = re.compile(r"[ ]{0,3}\*[ \t]")
+
+
+def epilogue_bullet(epilogue: str | None) -> str:
+    """
+    The list marker for the pattern lists of a question with this `epilogue`.
+
+    An epilogue that starts with a `*` list, after a blank line, would read
+    back as more items of the pattern list before it, so the pattern lists
+    use `-` then. A different marker starts a new list in CommonMark.
+    """
+    if epilogue is not None and _BULLET_ITEM_RE.match(epilogue):
+        return "-"
+    return "*"
+
+
+def _render_quoted(marker: str, text: str) -> Iterable[str]:
+    """
+    The lines of a feedback or comment `text` under an item, each one led by
+    `marker`. A blank line of `text` is a bare marker, so the paragraphs stay
+    in the same block quote or comment.
+    """
+    for line in text.split("\n"):
+        yield f"  {marker} {line}" if line else f"  {marker}"
+
+
+def render_pattern_list(
+    tag_line: str, patterns: list[AnswerPattern], bullet: str = "*"
+) -> Iterable[str]:
     """Render a tag line followed by its pattern list, with feedback and comments."""
     yield tag_line
     for rule in patterns:
-        yield f"* {rule.pattern}"
+        yield f"{bullet} {rule.pattern}"
         if rule.feedback is not None:
-            yield f"  > {rule.feedback}"
+            yield from _render_quoted(">", rule.feedback)
         if rule.comment is not None:
-            yield f"  ! {rule.comment}"
+            yield from _render_quoted("!", rule.comment)
 
 
 def first_feedback(

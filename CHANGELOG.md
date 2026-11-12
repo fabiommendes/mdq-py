@@ -109,6 +109,8 @@ Implements the unreleased MDQ specification.
 
 ### Fixed
 
+- `render()` of a short answer or a short answer blank: a feedback or comment with several paragraphs keeps them in one `>` or `!` block (a bare marker line between them) instead of leaking the later paragraphs into the epilogue, and the pattern lists use `-` when the epilogue starts with a `*` list, so it no longer reads back as more patterns or as a `reject` list.
+- `render()` of a multiple-choice question whose choices all have a blank mark writes `type: multiple-choice` in the frontmatter; before, the text read back as a multiple-selection question.
 - The GIFT import trims only the spaces PHP's `trim()` removes, as Moodle does: a Unicode space (NBSP, em space) at the start of an answer is kept, so an exported question imports back the same.
 - The GIFT export writes an explicit `%credit%` before an answer text that starts with `%`, which Moodle would read as the credit.
 - The GIFT export of a fill-in question puts the answer at the blank, not at a `[^id]` inside code.

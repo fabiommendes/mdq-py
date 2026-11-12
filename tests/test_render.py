@@ -1,5 +1,6 @@
 import difflib
 import io
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -8,6 +9,8 @@ from rich.console import Console
 
 from mdq import models, parse
 from mdq.hypothesis import documents as mst
+
+import _corpus as corpus
 
 
 #
@@ -336,3 +339,21 @@ def diffdicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, tuple[Any, Any]
         for k in set(a.keys()).union(b.keys())
         if (a_value := a.get(k)) != (b_value := b.get(k))
     }
+
+
+#
+# Corpus round trip
+#
+def _roundtrip_dict(source: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    original = parse(source.read_text(encoding="utf-8"), kind="question")
+    rt = parse(original.render(), kind="question")
+    return original.normalize().to_dict(), rt.normalize().to_dict()
+
+
+@pytest.mark.parametrize(
+    "source", corpus.VALID_QUESTIONS, ids=lambda p: corpus.relative_id(p)
+)
+def test_render_roundtrip_corpus(source: Path) -> None:
+    """`parse(render(parse(src)))` equals `parse(src)` for every valid question."""
+    original, rt = _roundtrip_dict(source)
+    assert rt == original

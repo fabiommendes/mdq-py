@@ -345,6 +345,13 @@ class MultipleChoiceQuestion(ChoiceQuestion[t.MultipleChoiceResponse, ScoredChoi
         diagnostics.extend(check_multiple_choice_answers(self.choices, ("choices",)))
         return diagnostics
 
+    def frontmatter(self, skip_defaults: bool = False) -> dict[str, Any]:
+        data = super().frontmatter(skip_defaults=skip_defaults)
+        if all(choice.score is None for choice in self.choices):
+            # The body alone, a list of blank marks, reads as multiple-selection.
+            data["type"] = self.type
+        return data
+
     def _mark(self, choice: ScoredChoice) -> str:
         return _render.score_mark(choice.score)
 

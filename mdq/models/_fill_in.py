@@ -65,6 +65,7 @@ from ._text import (
     PatternKey,
     _pattern_entry,
     default_unmatched,
+    epilogue_bullet,
     prevalidate_response,
     render_short_answer_patterns,
     short_answer_automation,
@@ -288,9 +289,9 @@ class ShortAnswerBlank(PatternKey, BlankBase):
         """The `accept` literals, as in a short answer question."""
         return self.literal_responses(diacritics=diacritics)
 
-    def render_lines(self) -> Iterable[str]:
+    def render_lines(self, bullet: str = "*") -> Iterable[str]:
         tag = f"^{self.id}/short-answer"
-        yield from render_short_answer_patterns(self.accept, self.reject, tag)
+        yield from render_short_answer_patterns(self.accept, self.reject, tag, bullet)
 
     def score(
         self,
@@ -601,9 +602,14 @@ class FillInQuestion(BaseQuestion[Mapping[str, object]]):
         return data
 
     def _render_body(self) -> Iterable[str]:
+        bullet = epilogue_bullet(self.epilogue)
         for blank in self.blanks:
             yield ""
-            yield from blank.render_lines()
+            if isinstance(blank, ShortAnswerBlank):
+                # The epilogue follows the last blank, see `epilogue_bullet`.
+                yield from blank.render_lines(bullet)
+            else:
+                yield from blank.render_lines()
 
     def _parse_response(self, response: object) -> Mapping[str, object]:
         """
