@@ -26,7 +26,10 @@ __all__ = ["Aiken", "AikenQuestion", "AikenParser", "CHOICE_REGEX"]
 
 #: The attributes Aiken has no place for.
 _DROPPED_FIELDS = frozenset(
-    {"id", "title", "tags", "weight", "shuffle", "grading", "comment", "author", "uuid", "locale"}
+    {
+        "id", "title", "tags", "weight", "shuffle", "grading", "comment", "author", "uuid",
+        "locale", "attachments",
+    }
 )
 
 

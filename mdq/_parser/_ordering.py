@@ -17,7 +17,8 @@ from markdown_it.tree import SyntaxTreeNode as Node
 
 from .._markdown import span, starts_after
 from ..errors import ParseError
-from ..types import OrderingAlternativeDict
+from ..types import AttachmentDict, OrderingAlternativeDict
+from ._attachments import ATTACHMENTS, parse_attachments, section_name
 from ._blocks import BLOCK_NAMES, BlockCursor, BlockReader
 from ._choices import is_comment_line, parse_observations
 from ._frontmatter import _normalize_list
@@ -28,9 +29,8 @@ from ._tags import OrderingTag
 #: nesting depth for a `ul` item, and the text.
 RawLine = tuple[int, str]
 
-# `## [extra]` / `## [accept]` / `## [reject]`, matched the way
-# ANSWER_KEY_RE matches `## [answer-key]`.
-ORDERING_SECTION_RE = re.compile(r"^\[(?P<name>extra|accept|reject)\]$")
+#: The sections of an ordering question.
+ORDERING_SECTIONS = frozenset({"extra", "accept", "reject", ATTACHMENTS})
 # An ordering `ul` item's line: leading whitespace (the indentation to be
 # measured), the marker, and the item's raw markdown source verbatim.
 ORDERING_ITEM_RE = re.compile(r"^(?P<indent>[ \t]*)[*+-][ \t]+(?P<text>.*)$")
@@ -217,8 +217,9 @@ def parse_ordering_body(
     cursor: BlockCursor, front: Mapping[str, object], tag_node: Node
 ) -> tuple[dict[str, object], list[Node]]:
     """
-    Fill `lines`, `extra`, `accept` and `reject` from an `[ordering]`
-    block and its `## [extra]`/`## [accept]`/`## [reject]` sections.
+    Fill `lines`, `extra`, `accept`, `reject` and `attachments` from an
+    `[ordering]` block and its `## [extra]`/`## [accept]`/`## [reject]`/
+    `## [attachments]` sections.
 
     The optional epilogue sits between the content block and the
     first section; the sections are contiguous after it and nothing
@@ -242,7 +243,8 @@ def parse_ordering_body(
             has no content block, a section's
             content is not the same kind as `[ordering]`'s or its
             fence names another language than the `[ordering]` fence, two
-            `## [extra]` sections are declared, or a section's
+            `## [extra]` or `## [attachments]` sections are declared, an
+            attachment is malformed, or a section's
             observations carry more than one feedback/comment block
             or interleave the two, or a block that is not a section
             follows the first section.
@@ -270,16 +272,23 @@ def parse_ordering_body(
     accept_raw: list[RawAlternative] = []
     reject_raw: list[RawAlternative] = []
 
-    while True:
-        node = cursor.peek()
-        if node is None or node.type != "heading" or node.tag != "h2":
-            break
-        m = ORDERING_SECTION_RE.match(cursor.reader.raw_text(node))
-        if m is None:
+    attachments: list[AttachmentDict] | None = None
+
+    while (node := cursor.peek()) is not None:
+        name = section_name(cursor.reader, node, ORDERING_SECTIONS)
+        if name is None:
             break
         cursor.read()
-        name = m.group("name")
-        if name == "extra":
+        if name == ATTACHMENTS:
+            if attachments is not None:
+                raise ParseError("the ## [attachments] section is declared at most once", node)
+            blocks: list[Node] = []
+            while (block := cursor.peek()) is not None and not is_ordering_section(
+                cursor.reader, block
+            ):
+                blocks.append(cursor.read())
+            attachments = parse_attachments(cursor.reader, node, blocks)
+        elif name == "extra":
             if extra_raw is not None:
                 raise ParseError("a question defines at most one [extra] section")
             kind, highlight, extra_raw = parse_ordering_content(cursor, section=name)
@@ -301,7 +310,7 @@ def parse_ordering_body(
 
     if cursor.pos < len(cursor.reader.children):
         raise ParseError(
-            "only [extra], [accept] and [reject] sections can follow the "
+            "only [extra], [accept], [reject] and [attachments] sections can follow the "
             "first section; the epilogue goes before it",
             cursor.reader.children[cursor.pos],
         )
@@ -335,6 +344,8 @@ def parse_ordering_body(
         doc["accept"] = [ordering_alternative(alt, unit) for alt in accept_raw]
     if reject_raw:
         doc["reject"] = [ordering_alternative(alt, unit) for alt in reject_raw]
+    if attachments is not None:
+        doc["attachments"] = attachments
     return doc, epilogue_nodes
 
 
@@ -356,12 +367,11 @@ def check_section_highlight(
 
 
 def is_ordering_section(reader: BlockReader, node: Node) -> bool:
-    """Whether `node` is an `## [extra]`, `## [accept]` or `## [reject]` heading."""
-    return (
-        node.type == "heading"
-        and node.tag == "h2"
-        and ORDERING_SECTION_RE.match(reader.raw_text(node)) is not None
-    )
+    """
+    Whether `node` is an `## [extra]`, `## [accept]`, `## [reject]` or
+    `## [attachments]` heading.
+    """
+    return section_name(reader, node, ORDERING_SECTIONS) is not None
 
 
 def parse_ordering_content(

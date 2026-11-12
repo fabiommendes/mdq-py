@@ -36,7 +36,13 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from .. import _parser
 from .._diagnostics import Diagnostic
-from .._markdown import SLUG_BODY_RE, SLUG_PATTERN, UUID_RE, has_visible_character
+from .._markdown import (
+    SLUG_BODY_RE,
+    SLUG_PATTERN,
+    UNICODE_SPACE,
+    UUID_RE,
+    has_visible_character,
+)
 from ..types import Automation
 from . import _lint, _render
 
@@ -45,7 +51,7 @@ if TYPE_CHECKING:
     from ._presentation import Presentation
     from ._score import QuestionScore
 
-__all__ = ["MdqModel", "BaseQuestion", "FreeText"]
+__all__ = ["Attachment", "MdqModel", "BaseQuestion", "FreeText"]
 
 
 #: The `model_dump` context key that makes `MdqModel` keep `type`.
@@ -186,8 +192,11 @@ def _visual_key(text: str) -> str:
 ModelErrorCode = Literal[
     "accept-outside-answer-key",
     "accept-reject-overlap",
+    "attachment-format-disagrees-with-origin",
+    "attachment-name-disagrees-with-origin",
     "blank-text",
     "block-start-pattern",
+    "duplicate-attachment-name",
     "duplicate-blank-id",
     "duplicate-blank-reference",
     "duplicate-choice-id",
@@ -395,6 +404,143 @@ def drop_schema_key(data: Any) -> Any:
     return data
 
 
+#: `name` of `schema/question-base.yaml#/$defs/Attachment`: a plain file name
+#: with no Unicode space and no backtick, so a fence can write it back.
+_ATTACHMENT_NAME_RE = re.compile(rf"(?!\.\.?\Z)[^/\\{UNICODE_SPACE}`]+")
+#: `format` of an attachment: a word with no Unicode space and no backtick.
+_ATTACHMENT_FORMAT_RE = re.compile(rf"[^{UNICODE_SPACE}`]+")
+#: `origin` of an attachment, the `ORIGIN` terminal of code.md: a relative
+#: path with no scheme, query, fragment or line break, and an extension.
+_ATTACHMENT_ORIGIN_RE = re.compile(
+    r"(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#\r\n]*[.][^.\\/?#\r\n]+"
+)
+
+
+class Attachment(MdqModel):
+    """
+    A file that a question or an exam gives to the student
+    (question-base.md, "Attachments"): a fenced block of the
+    `## [attachments]` section, with its `text`, or a link, with its
+    `origin`. MDQ never reads the file of a link.
+    """
+
+    #: The file name the student sees: the second word of the info string
+    #: of a fence, or the last segment of the origin of a link.
+    name: str
+    #: The first word of the info string, or the extension of the origin.
+    format: str
+    #: The code text of a fence, with a line ending after each line.
+    text: str | None = None
+    #: The destination of a link. Private: the public form drops it.
+    origin: str | None = None
+    #: The link text as plain text, when it is not the name.
+    label: FreeText | None = None
+
+    @field_validator("name")
+    @classmethod
+    def check_name_is_a_file_name(cls, value: str) -> str:
+        """question-base.md, "Name": a plain file name that a fence can write."""
+        if not _ATTACHMENT_NAME_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "schema-error",
+                "the name must be a file name that is not `.` or `..`, with no `/`, "
+                "no `\\`, no space and no backtick",
+            )
+        return value
+
+    @field_validator("format")
+    @classmethod
+    def check_format_is_a_word(cls, value: str) -> str:
+        """question-base.md, "JSON form": not empty, no Unicode space, no backtick."""
+        if not _ATTACHMENT_FORMAT_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "schema-error",
+                "the format must be a word that is not empty, with no space and no backtick",
+            )
+        return value
+
+    @field_validator("origin")
+    @classmethod
+    def check_origin_is_relative(cls, value: str | None) -> str | None:
+        """The `ORIGIN` of code.md: a relative path with an extension."""
+        if value is not None and not _ATTACHMENT_ORIGIN_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "schema-error",
+                "the origin must be a relative path with no scheme, query, fragment or "
+                "line break, and a file name with an extension",
+            )
+        return value
+
+    @model_validator(mode="after")
+    def check_text_or_origin(self) -> Self:
+        """The `oneOf` of the schema: a `text` or an `origin`, and a `label` only with an `origin`."""
+        if (self.text is None) == (self.origin is None):
+            raise PydanticCustomError(
+                "schema-error", "an attachment must have exactly one of `text` and `origin`"
+            )
+        if self.label is not None and self.origin is None:
+            raise PydanticCustomError(
+                "schema-error", "only an attachment with an `origin` has a `label`"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_origin_agrees(self) -> Self:
+        """
+        question-base.md, "JSON form": with an `origin`, the `name` is its
+        last segment and the `format` is its extension.
+        """
+        if self.origin is None:
+            return self
+        segment = self.origin.rsplit("/", 1)[-1]
+        if self.name != segment:
+            raise_model_error(
+                type(self).__name__,
+                "attachment-name-disagrees-with-origin",
+                f"the name {self.name!r} is not the last segment {segment!r} of the "
+                f"origin {self.origin!r}",
+                ("name",),
+                self.name,
+            )
+        extension = self.origin.rsplit(".", 1)[1]
+        if self.format != extension:
+            raise_model_error(
+                type(self).__name__,
+                "attachment-format-disagrees-with-origin",
+                f"the format {self.format!r} is not the extension {extension!r} of "
+                f"the origin {self.origin!r}",
+                ("format",),
+                self.format,
+            )
+        return self
+
+
+def check_unique_attachment_names(
+    model_name: str, attachments: Sequence[Attachment] | None
+) -> None:
+    """
+    question-base.md, "Name": two attachments of one list do not have the
+    same name (`duplicate-attachment-name`, at the `name` of the second).
+    The names are compared as strings.
+    """
+    seen: dict[str, int] = {}
+    for index, attachment in enumerate(attachments or ()):
+        first = seen.setdefault(attachment.name, index)
+        if first != index:
+            raise_model_error(
+                model_name,
+                "duplicate-attachment-name",
+                f"the attachment name {attachment.name!r} is already used by "
+                f"attachments[{first}]",
+                ("attachments", index, "name"),
+                attachment.name,
+            )
+
+
+#: The `attachments` field of a question or an exam.
+Attachments = Annotated[list[Attachment], Field(min_length=1)]
+
+
 class BaseQuestion[R](MdqModel):
     """
     Fields every question type carries.
@@ -414,11 +560,17 @@ class BaseQuestion[R](MdqModel):
     locale: str | None = None
     meta: dict[str, object] | None = None
     tags: list[FreeText] = Field(default_factory=list)
+    attachments: Attachments | None = None
 
     @field_validator("tags")
     @classmethod
     def check_tags_are_unique(cls, value: list[str]) -> list[str]:
         return validate_unique_tags(value) or []
+
+    @model_validator(mode="after")
+    def check_attachment_names_are_unique(self) -> Self:
+        check_unique_attachment_names(type(self).__name__, self.attachments)
+        return self
 
     _exam: Annotated[weakref.ref[Exam] | None, Field(default=None, exclude=True)] = None
 
@@ -544,6 +696,7 @@ class BaseQuestion[R](MdqModel):
         yield from _render.yield_introduction(self, id=id)
         yield from self._render_body()
         yield from _render.yield_conclusion(self, skip_line=True)
+        yield from self._render_sections()
 
     def render(self) -> str:
         """
@@ -568,6 +721,14 @@ class BaseQuestion[R](MdqModel):
         model's body as an iterable of lines.
         """
         raise NotImplementedError("Subclasses must implement _render_body()")
+
+    def _render_sections(self) -> Iterable[str]:
+        """
+        The sections after the epilogue, as an iterable of lines: the
+        `## [attachments]` section. A type with sections of its own may
+        write them in any order around it.
+        """
+        yield from _render.yield_attachments(self.attachments)
 
     def normalize(self) -> Self:
         """
@@ -714,6 +875,12 @@ class BaseQuestion[R](MdqModel):
         """
         data = self.to_dict()
         public = {key: data[key] for key in self._PUBLIC_KEYS if key in data}
+        if "attachments" in data:
+            # public-form.md: the `origin` is a path in the files of the author.
+            public["attachments"] = [
+                {key: value for key, value in attachment.items() if key != "origin"}
+                for attachment in data["attachments"]
+            ]
         public.update(self._public_body())
         return public
 

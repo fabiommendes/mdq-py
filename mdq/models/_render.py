@@ -5,6 +5,8 @@ package.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Iterable
 
 from .._markdown import split_lines
@@ -12,6 +14,7 @@ from .._parser import close_unclosed_fence, dump_yaml
 
 if TYPE_CHECKING:
     from . import _base, _choice
+    from ._base import Attachment
 
 
 def yield_frontmatter(
@@ -177,3 +180,54 @@ def yield_choice(
     yield from yield_item(
         f"[{mark}] {choice_id}", choice.text, choice.feedback, choice.comment
     )
+
+
+def fence_for(text: str) -> str:
+    """A backtick fence longer than any run of backticks that starts a line of `text`."""
+    longest = max(
+        (len(m.group(0)) for m in re.finditer(r"(?m)^[ ]{0,3}`+", text)), default=0
+    )
+    return "`" * max(3, longest + 1)
+
+
+def yield_fence(text: str, info: str) -> Iterable[str]:
+    """
+    A fenced block with the code text `text` and the info string `info`.
+    The info string reads backslash escapes and entities back, so `\\` and
+    `&` are escaped.
+    """
+    fence = fence_for(text)
+    yield f"{fence}{re.sub(r'([\\&])', r'\\\1', info)}"
+    if text:
+        yield text.removesuffix("\n")
+    yield fence
+
+
+def link_paragraph(text: str, origin: str) -> str:
+    """
+    A paragraph with one inline link to `origin`, whose link text reads back
+    as the plain text `text`.
+    """
+    if re.search(r"[ ()<>\\&]", origin):
+        origin = "<" + re.sub(r"([\\<>&])", r"\\\1", origin) + ">"
+    return f"[{re.sub(r'([\\\[\]`*_<>&])', r'\\\1', text)}]({origin})"
+
+
+def yield_attachments(attachments: Sequence[Attachment] | None) -> Iterable[str]:
+    """
+    The `## [attachments]` section (question-base.md, "Attachments"), with
+    a blank line before it: a fence for an attachment with a text, a link
+    for an attachment with an origin. Nothing when there is no attachment.
+    """
+    if not attachments:
+        return
+    yield ""
+    yield "## [attachments]"
+    for attachment in attachments:
+        yield ""
+        if attachment.origin is not None:
+            yield link_paragraph(attachment.label or attachment.name, attachment.origin)
+        else:
+            yield from yield_fence(
+                attachment.text or "", f"{attachment.format} {attachment.name}"
+            )

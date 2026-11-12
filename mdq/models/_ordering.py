@@ -231,12 +231,15 @@ class OrderingQuestion(BaseQuestion[list[OrderingLine]]):
 
     def _render_lines(self) -> Iterable[str]:
         self._check_has_markdown_form()
-        # The sections come after the epilogue (ordering.md, "Body").
         yield from super()._render_lines()
+
+    def _render_sections(self) -> Iterable[str]:
+        # The sections come after the epilogue (ordering.md, "Body").
         if self.extra:
             yield from _render.yield_ordering_section(
                 "extra", self.extra, self.content, self.highlight
             )
+        yield from super()._render_sections()
         for alt in self.accept:
             yield from _render.yield_ordering_section(
                 "accept",

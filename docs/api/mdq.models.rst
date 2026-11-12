@@ -27,6 +27,10 @@ mdq.models
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.models.Attachment
+   :members:
+   :member-order: bysource
+
 .. autoclass:: mdq.models.MultipleChoiceQuestion
    :members:
    :member-order: bysource

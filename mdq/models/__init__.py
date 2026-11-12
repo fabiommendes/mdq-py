@@ -47,7 +47,7 @@ live in `mdq.types`, the single source for all of them.
 
 from __future__ import annotations
 
-from ._base import BaseQuestion, MdqModel
+from ._base import Attachment, BaseQuestion, MdqModel
 from ._choice import (
     BooleanChoice,
     MultipleChoiceQuestion,
@@ -83,6 +83,7 @@ __all__ = [
     "BooleanChoice",
     "Statement",
     "BaseQuestion",
+    "Attachment",
     "MultipleChoiceQuestion",
     "MultipleSelectionQuestion",
     "TrueFalseQuestion",

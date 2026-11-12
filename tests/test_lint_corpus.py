@@ -58,8 +58,19 @@ def _expected_diagnostics(doc_path: Path) -> list[dict]:
     if doc_path.name.endswith(".mdq.md"):
         return expected
     # A parsed sibling has no source layout, so it never reports the
-    # parser-only codes its `.lint.json` pins for the Markdown source.
-    return [entry for entry in expected if entry["code"] not in PARSER_ONLY_CODES]
+    # parser-only codes its `.lint.json` pins for the Markdown source. A
+    # `setext-heading` is parser-only too, except in the text fields that keep
+    # the underline: on a section heading, such as the `[attachments]` of an
+    # exam, only the parser sees it.
+    return [
+        entry
+        for entry in expected
+        if entry["code"] not in PARSER_ONLY_CODES
+        and not (
+            entry["code"] == "setext-heading"
+            and entry["path"][-1:] not in (["stem"], ["epilogue"], ["instructions"])
+        )
+    ]
 
 
 def _actual_diagnostics(doc_path: Path) -> list[dict]:

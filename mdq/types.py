@@ -145,6 +145,7 @@ class ExamDict(TypedDict, total=False):
     author: str
     locale: str
     instructions: str
+    attachments: list[AttachmentDict]
     comment: str
     tags: list[str]
     meta: dict[str, Any]
@@ -204,6 +205,17 @@ class QuestionBaseDict(TypedDict, total=False):
     locale: str
     tags: list[str]
     meta: dict[str, Any]
+    attachments: list[AttachmentDict]
+
+
+class AttachmentDict(TypedDict, total=False):
+    """schema/question-base.yaml#/$defs/Attachment"""
+
+    name: Required[str]
+    format: Required[str]
+    text: str
+    origin: str
+    label: str
 
 
 class MultipleChoiceQuestionDict(QuestionBaseDict, total=False):

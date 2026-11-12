@@ -35,7 +35,25 @@
       "error unsupported-type"
     ]
   },
+  "valid/code/answer-key-before-section.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/code/answer-key-prose.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/attachments.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'aiken' does not support 'code' questions"
@@ -206,6 +224,15 @@
       "error unsupported-type"
     ]
   },
+  "valid/essay/answer-key-before-attachments.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/essay/answer-key-escaped-section-heading.yaml": {
     "export": {
       "code": "unsupported-type",
@@ -270,6 +297,24 @@
     ]
   },
   "valid/essay/answer-key.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/essay/attachments-and-answer-key.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'essay' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/essay/attachments-setext.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'aiken' does not support 'essay' questions"
@@ -1762,6 +1807,33 @@
       "type": "multiple-choice"
     }
   },
+  "valid/multiple-choice/attachments.yaml": {
+    "export": "Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\n\nOs valores estão em GWh.\n\na. Sudeste\nb. Nordeste\nc. Norte\n\nANSWER: a",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped title",
+      "warning field-dropped attachments",
+      "warning partial-credit-dropped choices"
+    ],
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Sudeste"
+        },
+        {
+          "score": 0.0,
+          "text": "Nordeste"
+        },
+        {
+          "score": 0.0,
+          "text": "Norte"
+        }
+      ],
+      "stem": "Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\n\nOs valores estão em GWh.",
+      "type": "multiple-choice"
+    }
+  },
   "valid/multiple-choice/choice-ids.yaml": {
     "export": "Qual destas árvores é considerada a árvore símbolo do Brasil?\n\na. Ipê-amarelo\nb. Pau-brasil\nc. Araucária\nd. Castanheira-do-pará\n\nANSWER: a",
     "export_diagnostics": [
@@ -3249,6 +3321,15 @@
       "error unsupported-type"
     ]
   },
+  "valid/numeric/attachments-link-forms.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'numeric' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/numeric/bom-in-unit.yaml": {
     "export": {
       "code": "unsupported-type",
@@ -4078,6 +4159,15 @@
     ]
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'aiken' does not support 'ordering' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/ordering/attachments-between-sections.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'aiken' does not support 'ordering' questions"

@@ -56,6 +56,7 @@ from ..types import (
     QUESTION_TYPES,
     QuestionDict,
 )
+from ._attachments import ATTACHMENTS, parse_attachments, split_sections
 from ._blocks import (
     BlockCursor,
     BlockReader,
@@ -115,7 +116,9 @@ __all__ = [
 #: A raw line that looks like the first line of a choice: a list marker
 #: and a choice marker (choices.md, "Choice marker").
 BRACKET_ITEM_RE = re.compile(r"^[*+-][ \t]+\[[^\]\r\n]*\](?![(\[])")
-ANSWER_KEY_RE = re.compile(r"^\[answer-key\]$")
+#: The sections of an essay, and of a type with no sections of its own.
+_ESSAY_SECTIONS = frozenset({"answer-key", ATTACHMENTS})
+_BASE_SECTIONS = frozenset({ATTACHMENTS})
 
 #: The types a body tag allows, and how the message calls the body.
 _TAG_BODY: dict[type[object], tuple[frozenset[str], str]] = {
@@ -484,39 +487,27 @@ class MDQParser:
 
 
 
-    def parse_answer_key(self) -> list[Node]:
+    def parse_sections(self, names: frozenset[str]) -> list[Node]:
         """
-        Look for the optional `## [answer-key]` section among the
-        remaining nodes. Only ever called for essay questions -- other
-        types have no answer-key syntax and epilogue swallows everything
-        after their body verbatim.
+        Read the sections of an essay (`## [answer-key]` and
+        `## [attachments]`) or the `## [attachments]` section of a type with
+        no sections of its own, after the body.
+
+        Each section ends at the heading of the next one or at the end of
+        the question.
 
         Returns:
-            The nodes that should still be treated as epilogue (i.e.
-            everything before the heading, if one was found, or all
-            remaining nodes otherwise). Does not advance `self.cursor.pos`.
+            The nodes of the epilogue, before the first section.
         """
-
-        remaining = self.reader.children[self.cursor.pos :]
-        for i, node in enumerate(remaining):
-            if node.type == "heading" and node.tag == "h2":
-                text = self.reader.raw_text(node)
-                if ANSWER_KEY_RE.match(text):
-                    answer_blocks = remaining[i + 1 :]
-                    for later in answer_blocks:
-                        if (
-                            later.type == "heading"
-                            and later.tag == "h2"
-                            and ANSWER_KEY_RE.match(self.reader.raw_text(later))
-                        ):
-                            raise ParseError(
-                                "a question defines at most one [answer-key] section"
-                            )
-                    answer_text = self.reader.join_blocks(answer_blocks)
-                    if answer_text:
-                        self.state["answerKey"] = answer_text
-                    return remaining[:i]
-        return remaining
+        epilogue, sections = split_sections(self.cursor, names)
+        for name, heading, blocks in sections:
+            if name == ATTACHMENTS:
+                self.state["attachments"] = parse_attachments(self.reader, heading, blocks)
+                continue
+            answer_text = self.reader.join_blocks(blocks)
+            if answer_text:
+                self.state["answerKey"] = answer_text
+        return epilogue
 
     #
     # Main driver
@@ -624,11 +615,11 @@ class MDQParser:
         self.state["type"] = question_type
 
         epilogue_blocks = (
-            self.parse_answer_key()
+            self.parse_sections(_ESSAY_SECTIONS)
             if question_type == "essay"
             else epilogue_nodes
             if epilogue_nodes is not None
-            else self.reader.children[self.cursor.pos :]
+            else self.parse_sections(_BASE_SECTIONS)
         )
         self.report_detached_tags(epilogue_blocks, fill_in=question_type == "fill-in")
         if epilogue_blocks:

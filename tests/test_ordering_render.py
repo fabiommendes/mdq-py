@@ -178,6 +178,14 @@ def parse_body(markdown: str) -> tuple[ContentBlock, list[Section]]:
     while i < len(lines) and not lines[i].startswith("## ["):
         i += 1
     while i < len(lines) and lines[i].startswith("## ["):
+        if lines[i].strip() == "## [attachments]":
+            # Not an ordering block: keep the heading, for the order only.
+            heading = lines[i].strip()
+            i += 1
+            while i < len(lines) and not lines[i].startswith("## ["):
+                i += 1
+            sections.append(Section(heading, (), (), ContentBlock("ul", None, ())))
+            continue
         section, i = parse_section(lines, i)
         sections.append(section)
         i = skip_blank(lines, i)

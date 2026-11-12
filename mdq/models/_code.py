@@ -776,33 +776,12 @@ def _is_unit_score(value: object) -> bool:
 #
 # Rendering
 #
-def _fence_for(text: str) -> str:
-    """A backtick fence longer than any run of backticks that starts a line of `text`."""
-    longest = max(
-        (len(m.group(0)) for m in re.finditer(r"(?m)^[ ]{0,3}`+", text)), default=0
-    )
-    return "`" * max(3, longest + 1)
-
-
-def _escape_link_text(text: str) -> str:
-    return re.sub(r"([\\\[\]`*_<>&])", r"\\\1", text)
-
-
 def _render_source(source: TestSource) -> Iterable[str]:
     """A test source as Markdown: a link for a linked source, else a fence."""
     if source.origin is not None:
-        origin = source.origin
-        if re.search(r"[ ()<>\\&]", origin):
-            origin = "<" + re.sub(r"([\\<>&])", r"\\\1", origin) + ">"
-        yield f"[{_escape_link_text(source.origin)}]({origin})"
+        yield _render.link_paragraph(source.origin, source.origin)
         return
-    text = source.text or ""
-    fence = _fence_for(text)
-    # The info string reads backslash escapes and entities back.
-    yield f"{fence}{re.sub(r'([\\&])', r'\\\1', source.format)}"
-    if text:
-        yield text.removesuffix("\n")
-    yield fence
+    yield from _render.yield_fence(source.text or "", source.format)
 
 
 def _decimal(value: int | float) -> str:

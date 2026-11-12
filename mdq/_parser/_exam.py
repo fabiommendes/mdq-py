@@ -17,11 +17,13 @@ from dataclasses import replace
 from typing import Any, cast
 
 from .. import _schedule
-from .._markdown import md, split_lines
+from .._markdown import md, span, split_lines, strip_bom
 from .._diagnostics import Diagnostic
 from .._include_keys import include_key_hint, misspelled_include_key
 from ..errors import IncompleteQuestion, MdqError, MissingField, ParseError
-from ..types import ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
+from ..types import AttachmentDict, ExamDict, ExamEntryDict, IncludeAllDict, IncludeDict, QuestionDict
+from ._attachments import ATTACHMENTS, parse_attachments, split_sections
+from ._blocks import BlockCursor, BlockReader
 from ._choices import SLUG_PREFIX_RE
 from ._frontmatter import (
     _extract_comment,
@@ -162,7 +164,32 @@ def parse_exam(
             # Kept as written: the model reports `invalid-duration`.
             doc["duration"] = front["duration"]
 
-    instructions, blocks, glued, malformed = _split_exam_blocks(lines[title_index + 1 :])
+    below_title = lines[title_index + 1 :]
+    instructions, blocks, glued, malformed = _split_exam_blocks(below_title)
+    if instructions:
+        blank_lines = next(i for i, line in enumerate(below_title) if line.strip(" \t"))
+        try:
+            instructions, attachments, setext = _exam_attachments(instructions)
+        except MdqError as exc:
+            head = strip_bom(text)[: len(strip_bom(text)) - len(body)]
+            exc.line_offset += (
+                len(split_lines(head, keepends=True)) + title_index + 1 + blank_lines
+            )
+            raise
+        if attachments is not None:
+            doc["attachments"] = attachments
+        if setext and warnings is not None:
+            warnings.append(
+                Diagnostic(
+                    severity="warning",
+                    code="setext-heading",
+                    path=("attachments",),
+                    message=(
+                        "the heading of the [attachments] section is a setext "
+                        "heading; write it as `## [attachments]`"
+                    ),
+                )
+            )
     if instructions:
         doc["instructions"] = instructions
     if warnings is not None:
@@ -252,8 +279,11 @@ def _code_line_indices(lines: list[str]) -> set[int]:
 #: The underline of a setext section heading.
 _SECTION_UNDERLINE_RE = re.compile(r" {0,3}-+")
 _SECTION_LINE_RE = re.compile(
-    r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|template|tests|rubric|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
+    r"^ {0,3}(?:##[ \t]+)?\[(?P<name>answer-key|template|tests|rubric|attachments|extra|accept|reject)\][ \t]*(?:#+[ \t]*)?$"
 )
+
+#: The sections of an exam, between the instructions and the first question.
+_EXAM_SECTIONS = frozenset({ATTACHMENTS})
 
 
 def _glued_field(
@@ -268,8 +298,8 @@ def _glued_field(
     line at `lines[index]`, glued to the text line before it.
 
     When that text line is a type-specific section heading (`[extra]`,
-    `[accept]`, `[reject]`, `[answer-key]`, `[template]`, `[tests]` or
-    `[rubric]`), the path points at the
+    `[accept]`, `[reject]`, `[answer-key]`, `[template]`, `[tests]`,
+    `[rubric]` or `[attachments]`), the path points at the
     section; otherwise it is `stem` before the body tag and `epilogue`
     after it.
     """
@@ -292,7 +322,7 @@ def _glued_field(
     name = match.group("name")
     if name == "answer-key":
         return ("answerKey",)
-    if name in ("extra", "template", "tests", "rubric"):
+    if name in ("extra", "template", "tests", "rubric", "attachments"):
         return (name,)
     position = 0
     for i in range(first, heading):
@@ -489,6 +519,34 @@ def _split_exam_blocks(
                 break
         malformed.append((path, line_index + 1))
     return instructions, blocks, glued_by_block, malformed
+
+
+def _exam_attachments(
+    instructions: str,
+) -> tuple[str | None, list[AttachmentDict] | None, bool]:
+    """
+    Split the text between the title and the first question block into the
+    instructions and the `## [attachments]` section (exam.md, "Attachments").
+
+    Returns:
+        The instructions, the attachments, and whether the heading of the
+        section is a setext heading.
+
+    Raises:
+        ParseError: the section is declared twice, or it holds a block that
+            is not an attachment, such as a paragraph of instructions.
+    """
+    reader = BlockReader(instructions)
+    before, sections = split_sections(BlockCursor(reader), _EXAM_SECTIONS)
+    if not sections:
+        return instructions, None, False
+    _, heading, section_blocks = sections[0]
+    text = _clean_block("\n".join(reader.lines[: span(heading)[0]])) if before else None
+    return (
+        text,
+        parse_attachments(reader, heading, section_blocks),
+        not heading.markup.startswith("#"),
+    )
 
 
 def _clean_block(text: str) -> str | None:

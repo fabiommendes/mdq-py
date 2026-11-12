@@ -35,7 +35,25 @@
       "error unsupported-type"
     ]
   },
+  "valid/code/answer-key-before-section.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/code/answer-key-prose.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/attachments.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'gift' does not support 'code' questions"
@@ -206,6 +224,19 @@
       "error unsupported-type"
     ]
   },
+  "valid/essay/answer-key-before-attachments.yaml": {
+    "export": "::Marés em São Luís:: [markdown] Use a tabela de marés do anexo para explicar por que São Luís tem uma das maiores amplitudes de maré do Brasil. {#### \\#\\#\\# Critérios\\n\nA baía é rasa e larga, e o formato do litoral amplia a onda de maré.}",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "### Critérios\n\nA baía é rasa e larga, e o formato do litoral amplia a onda de maré.",
+      "stem": "Use a tabela de marés do anexo para explicar por que São Luís tem uma das maiores amplitudes de maré do Brasil.",
+      "title": "Marés em São Luís",
+      "type": "essay"
+    }
+  },
   "valid/essay/answer-key-escaped-section-heading.yaml": {
     "export": "::Cheia do Pantanal:: [markdown] Explique por que o Pantanal alaga a cada ano. {#### O rio Paraguai transborda na estação chuvosa e cobre a planície.\\n\n\\#\\# \\\\[rubric]\\n\nUm ponto por causa citada.}",
     "export_diagnostics": [
@@ -295,6 +326,31 @@
       "answerKey": "The greenhouse effect is a natural process that warms the Earth's surface. Greenhouse gases such as carbon dioxide, methane, and water vapor trap part of the infrared radiation the Earth emits, keeping the surface and lower atmosphere warm enough to be habitable. Human activity has raised the concentration of those gases, enhancing the effect and driving global warming.",
       "stem": "Describe how the greenhouse effect works and how it affects the climate.",
       "title": "Greenhouse effect",
+      "type": "essay"
+    }
+  },
+  "valid/essay/attachments-and-answer-key.yaml": {
+    "export": "::Chuvas no semiárido:: [markdown] Analise a série de chuvas do anexo e explique por que o semiárido nordestino tem secas longas. {#### As chuvas se concentram em poucos meses e variam muito de um ano para outro. A evaporação alta e o solo raso guardam pouca água.}",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "As chuvas se concentram em poucos meses e variam muito de um ano para outro. A evaporação alta e o solo raso guardam pouca água.",
+      "stem": "Analise a série de chuvas do anexo e explique por que o semiárido nordestino tem secas longas.",
+      "title": "Chuvas no semiárido",
+      "type": "essay"
+    }
+  },
+  "valid/essay/attachments-setext.yaml": {
+    "export": "::Ilha de calor em São Paulo:: [markdown] Explique a diferença de temperatura entre o centro e a periferia de São Paulo nos dados do anexo. {}",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "stem": "Explique a diferença de temperatura entre o centro e a periferia de São Paulo nos dados do anexo.",
+      "title": "Ilha de calor em São Paulo",
       "type": "essay"
     }
   },
@@ -2536,6 +2592,32 @@
       "type": "short-answer"
     }
   },
+  "valid/multiple-choice/attachments.yaml": {
+    "export": "::Consumo de energia por região:: [markdown] Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\\n\nOs valores estão em GWh. {=Sudeste ~%-50%Nordeste ~%-50%Norte}",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Sudeste"
+        },
+        {
+          "score": -0.5,
+          "text": "Nordeste"
+        },
+        {
+          "score": -0.5,
+          "text": "Norte"
+        }
+      ],
+      "stem": "Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\n\nOs valores estão em GWh.",
+      "title": "Consumo de energia por região",
+      "type": "multiple-choice"
+    }
+  },
   "valid/multiple-choice/choice-ids.yaml": {
     "export": "::Árvore símbolo do Brasil:: [markdown] Qual destas árvores é considerada a árvore símbolo do Brasil? {=Ipê-amarelo ~%-33.33333%Pau-brasil#O pau-brasil deu nome ao país, mas a árvore símbolo oficial é o ipê-amarelo. ~%-33.33333%Araucária ~%-33.33333%Castanheira-do-pará}",
     "export_diagnostics": [
@@ -3979,6 +4061,23 @@
       "type": "numeric"
     }
   },
+  "valid/numeric/attachments-link-forms.yaml": {
+    "export": "::Vazão de Itaipu:: [markdown] Com os dados dos anexos, qual foi a vazão média do rio Paraná em Itaipu, em m³/s? {#11000:500}",
+    "export_diagnostics": [
+      "info metadata-dropped id",
+      "warning field-dropped attachments",
+      "warning field-dropped domain"
+    ],
+    "import": {
+      "answer": 11000,
+      "stem": "Com os dados dos anexos, qual foi a vazão média do rio Paraná em Itaipu, em m³/s?",
+      "title": "Vazão de Itaipu",
+      "tolerance": {
+        "absolute": 500.0
+      },
+      "type": "numeric"
+    }
+  },
   "valid/numeric/bom-in-unit.yaml": {
     "export": "[markdown] Quanto mede o Rio Amazonas? {#6400}",
     "export_diagnostics": [
@@ -5231,6 +5330,15 @@
     ]
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'ordering' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/ordering/attachments-between-sections.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'gift' does not support 'ordering' questions"

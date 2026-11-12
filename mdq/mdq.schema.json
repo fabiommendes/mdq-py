@@ -63,14 +63,8 @@
               ]
             },
             "file": {
-              "type": "string",
-              "description": "The name of the file the student submits: a plain name, with no `/` and no `\\`, that is not `.` or `..` and not only Unicode spaces. A question whose tests need no file name, such as a test of input and output, omits it.",
-              "minLength": 1,
-              "pattern": "^(?!\\.\\.?$)(?![\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$)[^/\\\\]+$",
-              "examples": [
-                "conta.py",
-                "main.c"
-              ]
+              "$ref": "./question-base.yaml#/$defs/file-name",
+              "description": "The name of the file the student submits: a plain name, with no `/` and no `\\`, that is not `.` or `..` and not only Unicode spaces. A question whose tests need no file name, such as a test of input and output, omits it."
             },
             "tests": {
               "type": "array",
@@ -411,6 +405,14 @@
             "PT1H30M",
             "P1DT2H"
           ]
+        },
+        "attachments": {
+          "type": "array",
+          "description": "The files that the exam gives to the student, in the order of the `## [attachments]` section between the instructions and the first question. The names are unique in the list (the model rule `duplicate-attachment-name`). The attachments of each question are in the question.",
+          "items": {
+            "$ref": "./question-base.yaml#/$defs/Attachment"
+          },
+          "minItems": 1
         },
         "questions": {
           "type": "array",
@@ -1282,6 +1284,14 @@
           "default": 1,
           "description": "How much the question counts towards the total score of its exam. The exam score is the weighted mean of its question scores, so a weight of 0 keeps the question in the exam without counting towards the score."
         },
+        "attachments": {
+          "type": "array",
+          "description": "The files that the question gives to the student, in the order of the `## [attachments]` section. The names are unique in the list (the model rule `duplicate-attachment-name`).",
+          "items": {
+            "$ref": "#/$defs/Attachment"
+          },
+          "minItems": 1
+        },
         "meta": {
           "type": "object",
           "description": "Arbitrary mapping of strings to JSON values, for extension data not covered by the standard fields.",
@@ -1290,7 +1300,98 @@
       },
       "required": [
         "stem"
-      ]
+      ],
+      "$defs": {
+        "file-name": {
+          "type": "string",
+          "description": "A plain file name: not empty, not `.` or `..`, not only Unicode spaces, with no `/` and no `\\`. The `file` of a code question uses it.",
+          "minLength": 1,
+          "pattern": "^(?!\\.\\.?$)(?![\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$)[^/\\\\]+$",
+          "examples": [
+            "conta.py",
+            "main.c",
+            ".env"
+          ]
+        },
+        "attachment-name": {
+          "description": "The name of an attachment: a `file-name` with no Unicode space and no backtick, so that a fence can always write it back.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/file-name"
+            },
+            {
+              "pattern": "^[^\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000`]+$",
+              "examples": [
+                "consumo-2024.csv",
+                "conta_base.py",
+                "LEIAME"
+              ]
+            }
+          ]
+        },
+        "Attachment": {
+          "title": "Attachment",
+          "description": "A file that the question or the exam gives to the student: a fenced block of the `## [attachments]` section, with its text, or a link to a file, with its origin. MDQ never reads the file of a link.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/attachment-name",
+              "description": "The file name the student sees: the second word of the info string of a fence, or the last segment of the origin of a link. With an `origin`, it MUST be the last segment of the origin (the model rule `attachment-name-disagrees-with-origin`)."
+            },
+            "format": {
+              "type": "string",
+              "description": "The first word of the info string of a fence, or the extension of the origin of a link. Case is kept. It is not empty and has no Unicode space and no backtick. With an `origin`, it MUST be the extension of the origin (the model rule `attachment-format-disagrees-with-origin`).",
+              "minLength": 1,
+              "pattern": "^[^\\t\\n\\v\\f\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000`]+$",
+              "examples": [
+                "csv",
+                "python",
+                "pdf"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "description": "The content of a fenced block, with a line ending after each line. A link has no text."
+            },
+            "origin": {
+              "type": "string",
+              "description": "The destination of a link: a relative path with no scheme, no query, no fragment and no line break, and a file name with an extension. A fenced block has no origin. It is private: the public form removes it.",
+              "minLength": 1,
+              "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#\\r\\n]*[.][^.\\\\/?#\\r\\n]+$",
+              "examples": [
+                "dados/consumo-2024.csv",
+                "tabela.pdf"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": "The link text as plain text, when it is not blank and not equal to the name. Only a link has a label."
+            }
+          },
+          "required": [
+            "name",
+            "format"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "text"
+              ],
+              "not": {
+                "required": [
+                  "label"
+                ]
+              }
+            },
+            {
+              "required": [
+                "origin"
+              ]
+            }
+          ],
+          "additionalProperties": false
+        }
+      }
     },
     "runner-report": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",

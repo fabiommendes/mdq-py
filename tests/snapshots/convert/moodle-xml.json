@@ -35,7 +35,25 @@
       "error unsupported-type"
     ]
   },
+  "valid/code/answer-key-before-section.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
   "valid/code/answer-key-prose.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'code' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/code/attachments.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'moodle-xml' does not support 'code' questions"
@@ -206,6 +224,19 @@
       "error unsupported-type"
     ]
   },
+  "valid/essay/answer-key-before-attachments.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Marés em São Luís</text>\n    </name>\n    <idnumber>mare-em-sao-luis</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Use a tabela de marés do anexo para explicar por que São Luís tem uma das maiores amplitudes de maré do Brasil.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>### Critérios\n\nA baía é rasa e larga, e o formato do litoral amplia a onda de maré.</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "### Critérios\n\nA baía é rasa e larga, e o formato do litoral amplia a onda de maré.",
+      "id": "mare-em-sao-luis",
+      "stem": "Use a tabela de marés do anexo para explicar por que São Luís tem uma das maiores amplitudes de maré do Brasil.",
+      "title": "Marés em São Luís",
+      "type": "essay"
+    }
+  },
   "valid/essay/answer-key-escaped-section-heading.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Cheia do Pantanal</text>\n    </name>\n    <idnumber>pantanal-cheia</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique por que o Pantanal alaga a cada ano.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O rio Paraguai transborda na estação chuvosa e cobre a planície.\n\n## \\[rubric]\n\nUm ponto por causa citada.</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
     "import": {
@@ -281,6 +312,31 @@
       "id": "essay-answer-key",
       "stem": "Describe how the greenhouse effect works and how it affects the climate.",
       "title": "Greenhouse effect",
+      "type": "essay"
+    }
+  },
+  "valid/essay/attachments-and-answer-key.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Chuvas no semiárido</text>\n    </name>\n    <idnumber>chuvas-no-semiarido</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Analise a série de chuvas do anexo e explique por que o semiárido nordestino tem secas longas.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>As chuvas se concentram em poucos meses e variam muito de um ano para outro. A evaporação alta e o solo raso guardam pouca água.</text>\n    </graderinfo>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "As chuvas se concentram em poucos meses e variam muito de um ano para outro. A evaporação alta e o solo raso guardam pouca água.",
+      "id": "chuvas-no-semiarido",
+      "stem": "Analise a série de chuvas do anexo e explique por que o semiárido nordestino tem secas longas.",
+      "title": "Chuvas no semiárido",
+      "type": "essay"
+    }
+  },
+  "valid/essay/attachments-setext.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Ilha de calor em São Paulo</text>\n    </name>\n    <idnumber>ilha-de-calor</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Explique a diferença de temperatura entre o centro e a periferia de São Paulo nos dados do anexo.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>editor</responseformat>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "id": "ilha-de-calor",
+      "stem": "Explique a diferença de temperatura entre o centro e a periferia de São Paulo nos dados do anexo.",
+      "title": "Ilha de calor em São Paulo",
       "type": "essay"
     }
   },
@@ -3181,6 +3237,32 @@
       "type": "multiple-choice"
     }
   },
+  "valid/multiple-choice/attachments.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multichoice\">\n    <name>\n      <text>Consumo de energia por região</text>\n    </name>\n    <idnumber>consumo-por-regiao</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\n\nOs valores estão em GWh.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <single>true</single>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>Sudeste</text>\n    </answer>\n    <answer fraction=\"-50\" format=\"markdown\">\n      <text>Nordeste</text>\n    </answer>\n    <answer fraction=\"-50\" format=\"markdown\">\n      <text>Norte</text>\n    </answer>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "choices": [
+        {
+          "score": 1.0,
+          "text": "Sudeste"
+        },
+        {
+          "score": -0.5,
+          "text": "Nordeste"
+        },
+        {
+          "score": -0.5,
+          "text": "Norte"
+        }
+      ],
+      "id": "consumo-por-regiao",
+      "stem": "Com os dados do anexo, qual região do Brasil consumiu mais energia elétrica em 2024?\n\nOs valores estão em GWh.",
+      "title": "Consumo de energia por região",
+      "type": "multiple-choice"
+    }
+  },
   "valid/multiple-choice/choice-ids.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"multichoice\">\n    <name>\n      <text>Árvore símbolo do Brasil</text>\n    </name>\n    <idnumber>mc-choice-ids</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Qual destas árvores é considerada a árvore símbolo do Brasil?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <single>true</single>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>Ipê-amarelo</text>\n    </answer>\n    <answer fraction=\"-33.33333\" format=\"markdown\">\n      <text>Pau-brasil</text>\n      <feedback format=\"markdown\">\n        <text>O pau-brasil deu nome ao país, mas a árvore símbolo oficial é o ipê-amarelo.</text>\n      </feedback>\n    </answer>\n    <answer fraction=\"-33.33333\" format=\"markdown\">\n      <text>Araucária</text>\n    </answer>\n    <answer fraction=\"-33.33333\" format=\"markdown\">\n      <text>Castanheira-do-pará</text>\n    </answer>\n  </question>\n</quiz>",
     "import": {
@@ -5162,6 +5244,23 @@
       "type": "numeric"
     }
   },
+  "valid/numeric/attachments-link-forms.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <name>\n      <text>Vazão de Itaipu</text>\n    </name>\n    <idnumber>vazao-de-itaipu</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Com os dados dos anexos, qual foi a vazão média do rio Paraná em Itaipu, em m³/s?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>11000</text>\n      <tolerance>500</tolerance>\n    </answer>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments",
+      "warning field-dropped domain"
+    ],
+    "import": {
+      "answer": 11000,
+      "id": "vazao-de-itaipu",
+      "stem": "Com os dados dos anexos, qual foi a vazão média do rio Paraná em Itaipu, em m³/s?",
+      "title": "Vazão de Itaipu",
+      "tolerance": {
+        "absolute": 500.0
+      },
+      "type": "numeric"
+    }
+  },
   "valid/numeric/bom-in-unit.yaml": {
     "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"numerical\">\n    <questiontext format=\"markdown\">\n      <text>Quanto mede o Rio Amazonas?</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <answer fraction=\"100\" format=\"markdown\">\n      <text>6400</text>\n      <tolerance>0</tolerance>\n    </answer>\n    <units>\n      <unit>\n        <unit_name>k﻿m</unit_name>\n        <unit_multiplier>1</unit_multiplier>\n      </unit>\n    </units>\n  </question>\n</quiz>",
     "export_diagnostics": [
@@ -6404,6 +6503,15 @@
     ]
   },
   "valid/ordering/accept-uses-key-copies.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'moodle-xml' does not support 'ordering' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/ordering/attachments-between-sections.yaml": {
     "export": {
       "code": "unsupported-type",
       "error": "'moodle-xml' does not support 'ordering' questions"

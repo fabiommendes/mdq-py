@@ -445,6 +445,7 @@ _BODY_SYNTAX: dict[str | tuple[str, str], str] = {
     "extra": "write a `## [extra]` section",
     "blanks": "write `[^id]` markers in the stem and `[^id]:` definitions",
     "answerKey": "write a `## [answer-key]` section",
+    "attachments": "write an `## [attachments]` section",
     "instructions": "write the text between the title and the first question",
     "questions": "write the questions as blocks separated by `===`",
 }

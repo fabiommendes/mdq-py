@@ -59,7 +59,9 @@ from ..types import (
 from . import _lint, _render
 from ._presentation import ExamPresentation, Presentation, digest
 from ._base import (
+    Attachments,
     BaseQuestion,
+    check_unique_attachment_names,
     MdqModel,
     raise_model_error,
     _validate_locale,
@@ -349,6 +351,7 @@ class Exam(MdqModel):
     author: FreeText | None = None
     locale: str | None = None
     instructions: FreeText | None = None
+    attachments: Attachments | None = None
     comment: FreeText | None = None
     tags: list[FreeText] | None = None
     meta: dict[str, object] | None = None
@@ -410,6 +413,12 @@ class Exam(MdqModel):
                 "'instructions' holds an H1 heading, which exam.md's \"Body\" forbids",
             )
         return value
+
+    @model_validator(mode="after")
+    def check_attachment_names_are_unique(self) -> Self:
+        """exam.md, "Attachments": the names of the exam are unique in its list."""
+        check_unique_attachment_names(type(self).__name__, self.attachments)
+        return self
 
     @model_validator(mode="after")
     def check_questions_have_unique_ids(self) -> Self:
@@ -803,7 +812,9 @@ class Exam(MdqModel):
         H1 when the exam is parsed again.
         """
         frontmatter = self.to_dict()
-        for key in ("type", "id", "title", "instructions", "comment", "questions"):
+        for key in (
+            "type", "id", "title", "instructions", "attachments", "comment", "questions",
+        ):  # fmt: skip
             frontmatter.pop(key, None)
 
         heading: list[str] = []
@@ -840,6 +851,7 @@ class Exam(MdqModel):
         if self.instructions:
             yield ""
             yield self.instructions
+        yield from _render.yield_attachments(self.attachments)
         for entry in self.questions:
             yield ""
             yield from self._render_entry(entry)

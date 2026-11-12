@@ -242,7 +242,7 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
 _DROPPED_FIELDS = frozenset(
     {
         "domain", "decimal_places", "highlight", "grading", "pre_accept", "pre_reject",
-        "comment", "author", "uuid", "locale",
+        "comment", "author", "uuid", "locale", "attachments",
     }
 )
 

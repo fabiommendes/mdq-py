@@ -11,8 +11,10 @@ to tell which one a document is before parsing it.
 Split by concern, leaf modules first: `_frontmatter` (the `---` YAML
 block and its per-type known-keys tables), `_choices` (bracket-marker
 list items, shared by multiple-choice/-selection/true-false/fill-in),
-`_numeric` (the `sign? numeric_value abstol? reltol?` grammar) and `_ordering`
-(indentation leveling). `_question` builds on all four for `MDQParser`,
+`_numeric` (the `sign? numeric_value abstol? reltol?` grammar), `_ordering`
+(indentation leveling) and `_attachments` (the `## [attachments]` section and
+the split of the blocks after the body into sections). `_question` builds on
+them for `MDQParser`,
 the recursive-descent parser for one question document. `_exam` builds
 on `_question` (it calls `parse_question` for each inline question
 block) for the exam-level `===`/`---` block-splitting grammar.

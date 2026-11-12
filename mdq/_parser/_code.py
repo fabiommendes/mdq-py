@@ -1,6 +1,6 @@
 """
 The body of a code question: the `[code]` tag and its `## [template]`,
-`## [tests]`, `## [rubric]` and `## [answer-key]` sections
+`## [tests]`, `## [rubric]`, `## [attachments]` and `## [answer-key]` sections
 (docs/question-types/code.md).
 
 The parser reads the blocks only. It does not read the text of a test source,
@@ -9,12 +9,18 @@ so the annotations of a fenced block are scanned later, by the model.
 
 from __future__ import annotations
 
-import re
-from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode as Node
 
 from ..errors import ParseError
 from ..types import RubricItemDict, TestSourceDict
+from ._attachments import (
+    ATTACHMENTS,
+    ORIGIN_RE,
+    link_paragraph,
+    origin_message,
+    parse_attachments,
+    split_sections,
+)
 from ._blocks import BlockCursor, BlockReader
 from ._choices import split_item
 from ._ordering import fence_language
@@ -26,25 +32,8 @@ from ._rubric import (
 
 __all__ = ["InvalidRubricItem", "parse_code_body"]
 
-#: The heading text of a section of a code question.
-_SECTION_RE = re.compile(r"^\[(?P<name>template|tests|rubric|answer-key)\]$")
-#: The `ORIGIN` terminal of docs/question-types/code.md, after the reading
-#: of the destination of the link.
-_ORIGIN_RE = re.compile(
-    r"(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)[^?#]*[.][^.\/?#]+"
-)
-_SCHEME_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
-
-#: Reads a paragraph as CommonMark does, keeping the destination of a link as
-#: the author wrote it. `normalizeLink` would percent-encode it, and the
-#: origin is an opaque key: MDQ does not decode or encode it.
-class _RawLinkMarkdownIt(MarkdownIt):
-    def normalizeLink(self, url: str) -> str:
-        return url
-
-
-_LINK_MD = _RawLinkMarkdownIt("commonmark")
-_LINK_MD.block.ruler.disable("reference")
+#: The sections of a code question.
+_SECTIONS = frozenset({"template", "tests", "rubric", ATTACHMENTS, "answer-key"})
 
 
 class InvalidRubricItem(ParseError):
@@ -61,21 +50,13 @@ class InvalidRubricItem(ParseError):
         super().__init__(message, node=node, path=("rubric", index))
 
 
-def _is_section(reader: BlockReader, node: Node, name: str | None = None) -> bool:
-    """Whether `node` is the heading of a section (of the section `name`)."""
-    if node.type != "heading" or node.tag != "h2":
-        return False
-    found = _SECTION_RE.match(reader.raw_text(node))
-    return found is not None and (name is None or found.group("name") == name)
-
-
 def parse_code_body(cursor: BlockCursor) -> tuple[dict[str, object], list[Node]]:
     """
     Read the sections that follow the `[code]` tag.
 
     The epilogue is between the tag and the first section, and the sections
-    are contiguous after it. `## [answer-key]` is the last one and holds every
-    block up to the end of the question.
+    are contiguous after it, in any order. Each one, `## [answer-key]`
+    included, ends at the heading of the next section.
 
     Args:
         cursor: The cursor, right after the `[code]` paragraph.
@@ -85,52 +66,29 @@ def parse_code_body(cursor: BlockCursor) -> tuple[dict[str, object], list[Node]]
             a block that it does not allow, or a test source is malformed.
 
     Returns:
-        The fields `template`, `tests`, `rubric` and `answerKey` that the
-        sections define, and the nodes of the epilogue.
+        The fields `template`, `tests`, `rubric`, `attachments` and
+        `answerKey` that the sections define, and the nodes of the epilogue.
     """
     reader = cursor.reader
-    first = next(
-        (
-            i
-            for i in range(cursor.pos, len(reader.children))
-            if _is_section(reader, reader.children[i])
-        ),
-        len(reader.children),
-    )
-    epilogue = reader.children[cursor.pos : first]
-    cursor.pos = first
-
+    epilogue, sections = split_sections(cursor, _SECTIONS)
     fields: dict[str, object] = {}
-    seen: set[str] = set()
-    while (node := cursor.peek()) is not None:
-        found = _SECTION_RE.match(reader.raw_text(node))
-        assert found is not None  # the loop reads whole sections
-        name = found.group("name")
-        cursor.read()
+    for name, heading, blocks in sections:
         if name == "answer-key":
-            rest = reader.children[cursor.pos :]
-            cursor.pos = len(reader.children)
-            if any(_is_section(reader, later, "answer-key") for later in rest):
-                raise ParseError("a question defines at most one [answer-key] section")
-            text = reader.join_blocks(rest)
+            text = reader.join_blocks(blocks)
             if text:
                 fields["answerKey"] = text
-            break
-        if name in seen:
-            raise ParseError(f"a question defines at most one [{name}] section", node)
-        seen.add(name)
-        blocks: list[Node] = []
-        while (block := cursor.peek()) is not None and not _is_section(reader, block):
-            blocks.append(cursor.read())
+            continue
         if not blocks:
-            raise ParseError(f"the ## [{name}] section has no content block", node)
+            raise ParseError(f"the ## [{name}] section has no content block", heading)
         match name:
             case "template":
                 fields["template"] = _template(reader, blocks)
             case "tests":
                 fields["tests"] = _tests(reader, blocks)
-            case _:
+            case "rubric":
                 fields["rubric"] = _rubric(reader, blocks)
+            case _:
+                fields["attachments"] = parse_attachments(reader, heading, blocks)
     return fields, epilogue
 
 
@@ -178,41 +136,16 @@ def _tests(reader: BlockReader, blocks: list[Node]) -> list[TestSourceDict]:
 
 def _linked_source(reader: BlockReader, node: Node) -> TestSourceDict:
     """The test source of a paragraph whose only content is an inline link."""
-    tokens = _LINK_MD.parse("\n".join(reader.raw_lines(node)))
-    inline = next((t for t in tokens if t.type == "inline"), None)
-    children = inline.children if inline is not None and inline.children else []
-    links = [t for t in children if t.type == "link_open"]
-    if (
-        len(links) != 1
-        or children[0].type != "link_open"
-        or children[-1].type != "link_close"
-        or links[0].markup == "autolink"
-    ):
-        raise ParseError(
-            "a paragraph of the ## [tests] section is a test source only when "
-            "its whole content is one inline link, as in `[tests](test_x.py)`; "
-            "a fenced block holds the other tests",
-            node,
-        )
-    origin = str(links[0].attrGet("href") or "")
-    if not _ORIGIN_RE.fullmatch(origin):
-        raise ParseError(_origin_message(origin), node)
+    origin, _ = link_paragraph(
+        reader,
+        node,
+        "a paragraph of the ## [tests] section is a test source only when "
+        "its whole content is one inline link, as in `[tests](test_x.py)`; "
+        "a fenced block holds the other tests",
+    )
+    if not ORIGIN_RE.fullmatch(origin):
+        raise ParseError(origin_message(origin, "a test source"), node)
     return {"format": origin.rsplit(".", 1)[1], "origin": origin}
-
-
-def _origin_message(origin: str) -> str:
-    """Why `origin`, the destination of a test link, is not allowed."""
-    if _SCHEME_RE.match(origin):
-        reason = "it has a scheme"
-    elif origin.startswith("/"):
-        reason = "it starts with `/`"
-    elif "?" in origin:
-        reason = "it has a query"
-    elif "#" in origin:
-        reason = "it has a fragment, which is reserved"
-    else:
-        reason = "its file name has no extension, which is the test format"
-    return f"the origin {origin!r} of a test source must be a relative path: {reason}"
 
 
 def _rubric(reader: BlockReader, blocks: list[Node]) -> list[RubricItemDict]:

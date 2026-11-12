@@ -291,6 +291,7 @@ _DROPPED_FIELDS = frozenset(
     {
         "id", "tags", "weight", "shuffle", "unit", "domain", "decimal_places", "content",
         "highlight", "grading", "pre_accept", "pre_reject", "author", "uuid", "locale",
+        "attachments",
     }
 )
 
