@@ -44,6 +44,7 @@ Implements MDQ specification 0.1.0.
 
 ### Changed
 
+- The `$id` of the bundled schema (`mdq/mdq.schema.json`) is `https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.1/mdq.schema.json`, where `@mdq-format/schema` publishes it.
 - `## [answer-key]` of an essay or a code question is no longer the last section: it comes in any order with the other sections, at most once, and ends at the heading of the next section of the question. A heading in it that starts with `[` and is not a section of the question stays a `forbidden-block-element`.
 - `CodeQuestion.resolve` reports the annotation errors of every source in one `ValidationError`, not only those of the first source that fails.
 - A parse error that points at a block, and an `invalid-rubric-item` of `## [rubric]`, give the line of the file in `Diagnostic.line`. With a frontmatter, the line was short by the lines of the frontmatter (`MdqError.line_offset`).

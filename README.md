@@ -33,15 +33,14 @@ The syntax of each question type is in the
 
 ## Installation
 
-Requires Python 3.13 or later. The package is not on PyPI yet. Install it from
-the repository:
+Requires Python 3.13 or later.
 
 ```bash
 # CLI only
-uv tool install "git+https://github.com/fabiommendes/mdq-py"
+uv tool install mdq
 
 # As a library
-uv add "git+https://github.com/fabiommendes/mdq-py"
+uv add mdq
 ```
 
 
