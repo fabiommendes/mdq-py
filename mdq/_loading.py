@@ -26,10 +26,9 @@ from pydantic import ValidationError as PydanticValidationError
 from pydantic_core.core_schema import ErrorType
 
 from . import _parser, models
-from ._banks import SOURCE_SUFFIXES
 from ._diagnostics import RANK, Diagnostic, Severity
 from ._include_keys import include_key_hint
-from .errors import InvalidDocument, MdqError, UnresolvedInclude
+from .errors import InvalidDocument, MdqError, ParseError, UnresolvedInclude
 from .types import Format, Ids, Kind, Source
 
 __all__ = [
@@ -44,9 +43,9 @@ __all__ = [
 D = TypeVar("D", covariant=True)
 
 #: `Path` suffixes that select each format, checked against the whole
-#: filename (not `Path.suffix`). `.md` also covers `.mdq.md`, the first of
-#: the shared `SOURCE_SUFFIXES`.
-_MDQ_SUFFIXES = SOURCE_SUFFIXES[1:]
+#: filename (not `Path.suffix`). The plain suffixes also cover the
+#: `.mdq.*` forms of the shared `SOURCE_SUFFIXES`.
+_MDQ_SUFFIXES = (".md", ".mdq")
 _YAML_SUFFIXES = (".yaml", ".yml")
 _JSON_SUFFIXES = (".json",)
 
@@ -268,15 +267,45 @@ def _load_text(
         return _load_data(data, kind=kind, ids=ids)
     if fmt == "json":
         try:
-            data = json.loads(
-                text,
-                object_pairs_hook=_json_object,
-                parse_constant=_json_constant,
-            )
+            data = _load_json(text)
         except ValueError as exc:
             return Loaded(None, [_syntax_error("json-syntax-error", exc)])
         return _load_data(data, kind=kind, ids=ids)
     raise ValueError(f"unknown format {fmt!r}; expected one of 'mdq', 'yaml', 'json'")
+
+
+def read_source(path: Path) -> str | Mapping[str, Any]:
+    """
+    The source of a question file for a `QuestionBank`: the text of a
+    Markdown file, the data of a YAML or JSON file.
+
+    Raises:
+        UnicodeDecodeError: the file is not UTF-8.
+        ParseError: the YAML or JSON does not parse, or its top level is
+            not a mapping.
+        UnknownSuffix: the suffix selects no format.
+    """
+    fmt = _format_from_path(path)
+    text = path.read_text(encoding="utf-8")
+    if fmt == "mdq":
+        return text
+    try:
+        data = _parser.load_yaml(text) if fmt == "yaml" else _load_json(text)
+    except (yaml.YAMLError, ValueError) as exc:
+        raise ParseError(f"{path}: {exc}") from exc
+    if not isinstance(data, Mapping):
+        raise ParseError(f"{path}: the top level is not a mapping")
+    return data
+
+
+# r2: adr-0011
+def _load_json(text: str) -> Any:
+    """JSON, without the extensions of `json.loads` (see `_json_constant`)."""
+    return json.loads(
+        text,
+        object_pairs_hook=_json_object,
+        parse_constant=_json_constant,
+    )
 
 
 # r2: adr-0011

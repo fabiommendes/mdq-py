@@ -10,6 +10,10 @@ that it implements.
 
 ## [Unreleased]
 
+### Added
+
+- `FileLoader` also finds questions in YAML and JSON files (`.mdq.yaml`, `.mdq.yml`, `.yaml`, `.yml`, `.mdq.json`, `.json`), after the Markdown suffixes. `load` returns the data of such a file, and a file that does not parse is left out of `tagged` and `ids`. When two files have the same id, `tagged` and `ids` read only the file that `load` picks.
+
 ## [0.2.0] - 2026-11-12
 
 Implements MDQ specification 0.1.0.

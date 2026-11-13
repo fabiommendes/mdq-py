@@ -17,7 +17,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
-from .errors import IncludeNotFound
+from .errors import IncludeNotFound, ParseError
 
 __all__ = [
     "IncludeNotFound",
@@ -26,11 +26,22 @@ __all__ = [
     "DictLoader",
 ]
 
-#: Extensions a question document may use, in lookup order. A question
-#: and an exam share these -- they are told apart by their content, not
-#: by their name. `.mdq.md` comes before `.md` so that the id of
-#: `x.mdq.md` is `x`, not `x.mdq`.
-SOURCE_SUFFIXES = (".mdq.md", ".md", ".mdq")
+#: Extensions a question document may use, in lookup order: Markdown,
+#: then YAML, then JSON (question-base.md, "File names"). A question and
+#: an exam share these -- they are told apart by their content, not by
+#: their name. Each `.mdq.*` suffix comes before its plain form so that
+#: the id of `x.mdq.md` is `x`, not `x.mdq`.
+SOURCE_SUFFIXES = (
+    ".mdq.md",
+    ".md",
+    ".mdq",
+    ".mdq.yaml",
+    ".mdq.yml",
+    ".yaml",
+    ".yml",
+    ".mdq.json",
+    ".json",
+)
 
 
 @runtime_checkable
@@ -104,14 +115,17 @@ class FileLoader(_IndexedBank):
     """
     Loads questions from a directory tree on the local filesystem.
 
-    An id resolves to `<root>/<id>.mdq.md`, `<root>/<id>.md` or
-    `<root>/<id>.mdq`, in this order. When `recursive` is set, the tree
+    An id resolves to `<root>/<id><suffix>`, with the suffixes of
+    `SOURCE_SUFFIXES` tried in order: Markdown first, then YAML, then
+    JSON. When `recursive` is set, the tree
     is searched for a file with that stem anywhere beneath the root,
     which is how a bank organised into per-topic subdirectories keeps
     working without qualifying every id.
     `tagged` and `ids` only list the files that validate as a question: a
     file that holds an exam, a question with an error, or text that is not
-    UTF-8 is skipped silently. `load` still returns the text of any file, so an explicit
+    UTF-8 is skipped silently. When two files share an id, only the one
+    `load` would pick is listed. `load` returns the text of a Markdown
+    file and the data of a YAML or JSON file, valid or not, so an explicit
     `include` of an invalid question fails when the exam is resolved.
     """
 
@@ -129,25 +143,34 @@ class FileLoader(_IndexedBank):
         # for files sitting directly in the root.
         return list(dict.fromkeys(found))
 
-    def load(self, question_id: str) -> str:
+    def load(self, question_id: str) -> str | Mapping[str, Any]:
         for path in self.candidates(question_id):
             if path.is_file():
-                return path.read_text(encoding="utf-8")
+                return _read(path)
 
         raise IncludeNotFound(
             question_id,
             f"looked for {'/'.join(s for s in SOURCE_SUFFIXES)} under {self.root}",
         )
 
-    def _sources(self) -> Iterator[tuple[str, str]]:
+    def _sources(self) -> Iterator[tuple[str, str | Mapping[str, Any]]]:
         paths = self.root.rglob("*") if self.recursive else self.root.iterdir()
+        # The file of each id that `load` would pick: a file directly in
+        # the root, then the first suffix, then the first path.
+        best: dict[str, tuple[tuple[bool, int, Path], Path]] = {}
         for path in sorted(paths):
-            question_id = _question_id(path)
-            if question_id is not None and path.is_file():
-                try:
-                    yield question_id, path.read_text(encoding="utf-8")
-                except UnicodeDecodeError:
-                    continue
+            found = _question_id(path)
+            if found is None or not path.is_file():
+                continue
+            question_id, rank = found
+            key = (path.parent != self.root, rank, path)
+            if question_id not in best or key < best[question_id][0]:
+                best[question_id] = (key, path)
+        for question_id, (_, path) in sorted(best.items()):
+            try:
+                yield question_id, _read(path)
+            except (UnicodeDecodeError, ParseError):
+                continue
 
 
 class DictLoader(_IndexedBank):
@@ -176,12 +199,30 @@ class DictLoader(_IndexedBank):
         yield from self.questions.items()
 
 
-def _question_id(path: Path) -> str | None:
-    """The id a question file answers to: its name, without the suffix."""
-    for suffix in SOURCE_SUFFIXES:
+def _question_id(path: Path) -> tuple[str, int] | None:
+    """
+    The id a question file answers to (its name, without the suffix), and
+    the position of the suffix in `SOURCE_SUFFIXES`.
+    """
+    for rank, suffix in enumerate(SOURCE_SUFFIXES):
         if path.name.endswith(suffix):
-            return path.name[: -len(suffix)]
+            return path.name[: -len(suffix)], rank
     return None
+
+
+def _read(path: Path) -> str | Mapping[str, Any]:
+    """
+    The source in a question file: the text of a Markdown file, the data
+    of a YAML or JSON file.
+
+    Raises:
+        UnicodeDecodeError: the file is not UTF-8.
+        ParseError: the YAML or JSON does not parse.
+    """
+    # `_loading` imports this module for `SOURCE_SUFFIXES`.
+    from . import _loading
+
+    return _loading.read_source(path)
 
 
 def _tags(source: str | Mapping[str, Any]) -> list[str] | None:

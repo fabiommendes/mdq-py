@@ -50,6 +50,52 @@ def test_file_loader_prefers_mdq_md_over_md(tmp_path: Path) -> None:
     assert "Arquivo .mdq.md" in FileLoader(tmp_path).load("caatinga")
 
 
+def test_file_loader_reads_yaml_and_json_files(tmp_path: Path) -> None:
+    (tmp_path / "pampa.mdq.yaml").write_text(
+        "type: essay\nstem: Sobre o Pampa.\ntags: [biomas]\n", encoding="utf-8"
+    )
+    (tmp_path / "mata.json").write_text(
+        '{"type": "essay", "stem": "Sobre a Mata Atlântica.", "tags": ["biomas"]}',
+        encoding="utf-8",
+    )
+    loader = FileLoader(tmp_path)
+    assert loader.load("pampa") == {
+        "type": "essay",
+        "stem": "Sobre o Pampa.",
+        "tags": ["biomas"],
+    }
+    assert set(loader.tagged("biomas")) == {"pampa", "mata"}
+
+
+def _write_yaml_question(path: Path, stem: str, tag: str = "biomas") -> None:
+    path.write_text(f"type: essay\nstem: {stem}\ntags: [{tag}]\n", encoding="utf-8")
+
+
+def test_file_loader_prefers_markdown_then_yaml_then_json(tmp_path: Path) -> None:
+    (tmp_path / "amazonia.json").write_text(
+        '{"type": "essay", "stem": "Arquivo JSON.", "tags": ["biomas"]}',
+        encoding="utf-8",
+    )
+    _write_yaml_question(tmp_path / "amazonia.yaml", "Arquivo YAML.")
+    assert FileLoader(tmp_path).load("amazonia") == {
+        "type": "essay",
+        "stem": "Arquivo YAML.",
+        "tags": ["biomas"],
+    }
+    _write_question(tmp_path / "amazonia.mdq.md", "Arquivo Markdown.")
+    assert "Arquivo Markdown." in FileLoader(tmp_path).load("amazonia")
+
+
+def test_file_loader_lists_each_id_from_the_file_it_loads(tmp_path: Path) -> None:
+    _write_question(tmp_path / "cerrado.mdq.md", "Sobre o Cerrado:")
+    _write_yaml_question(tmp_path / "cerrado.yaml", "Outro Cerrado.", tag="outro")
+    (tmp_path / "quebrado.json").write_text("{", encoding="utf-8")
+    (tmp_path / "lista.json").write_text("[1, 2]", encoding="utf-8")
+    loader = FileLoader(tmp_path)
+    assert set(loader.ids()) == {"cerrado"}
+    assert set(loader.tagged("outro")) == set()
+
+
 def test_file_loader_can_be_restricted_to_its_root() -> None:
     with pytest.raises(IncludeNotFound):
         FileLoader(MIDTERM.parent, recursive=False).load("recursion-01")
