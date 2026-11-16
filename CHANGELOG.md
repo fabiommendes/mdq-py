@@ -10,6 +10,10 @@ that it implements.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-16
+
+Implements MDQ specification 0.2.0. The `$id` of the bundled schema is now `https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/mdq.schema.json`.
+
 ### Added
 
 - `FileLoader` also finds questions in YAML and JSON files (`.mdq.yaml`, `.mdq.yml`, `.yaml`, `.yml`, `.mdq.json`, `.json`), after the Markdown suffixes. `load` returns the data of such a file, and a file that does not parse is left out of `tagged` and `ids`. When two files have the same id, `tagged` and `ids` read only the file that `load` picks.
