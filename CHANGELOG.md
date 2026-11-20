@@ -10,6 +10,10 @@ that it implements.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-20
+
+Implements MDQ specification 0.3.0. The `$id` of the bundled schema is now `https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/mdq.schema.json`.
+
 ### Added
 
 - The `upload` question type (`docs/question-types/upload.md`): `mdq.models.UploadQuestion` with `maxFiles`, `maxSize` (kept as written), `extensions` and an optional `answerKey`. A response is a list of files (`name`, `path`, `size`), validated against the limits of the question and always pending for the instructor. `public()` keeps the limits and `correct_responses()` is empty. `mdq.models.max_size_bytes(question)` and `mdq.models.matches_extensions(question, name)` apply the limits to the files a host receives, for the model and for its public form.

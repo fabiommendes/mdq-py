@@ -1,47 +1,47 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/mdq.schema.json",
+  "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/mdq.schema.json",
   "title": "MDQ document (bundled)",
   "description": "Every MDQ document type -- an exam, or any one of the eight question types -- bundled from schema/*.yaml into a single self-contained file. Validate against the whole thing to accept any MDQ document, or against `#/$defs/<type>` (e.g. `#/$defs/multiple-choice`) to check one type specifically.",
   "oneOf": [
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-choice.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-choice.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-selection.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-selection.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/true-false.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/true-false.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/essay.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/essay.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/code.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/code.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml"
     },
     {
-      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml"
+      "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml"
     }
   ],
   "$defs": {
     "code": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/code.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/code.yaml",
       "title": "Code question",
       "description": "A question whose student submits one source file. Test sources and a rubric score the submission: a runner executes the test cases, and the instructor applies the manual rubric items. Extends the common question-base schema. The rubric items that the annotations of a test source declare are not in this document: they are part of the `text` of the test source.",
       "allOf": [
@@ -190,7 +190,7 @@
     },
     "essay": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/essay.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/essay.yaml",
       "title": "Essay question",
       "description": "An open-ended question where the student writes a free-form answer, rather than choosing among predefined options. Extends the common question-base schema with a `content` field describing how the answer should be edited, and an optional answer key.",
       "allOf": [
@@ -252,7 +252,7 @@
     },
     "exam": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml",
       "title": "Exam",
       "description": "A set of questions gathered for assessment. An exam is recognized by its H1 title, which a question document can never carry. Each entry in `questions` is either a complete question document or an `include` referring to one that lives elsewhere.",
       "type": "object",
@@ -262,7 +262,7 @@
           "format": "uri-reference",
           "description": "URI of the JSON Schema of the document, for editors and tools. Any URI is valid, also a relative path to a local copy. Parsers ignore it: it is not part of the parsed document, and a serializer does not write it. Only a document in YAML or JSON may hold it; in a Markdown frontmatter it is an `invalid-frontmatter-field`.",
           "examples": [
-            "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/mdq.schema.json"
+            "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/mdq.schema.json"
           ]
         },
         "type": {
@@ -527,7 +527,7 @@
     },
     "fill-in": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml",
       "title": "Fill in the blanks question",
       "description": "A question whose stem contains one or more named blanks, each answered in place by the student. Extends the common question-base schema with a `blanks` field. Every blank is itself a small graded question -- a set of choices, a short answer, or a numeric value -- referenced from the stem by its id, as in `The capital of Brazil is [^capital].`",
       "allOf": [
@@ -746,7 +746,7 @@
     },
     "multiple-choice": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-choice.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-choice.yaml",
       "title": "Multiple choice question",
       "description": "A question where the student must select exactly one choice out of a list of options. Extends the common question-base schema with the `choices`, `grading` and `shuffle` fields.",
       "allOf": [
@@ -839,7 +839,7 @@
     },
     "multiple-selection": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-selection.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-selection.yaml",
       "title": "Multiple selection question",
       "description": "A question where the student must select all choices they believe are correct, out of a list of options (zero, one, or many may be correct). Extends the common question-base schema with the `choices`, `grading` and `shuffle` fields.",
       "allOf": [
@@ -932,7 +932,7 @@
     },
     "numeric": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml",
       "title": "Numeric question",
       "description": "A question where the student must enter a numeric value, graded against an expected answer within an optional tolerance. Extends the common question-base schema with the `answer`, `unit`, `domain`, `decimalPlaces`, `tolerance` and `incorrectFeedback` fields.",
       "allOf": [
@@ -1024,7 +1024,7 @@
     },
     "ordering": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml",
       "title": "Ordering question",
       "description": "A question where the student sorts a list of lines into the correct order. Extends the common question-base schema with the `lines` that form the answer key, the distractor lines mixed in with them, and the alternative orderings the question accepts or rejects outright.",
       "allOf": [
@@ -1214,7 +1214,7 @@
     },
     "question-base": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml",
       "title": "Question (base)",
       "description": "Common properties shared by every MDQ question type. Question-type schemas (multiple-choice, multiple-selection, true-false, numeric, short-answer, fill-in, essay, upload, ordering) extend this schema, typically via `allOf` + `$ref`, and add their own `type`-specific fields (e.g. `choices`).",
       "type": "object",
@@ -1224,7 +1224,7 @@
           "format": "uri-reference",
           "description": "URI of the JSON Schema of the document, for editors and tools. Any URI is valid, also a relative path to a local copy. Parsers ignore it: it is not part of the parsed document, and a serializer does not write it. Only a document in YAML or JSON may hold it; in a Markdown frontmatter it is an `invalid-frontmatter-field`.",
           "examples": [
-            "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/mdq.schema.json"
+            "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/mdq.schema.json"
           ]
         },
         "id": {
@@ -1401,7 +1401,7 @@
     },
     "runner-report": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/runner-report.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/runner-report.yaml",
       "title": "Runner report",
       "description": "The JSON document that a runner returns after it executes the test sources of a code question against a submission: a status and one verdict for each test case. MDQ turns the report into a score through the rubric of the question, see docs/runner-report.md. This is not a question or an exam: no `type` selects it.",
       "type": "object",
@@ -1595,7 +1595,7 @@
     },
     "short-answer": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml",
       "title": "Short answer question",
       "description": "A question answered with a short piece of free text, graded by comparing the response against a list of accepted patterns. Extends the common question-base schema with the `accept`, `reject`, `preAccept`, `preReject`, `diacritics`, `unmatched` and `incorrectFeedback` fields.",
       "allOf": [
@@ -1708,7 +1708,7 @@
     },
     "true-false": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/true-false.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/true-false.yaml",
       "title": "True/False question",
       "description": "A question where the student must judge each statement in a list as true or false. Extends the common question-base schema with a `choices` field, where each choice represents one statement to be judged.",
       "allOf": [
@@ -1807,7 +1807,7 @@
     },
     "upload": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml",
+      "$id": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml",
       "title": "Upload question",
       "description": "A question whose response is one or more files that the student sends: a PDF, a photo of a diagram, a spreadsheet. MDQ never reads the files; the host stores them. The instructor grades every response. Extends the common question-base schema with the limits of the files and an optional answer key.",
       "allOf": [
@@ -1896,27 +1896,27 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-choice.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-choice.yaml#/allOf/1/properties/type"
         },
         "shuffle": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-choice.yaml#/allOf/1/properties/shuffle"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-choice.yaml#/allOf/1/properties/shuffle"
         },
         "grading": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-choice.yaml#/allOf/1/properties/grading"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-choice.yaml#/allOf/1/properties/grading"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -1924,16 +1924,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -1944,27 +1944,27 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-selection.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-selection.yaml#/allOf/1/properties/type"
         },
         "shuffle": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-selection.yaml#/allOf/1/properties/shuffle"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-selection.yaml#/allOf/1/properties/shuffle"
         },
         "grading": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/multiple-selection.yaml#/allOf/1/properties/grading"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/multiple-selection.yaml#/allOf/1/properties/grading"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -1972,16 +1972,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -1992,27 +1992,27 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/true-false.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/true-false.yaml#/allOf/1/properties/type"
         },
         "shuffle": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/true-false.yaml#/allOf/1/properties/shuffle"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/true-false.yaml#/allOf/1/properties/shuffle"
         },
         "grading": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/true-false.yaml#/allOf/1/properties/grading"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/true-false.yaml#/allOf/1/properties/grading"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2020,16 +2020,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2040,27 +2040,27 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/essay.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/essay.yaml#/allOf/1/properties/type"
         },
         "content": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/essay.yaml#/allOf/1/properties/content"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/essay.yaml#/allOf/1/properties/content"
         },
         "highlight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/essay.yaml#/allOf/1/properties/highlight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/essay.yaml#/allOf/1/properties/highlight"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2068,16 +2068,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2088,30 +2088,30 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml#/allOf/1/properties/type"
         },
         "maxFiles": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml#/allOf/1/properties/maxFiles"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml#/allOf/1/properties/maxFiles"
         },
         "maxSize": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml#/allOf/1/properties/maxSize"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml#/allOf/1/properties/maxSize"
         },
         "extensions": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/upload.yaml#/allOf/1/properties/extensions"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/upload.yaml#/allOf/1/properties/extensions"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2119,16 +2119,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2139,27 +2139,27 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/code.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/code.yaml#/allOf/1/properties/type"
         },
         "language": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/code.yaml#/allOf/1/properties/language"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/code.yaml#/allOf/1/properties/language"
         },
         "file": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/code.yaml#/allOf/1/properties/file"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/code.yaml#/allOf/1/properties/file"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2167,16 +2167,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2187,30 +2187,30 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml#/allOf/1/properties/type"
         },
         "domain": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml#/allOf/1/properties/domain"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml#/allOf/1/properties/domain"
         },
         "decimalPlaces": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml#/allOf/1/properties/decimalPlaces"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml#/allOf/1/properties/decimalPlaces"
         },
         "incorrectFeedback": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/numeric.yaml#/allOf/1/properties/incorrectFeedback"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/numeric.yaml#/allOf/1/properties/incorrectFeedback"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2218,16 +2218,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2238,36 +2238,36 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/type"
         },
         "preAccept": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/preAccept"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/preAccept"
         },
         "preReject": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/preReject"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/preReject"
         },
         "diacritics": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/diacritics"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/diacritics"
         },
         "unmatched": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/unmatched"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/unmatched"
         },
         "incorrectFeedback": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/allOf/1/properties/incorrectFeedback"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/allOf/1/properties/incorrectFeedback"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2275,16 +2275,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2295,26 +2295,26 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/allOf/1/properties/type"
         },
         "shuffle": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/allOf/1/properties/shuffle"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/allOf/1/properties/shuffle"
         },
         "grading": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/allOf/1/properties/grading"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/allOf/1/properties/grading"
         },
         "diacritics": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/allOf/1/properties/diacritics"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/allOf/1/properties/diacritics"
         },
         "unmatched": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/allOf/1/properties/unmatched"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/allOf/1/properties/unmatched"
         },
         "preAccept": {
           "type": "object",
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/$defs/patternList"
+                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/$defs/patternList"
               },
               {
                 "type": "null"
@@ -2327,7 +2327,7 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/short-answer.yaml#/$defs/patternList"
+                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/short-answer.yaml#/$defs/patternList"
               },
               {
                 "type": "null"
@@ -2353,7 +2353,7 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/$defs/NumericBlank/properties/domain"
+                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/$defs/NumericBlank/properties/domain"
               },
               {
                 "type": "null"
@@ -2366,7 +2366,7 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/fill-in.yaml#/$defs/NumericBlank/properties/decimalPlaces"
+                "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/fill-in.yaml#/$defs/NumericBlank/properties/decimalPlaces"
               },
               {
                 "type": "null"
@@ -2375,18 +2375,18 @@
           }
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2394,16 +2394,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2414,21 +2414,21 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml#/allOf/1/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml#/allOf/1/properties/type"
         },
         "indentation": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml#/allOf/1/properties/indentation"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml#/allOf/1/properties/indentation"
         },
         "unmatched": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml#/allOf/1/properties/unmatched"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml#/allOf/1/properties/unmatched"
         },
         "incorrectFeedback": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml#/allOf/1/properties/incorrectFeedback"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml#/allOf/1/properties/incorrectFeedback"
         },
         "normalizations": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/ordering.yaml#/allOf/1/properties/normalizations"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/ordering.yaml#/allOf/1/properties/normalizations"
             },
             {
               "type": "string"
@@ -2436,18 +2436,18 @@
           ]
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/title"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/uuid"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2455,16 +2455,16 @@
           ]
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/locale"
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/meta"
         },
         "weight": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/question-base.yaml#/properties/weight"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/question-base.yaml#/properties/weight"
         }
       },
       "additionalProperties": false
@@ -2475,33 +2475,33 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/type"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/type"
         },
         "title": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/title"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/title"
         },
         "description": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/description"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/description"
         },
         "id": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/id"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/id"
         },
         "uuid": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/uuid"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/uuid"
         },
         "course": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/course"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/course"
         },
         "author": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/author"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/author"
         },
         "locale": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/locale"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/locale"
         },
         "tags": {
           "anyOf": [
             {
-              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/tags"
+              "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/tags"
             },
             {
               "type": "string"
@@ -2509,16 +2509,16 @@
           ]
         },
         "meta": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/meta"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/meta"
         },
         "penalty": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/penalty"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/penalty"
         },
         "grading": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/grading"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/grading"
         },
         "shuffle": {
-          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/exam.yaml#/properties/shuffle"
+          "$ref": "https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.3/exam.yaml#/properties/shuffle"
         },
         "start": {
           "type": "string"
