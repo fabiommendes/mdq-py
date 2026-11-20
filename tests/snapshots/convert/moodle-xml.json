@@ -9646,5 +9646,184 @@
       "title": "Fatos sobre o Pantanal",
       "type": "true-false"
     }
+  },
+  "valid/upload/all-fields.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Ciclo da água na bacia do São Francisco</text>\n    </name>\n    <idnumber>ciclo-da-agua</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Desenhe o ciclo da água na bacia do rio São Francisco e envie uma foto ou um PDF do desenho.\n\nLegende as etapas do ciclo.</text>\n    </questiontext>\n    <defaultgrade>2</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O desenho mostra evaporação, condensação, precipitação e escoamento até o rio.</text>\n    </graderinfo>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>2</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>5242880</maxbytes>\n    <filetypeslist>.pdf,.png,.jpg</filetypeslist>\n    <tags>\n      <tag>\n        <text>hidrologia</text>\n      </tag>\n      <tag>\n        <text>geografia</text>\n      </tag>\n    </tags>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "info metadata-dropped author",
+      "info metadata-dropped locale"
+    ],
+    "import": {
+      "answerKey": "O desenho mostra evaporação, condensação, precipitação e escoamento até o rio.",
+      "extensions": [
+        ".pdf",
+        ".png",
+        ".jpg"
+      ],
+      "id": "ciclo-da-agua",
+      "maxFiles": 2,
+      "maxSize": 5242880,
+      "stem": "Desenhe o ciclo da água na bacia do rio São Francisco e envie uma foto ou um PDF do desenho.\n\nLegende as etapas do ciclo.",
+      "tags": [
+        "hidrologia",
+        "geografia"
+      ],
+      "title": "Ciclo da água na bacia do São Francisco",
+      "type": "upload",
+      "weight": 2.0
+    }
+  },
+  "valid/upload/answer-key-after-attachments.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Marés em São Luís</text>\n    </name>\n    <idnumber>upload-mare-sao-luis-b</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Use a tabela de marés do anexo e envie um gráfico da amplitude de maré em São Luís.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O gráfico mostra a amplitude de mais de 6 m.</text>\n    </graderinfo>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "O gráfico mostra a amplitude de mais de 6 m.",
+      "id": "upload-mare-sao-luis-b",
+      "stem": "Use a tabela de marés do anexo e envie um gráfico da amplitude de maré em São Luís.",
+      "title": "Marés em São Luís",
+      "type": "upload"
+    }
+  },
+  "valid/upload/answer-key-before-attachments.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Marés em São Luís</text>\n    </name>\n    <idnumber>upload-mare-sao-luis-a</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Use a tabela de marés do anexo e envie um gráfico da amplitude de maré em São Luís.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>### Critérios\n\nO gráfico mostra a amplitude de mais de 6 m.</text>\n    </graderinfo>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped attachments"
+    ],
+    "import": {
+      "answerKey": "### Critérios\n\nO gráfico mostra a amplitude de mais de 6 m.",
+      "id": "upload-mare-sao-luis-a",
+      "stem": "Use a tabela de marés do anexo e envie um gráfico da amplitude de maré em São Luís.",
+      "title": "Marés em São Luís",
+      "type": "upload"
+    }
+  },
+  "valid/upload/answer-key-setext.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Ciclo da água</text>\n    </name>\n    <idnumber>upload-answer-key-setext</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie um desenho do ciclo da água.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>Evaporação, condensação e precipitação.</text>\n    </graderinfo>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "answerKey": "Evaporação, condensação e precipitação.",
+      "id": "upload-answer-key-setext",
+      "stem": "Envie um desenho do ciclo da água.",
+      "title": "Ciclo da água",
+      "type": "upload"
+    }
+  },
+  "valid/upload/answer-key.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Mapa mental da Mata Atlântica</text>\n    </name>\n    <idnumber>upload-answer-key</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o mapa mental dos serviços ambientais da Mata Atlântica.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <graderinfo format=\"markdown\">\n      <text>O mapa cita regulação do clima, proteção de nascentes e polinização.</text>\n    </graderinfo>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "answerKey": "O mapa cita regulação do clima, proteção de nascentes e polinização.",
+      "id": "upload-answer-key",
+      "stem": "Envie o mapa mental dos serviços ambientais da Mata Atlântica.",
+      "title": "Mapa mental da Mata Atlântica",
+      "type": "upload"
+    }
+  },
+  "valid/upload/epilogue-block-quote.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Foto da caatinga</text>\n    </name>\n    <idnumber>upload-epilogue-quote</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie uma foto de uma planta da caatinga.\n\n&gt; Fotografe a planta inteira.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-epilogue-quote",
+      "stem": "Envie uma foto de uma planta da caatinga.\n\n> Fotografe a planta inteira.",
+      "title": "Foto da caatinga",
+      "type": "upload"
+    }
+  },
+  "valid/upload/extensions-compound.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-extensions-compound</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n    <filetypeslist>.tar.gz,.zip,.c</filetypeslist>\n  </question>\n</quiz>",
+    "import": {
+      "extensions": [
+        ".tar.gz",
+        ".zip",
+        ".c"
+      ],
+      "id": "upload-extensions-compound",
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/max-files.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-files</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>-1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "export_diagnostics": [
+      "warning field-dropped maxFiles"
+    ],
+    "import": {
+      "id": "upload-max-files",
+      "maxFiles": 10,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    },
+    "import_diagnostics": [
+      "warning field-dropped maxFiles"
+    ]
+  },
+  "valid/upload/max-size-integer.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-size-integer</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>5242880</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-max-size-integer",
+      "maxSize": 5242880,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/max-size-kilobytes.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-size-kilobytes</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>524288</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-max-size-kilobytes",
+      "maxSize": 524288,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/max-size-megabytes.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-size-megabytes</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>5242880</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-max-size-megabytes",
+      "maxSize": 5242880,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/max-size-no-space.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-size-no-space</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>1610612736</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-max-size-no-space",
+      "maxSize": 1610612736,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/max-size-three-decimals.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-max-size-three-decimals</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>1</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-max-size-three-decimals",
+      "maxSize": 1,
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
+  },
+  "valid/upload/minimal.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Desenho do ciclo da água</text>\n    </name>\n    <idnumber>upload-minimal</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Desenhe o ciclo da água e envie uma foto do desenho.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-minimal",
+      "stem": "Desenhe o ciclo da água e envie uma foto do desenho.",
+      "title": "Desenho do ciclo da água",
+      "type": "upload"
+    }
+  },
+  "valid/upload/type-in-frontmatter.yaml": {
+    "export": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<quiz>\n  <question type=\"essay\">\n    <name>\n      <text>Relatório de campo</text>\n    </name>\n    <idnumber>upload-type-in-frontmatter</idnumber>\n    <questiontext format=\"markdown\">\n      <text>Envie o relatório de campo sobre o Pantanal.</text>\n    </questiontext>\n    <defaultgrade>1</defaultgrade>\n    <responseformat>noinline</responseformat>\n    <responserequired>0</responserequired>\n    <attachments>1</attachments>\n    <attachmentsrequired>1</attachmentsrequired>\n    <maxbytes>0</maxbytes>\n  </question>\n</quiz>",
+    "import": {
+      "id": "upload-type-in-frontmatter",
+      "stem": "Envie o relatório de campo sobre o Pantanal.",
+      "title": "Relatório de campo",
+      "type": "upload"
+    }
   }
 }

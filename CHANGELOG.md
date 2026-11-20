@@ -10,6 +10,11 @@ that it implements.
 
 ## [Unreleased]
 
+### Added
+
+- The `upload` question type (`docs/question-types/upload.md`): `mdq.models.UploadQuestion` with `maxFiles`, `maxSize` (kept as written), `extensions` and an optional `answerKey`. A response is a list of files (`name`, `path`, `size`), validated against the limits of the question and always pending for the instructor. `public()` keeps the limits and `correct_responses()` is empty. `mdq.models.max_size_bytes(question)` and `mdq.models.matches_extensions(question, name)` apply the limits to the files a host receives, for the model and for its public form.
+- Moodle XML converts `upload` both ways: an `essay` with `responseformat` `noinline` and attachments imports as `upload` (`attachments`, `maxbytes`, `filetypeslist` and `graderinfo` become `maxFiles`, `maxSize`, `extensions` and `answerKey`), and `upload` exports as that essay. What Moodle and MDQ cannot share (unlimited files, more than 3 files, file type groups and MIME types, more than one required file, the attachments of an essay with text) is a `field-dropped` warning. GIFT and Aiken refuse `upload`.
+
 ## [0.2.1] - 2026-11-16
 
 Implements MDQ specification 0.2.0. The `$id` of the bundled schema is now `https://cdn.jsdelivr.net/npm/@mdq-format/schema@0.2/mdq.schema.json`.

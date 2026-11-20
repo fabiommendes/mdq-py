@@ -41,3 +41,36 @@ def test_a_frontmatter_field_is_not_a_tag() -> None:
 def test_a_list_glued_to_a_content_list_asks_for_the_same_marker() -> None:
     [(_, message)] = _errors(STEM + "[short-answer]:\n* Brasília\n- Brasilia\n")
     assert "same list marker" in message
+
+
+def test_an_upload_tag_with_a_colon_says_it_has_no_content() -> None:
+    assert _errors("[upload]: x\n") == [
+        (
+            "parse-error",
+            "the tag of an upload has no content: write `[upload]` without a colon",
+        )
+    ]
+
+
+def test_an_uppercase_upload_tag_says_tags_are_lower_case() -> None:
+    assert _errors("Q?\n\n[Upload]\n") == [
+        ("parse-error", "tags are lower case: write `[upload]`")
+    ]
+
+
+def test_an_upload_paragraph_after_the_stem_is_the_tag() -> None:
+    loaded = mdq.load("Q?\n\n[upload]\n", format="mdq")
+    assert not [d for d in loaded.diagnostics if d.severity == "error"]
+    q = loaded.document
+    assert q.type == "upload"
+
+
+def test_an_upload_list_item_gets_the_diagnostic_of_an_essay_one() -> None:
+    def shape(tag: str) -> list[tuple[str, str]]:
+        return [
+            (c, m.replace(tag, "[X]"))
+            for c, m in _errors(f"---\ntype: {tag}\n---\nQ?\n\n* [{tag}]\n")
+        ]
+
+    assert shape("upload") == shape("essay")
+    assert shape("upload")

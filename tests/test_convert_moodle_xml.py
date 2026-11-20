@@ -1123,7 +1123,7 @@ def test_numeric_round_trips_through_moodle_xml(stem: str, answer: float) -> Non
 # ---------------------------------------------------------------------
 
 
-def test_moodle_xml_supports_all_seven_types():
+def test_moodle_xml_supports_all_eight_types():
     assert MoodleXml.supports == {
         "multiple-choice",
         "multiple-selection",
@@ -1132,6 +1132,7 @@ def test_moodle_xml_supports_all_seven_types():
         "short-answer",
         "essay",
         "fill-in",
+        "upload",
     }
 
 

@@ -20,7 +20,8 @@ Two rules govern this package:
 This package's layout mirrors `docs/question-types/*`, one module per
 question family, all building on `_base.MdqModel`/`BaseQuestion`:
 `_choice` (multiple-choice, multiple-selection, true-false), `_numeric`,
-`_text` (short-answer, essay), `_code` (code) and `_report` (the runner
+`_text` (short-answer, essay), `_upload` (upload, with the helpers that apply its
+limits), `_code` (code) and `_report` (the runner
 report it is graded with), `_fill_in`, `_ordering`, and `_exam`
 (the `Question`/`ExamEntry` unions, `Include`/`IncludeAll`, `Exam`
 itself). `_score` holds `QuestionScore`, every `score_response()`'s
@@ -76,6 +77,7 @@ from ._report import ReportCase, RunnerReport
 from ._presentation import ExamPresentation, Presentation
 from ._score import BlankScore, ExamScore, QuestionScore
 from ._text import AnswerPattern, EssayQuestion, ShortAnswerQuestion
+from ._upload import UploadQuestion, matches_extensions, max_size_bytes
 
 __all__ = [
     "MdqModel",
@@ -92,6 +94,9 @@ __all__ = [
     "ShortAnswerQuestion",
     "AnswerPattern",
     "EssayQuestion",
+    "UploadQuestion",
+    "max_size_bytes",
+    "matches_extensions",
     "CodeQuestion",
     "TestSource",
     "RubricItem",

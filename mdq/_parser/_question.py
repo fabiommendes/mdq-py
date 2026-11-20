@@ -97,6 +97,7 @@ from ._tags import (
     ShortAnswerBlankTag,
     ShortAnswerTag,
     UnrecognizedBlankTag,
+    UploadTag,
     check_bare_tag_alone,
     check_no_tag_in_content,
     check_tag_label,
@@ -123,6 +124,7 @@ _BASE_SECTIONS = frozenset({ATTACHMENTS})
 #: The types a body tag allows, and how the message calls the body.
 _TAG_BODY: dict[type[object], tuple[frozenset[str], str]] = {
     EssayTag: (frozenset({"essay"}), "an essay (`[essay]`)"),
+    UploadTag: (frozenset({"upload"}), "an upload (`[upload]`)"),
     CodeTag: (frozenset({"code"}), "a code question (`[code]`)"),
     OrderingTag: (frozenset({"ordering"}), "an ordering (`[ordering]`)"),
     ShortAnswerTag: (frozenset({"short-answer"}), "a short-answer (`[short-answer]`)"),
@@ -578,6 +580,8 @@ class MDQParser:
             match tag:
                 case EssayTag():
                     question_type = question_type or "essay"
+                case UploadTag():
+                    question_type = question_type or "upload"
                 case CodeTag():
                     question_type = question_type or "code"
                     fields, epilogue_nodes = parse_code_body(self.cursor)
@@ -616,7 +620,7 @@ class MDQParser:
 
         epilogue_blocks = (
             self.parse_sections(_ESSAY_SECTIONS)
-            if question_type == "essay"
+            if question_type in ("essay", "upload")
             else epilogue_nodes
             if epilogue_nodes is not None
             else self.parse_sections(_BASE_SECTIONS)

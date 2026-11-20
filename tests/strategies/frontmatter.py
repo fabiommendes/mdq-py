@@ -61,6 +61,7 @@ TYPE_QUESTION_KEYS: dict[str, tuple[str, ...]] = {
         "incorrectFeedback",
         "normalizations",
     ),
+    "upload": ("maxFiles", "maxSize", "extensions"),
 }
 
 #: Exam-level frontmatter keys (docs/exam.md § Frontmatter).

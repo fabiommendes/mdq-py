@@ -220,6 +220,51 @@ def essay_questions(
     )
 
 
+#: Extensions an upload question draws from: lowercase, with no repeats.
+_UPLOAD_EXTENSIONS = [".pdf", ".png", ".jpg", ".txt", ".csv", ".py", ".c", ".tar.gz"]
+
+
+@st.composite
+def _upload_sizes(draw: st.DrawFn) -> int | str:
+    """
+    A `maxSize` that is at least one byte: an integer of bytes, or a size
+    string such as `5 MB` or `1.5 KB`.
+    """
+    if draw(st.booleans()):
+        return draw(st.integers(min_value=1, max_value=2**53 - 1))
+    unit = draw(st.sampled_from(["B", "KB", "MB", "GB"]))
+    if unit == "B":
+        number = str(draw(st.integers(min_value=1, max_value=999)))
+    else:
+        whole = draw(st.integers(min_value=0, max_value=999))
+        # A zero whole part needs a fraction, or the size is 0 bytes.
+        frac = draw(st.integers(min_value=1 if whole == 0 else 0, max_value=999))
+        number = str(whole) if frac == 0 else f"{whole}.{frac:03d}"
+    separator = draw(st.sampled_from(["", " "]))
+    return f"{number}{separator}{unit}"
+
+
+def upload_questions() -> st.SearchStrategy[models.Question]:
+    """
+    Return a strategy for generating upload questions.
+
+    One to ten files, an optional `maxSize` (an integer of bytes or a size
+    string, at least one byte), optional extensions from a small set of
+    lowercase, unique items, and an optional answer key. The answer key is a
+    fenced block: `BaseQuestion` does not normalize `answer_key`, and a soft
+    line break in a paragraph would not survive the round trip.
+    """
+    return st.builds(
+        models.UploadQuestion,
+        max_files=st.integers(min_value=1, max_value=10),
+        max_size=st.none() | _upload_sizes(),
+        extensions=st.none()
+        | st.lists(st.sampled_from(_UPLOAD_EXTENSIONS), min_size=1, unique=True),
+        answer_key=st.none() | _fenced_code(),
+        **_base_question_kwargs(),
+    )
+
+
 def _fenced_code() -> st.SearchStrategy[str]:
     """A fenced code block of a few plain lines, as a `template` or an `answerKey`."""
     return st.lists(_words(), min_size=1, max_size=3).map(
@@ -870,6 +915,7 @@ QUESTION_STRATEGIES: dict[
     "numeric": numeric_questions,
     "short-answer": short_answer_questions,
     "essay": essay_questions,
+    "upload": upload_questions,
     "code": code_questions,
     "fill-in": fill_in_questions,
     "ordering": ordering_questions,

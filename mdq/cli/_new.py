@@ -137,6 +137,20 @@ Explain how the greenhouse effect works and how it affects Earth's climate.
 
 [essay]
 """,
+    "upload": """\
+---
+title: Water cycle in the São Francisco basin
+type: upload
+maxFiles: 2
+maxSize: 5 MB
+extensions: [".pdf", ".png", ".jpg"]
+---
+
+Desenhe o ciclo da água na bacia do rio São Francisco e envie uma foto ou um
+PDF do desenho.
+
+[upload]
+""",
     "fill-in": """\
 ---
 title: Brazilian capital
@@ -432,6 +446,35 @@ def sacas(kg):
         raise ValueError(kg)
     return kg / 60
 ```
+''',
+    "upload": '''\
+---
+id: upload-water-cycle-sao-francisco
+uuid: 7d11d19d-f832-474c-a67b-968d4176c717
+title: Ciclo da água na bacia do São Francisco
+type: upload
+tags: [geografia, hidrologia]
+locale: pt-BR
+maxFiles: 2
+maxSize: 5 MB
+extensions: [".pdf", ".png", ".jpg"]
+meta:
+  difficulty: medium
+---
+
+Desenhe o ciclo da água na bacia do rio São Francisco e envie uma foto ou um
+PDF do desenho.
+
+[upload]
+
+## [answer-key]
+
+O desenho deve mostrar, com setas indicando a ordem, pelo menos estas etapas:
+
+* evaporação da água de rios, lagos e do solo;
+* condensação, formando as nuvens;
+* precipitação, em forma de chuva;
+* infiltração e escoamento até o rio São Francisco.
 ''',
     "fill-in": """\
 ---

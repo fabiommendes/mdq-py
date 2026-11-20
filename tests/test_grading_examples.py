@@ -305,6 +305,7 @@ def test_every_grading_file_is_covered() -> None:
         "short-answer",
         "short-answer-prevalidation",
         "true-false",
+        "upload",
     ]
 
 
@@ -331,6 +332,32 @@ def test_essay(case: dict[str, Any], example: dict[str, Any]) -> None:
     expected = example["score"]
     with pytest.raises(NotAutoGradable if expected == "pending" else ResponseError):
         question.score_response(example["response"])
+
+
+@pytest.mark.parametrize(("case", "example"), _binary_params("upload"))
+def test_upload(case: dict[str, Any], example: dict[str, Any]) -> None:
+    question = _binary_question("upload", case)
+    expected = example["score"]
+    with pytest.raises(NotAutoGradable if expected == "pending" else ResponseError):
+        question.score_response(example["response"])
+
+
+@pytest.mark.parametrize("row", _cases("upload", "sizes"), ids=lambda r: str(r["maxSize"]))
+def test_upload_sizes(row: dict[str, Any]) -> None:
+    case = {"name": "Envie.", "question": {"maxSize": row["maxSize"]}}
+    question = _binary_question("upload", case)
+    assert mdq.models.max_size_bytes(question) == row["bytes"]
+    assert mdq.models.max_size_bytes(question.public()) == row["bytes"]
+    assert mdq.models.max_size_bytes({"type": "upload", "stem": "x"}) is None
+
+
+@pytest.mark.parametrize("value", _cases("upload", "invalidSizes"), ids=repr)
+def test_upload_invalid_sizes(value: Any) -> None:
+    with pytest.raises(ValueError):
+        mdq.models.max_size_bytes({"maxSize": value})
+    loaded = mdq.load({"type": "upload", "stem": "x", "maxSize": value}, kind="question")
+    errors = [d for d in loaded.diagnostics if d.severity == "error"]
+    assert [(d.code, d.path) for d in errors] == [("schema-error", ("maxSize",))]
 
 
 _CODE_ERRORS = {

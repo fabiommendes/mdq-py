@@ -84,6 +84,7 @@ from ._query import QuerySyntaxError, is_standard_query, parse_query
 from ._code import CodeQuestion
 from ._report import RunnerReport
 from ._text import EssayQuestion, ShortAnswerQuestion
+from ._upload import UploadQuestion
 
 __all__ = [
     "Question",
@@ -156,6 +157,7 @@ Question = Annotated[
     | NumericQuestion
     | ShortAnswerQuestion
     | EssayQuestion
+    | UploadQuestion
     | CodeQuestion
     | FillInQuestion
     | OrderingQuestion,

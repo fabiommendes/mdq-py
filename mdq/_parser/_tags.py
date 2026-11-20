@@ -50,6 +50,7 @@ BLANK_LABEL_RE = re.compile(rf"^\^(?P<id>{SLUG_BODY_RE})(?:/(?P<kind>(?s:.+)))?$
 #: "Body tags").
 TYPE_NAMES = (
     "essay",
+    "upload",
     "code",
     "numeric",
     "short-answer",
@@ -81,6 +82,11 @@ Role = Literal["accept", "reject"]
 @dataclass(frozen=True)
 class EssayTag:
     """`[essay]`."""
+
+
+@dataclass(frozen=True)
+class UploadTag:
+    """`[upload]`."""
 
 
 @dataclass(frozen=True)
@@ -148,7 +154,7 @@ class UnrecognizedBlankTag:
 BlankTag = (
     ChoiceBlankTag | NumericBlankTag | ShortAnswerBlankTag | UnrecognizedBlankTag
 )
-BodyTag = EssayTag | CodeTag | OrderingTag | ShortAnswerTag | NumericTag | BlankTag
+BodyTag = EssayTag | UploadTag | CodeTag | OrderingTag | ShortAnswerTag | NumericTag | BlankTag
 
 
 def _role(variant: str | None) -> Role:
@@ -170,6 +176,7 @@ def split_tag(line: str) -> tuple[str, bool, str] | None:
 
 TagKind = Literal[
     "essay",
+    "upload",
     "code",
     "ordering",
     "numeric",
@@ -210,6 +217,8 @@ def classify_label(label: str) -> Label | None:
     """
     if label == "essay":
         return Label("essay")
+    if label == "upload":
+        return Label("upload")
     if label == "code":
         return Label("code")
     if label == "ordering":
@@ -246,6 +255,8 @@ def read_body_tag(text: str) -> BodyTag | None:
     match found.kind:
         case "essay":
             return None if colon else EssayTag()
+        case "upload":
+            return None if colon else UploadTag()
         case "code":
             return None if colon else CodeTag()
         case "ordering":
@@ -438,6 +449,10 @@ def check_tag_label(label: str, colon: bool) -> None:
     if known is not None and known.kind == "essay" and colon:
         raise ParseError(
             "the tag of an essay has no content: write `[essay]` without a colon"
+        )
+    if known is not None and known.kind == "upload" and colon:
+        raise ParseError(
+            "the tag of an upload has no content: write `[upload]` without a colon"
         )
     if known is not None and known.kind == "code" and colon:
         raise ParseError(

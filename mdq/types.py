@@ -20,6 +20,7 @@ QuestionType = Literal[
     "numeric",
     "short-answer",
     "essay",
+    "upload",
     "code",
     "fill-in",
     "ordering",
@@ -184,6 +185,7 @@ type QuestionDict = (
     | NumericQuestionDict
     | ShortAnswerQuestionDict
     | EssayQuestionDict
+    | UploadQuestionDict
     | CodeQuestionDict
     | FillInQuestionDict
     | OrderingQuestionDict
@@ -290,6 +292,16 @@ class EssayQuestionDict(QuestionBaseDict, total=False):
     type: Required[Literal["essay"]]
     content: EssayContent
     highlight: str
+    answerKey: str
+
+
+class UploadQuestionDict(QuestionBaseDict, total=False):
+    """schema/upload.yaml"""
+
+    type: Required[Literal["upload"]]
+    maxFiles: int
+    maxSize: int | str
+    extensions: list[str]
     answerKey: str
 
 
@@ -496,6 +508,7 @@ type QuestionResponse = (
     MultipleChoiceResponse
     | MultipleSelectionResponse
     | TextResponse
+    | UploadResponse
     | NumericResponse
     | FillInResponse
     | TrueFalseResponse
@@ -534,6 +547,18 @@ class NumericUnitResponse(TypedDict, total=False):
 
     value: Required[int | float | Fraction | str]
     unit: str | None
+
+#: One file of an upload response: its name, where the host keeps it, and its
+#: size in bytes. MDQ never reads the bytes.
+class UploadFileDict(TypedDict):
+    name: str
+    path: str
+    size: int
+
+
+#: upload: the files the student sent, from 1 to `maxFiles`. A student who
+#: sent no file skips the question with `None`.
+type UploadResponse = Sequence[UploadFileDict]
 
 #: fill-in: each blank's response, keyed by blank id, taking whatever
 #: that blank's own type takes. A key that names no blank of the question

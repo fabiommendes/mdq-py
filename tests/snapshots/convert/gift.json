@@ -8572,5 +8572,140 @@
       "title": "Fatos sobre o Pantanal",
       "type": "true-false"
     }
+  },
+  "valid/upload/all-fields.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/answer-key-after-attachments.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/answer-key-before-attachments.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/answer-key-setext.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/answer-key.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/epilogue-block-quote.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/extensions-compound.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-files.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-size-integer.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-size-kilobytes.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-size-megabytes.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-size-no-space.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/max-size-three-decimals.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/minimal.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
+  },
+  "valid/upload/type-in-frontmatter.yaml": {
+    "export": {
+      "code": "unsupported-type",
+      "error": "'gift' does not support 'upload' questions"
+    },
+    "export_diagnostics": [
+      "error unsupported-type"
+    ]
   }
 }

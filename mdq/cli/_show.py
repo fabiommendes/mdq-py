@@ -498,6 +498,8 @@ class _View:
                 )
             case models.EssayQuestion():
                 return self._essay(question)
+            case models.UploadQuestion():
+                return self._upload(question)
             case models.CodeQuestion():
                 return self._code(question)
             case models.OrderingQuestion():
@@ -635,6 +637,31 @@ class _View:
             parts += [self._facts(rows), _GAP]
         parts.append(self._input_box(f"{self.g.edit} Write your answer here...", height=7))
         parts += [_GAP, self._muted("Manually graded (essay).")]
+        if question.answer_key:
+            parts.append(_GAP)
+            parts.append(
+                self._key_panel(self._md(question.answer_key)) if self.show_key else self._hidden_key()
+            )
+        return parts
+
+    #
+    # Upload body
+    #
+    def _upload(self, question: models.UploadQuestion) -> list[RenderableType]:
+        size = "no limit"
+        if question.max_size is not None:
+            size = f"{question.max_size} bytes"
+            if isinstance(question.max_size, str):
+                size = f"{question.max_size} ({models.max_size_bytes(question)} bytes)"
+        extensions = " ".join(question.extensions) if question.extensions else "any file"
+        rows = [
+            ("max files", str(question.max_files)),
+            ("max size", size),
+            ("extensions", extensions),
+        ]
+        parts: list[RenderableType] = [self._facts(rows), _GAP]
+        parts.append(self._input_box(f"{self.g.edit} Choose the files to upload...", height=3))
+        parts += [_GAP, self._muted("Manually graded (upload).")]
         if question.answer_key:
             parts.append(_GAP)
             parts.append(

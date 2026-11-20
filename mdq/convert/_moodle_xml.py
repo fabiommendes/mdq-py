@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from collections.abc import Sequence
 from typing import ClassVar, Literal, TypedDict, assert_never
 
+from .._files import ASCII_FOLD, EXTENSION_RE, MAX_SAFE_INTEGER
 from .._markdown import UNICODE_SPACE, has_visible_character, locate_blank_markers
 from ..models import (
     AnswerPattern,
@@ -32,6 +33,8 @@ from ..models import (
     ShortAnswerQuestion,
     Statement,
     TrueFalseQuestion,
+    UploadQuestion,
+    max_size_bytes,
 )
 from ..types import Diacritics, EssayContent, Unmatched
 from ._base import ConversionBase, ParserError, Report
@@ -218,6 +221,7 @@ class MoodleXml(ConversionBase["MoodleXmlQuestion"]):
             "short-answer",
             "essay",
             "fill-in",
+            "upload",
         }
     )
 
@@ -427,6 +431,16 @@ class EssayBlock(_BlockBase):
 
     grader_info: str | None = None
     response_format: str | None = None
+    #: `<responserequired>`: 1 when the student must write text, 0 when not.
+    response_required: int | None = None
+    #: `<attachments>`: how many files the student may attach (-1: unlimited).
+    attachments: int | None = None
+    #: `<attachmentsrequired>`: how many files the student must attach.
+    attachments_required: int | None = None
+    #: `<maxbytes>`: the largest size of each file in bytes (0: the site limit).
+    max_bytes: int | None = None
+    #: `<filetypeslist>`, as written.
+    file_types: str | None = None
     #: The `format` of `<graderinfo>` as read from a file (`None`: that of the question).
     grader_info_format: MoodleTextFormat | None = field(default=None, compare=False)
 
@@ -438,6 +452,15 @@ class EssayBlock(_BlockBase):
             ET.SubElement(graderinfo_el, "text").text = self.grader_info
         if self.response_format is not None:
             ET.SubElement(question_el, "responseformat").text = self.response_format
+        for tag, value in (
+            ("responserequired", self.response_required),
+            ("attachments", self.attachments),
+            ("attachmentsrequired", self.attachments_required),
+            ("maxbytes", self.max_bytes),
+            ("filetypeslist", self.file_types),
+        ):
+            if value is not None:
+                ET.SubElement(question_el, tag).text = str(value)
 
 
 @dataclass
@@ -503,6 +526,8 @@ def encode_question(question: Question, report: Report) -> MoodleXmlQuestion:
             return MoodleXmlQuestion(blocks=[block_from_short(question, report)])
         case EssayQuestion():
             return MoodleXmlQuestion(blocks=[block_from_essay(question, report)])
+        case UploadQuestion():
+            return MoodleXmlQuestion(blocks=[block_from_upload(question, report)])
         case FillInQuestion():
             return MoodleXmlQuestion(blocks=[block_from_fill_in(question, report)])
         case OrderingQuestion() | CodeQuestion():
@@ -662,6 +687,38 @@ def block_from_essay(question: EssayQuestion, report: Report) -> EssayBlock:
         questiontext=join_blocks(question.stem, question.epilogue),
         grader_info=question.answer_key,
         response_format=essay_response_format_from_content(question.content),
+        **_block_meta(question, report),
+    )
+
+#: The largest `attachments` value that Moodle's essay form offers.
+_MOODLE_MAX_ATTACHMENTS = 3
+
+
+def block_from_upload(question: UploadQuestion, report: Report) -> EssayBlock:
+    """
+    The Moodle essay block of an upload question.
+
+    `attachmentsrequired` is always written as 1: a skipped upload is `null`,
+    so a response that exists always has at least one file.
+    """
+    attachments = question.max_files
+    if attachments > _MOODLE_MAX_ATTACHMENTS:
+        report.warning(
+            "field-dropped",
+            f"`maxFiles` is {question.max_files}, above the {_MOODLE_MAX_ATTACHMENTS} "
+            "files that Moodle offers: it is exported as unlimited (-1)",
+            ("maxFiles",),
+        )
+        attachments = -1
+    return EssayBlock(
+        questiontext=join_blocks(question.stem, question.epilogue),
+        grader_info=question.answer_key,
+        response_format="noinline",
+        response_required=0,
+        attachments=attachments,
+        attachments_required=1,
+        max_bytes=max_size_bytes(question) or 0,
+        file_types=",".join(question.extensions) if question.extensions else None,
         **_block_meta(question, report),
     )
 
@@ -950,7 +1007,96 @@ def numeric_from_block(block: NumericalBlock, report: Report) -> NumericQuestion
         **_question_meta(block),
     )
 
-def essay_from_block(block: EssayBlock, report: Report) -> EssayQuestion:
+#: The separators of `filetypeslist`.
+_FILE_TYPES_SEPARATOR_RE = re.compile(r"[,;\s]+")
+
+#: The `maxFiles` of an upload question that Moodle allowed unlimited files.
+_UNLIMITED_MAX_FILES = 10
+
+
+def extensions_from_file_types(file_types: str | None, report: Report) -> list[str] | None:
+    """
+    The MDQ extensions of a Moodle `<filetypeslist>`, or `None` for any file.
+
+    An item that starts with a dot is an extension, folded to lower case and
+    without duplicates. An item with a `/` is a MIME type, `*` is any file and
+    any other item is a group (`image`, `document`): MDQ holds none of these,
+    and each one dropped is a `field-dropped` warning.
+    """
+    items = [item for item in _FILE_TYPES_SEPARATOR_RE.split(file_types or "") if item]
+    extensions: list[str] = []
+    dropped: list[str] = []
+    for item in items:
+        folded = item.translate(ASCII_FOLD)
+        if item.startswith(".") and EXTENSION_RE.fullmatch(folded):
+            if folded not in extensions:
+                extensions.append(folded)
+        else:
+            dropped.append(item)
+    if dropped:
+        report.warning(
+            "field-dropped",
+            f"the file types {', '.join(dropped)} are groups, MIME types or patterns "
+            "that MDQ cannot hold: they are dropped"
+            + ("" if extensions else ", and the question accepts any file"),
+            ("extensions",),
+        )
+    return extensions or None
+
+
+def upload_from_block(block: EssayBlock, report: Report) -> UploadQuestion:
+    """
+    The upload question of a Moodle essay block that accepts files and no text.
+
+    An `attachmentsrequired` of 0 is still an upload, with no warning: a skip
+    is `null`, so the semantics are kept. One above 1 is a `field-dropped`
+    warning.
+    """
+    assert block.attachments is not None
+    if block.attachments < 0:
+        report.warning(
+            "field-dropped",
+            f"the question accepts unlimited files, which MDQ cannot hold: "
+            f"`maxFiles` is {_UNLIMITED_MAX_FILES}",
+            ("maxFiles",),
+        )
+        max_files = _UNLIMITED_MAX_FILES
+    else:
+        max_files = block.attachments
+    if block.attachments_required is not None and block.attachments_required > 1:
+        report.warning(
+            "field-dropped",
+            f"the question requires {block.attachments_required} files, which MDQ cannot "
+            "hold: the response needs at least one file",
+            ("maxFiles",),
+        )
+    max_size = block.max_bytes if block.max_bytes and block.max_bytes > 0 else None
+    if max_size is not None and max_size > MAX_SAFE_INTEGER:
+        report.warning(
+            "field-dropped",
+            f"the size limit {max_size} is above 2^53 - 1 bytes: it is dropped",
+            ("maxSize",),
+        )
+        max_size = None
+    return UploadQuestion(
+        stem=block.questiontext,
+        answer_key=block.grader_info,
+        max_files=max_files,
+        max_size=max_size,
+        extensions=extensions_from_file_types(block.file_types, report),
+        **_question_meta(block),
+    )
+
+
+def essay_from_block(block: EssayBlock, report: Report) -> EssayQuestion | UploadQuestion:
+    if block.attachments:
+        if block.response_format == "noinline":
+            return upload_from_block(block, report)
+        report.warning(
+            "field-dropped",
+            "the files that the student attaches are dropped: MDQ has no question "
+            "with both text and files",
+        )
     return EssayQuestion(
         stem=block.questiontext,
         answer_key=block.grader_info,
@@ -1175,6 +1321,17 @@ class MoodleXmlParser:
                     **common,
                     grader_info=grader_info,
                     response_format=response_format,
+                    response_required=self.int_from_element(question_el.find("responserequired")),
+                    attachments=self.int_from_element(question_el.find("attachments")),
+                    attachments_required=self.int_from_element(
+                        question_el.find("attachmentsrequired")
+                    ),
+                    max_bytes=self.int_from_element(question_el.find("maxbytes")),
+                    file_types=(
+                        filetypes_el.text
+                        if (filetypes_el := question_el.find("filetypeslist")) is not None
+                        else None
+                    ),
                     grader_info_format=element_text_format(graderinfo_el, text_format),
                 )
             case "multianswer":
@@ -1202,6 +1359,13 @@ class MoodleXmlParser:
                         f"the `<{tag}>` text is dropped: MDQ has no place for it",
                     )
                     break
+
+    def int_from_element(self, element: ET.Element | None) -> int | None:
+        """The integer in `element`, or `None` when it has none."""
+        try:
+            return int((element.text or "").strip()) if element is not None else None
+        except ValueError:
+            return None
 
     def unit_from_element(self, question_el: ET.Element) -> str | None:
         """

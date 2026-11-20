@@ -59,6 +59,14 @@ mdq.models
    :members:
    :member-order: bysource
 
+.. autoclass:: mdq.models.UploadQuestion
+   :members:
+   :member-order: bysource
+
+.. autofunction:: mdq.models.max_size_bytes
+
+.. autofunction:: mdq.models.matches_extensions
+
 .. autoclass:: mdq.models.CodeQuestion
    :members:
    :member-order: bysource
